@@ -2,6 +2,8 @@
 
 An original 3D toy globe for curious kids. Spin the Earth, tap landmarks, animals and discoveries, and collect them in a dex. You can also ride ships, planes and trains, take photos, and play three geography games: Place it!, Quiz and Daily Planet.
 
+**▶ Play it: https://huangyingting.github.io/pocket-planet/** (static GitHub Pages edition: [see Deployment](#deployment))
+
 Product, architecture and planning docs are in [`docs/`](docs/README.md). Research on the reference product is in [`research/`](research/README.md).
 
 ## Stack
