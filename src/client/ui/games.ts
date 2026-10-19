@@ -10,6 +10,7 @@ import { load, save } from '../lib/storage.ts';
 import { formatKm } from '../../shared/lib/geo.ts';
 import type { Globe } from '../globe/scene.ts';
 import { createModelPreview } from '../models/preview.ts';
+import { icon, type IconName } from './icons.ts';
 import { DIFFS, ROUNDS, effectiveKm, scoreFor, verdict, pickRounds, updateRecord, type Difficulty } from '../../shared/games/placeit.ts';
 import { generateQuiz, applyAnswer, ranking, QUIZ_SETS, type QuizSet, type QuizLevel, type PlayerScore } from '../../shared/games/quiz.ts';
 import { buildPool, dayIndex, puzzleFor, evaluate, applyGuess, finishStats, hintsUnlocked, shareText, MAX_GUESSES, BAND_EMOJI, type DailyState } from '../../shared/games/daily.ts';
@@ -19,13 +20,13 @@ export interface GameHost { globe: Globe; setGameMode: (on: boolean, names?: boo
 export function openGames(host: GameHost): void {
   const today = load<DailyState | null>('dailyState', null);
   const doneToday = today?.day === dayIndex() && today.done;
-  const card = (id: string, emoji: string, title: string, sub: string, fn: () => void, badge?: string) =>
+  const card = (id: string, ic: IconName, title: string, sub: string, fn: () => void, badge?: string) =>
     h('button', { class: 'game-card', 'data-testid': id, onclick: () => { closeModal('games'); fn(); } },
-      h('span', { class: 'gc-emoji', 'aria-hidden': 'true' }, emoji), h('strong', {}, title), h('span', {}, sub), badge ? h('em', { class: 'gc-badge' }, badge) : null);
-  openModal('games', '🎯 ' + t('chooseGame'), h('div', { class: 'game-grid' },
-    card('game-daily', '📅', t('daily'), t('dailySub'), () => openDaily(host), doneToday ? '✓' : 'NEW'),
-    card('game-placeit', '📍', t('placeit'), t('placeitSub'), () => placeItSetup(host)),
-    card('game-quiz', '🧠', t('quiz'), t('quizSub'), () => quizSetup(host))), { wide: true });
+      h('span', { class: 'hub-ico', html: icon(ic, 20) }), h('strong', {}, title), h('span', { class: 'gc-sub' }, sub), badge ? h('em', { class: 'gc-badge' }, badge) : null);
+  openModal('games', t('chooseGame'), h('div', { class: 'game-grid' },
+    card('game-daily', 'calendar', t('daily'), t('dailySub'), () => openDaily(host), doneToday ? '✓' : 'NEW'),
+    card('game-placeit', 'pin', t('placeit'), t('placeitSub'), () => placeItSetup(host)),
+    card('game-quiz', 'brain', t('quiz'), t('quizSub'), () => quizSetup(host))), { wide: true });
 }
 
 // ================= Place it! =================
@@ -34,7 +35,7 @@ function placeItSetup(host: GameHost): void {
   const body = h('div', { class: 'diff-grid' }, ...(Object.keys(DIFFS) as Difficulty[]).map(d =>
     h('button', { class: 'diff', 'data-testid': 'diff-' + d, onclick: () => { closeModal('placeit-setup'); void runPlaceIt(host, d); } },
       h('strong', {}, t(d)), h('small', {}, `${DIFFS[d].hints} × 💡`), recs[d] ? h('small', {}, `${t('best')}: ${fmtNum(recs[d].best)}`) : null)));
-  openModal('placeit-setup', '📍 ' + t('placeit'), body);
+  openModal('placeit-setup', t('placeit'), body);
 }
 
 async function runPlaceIt(host: GameHost, diff: Difficulty, rnd: () => number = Math.random): Promise<void> {
@@ -118,7 +119,7 @@ async function runPlaceIt(host: GameHost, diff: Difficulty, rnd: () => number = 
   let isNew = false;
   updateProgress(p => { const u = updateRecord(p.placeit[diff], total); p.placeit[diff] = u.rec; isNew = u.isNew; });
   if (isNew) { confetti(); sfx.fanfare(); }
-  openModal('placeit-results', '📍 ' + t('results'), h('div', { class: 'results', 'data-testid': 'placeit-results' },
+  openModal('placeit-results', t('results'), h('div', { class: 'results', 'data-testid': 'placeit-results' },
     h('p', { class: 'big-score' }, fmtNum(total), h('small', {}, ` / ${fmtNum(ROUNDS * 1000)}`)),
     isNew ? h('p', { class: 'record' }, '🏆 ' + t('newRecord')) : h('p', { class: 'muted' }, `${t('best')}: ${fmtNum(store.progress.placeit[diff].best)}`),
     h('ol', { class: 'round-list' }, ...results.map(x => h('li', {}, `${x.item.emoji} ${tr(x.item.name, lang())} — ${formatKm(x.km, lang())} · ${fmtNum(x.score)}`))),
@@ -138,7 +139,7 @@ function quizSetup(host: GameHost): void {
     return h('fieldset', {}, h('legend', {}, label), wrap);
   };
   renderNames();
-  openModal('quiz-setup', '🧠 ' + t('quiz'), h('div', { class: 'quiz-setup' },
+  openModal('quiz-setup', t('quiz'), h('div', { class: 'quiz-setup' },
     seg(t('players'), [1, 2, 3, 4], players, v => String(v), v => { players = v; renderNames(); }, 'players'), names,
     seg(t('set'), QUIZ_SETS, set, v => t('set' + v), v => (set = v), 'set'),
     seg(t('level'), ['easy', 'normal', 'hard'] as QuizLevel[], level, v => t(v), v => (level = v), 'level'),
@@ -172,7 +173,7 @@ function runQuiz(host: GameHost, names: string[], set: QuizSet, level: QuizLevel
       next.focus();
     } }, o)));
     const next = h('button', { class: 'cta', disabled: true, 'data-testid': 'quiz-next', onclick: () => { i++; closeModal('quiz'); ask(); } }, i + 1 >= qs.length ? t('results') : t('next'));
-    openModal('quiz', '🧠 ' + t('question', { q: i + 1, n: qs.length }), h('div', { class: 'quiz-q' },
+    openModal('quiz', t('question', { q: i + 1, n: qs.length }), h('div', { class: 'quiz-q' },
       players.length > 1 ? h('p', { class: 'turn' }, t('yourTurn', { p: pl.name })) : null,
       h('p', { class: 'prompt', 'data-testid': 'quiz-prompt' }, tr(q.prompt, lang())), opts, fb, next,
       h('div', { class: 'scoreline' }, ...players.map(p => h('span', {}, `${p.name}: ${p.score}`)))));
@@ -186,7 +187,7 @@ function runQuiz(host: GameHost, names: string[], set: QuizSet, level: QuizLevel
     });
     confetti(40); sfx.fanfare();
     const medals = ['🥇', '🥈', '🥉', '🎖️'];
-    openModal('quiz-results', '🏆 ' + t('results'), h('div', { class: 'results', 'data-testid': 'quiz-results' },
+    openModal('quiz-results', t('results'), h('div', { class: 'results', 'data-testid': 'quiz-results' },
       h('div', { class: 'podium' }, ...ranked.slice(0, 3).map((p, k) => h('div', { class: 'step s' + (k + 1) }, h('span', {}, medals[k]), h('strong', {}, p.name), h('span', {}, String(p.score))))),
       h('table', { class: 'rank' }, h('thead', {}, h('tr', {}, h('th', {}, '#'), h('th', {}, t('players')), h('th', {}, t('score')), h('th', {}, '🔥'))),
         h('tbody', {}, ...ranked.map((p, k) => h('tr', {}, h('td', {}, String(k + 1)), h('td', {}, p.name), h('td', {}, `${p.score} / ${qs.length / players.length}`), h('td', {}, String(p.bestStreak)))))),
@@ -288,7 +289,7 @@ export function openDaily(host: GameHost): void {
     } else endEl.replaceChildren();
   }
   render();
-  openModal('daily', '📅 ' + t('daily'), h('div', { class: 'daily' }, clue, rows, hintsEl, form, endEl));
+  openModal('daily', t('daily'), h('div', { class: 'daily' }, clue, rows, hintsEl, form, endEl));
   if (!state.done) setTimeout(() => input.focus(), 50);
 }
 

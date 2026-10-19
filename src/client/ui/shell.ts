@@ -2,11 +2,11 @@ import { h, closeModal, openModal, toast, $ } from './dom.ts';
 import { t, lang, setLang, countryName, fmtNum, onLang } from '../lib/i18n.ts';
 import { store, updateProgress, updateSettings, resetSettings, subscribe } from '../store.ts';
 import { tr, LANGS, type CatalogueItem, type Lang } from '../../shared/data/types.ts';
-import { CATALOGUE, LANDMARKS, ANIMALS, DISCOVERIES, VEHICLES } from '../../shared/data/catalogue.ts';
-import { CITIES } from '../../shared/data/cities.ts';
+import { CATALOGUE } from '../../shared/data/catalogue.ts';
 import { CONTINENT_NAMES } from '../../shared/data/iso.ts';
 import { AURA_PRESETS, type AuraPreset, type SurfaceMode, type Globe, type Settings } from '../globe/scene.ts';
 import { createModelPreview } from '../models/preview.ts';
+import { icon, type IconName } from './icons.ts';
 import { sfx, setMusic } from '../lib/sfx.ts';
 import { api } from '../lib/api.ts';
 import { HAS_API, url } from '../lib/env.ts';
@@ -29,46 +29,40 @@ export class Shell {
   private hints = h('div', { class: 'hints hidden', id: 'hints' });
   private rideBar = h('div', { class: 'ride-bar hidden', 'data-testid': 'ride-bar' });
   private tipEl = h('div', { id: 'tip', class: 'globe-tip hidden', 'aria-hidden': 'true' });
-  private counts = h('p', { class: 'counts' });
   current: CatalogueItem | null = null;
 
   constructor(private root: HTMLElement, private globe: Globe, private hooks: ShellHooks) {}
 
   mount(): void {
-    const tool = (id: string, emoji: string, key: string, fn: () => void) =>
-      h('button', { class: 'tool', id, 'data-testid': id, onclick: () => { sfx.tap(); fn(); } }, h('span', { class: 'tool-ico', 'aria-hidden': 'true' }, emoji), h('span', { 'data-i18n': key }, t(key)));
+    const tool = (id: string, ico: IconName, key: string, fn: () => void) =>
+      h('button', { class: 'tool', id, 'data-testid': id, title: t(key), html: icon(ico, 19), onclick: () => { sfx.tap(); fn(); } },
+        h('span', { class: 'sr-only', 'data-i18n': key }, t(key)));
     const top = h('header', { class: 'topbar' },
       h('div', { class: 'brand' },
-        h('div', { class: 'brand-main' },
-          h('span', { class: 'live-dot', 'aria-hidden': 'true' }),
-          h('h1', { 'data-i18n': 'title' }, t('title')),
-          h('span', { class: 'badge', 'data-i18n': 'badge' }, t('badge')),
-          this.zoomEl,
-        ),
-        h('div', { class: 'sub' }, this.counts)),
+        h('span', { class: 'brand-mark', 'aria-hidden': 'true' }),
+        h('h1', { 'data-i18n': 'title' }, t('title'))),
       h('div', { class: 'omnibar', role: 'search' },
-        h('button', { class: 'omni-search', id: 'btn-search', title: t('search'), 'aria-label': t('search'), onclick: () => { sfx.tap(); this.openSearch(); } },
-          h('span', { class: 'omni-ico', 'aria-hidden': 'true' }, '🔍'),
+        h('button', { class: 'omni-search', id: 'btn-search', 'aria-label': t('search'), html: icon('search', 17), onclick: () => { sfx.tap(); this.openSearch(); } },
           h('span', { class: 'omni-placeholder', 'data-i18n': 'searchPlaceholder' }, t('searchPlaceholder')),
           h('kbd', { class: 'omni-kbd', 'aria-hidden': 'true' }, '⌘K')),
-        h('span', { class: 'omni-sep', 'aria-hidden': 'true' }),
-        h('button', { class: 'omni-btn', id: 'btn-random', title: t('randomHop'), 'aria-label': t('randomHop'), onclick: () => { sfx.tap(); this.randomHop(); } }, '🎲'),
-        h('button', { class: 'omni-btn', id: 'btn-aura', title: t('auraPreset'), 'aria-label': t('auraPreset'), onclick: () => { sfx.tap(); this.cycleAura(); } }, '✨')),
+        h('button', { class: 'omni-btn', id: 'btn-random', title: t('randomHop'), 'aria-label': t('randomHop'), html: icon('shuffle', 17), onclick: () => { sfx.tap(); this.randomHop(); } })),
       h('nav', { class: 'tools', 'aria-label': 'Tools' },
-        tool('btn-photo', '📷', 'photo', this.hooks.openPhoto),
-        tool('btn-collection', '📚', 'collection', this.hooks.openCollection),
-        tool('btn-game', '🎯', 'game', this.hooks.openGames),
-        tool('btn-menu', '☰', 'menu', () => this.toggleMenu())));
+        tool('btn-photo', 'camera', 'photo', this.hooks.openPhoto),
+        tool('btn-collection', 'collection', 'collection', this.hooks.openCollection),
+        tool('btn-game', 'game', 'game', this.hooks.openGames),
+        h('span', { class: 'tools-sep', 'aria-hidden': 'true' }),
+        tool('btn-menu', 'menu', 'menu', () => this.toggleMenu())));
     const bottomLeft = h('div', { class: 'bl' }, this.hints,
-      h('button', { class: 'round-btn help', id: 'btn-help', 'aria-label': t('help'), 'aria-expanded': 'false', onclick: () => this.toggleHints() }, '?'));
+      h('button', { class: 'round-btn help', id: 'btn-help', 'aria-label': t('help'), 'aria-expanded': 'false', html: icon('help', 19), onclick: () => this.toggleHints() }));
     const bottomRight = h('div', { class: 'br' },
-      h('button', { class: 'round-btn', 'aria-label': t('fullscreen'), onclick: () => this.fullscreen() }, '⛶'),
-      h('button', { class: 'round-btn', id: 'btn-zoom-in', 'aria-label': t('zoomIn'), onclick: () => this.globe.zoomBy(1.6) }, '+'),
-      h('button', { class: 'round-btn', id: 'btn-zoom-out', 'aria-label': t('zoomOut'), onclick: () => this.globe.zoomBy(1 / 1.6) }, '−'));
+      h('button', { class: 'round-btn', 'aria-label': t('fullscreen'), title: t('fullscreen'), html: icon('expand', 17), onclick: () => this.fullscreen() }),
+      h('div', { class: 'zoom-ctl' },
+        h('button', { id: 'btn-zoom-in', 'aria-label': t('zoomIn'), html: icon('plus', 17), onclick: () => this.globe.zoomBy(1.6) }),
+        this.zoomEl,
+        h('button', { id: 'btn-zoom-out', 'aria-label': t('zoomOut'), html: icon('minus', 17), onclick: () => this.globe.zoomBy(1 / 1.6) })));
     this.root.append(top, bottomLeft, bottomRight, this.info, this.menu, this.rideBar, this.tipEl);
     this.renderHints();
     this.renderMenu();
-    this.renderCounts();
     subscribe(() => { if (this.current) this.renderInfo(this.current); if (!this.menu.classList.contains('hidden')) this.renderMenu(); });
     onLang(() => this.relabel());
     document.addEventListener('keydown', e => {
@@ -110,13 +104,6 @@ export class Shell {
     const pool = CATALOGUE.filter(i => i.type !== 'vehicle' && i.key !== this.current?.key);
     const pick = pool[Math.floor(Math.random() * pool.length)];
     if (pick) this.showItem(pick, true);
-  }
-
-  private cycleAura(): void {
-    const cur = store.settings.auraPreset ?? 'waves';
-    const next = AURA_ORDER[(AURA_ORDER.indexOf(cur) + 1) % AURA_ORDER.length];
-    updateSettings({ auraPreset: next });
-    toast(`✨ ${AURA_PRESETS[next].label}`);
   }
 
   private openSearch(): void {
@@ -169,21 +156,17 @@ export class Shell {
       )
     );
     renderList();
-    openModal('search', '🔍 ' + t('search'), h('div', { class: 'search-modal' }, input, filterBar, listEl), { wide: true });
+    openModal('search', t('search'), h('div', { class: 'search-modal' }, input, filterBar, listEl), { wide: true });
     setTimeout(() => input.focus(), 40);
   }
 
   private relabel(): void {
     document.querySelectorAll<HTMLElement>('[data-i18n]').forEach(el => (el.textContent = t(el.dataset.i18n!)));
     document.title = t('title');
-    this.renderHints(); this.renderCounts();
+    this.renderHints();
     this.globe.lang = lang(); this.globe.markDirty();
     if (!this.menu.classList.contains('hidden')) this.renderMenu();
     if (this.current) this.renderInfo(this.current);
-  }
-
-  private renderCounts(): void {
-    this.counts.textContent = t('counts', { l: LANDMARKS.length, c: 177, ci: CITIES.length, a: ANIMALS.length, d: DISCOVERIES.length, v: VEHICLES.length });
   }
 
   private dexClose: boolean | null = null;
@@ -215,7 +198,7 @@ export class Shell {
 
   private renderMenu(): void {
     const s = store.settings;
-    const sw = (key: keyof Settings, emoji: string) => {
+    const sw = (key: keyof Settings, ic: IconName) => {
       const input = h('input', { type: 'checkbox', role: 'switch', 'data-testid': 'set-' + key, checked: Boolean(s[key]) });
       input.addEventListener('change', () => {
         sfx.tap();
@@ -225,7 +208,7 @@ export class Shell {
           updateSettings({ [key]: input.checked });
         }
       });
-      return h('label', { class: 'switch-card' }, h('span', { class: 'sw-emoji', 'aria-hidden': 'true' }, emoji), h('span', { class: 'sw-label' }, t(key)), input, h('span', { class: 'sw-track', 'aria-hidden': 'true' }));
+      return h('label', { class: 'switch-card' }, h('span', { class: 'sw-emoji', html: icon(ic, 16) }), h('span', { class: 'sw-label' }, t(key)), input, h('span', { class: 'sw-track', 'aria-hidden': 'true' }));
     };
     const curMode: SurfaceMode = s.surfaceMode ?? (s.terrain ? 'realistic' : 'political');
     const modeRow = h('div', { class: 'seg-row' },
@@ -256,17 +239,17 @@ export class Shell {
     );
     const sel = h('select', { id: 'lang-select', 'aria-label': t('language') }, ...LANGS.map(l => h('option', { value: l, selected: l === lang() }, LANG_LABEL[l])));
     sel.addEventListener('change', () => setLang(sel.value as Lang));
-    const row = (emoji: string, label: string, ctl: Node) => h('div', { class: 'menu-row' }, h('span', { 'aria-hidden': 'true' }, emoji), h('span', { class: 'grow' }, label), ctl);
+    const row = (ic: IconName, label: string, ctl: Node) => h('div', { class: 'menu-row' }, h('span', { class: 'sw-emoji', html: icon(ic, 16) }), h('span', { class: 'grow' }, label), ctl);
     this.menu.replaceChildren(
       h('h3', {}, t('surfaceMode')), modeRow,
       h('h3', {}, t('auraPreset')), auraRow,
-      h('h3', {}, t('mMap')), h('div', { class: 'grid2' }, sw('terrain', '⛰️'), sw('names', '🏷️'), sw('borders', '🌐'), sw('shadows', '🌗')),
-      h('h3', {}, t('mGlobe')), h('div', { class: 'grid2' }, sw('landmarks', '🏛️'), sw('animals', '🦁'), sw('discoveries', '🔍'), sw('vehicles', '🚢')),
-      h('h3', {}, t('mSettings')), h('div', { class: 'grid2' }, sw('sfx', '🔊'), sw('bgm', '🎵')),
-      row('🌏', t('language'), sel),
-      row('↩️', t('reset'), h('button', { class: 'pill', 'data-testid': 'reset', onclick: () => { if (confirm(t('resetConfirm'))) { resetSettings(); this.globe.flyTo(25, 40, 2.2); } } }, t('resetBtn'))),
-      ...(HAS_API ? [row('👤', store.me ? t('signedInAs', { e: store.me.handle ?? store.me.email }) : t('account'), h('button', { class: 'pill', 'data-testid': 'menu-account', onclick: () => { this.toggleMenu(false); this.hooks.openAccount(); } }, store.me ? t('account') : t('signIn'))),
-      row('💬', t('guestbook'), h('button', { class: 'pill', 'data-testid': 'menu-guestbook', onclick: () => { this.toggleMenu(false); this.hooks.openGuestbook(); } }, t('open')))] : []),
+      h('h3', {}, t('mMap')), h('div', { class: 'grid2' }, sw('terrain', 'mountain'), sw('names', 'tag'), sw('borders', 'globe'), sw('shadows', 'contrast')),
+      h('h3', {}, t('mGlobe')), h('div', { class: 'grid2' }, sw('landmarks', 'landmark'), sw('animals', 'paw'), sw('discoveries', 'compass'), sw('vehicles', 'ship')),
+      h('h3', {}, t('mSettings')), h('div', { class: 'grid2' }, sw('sfx', 'sound'), sw('bgm', 'music')),
+      row('language', t('language'), sel),
+      row('reset', t('reset'), h('button', { class: 'pill', 'data-testid': 'reset', onclick: () => { if (confirm(t('resetConfirm'))) { resetSettings(); this.globe.flyTo(25, 40, 2.2); } } }, t('resetBtn'))),
+      ...(HAS_API ? [row('user', store.me ? t('signedInAs', { e: store.me.handle ?? store.me.email }) : t('account'), h('button', { class: 'pill', 'data-testid': 'menu-account', onclick: () => { this.toggleMenu(false); this.hooks.openAccount(); } }, store.me ? t('account') : t('signIn'))),
+      row('chat', t('guestbook'), h('button', { class: 'pill', 'data-testid': 'menu-guestbook', onclick: () => { this.toggleMenu(false); this.hooks.openGuestbook(); } }, t('open')))] : []),
       h('footer', { class: 'menu-links' },
         h('a', { href: url('about/') }, t('about')), h('a', { href: url('landmarks/') }, t('encyclopedia')),
         h('button', { class: 'link', onclick: () => { this.toggleMenu(false); this.hooks.openCredits(); } }, t('credits')), h('a', { href: url('privacy/') }, t('privacy'))));
@@ -311,12 +294,12 @@ export class Shell {
       const have = it.key in p.dex;
       const close = this.globe.zoom >= DEX_ZOOM;
       this.dexRow.replaceChildren(have ? h('span', { class: 'ok' }, t('collected'))
-        : close ? h('button', { class: 'cta', 'data-testid': 'add-dex', onclick: () => { updateProgress(pp => { pp.dex[it.key] = Date.now(); }); sfx.good(); toast('📖 ' + tr(it.name, lang())); } }, '📖 ' + t('addDex'))
-          : h('span', { class: 'muted' }, t('collectHint', { z: DEX_ZOOM }), ' ', h('button', { class: 'pill', 'data-testid': 'zoom-close', onclick: () => this.globe.flyTo(it.lat, it.lon, 0.8) }, '🔍')));
+        : close ? h('button', { class: 'cta', 'data-testid': 'add-dex', onclick: () => { updateProgress(pp => { pp.dex[it.key] = Date.now(); }); sfx.good(); toast('📖 ' + tr(it.name, lang())); } }, t('addDex'))
+          : h('span', { class: 'muted' }, t('collectHint', { z: DEX_ZOOM }), ' ', h('button', { class: 'pill pill-sm', 'data-testid': 'zoom-close', 'aria-label': t('zoomClose'), html: icon('zoom', 15), onclick: () => this.globe.flyTo(it.lat, it.lon, 0.8) })));
     } else if (it.type === 'discovery') {
       const have = it.key in p.logs;
       this.dexRow.replaceChildren(have ? h('span', { class: 'ok' }, t('logged'))
-        : h('button', { class: 'cta', 'data-testid': 'log-discovery', onclick: () => { updateProgress(pp => { pp.logs[it.key] = Date.now(); }); sfx.good(); } }, '🔍 ' + t('logIt')));
+        : h('button', { class: 'cta', 'data-testid': 'log-discovery', onclick: () => { updateProgress(pp => { pp.logs[it.key] = Date.now(); }); sfx.good(); } }, t('logIt')));
     } else this.dexRow.replaceChildren();
   }
 
@@ -335,48 +318,48 @@ export class Shell {
     if (f.lifespanY) chips.push([t('lifespan'), nf(f.lifespanY, l === 'en' ? ' yrs' : '')]);
     if (it.diet) chips.push([t('diet'), t(it.diet)]);
     if (it.status) chips.push([t('status'), t(it.status)]);
-    if (it.type !== 'vehicle') chips.push([t('latitude'), `${Math.abs(it.lat).toFixed(1)}°${t(it.lat >= 0 ? 'north' : 'south')}`]);
     const where = [countryName(it.country, l), CONTINENT_NAMES[it.continent]?.[l]].filter(Boolean).join(' · ');
     const coordStr = `${Math.abs(it.lat).toFixed(1)}°${it.lat >= 0 ? 'N' : 'S'} · ${Math.abs(it.lon).toFixed(1)}°${it.lon >= 0 ? 'E' : 'W'}`;
     const p = store.progress;
-    const react = (kind: 'like' | 'visited', emoji: string) => {
+    const react = (kind: 'like' | 'visited', ico: IconName) => {
       const on = kind === 'like' ? it.key in p.likes : it.key in p.visited;
       const count = h('span', { class: 'count', 'data-count': kind });
-      return h('button', { class: 'react' + (on ? ' on' : ''), 'aria-pressed': String(on), 'data-testid': 'react-' + kind,
+      return h('button', { class: 'react' + (on ? ' on' : ''), 'aria-pressed': String(on), 'data-testid': 'react-' + kind, title: t(kind), html: icon(ico, 16),
         onclick: () => {
           const now = !on;
           updateProgress(pp => { const m = kind === 'like' ? pp.likes : pp.visited; if (now) m[it.key] = Date.now(); else delete m[it.key]; });
           if (store.me) void api.react(it.key, kind, now).then(r => this.setCounts(r)).catch(() => {});
-        } }, emoji + ' ' + t(kind), count);
+        } }, h('span', { class: 'react-label' }, t(kind)), count);
     };
     const secondary = l !== 'en' ? it.name.en : it.name.ko;
     const section = SECTION[it.type];
+    const key = chips.slice(0, 3), extra = chips.slice(3);
+    if (it.type !== 'vehicle') extra.push([t('latitude'), coordStr]);
+    const hasMore = extra.length > 0 || Boolean(it.funFact) || Boolean(it.habitat);
     this.renderDexRow();
     this.info.replaceChildren(
-      h('button', { class: 'icon-btn info-x', 'aria-label': t('close'), 'data-testid': 'info-close', onclick: () => this.showItem(null) }, '✕'),
       h('div', { class: 'info-hero', 'data-type': it.type },
-        h('div', { class: 'info-hero-top' },
-          h('span', { class: 'type-chip t-' + it.type }, t(TYPE_KEY[it.type])),
-          h('span', { class: 'coord-chip' }, coordStr),
-        ),
-        createModelPreview(it, { width: 340, height: 164, id: 'info-preview' }),
-        it.type !== 'animal' ? h('button', { class: 'pill pill-sm info-zoom-btn', onclick: () => this.globe.flyTo(it.lat, it.lon, 0.25) }, '🔍 ' + t('zoomClose')) : null,
+        createModelPreview(it, { width: 360, height: 208, id: 'info-preview' }),
+        h('span', { class: 'type-chip t-' + it.type }, t(TYPE_KEY[it.type])),
+        h('button', { class: 'icon-btn info-x', 'aria-label': t('close'), 'data-testid': 'info-close', html: icon('close', 16), onclick: () => this.showItem(null) }),
+        it.type !== 'animal' ? h('button', { class: 'hero-btn info-zoom-btn', title: t('zoomClose'), html: icon('zoom', 15), onclick: () => this.globe.flyTo(it.lat, it.lon, 0.25) }, h('span', {}, t('zoomClose'))) : null,
       ),
       h('div', { class: 'info-body' },
-        h('div', { class: 'info-title-block' },
-          h('h2', { 'data-testid': 'info-name' }, tr(it.name, l)),
-          secondary ? h('span', { class: 'alt-name' }, secondary) : null,
-        ),
-        where ? h('p', { class: 'meta' }, '📍 ' + where) : null,
+        where ? h('p', { class: 'eyebrow', html: icon('pin', 13) }, h('span', {}, where)) : null,
+        h('h2', { 'data-testid': 'info-name' }, tr(it.name, l)),
+        secondary ? h('p', { class: 'alt-name' }, secondary) : null,
         h('p', { class: 'desc' }, tr(it.desc, l)),
-        it.habitat ? h('p', { class: 'meta' }, '🏞️ ' + t('habitat') + ': ' + tr(it.habitat, l)) : null,
-        chips.length ? h('dl', { class: 'facts' }, ...chips.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v)))) : null,
-        it.funFact ? h('p', { class: 'fun' }, h('b', {}, '💡 ' + t('funFact') + ' '), tr(it.funFact, l)) : null,
+        key.length ? h('dl', { class: 'stats-row' }, ...key.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v)))) : null,
         this.dexRow,
+        hasMore ? h('details', { class: 'more' },
+          h('summary', { html: icon('chevron', 14) }, h('span', {}, t('moreDetails'))),
+          it.funFact ? h('p', { class: 'fun' }, h('b', {}, t('funFact')), ' ', tr(it.funFact, l)) : null,
+          it.habitat ? h('p', { class: 'meta' }, t('habitat') + ': ' + tr(it.habitat, l)) : null,
+          extra.length ? h('dl', { class: 'facts' }, ...extra.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v)))) : null) : null,
         h('div', { class: 'info-footer' },
-          it.type !== 'vehicle' ? h('div', { class: 'reactions' }, react('like', '♥'), react('visited', '🧳')) : null,
-          it.route ? h('div', { class: 'ride-row' }, h('button', { class: 'cta', 'data-testid': 'ride', onclick: () => this.startRide(it) }, '🎢 ' + t('ride'))) : null,
-          section ? h('a', { class: 'read-more', href: url(`${section}/${it.slug}/`) }, t('readMore') + ' →') : null)));
+          it.type !== 'vehicle' ? h('div', { class: 'reactions' }, react('like', 'heart'), react('visited', 'flag')) : null,
+          it.route ? h('button', { class: 'cta cta-sm', 'data-testid': 'ride', html: icon('ride', 16), onclick: () => this.startRide(it) }, h('span', {}, t('ride'))) : null,
+          section ? h('a', { class: 'read-more', href: url(`${section}/${it.slug}/`) }, t('readMore').replace(/\s*→$/, ''), h('span', { html: icon('arrow', 14) })) : null)));
     if (HAS_API && it.type !== 'vehicle') void api.reactions(it.key).then(r => this.setCounts(r)).catch(() => {});
   }
 

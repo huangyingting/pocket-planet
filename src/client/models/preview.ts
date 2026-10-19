@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { CatalogueItem } from '../../shared/data/types.ts';
-import { buildModel, mat } from './kit.ts';
+import { buildModel } from './kit.ts';
 import { h } from '../ui/dom.ts';
 
 interface ActivePreview {
@@ -27,7 +27,7 @@ export function setupStudio(renderer: THREE.WebGLRenderer, scene: THREE.Scene): 
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const key = new THREE.DirectionalLight(0xfffbeb, 2.75);
   key.position.set(2.8, 4.2, 3.4);
-  const fill = new THREE.DirectionalLight(0x38bdf8, 1.25);
+  const fill = new THREE.DirectionalLight(0xc7d2fe, 0.9);
   fill.position.set(-3.2, 1.8, -2.0);
   const rimLight = new THREE.DirectionalLight(0xfde68a, 0.9);
   rimLight.position.set(0.5, 2.5, -3.5);
@@ -59,41 +59,36 @@ function ensureRenderer(w: number, hPx: number): THREE.WebGLRenderer | null {
   return sharedRenderer;
 }
 
+let shadowTex: THREE.Texture | null = null;
+function contactShadow(): THREE.Mesh {
+  if (!shadowTex) {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d')!;
+    const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grd.addColorStop(0, 'rgba(0,0,0,0.55)'); grd.addColorStop(0.6, 'rgba(0,0,0,0.25)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+    shadowTex = new THREE.CanvasTexture(c);
+  }
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }));
+  m.position.y = -0.004;
+  return m;
+}
+
 function buildPreviewScene(item: CatalogueItem): THREE.Group {
   const wrap = new THREE.Group();
-  const isWater = ['waterfall', 'reef', 'bridge', 'wreck', 'deepsea'].includes(item.sub) || item.continent === 'ocean';
-  const isDesert = ['pyramid', 'carved', 'rock', 'canyon'].includes(item.model.kind);
-  const isSnow = Boolean(item.model.snow) || item.continent === 'antarctica';
-  const padColor = isWater ? '#0f2942' : isSnow ? '#cbd5e1' : isDesert ? '#785a3c' : item.type === 'discovery' ? '#1e1b4b' : '#1e293b';
-  const rimColor = item.type === 'landmark' ? '#38bdf8' : item.type === 'animal' ? '#34d399' : '#f59e0b';
-
-  // Sleek architectural studio turntable stage
-  const base = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.58, 0.62, 0.04, 36).translate(0, -0.02, 0),
-    mat(padColor, { flat: false, rough: 0.75 })
-  );
-  const rim = new THREE.Mesh(
-    new THREE.RingGeometry(0.57, 0.60, 40).rotateX(-Math.PI / 2).translate(0, 0.002, 0),
-    new THREE.MeshBasicMaterial({ color: rimColor, transparent: true, opacity: 0.72, side: THREE.DoubleSide })
-  );
-  const innerRim = new THREE.Mesh(
-    new THREE.RingGeometry(0.44, 0.452, 36).rotateX(-Math.PI / 2).translate(0, 0.002, 0),
-    new THREE.MeshBasicMaterial({ color: rimColor, transparent: true, opacity: 0.28, side: THREE.DoubleSide })
-  );
   const model = buildModel(item.model);
-
-  // Auto-center & tightly frame bounding box so architectural landmarks fill the studio stage
+  // Normalise so the longest side is ~1 unit, base on y=0, centred on the turntable axis
   const box = new THREE.Box3().setFromObject(model);
   const size = new THREE.Vector3();
   const center = new THREE.Vector3();
   box.getSize(size);
   box.getCenter(center);
-  const maxDim = Math.max(0.38, size.x * 0.92, size.y, size.z * 0.92);
-  const scale = 1.06 / maxDim;
+  const scale = 1.06 / Math.max(0.38, size.x, size.y, size.z);
   model.scale.setScalar(scale);
   model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
-
-  wrap.add(base, rim, innerRim, model);
+  wrap.userData.fitH = size.y * scale;
+  wrap.userData.fitW = Math.hypot(size.x, size.z) * scale;
+  wrap.add(contactShadow(), model);
   return wrap;
 }
 
@@ -108,8 +103,13 @@ function renderOne(p: ActivePreview): void {
   if (renderer && sharedScene && sharedCamera && sharedRoot && p.ctx) {
     sharedRoot.clear();
     sharedRoot.add(p.group);
-    sharedCamera.position.set(0, 0.60, 1.76);
-    sharedCamera.lookAt(0, 0.34, 0);
+    // Fit the turntable's bounding cylinder to the frame for any aspect ratio
+    const H = p.group.userData.fitH as number, W = p.group.userData.fitW as number;
+    const tv = Math.tan(THREE.MathUtils.degToRad(sharedCamera.fov / 2)), elev = 0.32;
+    const dist = Math.max((H * 0.5 + 0.08) / tv, (W * 0.5 + 0.04) / (tv * sharedCamera.aspect), 1.1) + W * 0.25;
+    const cy = H * 0.46;
+    sharedCamera.position.set(0, cy + Math.sin(elev) * dist, Math.cos(elev) * dist);
+    sharedCamera.lookAt(0, cy, 0);
     renderer.render(sharedScene, sharedCamera);
     p.ctx.clearRect(0, 0, w, hPx);
     p.ctx.drawImage(renderer.domElement, 0, 0, w, hPx);

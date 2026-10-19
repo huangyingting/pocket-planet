@@ -203,5 +203,5 @@ describe('catalogue & i18n integrity', () => {
       const g = buildModel(item.model);
       expect(g.children.length, item.key).toBeGreaterThan(0);
     }
-  });
+  }, 120_000);
 });

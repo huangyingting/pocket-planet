@@ -53,7 +53,7 @@ export function openAccount(): void {
   render();
   let shownFor = store.me?.id ?? null;
   const unsub = subscribe(() => { const id = store.me?.id ?? null; if (id !== shownFor) { shownFor = id; render(); } });
-  openModal('account', '👤 ' + t('account'), body, { onClose: unsub });
+  openModal('account', t('account'), body, { onClose: unsub });
 }
 
 export async function openGuestbook(): Promise<void> {
@@ -78,10 +78,10 @@ export async function openGuestbook(): Promise<void> {
       } }, ta, h('button', { class: 'cta', type: 'submit', 'data-testid': 'gb-post' }, t('post')));
     })()
     : h('p', { class: 'muted' }, t('gbNeedLogin'), ' ', h('button', { class: 'link', onclick: () => { closeModal('guestbook'); openAccount(); } }, t('signIn')));
-  openModal('guestbook', '💬 ' + t('guestbook'), h('div', { class: 'guestbook' }, form, list));
+  openModal('guestbook', t('guestbook'), h('div', { class: 'guestbook' }, form, list));
   await load();
 }
 
 export function openCredits(): void {
-  openModal('credits', 'ℹ️ ' + t('credits'), h('div', {}, h('p', {}, t('creditsBody'))));
+  openModal('credits', t('credits'), h('div', {}, h('p', {}, t('creditsBody'))));
 }

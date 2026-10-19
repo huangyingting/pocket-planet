@@ -9,6 +9,7 @@ import { NATURE_BUILDERS } from './nature.ts';
 import { VEHICLE_BUILDERS } from './vehicles.ts';
 import { DISCOVERY_BUILDERS } from './discoveries.ts';
 import { ICON_BUILDERS } from './icons.ts';
+import { HEROES } from './heroes/index.ts';
 
 export { mat };
 const B: Record<string, Builder> = {
@@ -1137,7 +1138,8 @@ export function buildModel(recipe: ModelRecipe): THREE.Group {
   let proto = modelProtoCache.get(key);
   if (!proto) {
     proto = new THREE.Group();
-    (B[recipe.kind] ?? FALLBACK)(proto, { color: '#cccccc', ...recipe });
+    const hero = typeof recipe.hero === 'string' ? HEROES[recipe.hero] : undefined;
+    (hero ?? B[recipe.kind] ?? FALLBACK)(proto, { color: '#cccccc', ...recipe });
     bakeStaticMeshes(proto);
     modelProtoCache.set(key, proto);
   }
