@@ -143,3 +143,25 @@ sign-in, which gives accountability for the only user-generated text.
 
 **Consequences.** + Kids can react without an account. − Counts can be inflated by clearing cookies (low
 stakes; the item key is validated, and a reverse-proxy rate limit is recommended in production).
+
+## ADR-014: Models are built in Web Workers, with a far level of detail and instanced plinths
+**Status:** Accepted (extends ADR-011)
+
+**Context.** Hero models are 20–40k triangles each and took 50–300 ms to build and AO-bake on the main thread. That
+caused long tasks while the user flew around. The tour also drew ~6 draw calls and ~20k triangles per visible item,
+even when an item was only a few pixels tall.
+
+**Decision.**
+- `models/build.worker.ts` builds and bakes models in a pool of up to 2 module workers. `models/pack.ts` ships the
+  result as transferable typed arrays. `models/library.ts` is the only API the app uses: it keeps a prototype cache,
+  hands out clones, and falls back to building on the main thread (lazy `kit.ts` chunk) when workers are unavailable.
+- `bakeStaticMeshes` appends a far copy of every merged mesh. Each high-poly part is vertex-clustered (grid cell ×
+  dominant normal). The simplification is area-guarded, so thin lattices are kept as they are. Tiny parts are
+  dropped. Below ~60 px on screen an instance draws only that range (`setModelDetail`), which is ~27% of the
+  triangles on average.
+- All plinth shadows and rings are two `InstancedMesh`es. three.js is split into its own long-cached chunk.
+- `tools/perf.mjs` measures load and tour metrics (long tasks, frame CPU, draw calls, triangles) on `dist`.
+
+**Consequences.** + No model building on the main thread. Per visible item, ~3.5 draw calls and ~6.5k triangles
+instead of ~6 and ~20k. + The main bundle no longer contains the builders. − Models must stay serialisable:
+untextured MeshStandard/MeshBasic materials and plain BufferGeometry, otherwise they fall back to the main thread.
