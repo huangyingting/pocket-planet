@@ -31,4 +31,5 @@ export const GREETINGS: Record<string, Greeting> = {
   BR: ['Olá', 'pt-BR', 'o-la'], AU: ['G’day', 'en-AU', 'g-day'], NZ: ['Kia ora', 'mi-NZ', 'kee-a o-ra'], FJ: ['Bula', 'fj-FJ', 'boo-la'],
   PG: ['Gude', 'tpi-PG', 'goo-day'], WS: ['Talofa', 'sm-WS', 'ta-lo-fa'], TO: ['Mālō e lelei', 'to-TO', 'ma-lo eh le-lay'], PF: ['Ia ora na', 'ty-PF', 'ya o-ra na'],
   GL: ['Aluu', 'kl-GL', 'a-loo'], AQ: ['Hello', 'en-US', 'heh-lo'],
+  KW: ['مرحبا', 'ar-KW', 'mar-ha-ba'], CI: ['Bonjour', 'fr-CI', 'bon-zhoor'], HT: ['Bonjou', 'ht-HT', 'bon-zhoo'],
 };

@@ -35,7 +35,7 @@ const OVERRIDES: Record<string, string> = {
 };
 
 /** Chinese titles for items whose English article is generic but zh.wikipedia has a specific one. */
-const ZH: Record<string, string> = { pl_bamboo: '蜀南竹海', fd_hotpot: '重庆火锅' };
+const ZH: Record<string, string> = { pl_bamboo: '蜀南竹海', fd_hotpot: '重庆火锅', an_manta: '蝠鲼属', ar_pakal: '巴加尔大帝' };
 
 const UA = 'PocketPlanet/1.0 (https://github.com/huangyingting/pocket-planet; build script)';
 const API = 'https://en.wikipedia.org/w/api.php';
