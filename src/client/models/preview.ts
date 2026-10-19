@@ -30,14 +30,16 @@ function ensureRenderer(w: number, hPx: number): THREE.WebGLRenderer | null {
       sharedRenderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
       sharedRenderer.outputColorSpace = THREE.SRGBColorSpace;
       sharedScene = new THREE.Scene();
-      sharedCamera = new THREE.PerspectiveCamera(34, w / hPx, 0.05, 20);
-      const key = new THREE.DirectionalLight(0xffffff, 2.5);
-      key.position.set(2.5, 4.0, 3.2);
-      const fill = new THREE.DirectionalLight(0x38bdf8, 1.1);
-      fill.position.set(-3.0, 1.5, -2.0);
-      const amb = new THREE.HemisphereLight(0xe0f2fe, 0x0f172a, 1.25);
+      sharedCamera = new THREE.PerspectiveCamera(28, w / hPx, 0.05, 20);
+      const key = new THREE.DirectionalLight(0xfffbeb, 2.75);
+      key.position.set(2.8, 4.2, 3.4);
+      const fill = new THREE.DirectionalLight(0x38bdf8, 1.25);
+      fill.position.set(-3.2, 1.8, -2.0);
+      const rimLight = new THREE.DirectionalLight(0xfde68a, 0.9);
+      rimLight.position.set(0.5, 2.5, -3.5);
+      const amb = new THREE.HemisphereLight(0xe0f2fe, 0x0f172a, 1.3);
       sharedRoot = new THREE.Group();
-      sharedScene.add(key, fill, amb, sharedRoot);
+      sharedScene.add(key, fill, rimLight, amb, sharedRoot);
     } catch {
       sharedFailed = true;
       return null;
@@ -56,32 +58,36 @@ function buildPreviewScene(item: CatalogueItem): THREE.Group {
   const isWater = ['waterfall', 'reef', 'bridge', 'wreck', 'deepsea'].includes(item.sub) || item.continent === 'ocean';
   const isDesert = ['pyramid', 'carved', 'rock', 'canyon'].includes(item.model.kind);
   const isSnow = Boolean(item.model.snow) || item.continent === 'antarctica';
-  const padColor = isWater ? '#1e4e79' : isSnow ? '#dbeafe' : isDesert ? '#c9a675' : item.type === 'discovery' ? '#312e81' : '#2d5a43';
+  const padColor = isWater ? '#0f2942' : isSnow ? '#cbd5e1' : isDesert ? '#785a3c' : item.type === 'discovery' ? '#1e1b4b' : '#1e293b';
   const rimColor = item.type === 'landmark' ? '#38bdf8' : item.type === 'animal' ? '#34d399' : '#f59e0b';
 
-  // Scenic turntable pedestal
+  // Sleek architectural studio turntable stage
   const base = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.62, 0.68, 0.08, 28).translate(0, -0.04, 0),
-    mat(padColor, { flat: false, rough: 0.8 })
+    new THREE.CylinderGeometry(0.58, 0.62, 0.04, 36).translate(0, -0.02, 0),
+    mat(padColor, { flat: false, rough: 0.75 })
   );
   const rim = new THREE.Mesh(
-    new THREE.RingGeometry(0.63, 0.69, 32).rotateX(-Math.PI / 2).translate(0, 0.002, 0),
-    new THREE.MeshBasicMaterial({ color: rimColor, transparent: true, opacity: 0.65, side: THREE.DoubleSide })
+    new THREE.RingGeometry(0.57, 0.60, 40).rotateX(-Math.PI / 2).translate(0, 0.002, 0),
+    new THREE.MeshBasicMaterial({ color: rimColor, transparent: true, opacity: 0.72, side: THREE.DoubleSide })
+  );
+  const innerRim = new THREE.Mesh(
+    new THREE.RingGeometry(0.44, 0.452, 36).rotateX(-Math.PI / 2).translate(0, 0.002, 0),
+    new THREE.MeshBasicMaterial({ color: rimColor, transparent: true, opacity: 0.28, side: THREE.DoubleSide })
   );
   const model = buildModel(item.model);
 
-  // Auto-center & normalize bounding box so tall skyscrapers and wide bridges both frame nicely
+  // Auto-center & tightly frame bounding box so architectural landmarks fill the studio stage
   const box = new THREE.Box3().setFromObject(model);
   const size = new THREE.Vector3();
   const center = new THREE.Vector3();
   box.getSize(size);
   box.getCenter(center);
-  const maxDim = Math.max(0.4, size.x, size.y, size.z);
-  const scale = 0.88 / maxDim;
+  const maxDim = Math.max(0.38, size.x * 0.92, size.y, size.z * 0.92);
+  const scale = 1.06 / maxDim;
   model.scale.setScalar(scale);
   model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
 
-  wrap.add(base, rim, model);
+  wrap.add(base, rim, innerRim, model);
   return wrap;
 }
 
@@ -96,8 +102,8 @@ function renderOne(p: ActivePreview): void {
   if (renderer && sharedScene && sharedCamera && sharedRoot && p.ctx) {
     sharedRoot.clear();
     sharedRoot.add(p.group);
-    sharedCamera.position.set(0, 0.72, 1.95);
-    sharedCamera.lookAt(0, 0.28, 0);
+    sharedCamera.position.set(0, 0.60, 1.76);
+    sharedCamera.lookAt(0, 0.34, 0);
     renderer.render(sharedScene, sharedCamera);
     p.ctx.clearRect(0, 0, w, hPx);
     p.ctx.drawImage(renderer.domElement, 0, 0, w, hPx);

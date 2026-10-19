@@ -36,17 +36,25 @@ export class Shell {
 
   mount(): void {
     const tool = (id: string, emoji: string, key: string, fn: () => void) =>
-      h('button', { class: 'tool', id, 'data-testid': id, onclick: () => { sfx.tap(); fn(); } }, h('span', { 'aria-hidden': 'true' }, emoji + ' '), h('span', { 'data-i18n': key }, t(key)));
+      h('button', { class: 'tool', id, 'data-testid': id, onclick: () => { sfx.tap(); fn(); } }, h('span', { class: 'tool-ico', 'aria-hidden': 'true' }, emoji), h('span', { 'data-i18n': key }, t(key)));
     const top = h('header', { class: 'topbar' },
       h('div', { class: 'brand' },
-        h('span', { class: 'live-dot', 'aria-hidden': 'true' }),
-        h('h1', { 'data-i18n': 'title' }, t('title')),
-        h('span', { class: 'badge', 'data-i18n': 'badge' }, t('badge')),
-        h('div', { class: 'sub' }, this.zoomEl, this.counts)),
+        h('div', { class: 'brand-main' },
+          h('span', { class: 'live-dot', 'aria-hidden': 'true' }),
+          h('h1', { 'data-i18n': 'title' }, t('title')),
+          h('span', { class: 'badge', 'data-i18n': 'badge' }, t('badge')),
+          this.zoomEl,
+        ),
+        h('div', { class: 'sub' }, this.counts)),
+      h('div', { class: 'omnibar', role: 'search' },
+        h('button', { class: 'omni-search', id: 'btn-search', title: t('search'), 'aria-label': t('search'), onclick: () => { sfx.tap(); this.openSearch(); } },
+          h('span', { class: 'omni-ico', 'aria-hidden': 'true' }, '🔍'),
+          h('span', { class: 'omni-placeholder', 'data-i18n': 'searchPlaceholder' }, t('searchPlaceholder')),
+          h('kbd', { class: 'omni-kbd', 'aria-hidden': 'true' }, '⌘K')),
+        h('span', { class: 'omni-sep', 'aria-hidden': 'true' }),
+        h('button', { class: 'omni-btn', id: 'btn-random', title: t('randomHop'), 'aria-label': t('randomHop'), onclick: () => { sfx.tap(); this.randomHop(); } }, '🎲'),
+        h('button', { class: 'omni-btn', id: 'btn-aura', title: t('auraPreset'), 'aria-label': t('auraPreset'), onclick: () => { sfx.tap(); this.cycleAura(); } }, '✨')),
       h('nav', { class: 'tools', 'aria-label': 'Tools' },
-        h('button', { class: 'tool tool-icon', id: 'btn-search', title: t('search'), 'aria-label': t('search'), onclick: () => { sfx.tap(); this.openSearch(); } }, '🔍'),
-        h('button', { class: 'tool tool-icon', id: 'btn-random', title: t('randomHop'), 'aria-label': t('randomHop'), onclick: () => { sfx.tap(); this.randomHop(); } }, '🎲'),
-        h('button', { class: 'tool tool-icon', id: 'btn-aura', title: t('auraPreset'), 'aria-label': t('auraPreset'), onclick: () => { sfx.tap(); this.cycleAura(); } }, '✨'),
         tool('btn-photo', '📷', 'photo', this.hooks.openPhoto),
         tool('btn-collection', '📚', 'collection', this.hooks.openCollection),
         tool('btn-game', '🎯', 'game', this.hooks.openGames),
@@ -64,6 +72,11 @@ export class Shell {
     subscribe(() => { if (this.current) this.renderInfo(this.current); if (!this.menu.classList.contains('hidden')) this.renderMenu(); });
     onLang(() => this.relabel());
     document.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        this.openSearch();
+        return;
+      }
       if (e.key !== 'Escape') return;
       if (closeModal()) return;
       if (!this.menu.classList.contains('hidden')) { this.toggleMenu(false); return; }
@@ -272,7 +285,9 @@ export class Shell {
     sfx.pop();
     history.replaceState(null, '', '#' + item.key);
     if (fly) {
-      const minZoomH = item.tier === 3 ? 1.5 : item.tier === 2 ? 1.9 : this.globe.h;
+      const minZoomH = item.type === 'animal'
+        ? (item.tier === 3 ? 1.5 : item.tier === 2 ? 1.9 : this.globe.h)
+        : (item.tier === 3 ? 1.45 : 1.75);
       this.globe.flyTo(item.lat, item.lon, Math.min(this.globe.h, minZoomH));
     }
     this.renderInfo(item);
@@ -315,6 +330,7 @@ export class Shell {
     if (it.status) chips.push([t('status'), t(it.status)]);
     if (it.type !== 'vehicle') chips.push([t('latitude'), `${Math.abs(it.lat).toFixed(1)}°${t(it.lat >= 0 ? 'north' : 'south')}`]);
     const where = [countryName(it.country, l), CONTINENT_NAMES[it.continent]?.[l]].filter(Boolean).join(' · ');
+    const coordStr = `${Math.abs(it.lat).toFixed(1)}°${it.lat >= 0 ? 'N' : 'S'} · ${Math.abs(it.lon).toFixed(1)}°${it.lon >= 0 ? 'E' : 'W'}`;
     const p = store.progress;
     const react = (kind: 'like' | 'visited', emoji: string) => {
       const on = kind === 'like' ? it.key in p.likes : it.key in p.visited;
@@ -332,24 +348,28 @@ export class Shell {
     this.info.replaceChildren(
       h('button', { class: 'icon-btn info-x', 'aria-label': t('close'), 'data-testid': 'info-close', onclick: () => this.showItem(null) }, '✕'),
       h('div', { class: 'info-hero', 'data-type': it.type },
-        createModelPreview(it, { width: 256, height: 128, id: 'info-preview' }),
+        h('div', { class: 'info-hero-top' },
+          h('span', { class: 'type-chip t-' + it.type }, t(TYPE_KEY[it.type])),
+          h('span', { class: 'coord-chip' }, coordStr),
+        ),
+        createModelPreview(it, { width: 340, height: 164, id: 'info-preview' }),
+        it.type !== 'animal' ? h('button', { class: 'pill pill-sm info-zoom-btn', onclick: () => this.globe.flyTo(it.lat, it.lon, 0.25) }, '🔍 ' + t('zoomClose')) : null,
       ),
       h('div', { class: 'info-body' },
-        h('div', { class: 'info-head-row' },
-          h('span', { class: 'type-chip t-' + it.type }, t(TYPE_KEY[it.type])),
-          it.type !== 'animal' ? h('button', { class: 'pill pill-sm', onclick: () => this.globe.flyTo(it.lat, it.lon, 0.25) }, '🔍 ' + t('zoomClose')) : null,
+        h('div', { class: 'info-title-block' },
+          h('h2', { 'data-testid': 'info-name' }, tr(it.name, l)),
+          secondary ? h('span', { class: 'alt-name' }, secondary) : null,
         ),
-        h('h2', { 'data-testid': 'info-name' }, tr(it.name, l)),
-        secondary ? h('p', { class: 'alt-name' }, secondary) : null,
         where ? h('p', { class: 'meta' }, '📍 ' + where) : null,
         h('p', { class: 'desc' }, tr(it.desc, l)),
         it.habitat ? h('p', { class: 'meta' }, '🏞️ ' + t('habitat') + ': ' + tr(it.habitat, l)) : null,
         chips.length ? h('dl', { class: 'facts' }, ...chips.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v)))) : null,
         it.funFact ? h('p', { class: 'fun' }, h('b', {}, '💡 ' + t('funFact') + ' '), tr(it.funFact, l)) : null,
         this.dexRow,
-        it.type !== 'vehicle' ? h('div', { class: 'reactions' }, react('like', '♥'), react('visited', '🧳')) : null,
-        it.route ? h('div', { class: 'ride-row' }, h('button', { class: 'cta', 'data-testid': 'ride', onclick: () => this.startRide(it) }, '🎢 ' + t('ride'))) : null,
-        section ? h('a', { class: 'read-more', href: url(`${section}/${it.slug}/`) }, t('readMore')) : null));
+        h('div', { class: 'info-footer' },
+          it.type !== 'vehicle' ? h('div', { class: 'reactions' }, react('like', '♥'), react('visited', '🧳')) : null,
+          it.route ? h('div', { class: 'ride-row' }, h('button', { class: 'cta', 'data-testid': 'ride', onclick: () => this.startRide(it) }, '🎢 ' + t('ride'))) : null,
+          section ? h('a', { class: 'read-more', href: url(`${section}/${it.slug}/`) }, t('readMore') + ' →') : null)));
     if (HAS_API && it.type !== 'vehicle') void api.reactions(it.key).then(r => this.setCounts(r)).catch(() => {});
   }
 

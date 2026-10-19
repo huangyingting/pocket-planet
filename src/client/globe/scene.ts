@@ -245,8 +245,10 @@ export class Globe {
   };
   private borderLines: THREE.LineSegments | null = null;
   private borderMat = new THREE.LineBasicMaterial({ color: '#5fa4e6', transparent: true, opacity: 0.32, depthWrite: false });
-  private sun = new THREE.DirectionalLight(0xffffff, 2.2);
-  private ambient = new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 1.05);
+  private sun = new THREE.DirectionalLight(0xfffbeb, 2.55);
+  private fillLight = new THREE.DirectionalLight(0x38bdf8, 1.1);
+  private ambient = new THREE.HemisphereLight(0xe0f2fe, 0x0f172a, 1.15);
+  private shadowTex: THREE.CanvasTexture | null = null;
   private itemsRoot = new THREE.Group();
   private pinsRoot = new THREE.Group();
   private flightArcGroup = new THREE.Group();
@@ -346,7 +348,7 @@ export class Globe {
 
     if (borderPositions) this.setBorderPositions(borderPositions);
 
-    this.scene.add(this.earth, this.itemsRoot, this.pinsRoot, this.flightArcGroup, this.sun, this.sun.target, this.ambient, this.selRing);
+    this.scene.add(this.earth, this.itemsRoot, this.pinsRoot, this.flightArcGroup, this.sun, this.sun.target, this.fillLight, this.fillLight.target, this.ambient, this.selRing);
     this.addAtmosphere();
     this.addStars();
     for (const it of items) this.place(it);
@@ -442,26 +444,36 @@ export class Globe {
     return new THREE.Vector3(-Math.sin(p) * Math.sin(l), Math.cos(p), -Math.sin(p) * Math.cos(l));
   }
 
-  /** Builds a miniature 3D scenic plinth pad under each landmark/discovery on the globe (like myearthtoy.com). */
+  private getShadowTexture(): THREE.CanvasTexture {
+    if (this.shadowTex) return this.shadowTex;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 64;
+    const ctx = cv.getContext('2d')!;
+    const grad = ctx.createRadialGradient(32, 32, 4, 32, 32, 30);
+    grad.addColorStop(0, 'rgba(2, 6, 23, 0.65)');
+    grad.addColorStop(0.55, 'rgba(2, 6, 23, 0.28)');
+    grad.addColorStop(1, 'rgba(2, 6, 23, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 64, 64);
+    this.shadowTex = new THREE.CanvasTexture(cv);
+    return this.shadowTex;
+  }
+
+  /** Builds a soft ground contact shadow and subtle micro-collar under each 3D miniature on the globe. */
   private buildPlinth(item: CatalogueItem): THREE.Group | null {
     if (item.type === 'vehicle') return null;
     const g = new THREE.Group();
-    const isWater = ['waterfall', 'reef', 'bridge', 'wreck', 'deepsea'].includes(item.sub) || item.continent === 'ocean';
-    const isDesert = ['pyramid', 'carved', 'rock', 'canyon'].includes(item.model.kind);
-    const isSnow = Boolean(item.model.snow) || item.continent === 'antarctica';
-    const padColor = isWater ? '#1e4e79' : isSnow ? '#dbeafe' : isDesert ? '#c9a675' : item.type === 'discovery' ? '#312e81' : '#2d5a43';
     const rimColor = item.type === 'landmark' ? '#38bdf8' : item.type === 'animal' ? '#34d399' : '#f59e0b';
-
-    const r = item.type === 'landmark' ? 0.56 : 0.44;
-    const disc = new THREE.Mesh(
-      new THREE.CylinderGeometry(r * 0.92, r, 0.045, 20).translate(0, 0.02, 0),
-      mat(padColor, { flat: false, rough: 0.85 })
+    const r = item.type === 'landmark' ? 0.42 : 0.34;
+    const shadow = new THREE.Mesh(
+      new THREE.PlaneGeometry(r * 2.5, r * 2.5).rotateX(-Math.PI / 2).translate(0, 0.004, 0),
+      new THREE.MeshBasicMaterial({ map: this.getShadowTexture(), transparent: true, depthWrite: false })
     );
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(r * 0.94, r * 1.05, 24).rotateX(-Math.PI / 2).translate(0, 0.042, 0),
-      new THREE.MeshBasicMaterial({ color: rimColor, transparent: true, opacity: 0.42, side: THREE.DoubleSide, depthWrite: false })
+      new THREE.RingGeometry(r * 0.92, r * 1.0, 28).rotateX(-Math.PI / 2).translate(0, 0.006, 0),
+      new THREE.MeshBasicMaterial({ color: rimColor, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false })
     );
-    g.add(disc, ring);
+    g.add(shadow, ring);
     return g;
   }
 
@@ -761,8 +773,8 @@ export class Globe {
   }
 
   private modelScale(item: CatalogueItem): number {
-    const base = item.type === 'vehicle' ? 0.045 : item.type === 'animal' ? 0.05 : 0.065;
-    return base * Math.max(0.05, Math.min(1.15, this.h / DEFAULT_H)) * 1;
+    const base = item.type === 'vehicle' ? 0.048 : item.type === 'animal' ? 0.055 : 0.075;
+    return base * Math.max(0.06, Math.min(1.12, Math.pow(this.h / DEFAULT_H, 0.72)));
   }
 
   private updateCamera(dt: number): void {
@@ -805,6 +817,7 @@ export class Globe {
       }
       this.camera.near = 0.0005;
       this.camera.updateProjectionMatrix();
+      this.camera.updateMatrixWorld();
       return;
     }
     this.camera.near = Math.max(0.0008, this.h * 0.05);
@@ -813,13 +826,14 @@ export class Globe {
     const T = new THREE.Vector3(...latLonToVec(this.lat, this.lon));
     const N = T.clone();
     const north = this.northAt(this.lat, this.lon);
-    // Tilt toward the horizon when zoomed in close.
+    // Smoothly pitch toward the horizon as the user zooms in from orbital view.
     const z = this.zoom;
-    const tilt = z <= 8 ? 0 : Math.min(0.9, ((z - 8) / 40) * 0.9);
+    const tilt = z <= 4.15 ? 0 : Math.min(0.86, Math.pow(Math.min(1, (z - 4.15) / 8.5), 0.72) * 0.86);
     const dir = N.clone().multiplyScalar(Math.cos(tilt)).add(north.clone().multiplyScalar(-Math.sin(tilt)));
     this.camera.position.copy(T).add(dir.multiplyScalar(this.h));
     this.camera.up.copy(north.clone().multiplyScalar(Math.cos(tilt)).add(N.clone().multiplyScalar(Math.sin(tilt))));
     this.camera.lookAt(T);
+    this.camera.updateMatrixWorld();
   }
 
   private updateItems(dt: number): void {
@@ -905,8 +919,16 @@ export class Globe {
     const cam = this.camera.position.clone().normalize();
     // Blend real solar direction with a subtle camera offset so the day/night terminator sweeps across the visible limb
     const sunDir = real.clone().multiplyScalar(0.55).add(cam.clone().multiplyScalar(0.45)).normalize();
-    this.sun.position.copy(sunDir.clone().multiplyScalar(10));
     this.earthUniforms.uSunDir.value.copy(sunDir);
+
+    // Viewer-relative 3-point studio lighting for 3D miniatures on the globe
+    const camUp = this.camera.up.clone().normalize();
+    const camRight = new THREE.Vector3().crossVectors(camUp, cam).normalize();
+    const keyDir = cam.clone().multiplyScalar(0.55).add(camRight.clone().multiplyScalar(0.58)).add(camUp.clone().multiplyScalar(0.60)).normalize();
+    const fillDir = cam.clone().multiplyScalar(0.45).add(camRight.clone().multiplyScalar(-0.72)).add(camUp.clone().multiplyScalar(-0.35)).normalize();
+    this.sun.position.copy(keyDir.multiplyScalar(10));
+    this.fillLight.position.copy(fillDir.multiplyScalar(10));
+    this.ambient.position.copy(camUp.multiplyScalar(10));
 
     // Update AuraFM Earth & Atmosphere shader uniforms
     const tSec = this.clock * 0.001;

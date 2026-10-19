@@ -32,6 +32,7 @@ async function boot(): Promise<void> {
   document.documentElement.lang = lang();
   document.title = t('title');
   const topo = (await (await fetch(url('data/countries-110m.json'))).json()) as Topology;
+  await Promise.race([document.fonts?.ready, new Promise(r => setTimeout(r, 150))]);
   const countries = loadCountries(topo);
   const texWidth = lowfx ? 512 : 2048;
   const paint = () => paintEarth(topo, countries, { terrain: store.settings.terrain, borders: store.settings.borders, width: texWidth });

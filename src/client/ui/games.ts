@@ -64,13 +64,19 @@ async function runPlaceIt(host: GameHost, diff: Difficulty, rnd: () => number = 
       if (hints <= 0 || hintLevel >= 2) hintBtn.setAttribute('disabled', '');
     } }, `💡 ${hints}`);
     hud.replaceChildren(
-      h('div', { class: 'hud-top' }, h('span', {}, t('round', { r: r + 1, n: ROUNDS })), h('span', { 'data-testid': 'placeit-total' }, `${t('total')}: ${fmtNum(total)}`),
-        h('button', { class: 'pill danger', onclick: () => { g.ev.onGlobeTap = undefined; quit(); resolve(); r = ROUNDS + 1; } }, '✕')),
-      h('div', { class: 'hud-target' },
-        createModelPreview(it, { width: 84, height: 56, id: 'placeit-preview' }),
-        h('span', { class: 'big', 'aria-hidden': 'true' }, it.emoji),
-        h('strong', { 'data-testid': 'placeit-target' }, tr(it.name, lang()))),
-      h('p', { class: 'muted' }, t('guessHere')), hintText, h('div', { class: 'row' }, hintBtn, confirmBtn));
+      h('div', { class: 'hud-top' },
+        h('span', { class: 'hud-pill' }, t('round', { r: r + 1, n: ROUNDS })),
+        h('span', { class: 'hud-pill hud-score', 'data-testid': 'placeit-total' }, `${t('total')}: ${fmtNum(total)}`),
+        h('button', { class: 'pill danger pill-sm', onclick: () => { g.ev.onGlobeTap = undefined; quit(); resolve(); r = ROUNDS + 1; } }, '✕')),
+      h('div', { class: 'hud-main' },
+        createModelPreview(it, { width: 112, height: 72, id: 'placeit-preview' }),
+        h('div', { class: 'hud-info' },
+          h('div', { class: 'hud-target' },
+            h('span', { class: 'hud-emoji', 'aria-hidden': 'true' }, it.emoji),
+            h('strong', { 'data-testid': 'placeit-target' }, tr(it.name, lang()))),
+          h('p', { class: 'muted' }, t('guessHere')),
+          hintText),
+        h('div', { class: 'hud-actions' }, hintBtn, confirmBtn)));
     g.ev.onGlobeTap = (lat, lon) => {
       guess = [lat, lon];
       g.clearPins(); g.addPin(lat, lon, '#ff5a5a');
@@ -91,10 +97,16 @@ async function runPlaceIt(host: GameHost, diff: Difficulty, rnd: () => number = 
       const v = verdict(score);
       if (score >= 700) sfx.good(); else if (score === 0) sfx.bad(); else sfx.pop();
       hud.replaceChildren(
-        h('div', { class: 'hud-top' }, h('span', {}, t('round', { r: r + 1, n: ROUNDS })), h('span', { 'data-testid': 'placeit-total' }, `${t('total')}: ${fmtNum(total)}`)),
-        h('div', { class: 'hud-target' }, h('span', { class: 'big' }, it.emoji), h('strong', {}, tr(it.name, lang()))),
-        h('p', { class: 'result', 'data-testid': 'placeit-result' }, h('b', {}, t(v)), ' ', t('distance', { d: formatKm(km, lang()) }), ' · +', t('points', { p: fmtNum(score) })),
-        h('button', { class: 'cta', 'data-testid': 'placeit-next', onclick: () => { g.clearPins(); resolve(); } }, r + 1 >= ROUNDS ? t('results') : t('next')));
+        h('div', { class: 'hud-top' },
+          h('span', { class: 'hud-pill' }, t('round', { r: r + 1, n: ROUNDS })),
+          h('span', { class: 'hud-pill hud-score', 'data-testid': 'placeit-total' }, `${t('total')}: ${fmtNum(total)}`)),
+        h('div', { class: 'hud-main' },
+          createModelPreview(it, { width: 112, height: 72, id: 'placeit-preview' }),
+          h('div', { class: 'hud-info' },
+            h('div', { class: 'hud-target' }, h('span', { class: 'hud-emoji' }, it.emoji), h('strong', {}, tr(it.name, lang()))),
+            h('p', { class: 'result', 'data-testid': 'placeit-result' }, h('b', {}, t(v)), ' ', t('distance', { d: formatKm(km, lang()) }), ' · +', t('points', { p: fmtNum(score) }))),
+          h('div', { class: 'hud-actions' },
+            h('button', { class: 'cta', 'data-testid': 'placeit-next', onclick: () => { g.clearPins(); resolve(); } }, r + 1 >= ROUNDS ? t('results') : t('next')))));
     }
   });
 
