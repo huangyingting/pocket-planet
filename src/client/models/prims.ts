@@ -276,7 +276,7 @@ export function tbox(
   const faces = [[0, 3, 2, 1], [4, 5, 6, 7], [3, 7, 6, 2], [1, 5, 4, 0], [2, 6, 5, 1], [0, 4, 7, 3]];
   const pos: number[] = [];
   for (const [a, b, d, e] of faces) {
-    pos.push(...v[a], ...v[b], ...v[d], ...v[a], ...v[d], ...v[e]);
+    pos.push(...v[a], ...v[d], ...v[b], ...v[a], ...v[e], ...v[d]);
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -290,7 +290,7 @@ export function gable(p: THREE.Object3D, w: number, h: number, d: number, c: str
   const v = [[-hw, 0, -hd], [hw, 0, -hd], [hw, 0, hd], [-hw, 0, hd], [-hw, h, 0], [hw, h, 0]];
   const tris = [[0, 3, 2], [0, 2, 1], [3, 4, 5], [3, 5, 2], [1, 5, 4], [1, 4, 0], [0, 4, 3], [2, 5, 1]];
   const pos: number[] = [];
-  for (const [a, b, e] of tris) pos.push(...v[a], ...v[b], ...v[e]);
+  for (const [a, b, e] of tris) pos.push(...v[a], ...v[e], ...v[b]);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.computeVertexNormals();
