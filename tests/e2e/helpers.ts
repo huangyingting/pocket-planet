@@ -14,8 +14,10 @@ export async function flyTo(page: Page, lat: number, lon: number, h: number): Pr
 }
 
 export async function clickItem(page: Page, key: string): Promise<void> {
-  const pt = await page.evaluate(k => (window as any).__pp.itemScreen(k), key);
-  expect(pt, `item ${key} on screen`).not.toBeNull();
+  // models are built asynchronously (Web Workers), so wait until the item is placed and on screen
+  const where = () => page.evaluate(k => (window as any).__pp.itemScreen(k), key);
+  await expect.poll(where, { message: `item ${key} on screen`, timeout: 30_000 }).not.toBeNull();
+  const pt = await where();
   await page.mouse.click(pt.x, pt.y);
 }
 
