@@ -12,7 +12,7 @@ import { api } from '../lib/api.ts';
 import { HAS_API, url } from '../lib/env.ts';
 
 export const DEX_ZOOM = 10;
-const LANG_LABEL: Record<Lang, string> = { en: 'English', ko: '한국어', ja: '日本語', zh: '中文' };
+const LANG_LABEL: Record<Lang, string> = { en: 'English', zh: '中文' };
 const TYPE_KEY = { landmark: 'tLandmark', animal: 'tAnimal', discovery: 'tDiscovery', vehicle: 'tVehicle' } as const;
 const SECTION = { landmark: 'landmarks', animal: 'animals', discovery: 'discover', vehicle: '' } as const;
 const AURA_ORDER: AuraPreset[] = ['waves', 'aurora', 'ember', 'dusk', 'sculpture'];
@@ -331,7 +331,7 @@ export class Shell {
           if (store.me) void api.react(it.key, kind, now).then(r => this.setCounts(r)).catch(() => {});
         } }, h('span', { class: 'react-label' }, t(kind)), count);
     };
-    const secondary = l !== 'en' ? it.name.en : it.name.ko;
+    const secondary = l !== 'en' ? it.name.en : it.name.zh;
     const section = SECTION[it.type];
     const key = chips.slice(0, 3), extra = chips.slice(3);
     if (it.type !== 'vehicle') extra.push([t('latitude'), coordStr]);

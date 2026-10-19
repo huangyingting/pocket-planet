@@ -42,73 +42,54 @@ const en: Dict = {
   searchPlaceholder: 'Search places and animals', randomHop: 'Random Hop', filterAll: 'All', coords: 'Coordinates', zoomClose: 'Zoom 3D',
 };
 
-const ko: Dict = {
-  auraPreset: '행성 오로라', surfaceMode: '표면 모드', modeSat: '위성', modeVec: '미니멀', modePol: '세계 지도',
-  searchPlaceholder: '장소와 동물 검색', randomHop: '랜덤 이동', filterAll: '전체', coords: '좌표', zoomClose: '3D 클로즈업',
-  latitude: '위도', north: 'N · 북반구', south: 'S · 남반구',
-  deleteAccount: '계정 삭제', deleteConfirm: '계정과 서버에 저장된 진행 상황을 삭제할까요? 이 기기의 기록은 남아요.', saveBtn: '저장', signedOut: '로그아웃했어요', reported: '고마워요 — 어른이 확인할게요.',
-  signInSub: '선택 사항이에요. 이메일 링크로 로그인하면 모든 기기에서 진행 상황이 이어져요. 비밀번호는 필요 없어요.', handleRule: '2–16자의 글자, 숫자 또는 _', creditsBody: '포켓 플래닛은 독창적인 오픈 소스 학습 장난감이에요. 3D 모델은 코드로 그렸어요. 국가 경계: Natural Earth(퍼블릭 도메인), world-atlas. three.js로 만들었어요.',
-  of: '/', tutStep: '{n}단계 중 {i}단계',
-  title: '포켓 플래닛', badge: '베타', loading: '지구를 깨우는 중…', webglFail: '브라우저에서 3D 그래픽을 시작할 수 없어요. 다른 브라우저를 사용하거나 하드웨어 가속을 켜 주세요.',
-  counts: '랜드마크 {l} · 나라 {c} · 도시 {ci} · 동물 {a} · 발견 {d} · 탈것 {v}',
-  photo: '사진', collection: '컬렉션', game: '게임', menu: '메뉴', close: '닫기', back: '뒤로', open: '열기', start: '시작', next: '다음', done: '완료', skip: '건너뛰기',
-  hintDrag: '<b>드래그</b> 지구 돌리기', hintZoom: '<b>휠 / 핀치</b> 확대하면 더 많은 장소', hintTap: '<b>마커 탭</b> 사진과 정보', tutorialAgain: '🎓 튜토리얼 다시 보기',
-  fullscreen: '전체 화면', zoomIn: '확대', zoomOut: '축소', help: '도움말',
-  mMap: '지도', mGlobe: '지구본 위', mSettings: '설정', terrain: '지형 보기', names: '지명', borders: '국경선과 격자', shadows: '낮과 밤',
-  landmarks: '랜드마크', animals: '동물', discoveries: '발견', vehicles: '배, 비행기, 기차', sfx: '효과음', bgm: '음악',
-  language: '언어', reset: '화면과 설정 초기화', resetBtn: '초기화', account: '계정', signIn: '로그인', signOut: '로그아웃', guestbook: '방명록',
-  about: '소개', encyclopedia: '백과사전', credits: '만든 사람', privacy: '개인정보',
-  tLandmark: '랜드마크', tAnimal: '동물', tDiscovery: '발견', tVehicle: '탈것', built: '건설', height: '높이', length: '길이', weight: '무게', speed: '최고 속도', lifespan: '수명', depth: '깊이', year: '연도',
-  diet: '먹이', carnivore: '육식', herbivore: '초식', omnivore: '잡식', status: '보전 상태', habitat: '사는 곳', funFact: '재미있는 사실', moreDetails: '자세히 보기',
-  LC: '안전', NT: '준위협', VU: '취약', EN: '위기', CR: '위급',
-  like: '좋아요', visited: '가 봤어요', ride: '같이 타기', exitRide: '나가기', rideTip: '드래그로 둘러보기 · 휠로 거리 조절', readMore: '더 읽기 →',
-  collectHint: '더 가까이(×{z}) 확대하면 도감에 추가할 수 있어요', collected: '도감에 있어요 ✓', addDex: '도감에 추가', logged: '기록됨 ✓', logIt: '발견 기록하기',
-  animalDex: '동물 도감', animalDexSub: '동물을 찾아 가까이 확대해서 모아요', discoveryDex: '발견 도감', discoveryDexSub: '난파선, 미스터리, 전설을 찾아 기록해요',
-  stickers: '스티커', stickersSub: '지금까지 모은 스티커', album: '사진첩', albumSub: '지구에서 찍은 사진', photos: '사진 {n}장', found: '{n} / {t} 찾음',
-  sortDefault: '기본 순서', sortEarned: '얻은 것 먼저', locked: '아직 못 찾음', goThere: '그곳으로 가기',
-  chooseGame: '게임 고르기', daily: '오늘의 지구', dailySub: '하루에 하나, 수수께끼 장소. 기회는 6번.', placeit: '어디일까?', placeitSub: '있을 것 같은 곳을 탭하세요.', quiz: '지구 퀴즈', quizSub: '1~4명이 함께하는 객관식 퀴즈.',
-  practice: '연습', easy: '쉬움', medium: '보통', hard: '어려움', normal: '보통', round: '{r} / {n} 라운드', score: '점수', total: '합계', best: '최고', hint: '힌트', confirm: '확인', guessHere: '지구를 탭해서 핀을 꽂으세요',
-  distance: '{d} 떨어짐', points: '{p}점', perfect: '완벽해요!', great: '잘했어요!', good: '좋아요', tryAgain: '다시 해 봐요!', results: '결과', playAgain: '다시 하기', newRecord: '신기록!',
-  players: '참가자', player: '참가자 {n}', set: '주제', level: '난이도', yourTurn: '{p} 차례예요!', correct: '정답!', wrong: '아쉬워요 — 정답은 {a}', question: '{q} / {n} 문제',
-  setmixed: '섞어서', setanimals: '동물', setgeo: '지리', setlandmarks: '랜드마크', setsecrets: '비밀과 전설',
-  dailyPick: '지구본에서 고르기', dailyTap: '정답이라고 생각하는 곳을 지구본에서 눌러요', dailyGuess: '장소를 입력하세요…', dailyWin: '{n}번 만에 찾았어요!', dailyLose: '정답은 {a}', share: '공유', copied: '복사했어요!', streak: '연속', played: '플레이', nextPuzzle: '다음 문제까지 {t}',
-  dHintCont: '대륙: {c}', dHintCountry: '나라: {c}', dHintName: '“{c}”(으)로 시작해요',
-  shutter: '사진 찍기', photoSaved: '사진첩에 저장했어요', save: '저장', del: '삭제', noPhotos: '아직 사진이 없어요 — 📷를 눌러 찍어 보세요!',
-  tut1t: '지구 돌리기', tut1b: '손가락이나 마우스로 지구를 드래그하세요.', tut2t: '확대하기', tut2b: '휠, 핀치, + 버튼을 사용하세요.', tut3t: '눌러 보기', tut3b: '랜드마크나 동물을 탭하면 카드가 나와요.',
-  tut4t: '내 컬렉션', tut4b: '찾은 동물과 발견이 여기에 저장돼요.', tut5t: '게임하기', tut5b: '오늘의 지구, 어디일까?, 퀴즈가 있어요.', tut6t: '내 마음대로', tut6b: '메뉴에서 레이어, 소리, 언어를 바꿀 수 있어요.', tut7t: '즐겁게 놀아요!', tut7b: '기록은 이 기기에 저장돼요. 로그인하면 어디서나 이어서 할 수 있어요.',
-  emailLabel: '이메일', sendLink: '로그인 링크 보내기', linkSent: '메일함에서 로그인 링크를 확인하세요.', devLink: '개발 모드: 이 링크를 열어 로그인', signedInAs: '{e}(으)로 로그인됨', syncNow: '지금 동기화', synced: '기록을 동기화했어요', offline: '오프라인 — 기록은 이 기기에 보관돼요',
-  handle: '닉네임', gbPlaceholder: '인사를 남겨 주세요 (최대 200자)', post: '올리기', report: '신고', gbNeedLogin: '방명록을 쓰려면 로그인하세요', gbEmpty: '첫 인사를 남겨 주세요!',
-  notFound: '찾을 수 없어요', search: '검색', resetConfirm: '카메라와 모든 설정을 초기화할까요?', sticker_unlocked: '스티커 획득: {s}',
-};
-
-const ja: Dict = {
-  title: 'ポケットプラネット', badge: 'ベータ', loading: '地球を起こしています…', photo: '写真', collection: 'コレクション', game: 'ゲーム', menu: 'メニュー', close: '閉じる', back: '戻る', open: '開く', start: 'スタート', next: '次へ', done: '完了', skip: 'スキップ',
-  hintDrag: '<b>ドラッグ</b> 地球を回す', hintZoom: '<b>ホイール / ピンチ</b> ズームで場所が増える', hintTap: '<b>マーカーをタップ</b> 写真と情報', tutorialAgain: '🎓 チュートリアルをもう一度',
-  mMap: '地図', mGlobe: '地球儀の上', mSettings: '設定', terrain: '地形表示', names: '地名', borders: '国境と経緯線', shadows: '昼と夜', landmarks: 'ランドマーク', animals: '動物', discoveries: '発見', vehicles: '船・飛行機・列車', sfx: '効果音', bgm: '音楽',
-  language: '言語', reset: '表示と設定をリセット', resetBtn: 'リセット', account: 'アカウント', signIn: 'ログイン', signOut: 'ログアウト', guestbook: 'ゲストブック', about: 'について', encyclopedia: '百科事典', credits: 'クレジット',
-  tLandmark: 'ランドマーク', tAnimal: '動物', tDiscovery: '発見', tVehicle: '乗り物', like: 'いいね', visited: '行ったことある', ride: '乗ってみる', exitRide: '降りる', readMore: 'もっと読む →', moreDetails: '詳しく見る',
-  animalDex: '動物図鑑', discoveryDex: '発見図鑑', stickers: 'ステッカー', album: 'アルバム', chooseGame: 'ゲームを選ぶ', daily: '今日の地球', placeit: 'どこかな？', quiz: '地球クイズ',
-  correct: '正解！', results: '結果', playAgain: 'もう一度', share: 'シェア', shutter: '撮影',
-};
-
 const zh: Dict = {
-  title: '口袋星球', badge: '测试版', loading: '正在唤醒星球…', photo: '拍照', collection: '收藏', game: '游戏', menu: '菜单', close: '关闭', back: '返回', open: '打开', start: '开始', next: '下一步', done: '完成', skip: '跳过',
-  hintDrag: '<b>拖动</b> 旋转地球', hintZoom: '<b>滚轮 / 双指</b> 放大看到更多地方', hintTap: '<b>点击标记</b> 图片与介绍', tutorialAgain: '🎓 再看一次教程',
-  mMap: '地图', mGlobe: '地球上', mSettings: '设置', terrain: '地形视图', names: '地名', borders: '国界与经纬线', shadows: '昼夜', landmarks: '地标', animals: '动物', discoveries: '发现', vehicles: '船、飞机和火车', sfx: '音效', bgm: '音乐',
-  language: '语言', reset: '重置视图和设置', resetBtn: '重置', account: '账户', signIn: '登录', signOut: '退出', guestbook: '留言板', about: '关于', encyclopedia: '百科', credits: '致谢',
-  tLandmark: '地标', tAnimal: '动物', tDiscovery: '发现', tVehicle: '交通工具', like: '喜欢', visited: '我去过', ride: '一起乘坐', exitRide: '退出', readMore: '阅读更多 →', moreDetails: '更多详情',
-  animalDex: '动物图鉴', discoveryDex: '发现图鉴', stickers: '贴纸', album: '相册', chooseGame: '选择游戏', daily: '每日星球', placeit: '在哪里？', quiz: '地球问答',
-  correct: '答对了！', results: '结果', playAgain: '再玩一次', share: '分享', shutter: '拍照',
+  title: '口袋星球', badge: '测试版', loading: '正在唤醒星球…', webglFail: '你的浏览器无法启动 3D 图形。请换一个浏览器，或开启硬件加速。',
+  counts: '{l} 个地标 · {c} 个国家 · {ci} 座城市 · {a} 种动物 · {d} 个发现 · {v} 种交通工具',
+  photo: '拍照', collection: '收藏', game: '游戏', menu: '菜单', close: '关闭', back: '返回', open: '打开', start: '开始', next: '下一步', done: '完成', skip: '跳过',
+  hintDrag: '<b>拖动</b> 旋转地球', hintZoom: '<b>滚轮 / 双指</b> 放大看到更多地方', hintTap: '<b>点击标记</b> 查看图片与介绍', tutorialAgain: '🎓 再看一次教程',
+  fullscreen: '全屏', zoomIn: '放大', zoomOut: '缩小', help: '帮助',
+  mMap: '地图', mGlobe: '地球上', mSettings: '设置', terrain: '地形视图', names: '地名', borders: '国界与经纬线', shadows: '昼夜',
+  landmarks: '地标', animals: '动物', discoveries: '发现', vehicles: '船、飞机和火车', sfx: '音效', bgm: '音乐',
+  language: '语言', reset: '重置视图和设置', resetBtn: '重置', account: '账户', signIn: '登录', signOut: '退出登录', guestbook: '留言板',
+  about: '关于', encyclopedia: '百科', credits: '致谢', privacy: '隐私',
+  tLandmark: '地标', tAnimal: '动物', tDiscovery: '发现', tVehicle: '交通工具', built: '建成', height: '高度', length: '长度', weight: '体重', speed: '最高速度', lifespan: '寿命', depth: '深度', year: '年份',
+  diet: '食性', carnivore: '吃肉', herbivore: '吃植物', omnivore: '什么都吃', status: '保护状况', habitat: '栖息地', funFact: '趣味知识', moreDetails: '更多详情',
+  LC: '无危', NT: '近危', VU: '易危', EN: '濒危', CR: '极危',
+  like: '喜欢', visited: '我去过', ride: '一起乘坐', exitRide: '退出', rideTip: '拖动环顾四周 · 滚轮调整距离', readMore: '阅读更多 →',
+  collectHint: '再放大一些（×{z}）就能把这种动物收进图鉴', collected: '已收入图鉴 ✓', addDex: '收入图鉴', logged: '已记录 ✓', logIt: '记录这个发现',
+  animalDex: '动物图鉴', animalDexSub: '找到动物并放大靠近来收集它们', discoveryDex: '发现图鉴', discoveryDexSub: '寻找沉船、谜团和传说，点击即可记录',
+  stickers: '贴纸', stickersSub: '你获得的所有贴纸', album: '相册', albumSub: '你拍下的地球快照', photos: '{n} 张照片', found: '已找到 {n} / {t}',
+  sortDefault: '默认顺序', sortEarned: '已获得优先', locked: '尚未找到', goThere: '飞过去',
+  chooseGame: '选择游戏', daily: '每日星球', dailySub: '每天一个神秘地点，六次猜测机会。', placeit: '在哪里？', placeitSub: '点击你认为它所在的位置。', quiz: '地球问答', quizSub: '1–4 名玩家的选择题。',
+  practice: '练习', easy: '简单', medium: '中等', hard: '困难', normal: '普通', round: '第 {r} / {n} 轮', score: '得分', total: '总分', best: '最佳', hint: '提示', confirm: '确定', guessHere: '点击地球放下你的图钉',
+  distance: '相距 {d}', points: '{p} 分', perfect: '完美！', great: '很棒！', good: '不错', tryAgain: '继续加油！', results: '结果', playAgain: '再玩一次', newRecord: '新纪录！',
+  players: '玩家', player: '玩家 {n}', set: '主题', level: '难度', yourTurn: '{p}，轮到你了！', correct: '答对了！', wrong: '差一点——答案是 {a}', question: '第 {q} / {n} 题',
+  setmixed: '综合', setanimals: '动物', setgeo: '地理', setlandmarks: '地标', setsecrets: '秘密与传说',
+  dailyPick: '在地球上选择', dailyTap: '点击地球上你认为的位置', dailyGuess: '输入一个地点…', dailyWin: '你用 {n} 次猜中了！', dailyLose: '答案是 {a}', share: '分享', copied: '已复制！', streak: '连胜', played: '已玩', nextPuzzle: '下一题还有 {t}',
+  dHintCont: '大洲：{c}', dHintCountry: '国家：{c}', dHintName: '以“{c}”开头',
+  shutter: '拍照', photoSaved: '已保存到相册', save: '保存', del: '删除', noPhotos: '还没有照片——按 📷 拍一张吧！',
+  tut1t: '转动星球', tut1b: '用手指或鼠标拖动地球。', tut2t: '放大', tut2b: '使用滚轮、双指缩放或 + 按钮。', tut3t: '点一点', tut3b: '点击地标或动物，查看它的卡片。',
+  tut4t: '你的收藏', tut4b: '你找到的动物和发现都保存在这里。', tut5t: '玩游戏', tut5b: '每日谜题、在哪里？和问答游戏都在这里。', tut6t: '随心设置', tut6b: '在菜单里开关图层、声音并切换语言。', tut7t: '玩得开心！', tut7b: '你的进度保存在这台设备上。登录后可在任何设备上继续。',
+  emailLabel: '邮箱', sendLink: '发送登录链接', linkSent: '请在收件箱中查看登录链接。', devLink: '开发模式：打开此链接登录', signedInAs: '已登录：{e}', syncNow: '立即同步', synced: '进度已同步', offline: '离线——进度保存在这台设备上',
+  handle: '昵称', gbPlaceholder: '打个招呼吧（最多 200 字）', post: '发布', report: '举报', gbNeedLogin: '登录后才能在留言板留言', gbEmpty: '来做第一个打招呼的人吧！',
+  deleteAccount: '删除账户', deleteConfirm: '要删除你的账户以及服务器上的进度吗？这台设备上的进度会保留。', saveBtn: '保存', signedOut: '已退出登录', reported: '谢谢——大人会来检查的。',
+  signInSub: '可选。通过邮箱链接登录，即可在每台设备上保留进度，无需密码。', handleRule: '2–16 个字母、数字、汉字或 _', creditsBody: '口袋星球是一个原创的开源学习玩具。3D 模型均由代码绘制。国家轮廓：Natural Earth（公有领域），经 world-atlas 提供。使用 three.js 制作。',
+  of: '/', tutStep: '第 {i} 步，共 {n} 步',
+  latitude: '纬度', north: '北纬 · 北半球', south: '南纬 · 南半球',
+  notFound: '没有找到', search: '搜索', resetConfirm: '要重置镜头和所有设置吗？', sticker_unlocked: '获得贴纸：{s}',
+  auraPreset: '大气', surfaceMode: '地表模式', modeSat: '卫星', modeVec: '极简', modePol: '政区',
+  searchPlaceholder: '搜索地点和动物', randomHop: '随机跳转', filterAll: '全部', coords: '坐标', zoomClose: '3D 近看',
 };
 
-const DICTS: Record<Lang, Dict> = { en, ko, ja, zh };
+const DICTS: Record<Lang, Dict> = { en, zh };
 
 function detect(): Lang {
   const nav = typeof navigator !== 'undefined' ? navigator.language.slice(0, 2) : 'en';
-  return (['en', 'ko', 'ja', 'zh'] as Lang[]).includes(nav as Lang) ? (nav as Lang) : 'en';
+  return nav === 'zh' ? 'zh' : 'en';
 }
 
-let current: Lang = load<Lang | null>('lang', null) ?? detect();
+const saved = load<string | null>('lang', null);
+let current: Lang = saved === 'en' || saved === 'zh' ? saved : detect();
 const subs = new Set<(l: Lang) => void>();
 
 export function lang(): Lang { return current; }
@@ -132,7 +113,7 @@ export const EN_KEYS = Object.keys(en);
 const regionNames = new Map<Lang, Intl.DisplayNames>();
 export function countryName(a2: string | undefined, l: Lang = current): string {
   if (!a2) return '';
-  if (a2 === 'XK') return { en: 'Kosovo', ko: '코소보', ja: 'コソボ', zh: '科索沃' }[l];
+  if (a2 === 'XK') return { en: 'Kosovo', zh: '科索沃' }[l];
   let dn = regionNames.get(l);
   if (!dn) { dn = new Intl.DisplayNames([l], { type: 'region' }); regionNames.set(l, dn); }
   try { return dn.of(a2) ?? a2; } catch { return a2; }

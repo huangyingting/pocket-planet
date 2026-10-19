@@ -1,7 +1,7 @@
 import type { Continent } from './iso.ts';
 
-export type Lang = 'en' | 'ko' | 'ja' | 'zh';
-export const LANGS: Lang[] = ['en', 'ko', 'ja', 'zh'];
+export type Lang = 'en' | 'zh';
+export const LANGS: Lang[] = ['en', 'zh'];
 export type I18n = { en: string } & Partial<Record<Exclude<Lang, 'en'>, string>>;
 
 export type ItemType = 'landmark' | 'animal' | 'discovery' | 'vehicle';

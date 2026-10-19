@@ -56,8 +56,8 @@ describe('profile, progress, reactions, guestbook', () => {
   it('validates nickname', async () => {
     expect((await call('PUT', '/api/profile', { handle: 'x' })).status).toBe(400);
     expect((await call('PUT', '/api/profile', { handle: 'idiot99' })).status).toBe(400);
-    const ok = await call('PUT', '/api/profile', { handle: '탐험가_01' });
-    expect(ok.status).toBe(200); expect(ok.json.user.handle).toBe('탐험가_01');
+    const ok = await call('PUT', '/api/profile', { handle: '探险家_01' });
+    expect(ok.status).toBe(200); expect(ok.json.user.handle).toBe('探险家_01');
   });
   it('merges progress on PUT', async () => {
     const p1 = emptyProgress(); p1.dex = { an_lion: 100 }; p1.updatedAt = 1;
@@ -79,7 +79,7 @@ describe('profile, progress, reactions, guestbook', () => {
     const r = await call('POST', '/api/guestbook', { body: 'Hello <b>world</b> https://x.example/y' });
     expect(r.status).toBe(201);
     expect(r.json.entry.body).toBe('Hello <b>world</b> 🔗');
-    expect(r.json.entry.handle).toBe('탐험가_01');
+    expect(r.json.entry.handle).toBe('探险家_01');
     expect((await call('POST', '/api/guestbook', { body: 'you are dumb' })).status).toBe(400);
     expect((await call('POST', '/api/guestbook', { body: '   ' })).status).toBe(400);
     const id = r.json.entry.id;

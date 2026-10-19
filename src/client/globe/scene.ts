@@ -39,13 +39,13 @@ export const hFromZoom = (z: number) => (4 * DEFAULT_H) / z;
 
 const LAYER_OF: Record<CatalogueItem['type'], keyof Settings> = { landmark: 'landmarks', animal: 'animals', discovery: 'discoveries', vehicle: 'vehicles' };
 const OCEANS: [string, Record<Lang, string>, number, number][] = [
-  ['pacific', { en: 'PACIFIC OCEAN', ko: '태평양', ja: '太平洋', zh: '太平洋' }, 0, -150],
-  ['pacific2', { en: 'PACIFIC OCEAN', ko: '태평양', ja: '太平洋', zh: '太平洋' }, 15, 165],
-  ['atlantic', { en: 'ATLANTIC OCEAN', ko: '대서양', ja: '大西洋', zh: '大西洋' }, 15, -40],
-  ['atlantic2', { en: 'ATLANTIC OCEAN', ko: '대서양', ja: '大西洋', zh: '大西洋' }, -25, -15],
-  ['indian', { en: 'INDIAN OCEAN', ko: '인도양', ja: 'インド洋', zh: '印度洋' }, -20, 78],
-  ['arctic', { en: 'ARCTIC OCEAN', ko: '북극해', ja: '北極海', zh: '北冰洋' }, 82, 0],
-  ['southern', { en: 'SOUTHERN OCEAN', ko: '남극해', ja: '南極海', zh: '南冰洋' }, -60, 60],
+  ['pacific', { en: 'PACIFIC OCEAN', zh: '太平洋' }, 0, -150],
+  ['pacific2', { en: 'PACIFIC OCEAN', zh: '太平洋' }, 15, 165],
+  ['atlantic', { en: 'ATLANTIC OCEAN', zh: '大西洋' }, 15, -40],
+  ['atlantic2', { en: 'ATLANTIC OCEAN', zh: '大西洋' }, -25, -15],
+  ['indian', { en: 'INDIAN OCEAN', zh: '印度洋' }, -20, 78],
+  ['arctic', { en: 'ARCTIC OCEAN', zh: '北冰洋' }, 82, 0],
+  ['southern', { en: 'SOUTHERN OCEAN', zh: '南冰洋' }, -60, 60],
 ];
 
 // ---- AuraFM Custom GLSL Earth Surface Shaders ----

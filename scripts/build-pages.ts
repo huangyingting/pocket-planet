@@ -65,11 +65,10 @@ for (const s of SECTIONS) {
   for (const it of s.items) {
     const path = `/${s.dir}/${it.slug}/`;
     urls.push(path);
-    const alt = [it.name.ko, it.name.ja, it.name.zh].filter(Boolean).join(' · ');
     page(path, `${it.name.en} — Pocket Planet`, it.desc.en,
       `<p><a href="/${s.dir}/">← ${s.title}</a></p><div class="hero" aria-hidden="true">${it.emoji}</div><h1>${esc(it.name.en)}</h1>
-<p lang="mul">${esc(alt)}</p><p>${esc(it.desc.en)}</p>${it.desc.ko ? `<p lang="ko">${esc(it.desc.ko)}</p>` : ''}${factList(it)}
-${it.funFact ? `<p class="fun">💡 ${esc(it.funFact.en)}</p>` : ''}<p><a class="cta" href="/#${it.key}">🌍 See it on the globe</a></p>
+${it.name.zh ? `<p lang="zh">${esc(it.name.zh)}</p>` : ''}<p>${esc(it.desc.en)}</p>${it.desc.zh ? `<p lang="zh">${esc(it.desc.zh)}</p>` : ''}${factList(it)}
+${it.funFact ? `<p class="fun">💡 ${esc(it.funFact.en)}</p>${it.funFact.zh ? `<p class="fun" lang="zh">💡 ${esc(it.funFact.zh)}</p>` : ''}` : ''}<p><a class="cta" href="/#${it.key}">🌍 See it on the globe</a></p>
 <p>Location: ${it.lat.toFixed(2)}°, ${it.lon.toFixed(2)}°</p>`,
       { '@context': 'https://schema.org', '@type': it.type === 'landmark' ? 'LandmarksOrHistoricalBuildings' : 'Thing', name: it.name.en, description: it.desc.en,
         ...(it.type === 'landmark' ? { geo: { '@type': 'GeoCoordinates', latitude: it.lat, longitude: it.lon } } : {}) });

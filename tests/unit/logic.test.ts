@@ -182,19 +182,21 @@ describe('catalogue & i18n integrity', () => {
     for (const i of CATALOGUE) {
       expect(Math.abs(i.lat)).toBeLessThanOrEqual(90);
       expect(Math.abs(i.lon)).toBeLessThanOrEqual(180);
-      for (const l of ['en', 'ko', 'ja', 'zh'] as const) expect(i.name[l], `${i.key} ${l}`).toBeTruthy();
+      for (const l of ['en', 'zh'] as const) expect(i.name[l], `${i.key} ${l}`).toBeTruthy();
       expect(i.desc.en.length, i.key).toBeGreaterThan(30);
-      expect(i.desc.ko, i.key).toBeTruthy();
+      expect(i.desc.zh, i.key).toMatch(/[\u4e00-\u9fff]/);
+      if (i.funFact) expect(i.funFact.zh, i.key).toMatch(/[\u4e00-\u9fff]/);
+      if (i.habitat) expect(i.habitat.zh, i.key).toMatch(/[\u4e00-\u9fff]/);
       expect(i.slug).toMatch(/^[a-z0-9-]+$/);
     }
   });
-  it('Korean dictionary covers every English key', () => {
-    const missing = EN_KEYS.filter(k => !hasKey(k, 'ko'));
+  it('Chinese dictionary covers every English key', () => {
+    const missing = EN_KEYS.filter(k => !hasKey(k, 'zh'));
     expect(missing).toEqual([]);
   });
   it('interpolates variables and falls back to English', () => {
     expect(t('round', { r: 2, n: 10 }, 'en')).toBe('Round 2 / 10');
-    expect(t('round', { r: 2, n: 10 }, 'ja')).toContain('2');
+    expect(t('round', { r: 2, n: 10 }, 'zh')).toContain('2');
     expect(t('no_such_key', {}, 'en')).toBe('no_such_key');
   });
   it('builds a valid 3D mesh group for every catalogue item and defines 5 Aura presets', () => {

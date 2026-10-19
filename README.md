@@ -68,7 +68,7 @@ The e2e config builds nothing. It starts `node src/server/index.ts` on port 8790
 │   │   ├── globe/              scene.ts (three.js globe, controls, picking, LOD, rides), painter.ts (map texture)
 │   │   ├── models/kit.ts       procedural low-poly model builders
 │   │   ├── ui/                 shell (top bar, menu, info card), collection, photo, games, account, tutorial, dom helpers
-│   │   └── lib/                api client, i18n (en/ko full, ja/zh partial), storage, sfx
+│   │   └── lib/                api client, i18n (English + Simplified Chinese), storage, sfx
 │   ├── server/                 index.ts (env/boot), app.ts (Express routes), db.ts (SQLite schema)
 │   └── shared/                 pure TS used by client, server and build script (no DOM)
 │       ├── data/               catalogue (landmarks/animals/discoveries/vehicles), cities, ISO names, types

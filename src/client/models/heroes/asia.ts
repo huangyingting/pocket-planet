@@ -267,6 +267,17 @@ const forbidden: Builder = (gp, r) => {
   }
 };
 const CYLG = () => new THREE.CylinderGeometry(0.5, 0.5, 1, 12);
+let _arch: THREE.BufferGeometry | null = null;
+/** Unit round-headed window/door recess (width 1, height 1, depth 1, base at the origin). */
+const ARCHW = () => {
+  if (_arch) return _arch;
+  const sh = new THREE.Shape();
+  sh.moveTo(-0.5, 0); sh.lineTo(0.5, 0); sh.lineTo(0.5, 0.5);
+  sh.absarc(0, 0.5, 0.5, 0, Math.PI, false); sh.lineTo(-0.5, 0);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: 1, bevelEnabled: false, curveSegments: 4 });
+  g.translate(0, 0, -0.5);
+  return (_arch = g);
+};
 
 // ---------------------------------------------------------------------------------------------------------
 // Gyeongbokgung — Geunjeongjeon (근정전) throne hall
@@ -641,7 +652,7 @@ const notched: Plan = sc => {
   return out;
 };
 const taipei101: Builder = (gp, r) => {
-  const GL = r.color ?? '#5f9a8a', glass = shade(GL, 0.62), line = mix(GL, '#e6f2ee', 0.45), trim = '#c9d4cf';
+  const GL = r.color ?? '#5f9a8a', glass = mix(shade(GL, 0.7), '#2f8a92', 0.3), line = mix(GL, '#e6f2ee', 0.45), trim = '#c9d4cf';
   const hf: HFn = (x, z) => 0.006 + 0.2 * sstep(0.18, 0.5, -z * 0.8 + x * 0.6) * (0.7 + 0.3 * fbm(x * 6, 1, z * 6)) * sstep(0.2, 0.36, Math.hypot(x, z));
   const road = (x: number, z: number) => Math.abs(z - 0.17) < 0.022 || Math.abs(x + 0.17) < 0.018;
   island(gp, 0.5, hf, '#8d8f92', (x, y, z, _nx, ny) => {
@@ -657,8 +668,7 @@ const taipei101: Builder = (gp, r) => {
     if (road(x, z) || Math.hypot(x, z - 0.02) < 0.2 || hf(x, z) > 0.012 || (x > 0.02 && z < -0.08 && x < 0.3)) return;
     const h = 0.02 + hash3(i, 1, 1) ** 2 * 0.13, w = 0.03 + hash3(i, 2, 1) * 0.025, c = pal[i % pal.length];
     if (i % 4 === 0) { lowball(gp, '#4f8a45', x, G + 0.01, z, 0.022, 0.02, 0.022); return; }
-    box(gp, c, x, G, z, w, h, w * 0.9);
-    for (let k = 1; k * 0.008 < h; k++) box(gp, '#4b5563', x, G + k * 0.008 - 0.003, z, w + 0.001, 0.0025, w * 0.9 + 0.001);
+    bandLoft(gp, sqPlan, x, z, G, G + h, w, w, 0.008, 0.6, c, '#4b5563', { metal: 0.15 });
   }, 0.46);
   for (let i = 0; i < 9; i++) lowball(gp, '#4f8a45', -0.4 + i * 0.07 + 0.02 * hash3(i, 3, 3), G + 0.008, 0.2, 0.018, 0.018, 0.018);
   // Xiangshan (Elephant Mountain) forest
@@ -719,30 +729,33 @@ const star: Plan = sc => {
   }
   return out;
 };
+const sqPlan: Plan = sc => [[sc / 2, -sc / 2], [sc / 2, sc / 2], [-sc / 2, sc / 2], [-sc / 2, -sc / 2]];
 const circ = (n: number): Plan => sc => Array.from({ length: n }, (_, i) => [Math.cos((i / n) * Math.PI * 2) * sc, Math.sin((i / n) * Math.PI * 2) * sc]);
 const petronas: Builder = (gp, r) => {
   const ST = mix(r.color ?? '#c7d0dc', '#eef2f6', 0.5), GLS = '#6d7f96', G = 0.041;
   // KLCC Park lake in front, Suria KLCC mall around the base, city around
-  const lake = (x: number, z: number) => ((x - 0.02) / 0.2) ** 2 + ((z - 0.3) / 0.09) ** 2 < 1;
-  island(gp, 0.5, (x, z) => (lake(x, z) ? 0.002 : 0.006), '#5f8f4a', (x, y, z, _nx, ny) => {
-    if (y - 0.035 < 0.004 && ny > 0.9) return ripple('#3f7a8c')(x, y, z, 0, 1, 0) ?? '#3f7a8c';
-    if (Math.abs(z - 0.13) < 0.02 || Math.abs(x - 0.36) < 0.02) return '#3f444b';
-    if (z > 0.15) {
-      const e = Math.sqrt(((x - 0.02) / 0.2) ** 2 + ((z - 0.3) / 0.09) ** 2);
-      return e < 1.18 || Math.abs(x - 0.02) < 0.012 ? '#d6cdb6' : mix('#5f8f4a', '#4a7a3a', fbm(x * 9, 0, z * 9));
-    }
-    return '#9ca3af';
-  }, { rings: 34, segs: 96, side: strataSide(['#5b5f66', '#4b5058']) });
+  island(gp, 0.5, () => 0.006, '#9ca3af', (x, y, z) => mix('#9ca3af', '#aeb4bb', fbm(x * 14, y, z * 14)), { rings: 22, segs: 72, side: strataSide(['#5b5f66', '#4b5058']) });
+  // KLCC Park (overlaid as smooth meshes so the edges stay crisp): lawn segment, sand rim, lake, roads
+  const park = new THREE.Shape(), z0 = 0.15, R = 0.497, a0 = Math.asin(z0 / R);
+  park.moveTo(Math.cos(a0) * R, -z0);
+  for (let i = 0; i <= 28; i++) { const a = a0 + ((Math.PI - 2 * a0) * i) / 28; park.lineTo(Math.cos(a) * R, -Math.sin(a) * R); }
+  const pg = new THREE.ShapeGeometry(park); pg.rotateX(-Math.PI / 2);
+  add(gp, pg, mat('#5f8f4a'), 0, G + 0.0004, 0, 1, 1, 1);
+  const disc = new THREE.CylinderGeometry(1, 1, 1, 40);
+  add(gp, disc, mat('#d6cdb6'), 0.02, G + 0.0012, 0.3, 0.236, 0.0016, 0.112);
+  add(gp, disc, mat('#3f7a8c', { metal: 0.2, rough: 0.15 }), 0.02, G + 0.002, 0.3, 0.2, 0.0016, 0.09);
+  box(gp, '#d6cdb6', 0.02, G, 0.19, 0.024, 0.0014, 0.08);
+  box(gp, '#3f444b', 0, G, 0.13, 0.95, 0.001, 0.04);
+  box(gp, '#3f444b', 0.36, G, 0.0, 0.04, 0.001, 0.66);
   for (let i = 0; i < 7; i++) { const x = -0.1 + i * 0.03; cyl(gp, '#e0f2fe', x, G - 0.004, 0.3, 0.002, 0.012 + (i % 2) * 0.008, 5).material = mat('#e0f2fe', { transparent: 0.7 }); }
-  scatter(55, 17, (x, z, i) => {
-    if (z > 0.15 && z < 0.42 && !lake(x, z)) lowball(gp, ['#2f6a3a', '#3d7a42', '#4a8a46'][i % 3], x, G + 0.012, z, 0.026, 0.024, 0.026);
+  scatter(110, 17, (x, z, i) => {
+    if (z > 0.17 && z < 0.46 && Math.abs(x - 0.36) > 0.03 && ((x - 0.02) / 0.24) ** 2 + ((z - 0.3) / 0.115) ** 2 > 1) lowball(gp, ['#2f6a3a', '#3d7a42', '#4a8a46'][i % 3], x, G + 0.012, z, 0.026, 0.024, 0.026);
   }, 0.46);
   const pal = ['#a3a8b0', '#c2bcb0', '#8d939b', '#b8a58c', '#7c8a96'];
   scatter(46, 23, (x, z, i) => {
     if (z > 0.1 || Math.abs(x) < 0.3 && z > -0.25 || Math.abs(z - 0.13) < 0.03 || Math.abs(x - 0.36) < 0.03) return;
     const h = 0.03 + hash3(i, 1, 1) ** 2 * 0.16, w = 0.035 + hash3(i, 2, 1) * 0.02;
-    box(gp, pal[i % pal.length], x, G, z, w, h, w);
-    for (let k = 1; k * 0.009 < h; k++) box(gp, '#4b5563', x, G + k * 0.009 - 0.003, z, w + 0.001, 0.003, w + 0.001);
+    bandLoft(gp, sqPlan, x, z, G, G + h, w, w, 0.009, 0.6, pal[i % pal.length], '#4b5563', { metal: 0.15 });
   }, 0.47);
   // Suria KLCC podium
   box(gp, '#d9d4c7', 0, G, -0.02, 0.5, 0.03, 0.16);
@@ -770,14 +783,20 @@ const petronas: Builder = (gp, r) => {
     pin.material = mat(ST, { metal: 0.6, rough: 0.3 });
     for (let k = 0; k < 4; k++) add(gp, CYLG(), mat(ST, { metal: 0.6, rough: 0.3 }), x, PY + 0.03 + k * 0.012, TZ, 0.03 - k * 0.004, 0.002, 0.03 - k * 0.004);
     add(gp, SPHL(), mat(ST, { metal: 0.6, rough: 0.3 }), x, PY + 0.09, TZ, 0.014, 0.014, 0.014);
-    // Skybridge leg: hinged A-frame strut down to level 29
-    rod(gp, [sx * 0.012, G + 0.03 + H * 0.415, TZ], [x - sx * A * 1.05, G + 0.03 + H * 0.3, TZ], 0.003, '#b8c2cc', 6);
+    // Skybridge A-frame: a pair of hinged struts from the bridge's central bearing down to level 29
+    for (const dz of [-0.0065, 0.0065]) {
+      rod(gp, [sx * 0.004, G + 0.03 + H * 0.43 - 0.012, TZ + dz * 0.6], [x - sx * A * 1.12, G + 0.03 + H * 0.3, TZ + dz], 0.0022, '#c3ccd6', 6).material = mat('#c3ccd6', { metal: 0.6, rough: 0.3 });
+    }
+    box(gp, '#8d99a6', x - sx * A * 1.1, G + 0.03 + H * 0.3 - 0.004, TZ, 0.008, 0.008, 0.02);
   }
   // Double-deck skybridge on levels 41–42
-  const BY = G + 0.03 + H * 0.43;
-  box(gp, '#9aa7b6', 0, BY, TZ, 2 * X - 2 * A * 1.05, 0.016, 0.018);
-  box(gp, GLS, 0, BY + 0.004, TZ, 2 * X - 2 * A * 1.05 + 0.001, 0.008, 0.0185);
-  box(gp, '#b8c2cc', 0, BY - 0.012, TZ, 0.014, 0.012, 0.018);
+  const BY = G + 0.03 + H * 0.43, BL = 2 * X - 2 * A * 1.05;
+  mbox(gp, '#aab5c2', 0, BY - 0.003, TZ, BL, 0.024, 0.019, 0.5);
+  for (const dy of [0.0035, 0.0145]) box(gp, '#3f5168', 0, BY - 0.003 + dy, TZ, BL + 0.001, 0.0055, 0.0195);
+  for (let k = 0; k <= 8; k++) box(gp, '#d5dce4', -BL / 2 + (k * BL) / 8, BY - 0.003, TZ, 0.0015, 0.024, 0.0198);
+  lathe(gp, [[0.013, 0], [0.011, 0.006], [0.004, 0.01], [0, 0.011]], '#c3ccd6', 0, BY + 0.021, TZ, 8);
+  mbox(gp, '#8d99a6', 0, BY - 0.016, TZ, 0.016, 0.013, 0.016, 0.5);
+  mbox(gp, '#c3ccd6', 0, BY - 0.009, TZ, BL, 0.005, 0.006, 0.5);
 };
 
 
@@ -787,11 +806,20 @@ const greatwall: Builder = (gp, r) => {
   const WC = r.color ?? '#b9a37e', brick = shade(WC, 0.86), walk = mix(WC, '#8f8a80', 0.45);
   const curve = new THREE.CatmullRomCurve3([[-0.4, 0.19], [-0.3, 0.07], [-0.18, 0.15], [-0.02, 0.0], [0.12, -0.12], [0.27, -0.03], [0.36, -0.15], [0.42, -0.08]].map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal');
   const N = 260, path = curve.getSpacedPoints(N);
-  const ridgeH = (u: number) => 0.13 + 0.12 * Math.sin(u * 9.5 + 0.4) ** 2 + 0.03 * Math.sin(u * 23 + 2);
-  const near = (x: number, z: number): [number, number] => {
+  const ridgeH = (u: number) => 0.15 + 0.15 * Math.sin(u * 9.5 + 0.4) ** 2 + 0.03 * Math.sin(u * 23 + 2);
+  // Distance-to-wall field pre-sampled on a grid (bilinear lookup) — exact search per terrain vertex is slow
+  const nearX = (x: number, z: number): [number, number] => {
     let best = 1e9, bu = 0;
     for (let k = 0; k <= N; k += 2) { const q = path[k], d = (q.x - x) ** 2 + (q.z - z) ** 2; if (d < best) { best = d; bu = k / N; } }
     return [Math.sqrt(best), bu];
+  };
+  const GN = 84, GS = 1.08 / GN, gd = new Float32Array((GN + 1) ** 2), gu = new Float32Array((GN + 1) ** 2);
+  for (let j = 0; j <= GN; j++) for (let i = 0; i <= GN; i++) { const [d, u] = nearX(-0.54 + i * GS, -0.54 + j * GS); gd[j * (GN + 1) + i] = d; gu[j * (GN + 1) + i] = u; }
+  const near = (x: number, z: number): [number, number] => {
+    const fx = Math.min(GN - 1e-6, Math.max(0, (x + 0.54) / GS)), fz = Math.min(GN - 1e-6, Math.max(0, (z + 0.54) / GS));
+    const i = Math.floor(fx), j = Math.floor(fz), tx = fx - i, tz = fz - j, o = j * (GN + 1) + i;
+    const d = (gd[o] * (1 - tx) + gd[o + 1] * tx) * (1 - tz) + (gd[o + GN + 1] * (1 - tx) + gd[o + GN + 2] * tx) * tz;
+    return [d, gu[tx < 0.5 ? (tz < 0.5 ? o : o + GN + 1) : (tz < 0.5 ? o + 1 : o + GN + 2)]];
   };
   const hf: HFn = (x, z) => {
     const [d, u] = near(x, z);
@@ -803,13 +831,13 @@ const greatwall: Builder = (gp, r) => {
   const wy = path.map(q => 0.035 + hf(q.x, q.z));
   for (let it = 0; it < 2; it++) for (let k = 1; k < N; k++) wy[k] = (wy[k - 1] + wy[k] * 2 + wy[k + 1]) / 4;
   island(gp, 0.5, hf, '#4f7a3a', (x, y, z, _nx, ny) => {
-    if (ny < 0.72) return hash3(Math.floor(x * 70), Math.floor(y * 70), Math.floor(z * 70)) > 0.4 ? '#8a8578' : '#6f6a60';
-    const g = fbm(x * 11, y * 6, z * 11);
-    if (hash3(Math.floor(x * 50), 3, Math.floor(z * 50)) > 0.985) return '#9a7a3f';
-    return mix(mix('#3f6b34', '#6b8a45', g), '#2f5228', sstep(0.85, 0.97, ny) * 0.4);
+    const g = fbm(x * 11, y * 6, z * 11), f = fbm(x * 30 + 5, y * 30, z * 30);
+    if (ny < 0.5 && g > 0.45) return hash3(Math.floor(x * 70), Math.floor(y * 70), Math.floor(z * 70)) > 0.4 ? '#8a8578' : '#6f6a60';
+    if (ny < 0.68 && f > 0.66) return '#9a8660';
+    return mix(mix('#3a6a30', '#62903f', g), '#2a5226', sstep(0.45, 0.7, f) * 0.8);
   }, { rings: 36, segs: 100, side: strataSide(EARTH) });
   // Wall body: lofted section (outer battlement parapet, walkway, low inner parapet)
-  const HW = 0.015, WH = 0.022, PH = 0.008, PT = 0.003;
+  const HW = 0.012, WH = 0.018, PH = 0.007, PT = 0.0028;
   const rings: V3[][] = [];
   const dirs: [number, number][] = [];
   for (let k = 0; k <= N; k++) {
@@ -822,7 +850,7 @@ const greatwall: Builder = (gp, r) => {
   }
   skin(gp, rings, WC, {
     flat: true, closed: true, caps: true,
-    paint: (x, y, z, _nx, ny) => (ny > 0.8 ? walk : Math.floor(y * 260 + (x + z) * 3) % 3 === 0 ? brick : hash3(Math.floor(x * 300), Math.floor(y * 300), Math.floor(z * 300)) > 0.8 ? shade(WC, 1.08) : null),
+    paint: (x, y, z, _nx, ny) => (ny > 0.8 ? (Math.floor(y * 700) % 2 ? walk : shade(walk, 0.84)) : Math.floor(y * 260 + (x + z) * 3) % 3 === 0 ? brick : hash3(Math.floor(x * 300), Math.floor(y * 300), Math.floor(z * 300)) > 0.8 ? shade(WC, 1.08) : null),
   });
   // Merlons along the outer parapet
   for (let k = 2; k < N - 1; k += 3) {
@@ -834,19 +862,22 @@ const greatwall: Builder = (gp, r) => {
   for (const [ti, u] of towers.entries()) {
     const k = Math.round(u * N), q = path[k], [dx, dz] = dirs[k], ry = -Math.atan2(dz, dx);
     const tg = grp(gp, q.x, q.z, ry, wy[k] - 0.02);
-    const W = 0.05, D = 0.044, H = 0.07;
+    const W = 0.044, D = 0.04, H = 0.062;
     box(tg, shade(WC, 0.95), 0, 0, 0, W, H, D);
-    box(tg, shade(WC, 0.82), 0, 0, 0, W + 0.004, 0.022, D + 0.004);
-    box(tg, shade(WC, 1.05), 0, H - 0.004, 0, W + 0.006, 0.004, D + 0.006);
+    box(tg, shade(WC, 0.8), 0, 0, 0, W + 0.004, 0.026, D + 0.004);
+    box(tg, shade(WC, 1.06), 0, H - 0.005, 0, W + 0.005, 0.003, D + 0.005);
+    box(tg, shade(WC, 1.06), 0, H - 0.018, 0, W + 0.002, 0.002, D + 0.002);
     for (const [fx, fz, len] of [[0, 1, W], [0, -1, W], [1, 0, D], [-1, 0, D]] as const) {
-      const n = 3;
+      const n = 3, ry = fx ? Math.PI / 2 : 0;
       for (let j = 0; j < n; j++) {
-        const o = -len / 2 + ((j + 0.5) * len) / n, wx = fx ? fx * (W / 2 + 0.0005) : o, wz = fz ? fz * (D / 2 + 0.0005) : o;
-        box(tg, '#2a241e', wx, H - 0.03, wz, fx ? 0.002 : 0.007, 0.013, fz ? 0.002 : 0.007);
+        const o = -len / 2 + ((j + 0.5) * len) / n, wx = fx ? fx * (W / 2) : o, wz = fz ? fz * (D / 2) : o;
+        add(tg, ARCHW(), mat('#2a221c'), wx, H - 0.036, wz, 0.0075, 0.014, 0.003, ry);
       }
-      for (let j = 0; j < 5; j++) {
-        const o = -len / 2 + 0.004 + (j * (len - 0.008)) / 4;
-        box(tg, WC, fx ? fx * (W / 2 + 0.001) : o, H + 0.002, fz ? fz * (D / 2 + 0.001) : o, fx ? 0.004 : 0.006, 0.006, fz ? 0.004 : 0.006);
+      if (fz === 1) add(tg, ARCHW(), mat('#2a221c'), 0, 0.026, D / 2, 0.009, 0.016, 0.003);
+      const nm = 5;
+      for (let j = 0; j < nm; j++) {
+        const o = -len / 2 + 0.003 + (j * (len - 0.006)) / (nm - 1);
+        box(tg, WC, fx ? fx * (W / 2 + 0.001) : o, H, fz ? fz * (D / 2 + 0.001) : o, fx ? 0.004 : 0.005, 0.007, fz ? 0.004 : 0.005);
       }
     }
     if (ti % 3 === 1) roof(tg, { y: H + 0.002, w: 0.036, d: 0.03, h: 0.022, ridge: 0.012, lift: 0.004, th: 0.004, tile: '#5d6460', eave: '#3f4542', under: '#7a3a2e', ridgeH: 0.003, hipR: 0.0018, step: 0.008, nr: 4 });
@@ -880,15 +911,16 @@ const namsan: Builder = (gp, r) => {
     if (city(x, z)) return Math.abs(Math.hypot(x, z) - 0.43) < 0.012 ? '#3f444b' : '#9ca3af';
     if (Math.hypot(x - SX, z - SZ) < 0.06 && ny > 0.85) return '#bdb6a8';
     if (ny < 0.65) return '#7a7468';
-    const g = fbm(x * 13, y * 8, z * 13);
-    return mix('#2f5a2e', '#4f7f3e', g);
+    const g = fbm(x * 13, y * 8, z * 13), c = hash3(Math.floor(x * 95), Math.floor(y * 95), Math.floor(z * 95));
+    if (c > 0.985) return c > 0.993 ? '#c27a2a' : '#a34a2a';
+    return c > 0.72 ? '#284f27' : c < 0.14 ? '#5b8a45' : mix('#2f5a2e', '#4f7f3e', g);
   }, { rings: 36, segs: 100, side: strataSide(EARTH) });
   const gy = onGround(hf);
   // Forest canopy
-  scatter(210, 55, (x, z, i) => {
-    if (city(x, z) || Math.hypot(x - SX, z - SZ) < 0.07) return;
+  scatter(170, 55, (x, z, i) => {
+    if (city(x, z) || Math.hypot(x - SX, z - SZ) < 0.08) return;
     const c = i % 11 === 0 ? '#c27a2a' : i % 13 === 0 ? '#a34a2a' : ['#2f5a2e', '#3d6b36', '#4a7a3e', '#355e30'][i % 4];
-    lowball(gp, c, x, gy(x, z) + 0.008, z, 0.026 + hash3(i, 5, 5) * 0.012, 0.022, 0.026);
+    lowball(gp, c, x, gy(x, z) + 0.008, z, 0.03 + hash3(i, 5, 5) * 0.012, 0.024, 0.03, i);
   }, 0.34);
   // Seoul around the foot of the mountain
   const pal = ['#a3a8b0', '#c2bcb0', '#8d939b', '#d0d4d8', '#b8a58c'];
@@ -897,8 +929,8 @@ const namsan: Builder = (gp, r) => {
     const x = Math.cos(a) * rr, z = Math.sin(a) * rr;
     if (!city(x, z) || Math.abs(Math.hypot(x, z) - 0.43) < 0.02) continue;
     const h = 0.015 + hash3(i, 3, 3) ** 2 * 0.09, w = i % 3 === 0 ? 0.02 : 0.022 + hash3(i, 4, 4) * 0.014;
-    box(gp, pal[i % pal.length], x, 0.039, z, w, h, w, -a);
-    for (let k = 1; k * 0.008 < h; k++) box(gp, '#4b5563', x, 0.039 + k * 0.008 - 0.003, z, w + 0.001, 0.0025, w + 0.001, -a);
+    const bg = grp(gp, x, z, -a);
+    bandLoft(bg, sqPlan, 0, 0, 0.039, 0.039 + h, w, w, 0.008, 0.55, pal[i % pal.length], '#4b5563', { metal: 0.15 });
   }
   // Hanyangdoseong fortress wall climbing the ridge
   const wall: V3[] = [];
@@ -919,37 +951,59 @@ const namsan: Builder = (gp, r) => {
     const q: V3 = [ca[0] + (cb[0] - ca[0]) * t, ca[1] + (cb[1] - ca[1]) * t, ca[2] + (cb[2] - ca[2]) * t];
     box(gp, t < 0.5 ? '#ef4444' : '#facc15', q[0], q[1] - 0.012, q[2], 0.01, 0.009, 0.008);
   }
-  // Summit plaza and the tower's base building
-  box(gp, '#cfc8b8', SX, H0 - 0.01, SZ, 0.13, 0.012, 0.12);
-  box(gp, '#e6e2d8', SX, H0, SZ + 0.015, 0.1, 0.03, 0.06);
-  for (let k = 0; k < 3; k++) box(gp, '#4a5a70', SX, H0 + 0.004 + k * 0.009, SZ + 0.015, 0.101, 0.005, 0.061);
-  box(gp, '#f2f0ea', SX, H0 + 0.03, SZ + 0.015, 0.104, 0.003, 0.064);
-  cyl(gp, '#dcd6c8', SX, H0, SZ - 0.03, 0.03, 0.022, 14);
-  // Shaft
-  const TY = H0 + 0.022, TH = 0.34;
-  lathe(gp, [[0.022, 0], [0.018, 0.02], [0.015, 0.06], [0.013, 0.2], [0.012, TH]], WH, SX, TY, SZ - 0.03, 14);
-  // Two lattice rings around the lower shaft
-  for (const [hy, rr] of [[0.11, 0.032], [0.15, 0.032]] as const) {
-    const tor = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.0028, 4, 18), mat(WH));
-    tor.rotation.x = Math.PI / 2; tor.position.set(SX, TY + hy, SZ - 0.03); gp.add(tor);
-    for (let k = 0; k < 8; k++) {
-      const a = (k / 8) * Math.PI * 2;
-      rod(gp, [SX + Math.cos(a) * 0.014, TY + hy - 0.012, SZ - 0.03 + Math.sin(a) * 0.014], [SX + Math.cos(a) * rr, TY + hy, SZ - 0.03 + Math.sin(a) * rr], 0.0012, WH, 4);
+  // Summit plaza and N Seoul Tower Plaza: a round, glazed multi-storey drum wrapped around the shaft foot
+  const TX = SX, TZ = SZ - 0.03, STEEL = '#59616b', DARK = '#2c3238';
+  box(gp, '#cfc8b8', SX, H0 - 0.01, SZ, 0.15, 0.012, 0.13);
+  cyl(gp, '#e6e2d8', TX, H0, TZ, 0.064, 0.006, 24);
+  bandLoft(gp, circ(24), TX, TZ, H0 + 0.006, H0 + 0.04, 0.058, 0.056, 0.0085, 0.22, '#e9edf0', '#5d8f9c', { metal: 0.3 });
+  cyl(gp, '#f2f0ea', TX, H0 + 0.04, TZ, 0.06, 0.003, 24);
+  box(gp, '#e6e2d8', SX + 0.035, H0, SZ + 0.035, 0.05, 0.02, 0.03);
+  bandLoft(gp, circ(12), SX - 0.06, SZ + 0.02, H0, H0 + 0.022, 0.02, 0.02, 0.0075, 0.25, '#e9edf0', '#5d8f9c', { metal: 0.3 });
+  // Shaft: white, slightly tapering reinforced-concrete column
+  const TY = H0 + 0.04, TH = 0.3;
+  lathe(gp, [[0.0235, -0.005], [0.022, 0.03], [0.019, 0.15], [0.0165, TH]], WH, TX, TY, TZ, 18);
+  // Two steel transmission rings: radial lattice dishes and a glazed equipment cage between them
+  const ring = (y: number, R: number) => {
+    lathe(gp, [[0.02, -0.012], [R * 0.75, -0.004], [R, -0.0005], [R, 0.0025], [0.02, 0.0025]], STEEL, TX, y, TZ, 20).material = mat(STEEL, { metal: 0.5, rough: 0.45 });
+    lathe(gp, [[R + 0.0005, 0], [R + 0.0005, 0.004], [R - 0.001, 0.004]], '#9aa3ad', TX, y + 0.0025, TZ, 20);
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+      rod(gp, [TX + c * 0.019, y - 0.013, TZ + s * 0.019], [TX + c * R, y - 0.001, TZ + s * R], 0.0009, '#b4bcc6', 3);
     }
+  };
+  const R1 = TY + TH * 0.3, R2 = TY + TH * 0.42;
+  ring(R1, 0.048); ring(R2, 0.046);
+  bandLoft(gp, circ(14), TX, TZ, R1 + 0.0025, R2 - 0.012, 0.028, 0.027, 0.006, 0.3, '#9aa3ad', '#3d4d5a', { metal: 0.4 });
+  for (const [dy, a] of [[0.012, 0.6], [0.022, 2.4], [0.016, 4.1]] as const) {
+    const dish = cyl(gp, '#e5e7eb', TX + Math.cos(a) * 0.03, R1 + dy, TZ + Math.sin(a) * 0.03, 0.006, 0.002, 10);
+    dish.rotation.set(Math.PI / 2, 0, -a + Math.PI / 2, 'YXZ');
   }
-  // Observation pod: flared underside, dark glass decks with white mullions, roof
+  // Observation pod: dark flared underside, dark glass decks with mullions, crown with petal fins
   const PY = TY + TH;
-  lathe(gp, [[0.012, -0.03], [0.022, -0.016], [0.036, -0.004], [0.043, 0]], WH, SX, PY, SZ - 0.03, 18);
-  bandLoft(gp, circ(18), SX, SZ - 0.03, PY, PY + 0.034, 0.044, 0.046, 0.011, 0.3, WH, '#2b3a4f', { metal: 0.2 });
-  lathe(gp, [[0.047, 0], [0.042, 0.006], [0.03, 0.012], [0.02, 0.014], [0, 0.015]], WH, SX, PY + 0.034, SZ - 0.03, 18);
-  // Antenna: base drum, platform discs, mast with red/white sections and beacon
-  const AY = PY + 0.048;
-  cyl(gp, WH, SX, AY, SZ - 0.03, 0.012, 0.03, 10);
-  cyl(gp, '#cbd5e1', SX, AY + 0.03, SZ - 0.03, 0.02, 0.003, 12);
-  cyl(gp, WH, SX, AY + 0.033, SZ - 0.03, 0.008, 0.04, 8);
-  cyl(gp, '#cbd5e1', SX, AY + 0.073, SZ - 0.03, 0.014, 0.003, 12);
-  for (let k = 0; k < 5; k++) cyl(gp, k % 2 ? '#ef4444' : WH, SX, AY + 0.076 + k * 0.022, SZ - 0.03, 0.004 - k * 0.0005, 0.022, 6);
-  add(gp, SPHL(), mat('#ef4444', { emissive: '#ef4444' }), SX, AY + 0.188, SZ - 0.03, 0.005, 0.005, 0.005);
+  lathe(gp, [[0.016, -0.034], [0.024, -0.026], [0.036, -0.012], [0.043, -0.002], [0.044, 0]], DARK, TX, PY, TZ, 24).material = mat(DARK, { metal: 0.3, rough: 0.6 });
+  cyl(gp, '#4a525b', TX, PY, TZ, 0.0445, 0.003, 24);
+  bandLoft(gp, circ(24), TX, TZ, PY + 0.003, PY + 0.033, 0.042, 0.04, 0.0075, 0.18, '#7d868f', '#26333d', { metal: 0.35 });
+  for (let k = 0; k < 24; k++) {
+    const a = (k / 24) * Math.PI * 2;
+    box(gp, '#9aa3ad', TX + Math.cos(a) * 0.0405, PY + 0.003, TZ + Math.sin(a) * 0.0405, 0.0012, 0.03, 0.0012, -a);
+  }
+  lathe(gp, [[0.0415, 0], [0.04, 0.004], [0.033, 0.008], [0.024, 0.011], [0.016, 0.012]], '#59616b', TX, PY + 0.033, TZ, 24);
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2 + 0.2;
+    const fin = slab(grp(gp, TX, TZ, -a, PY + 0.04), [[0.012, 0], [0.034, 0], [0.026, 0.008], [0.016, 0.02]], 0.0012, '#a7b5b0', 0, true);
+    fin.rotation.y = Math.PI / 2;
+  }
+  // Antenna: steel lattice mast in red/white sections with platform rings, a mid-height bulb and beacon
+  const AY = PY + 0.045;
+  cyl(gp, '#6b7280', TX, AY, TZ, 0.013, 0.012, 10);
+  for (let k = 0; k < 7; k++) {
+    const y0 = AY + 0.012 + k * 0.021, r0 = 0.0095 - k * 0.0011, r1 = r0 - 0.0011;
+    lathe(gp, [[r0, 0], [r1, 0.021]], k % 2 ? '#d94a3a' : '#e8e8e8', TX, y0, TZ, 6).material = mat(k % 2 ? '#d94a3a' : '#e8e8e8', { metal: 0.3, rough: 0.5, flat: true });
+    if (k === 1 || k === 3) cyl(gp, '#9aa3ad', TX, y0 + 0.02, TZ, r0 + 0.006, 0.0025, 10);
+  }
+  add(gp, SPHL(), mat('#8b939c', { metal: 0.4 }), TX, AY + 0.07, TZ, 0.022, 0.016, 0.022);
+  cyl(gp, '#9aa3ad', TX, AY + 0.159, TZ, 0.0015, 0.03, 5);
+  add(gp, SPHL(), mat('#ef4444', { emissive: '#ef4444' }), TX, AY + 0.19, TZ, 0.005, 0.005, 0.005);
   // Visitors on the plaza
   const pc = ['#ef4444', '#2563eb', '#f8fafc', '#facc15'];
   for (let i = 0; i < 6; i++) person(gp, SX - 0.05 + i * 0.02, H0 + 0.002, SZ + 0.052, pc[i % 4], 0.8);

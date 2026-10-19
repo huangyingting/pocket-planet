@@ -20,17 +20,17 @@ const rgbMemo = new Map<string, [number, number, number]>();
 
 // ---- local helpers -------------------------------------------------------------------------------------
 
-type Xf = (v: V3) => V3;
+export type Xf = (v: V3) => V3;
 /** Local frame transform for Mesh3: translate to (cx,cy,cz) after turning by ry about y (same convention as Object3D). */
-const xform = (cx: number, cy: number, cz: number, ry = 0): Xf => {
+export const xform = (cx: number, cy: number, cz: number, ry = 0): Xf => {
   const c = Math.cos(ry), s = Math.sin(ry);
   return (v) => [cx + v[0] * c + v[2] * s, cy + v[1], cz - v[0] * s + v[2] * c];
 };
-const ID: Xf = (v) => v;
+export const ID: Xf = (v) => v;
 const dirOf = (T: Xf, v: V3): V3 => { const o = T([0, 0, 0]), q = T(v); return [q[0] - o[0], q[1] - o[1], q[2] - o[2]]; };
 
 /** Flat-shaded, per-face vertex-coloured mesh builder for custom bands, steps and ruins (one draw per call). */
-class Mesh3 {
+export class Mesh3 {
   pos: number[] = [];
   col: number[] = [];
   tri(a: V3, b: V3, c: V3, color: string, out?: V3): void {
@@ -39,7 +39,7 @@ class Mesh3 {
       const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
       if (nx * out[0] + ny * out[1] + nz * out[2] < 0) { const t = b; b = c; c = t; }
     }
-    this.pos.push(...a, ...b, ...c);
+    this.pos.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
     let q = rgbMemo.get(color);
     if (!q) { const t = new THREE.Color(color); q = [t.r, t.g, t.b]; rgbMemo.set(color, q); }
     this.col.push(q[0], q[1], q[2], q[0], q[1], q[2], q[0], q[1], q[2]);
@@ -47,11 +47,11 @@ class Mesh3 {
   quad(a: V3, b: V3, c: V3, d: V3, color: string, out?: V3): void { this.tri(a, b, c, color, out); this.tri(a, c, d, color, out); }
   /** Transformed quad: local points through T, local outward hint rotated by T. */
   tq(T: Xf, a: V3, b: V3, c: V3, d: V3, color: string, out: V3): void { this.quad(T(a), T(b), T(c), T(d), color, dirOf(T, out)); }
-  /** Box (base at y) in the local frame T; bottom face omitted unless `bottom`. */
-  box(T: Xf, x: number, y: number, z: number, w: number, h: number, d: number, c: string, bottom = false): void {
+  /** Box (base at y) in the local frame T; bottom face omitted unless `bottom`, back (−z) face omitted if `back` is false. */
+  box(T: Xf, x: number, y: number, z: number, w: number, h: number, d: number, c: string, bottom = false, back = true): void {
     const x0 = x - w / 2, x1 = x + w / 2, y1 = y + h, z0 = z - d / 2, z1 = z + d / 2;
     this.tq(T, [x0, y, z1], [x1, y, z1], [x1, y1, z1], [x0, y1, z1], c, [0, 0, 1]);
-    this.tq(T, [x0, y, z0], [x1, y, z0], [x1, y1, z0], [x0, y1, z0], shade(c, 0.9), [0, 0, -1]);
+    if (back) this.tq(T, [x0, y, z0], [x1, y, z0], [x1, y1, z0], [x0, y1, z0], shade(c, 0.9), [0, 0, -1]);
     this.tq(T, [x0, y, z0], [x0, y, z1], [x0, y1, z1], [x0, y1, z0], shade(c, 0.95), [-1, 0, 0]);
     this.tq(T, [x1, y, z0], [x1, y, z1], [x1, y1, z1], [x1, y1, z0], shade(c, 0.95), [1, 0, 0]);
     this.tq(T, [x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], shade(c, 1.05), [0, 1, 0]);
@@ -161,7 +161,7 @@ class Mesh3 {
 }
 
 /** Local frame: a child group at (x,y,z) turned by ry (local +z faces the direction (sin ry, cos ry)). */
-function frame(p: THREE.Object3D, x: number, y: number, z: number, ry = 0): THREE.Group {
+export function frame(p: THREE.Object3D, x: number, y: number, z: number, ry = 0): THREE.Group {
   const f = new THREE.Group();
   f.position.set(x, y, z);
   f.rotation.y = ry;
@@ -192,7 +192,7 @@ function ellipseStations(a: number, b: number, n: number, th0 = 0): number[] {
  * the parameter range th0..th1. `color` may vary per segment (weathering). Open arcs get end caps.
  */
 function ellBand(m: Mesh3, a: number, b: number, t: number, y0: number, h: number, color: string | ((th: number, i: number) => string | null),
-  th0 = 0, th1 = TAU, segs = 96, ths?: number[]): void {
+  th0 = 0, th1 = TAU, segs = 96, ths?: number[], inner = true): void {
   if (ths) { th0 = ths[0]; th1 = ths[ths.length - 1]; segs = ths.length - 1; }
   const full = Math.abs(th1 - th0 - TAU) < 1e-6;
   const O = (th: number, y: number): V3 => [a * Math.cos(th), y, b * Math.sin(th)];
@@ -204,7 +204,7 @@ function ellBand(m: Mesh3, a: number, b: number, t: number, y0: number, h: numbe
     if (!c) continue;
     const rad: V3 = [Math.cos(tm), 0, Math.sin(tm)], inn: V3 = [-rad[0], 0, -rad[2]];
     m.quad(O(ta, y0), O(tb, y0), O(tb, y1), O(ta, y1), c, rad);
-    m.quad(I(ta, y0), I(tb, y0), I(tb, y1), I(ta, y1), shade(c, 0.9), inn);
+    if (inner) m.quad(I(ta, y0), I(tb, y0), I(tb, y1), I(ta, y1), shade(c, 0.9), inn);
     m.quad(O(ta, y1), O(tb, y1), I(tb, y1), I(ta, y1), shade(c, 1.04), [0, 1, 0]);
   }
   if (!full) {
@@ -242,7 +242,7 @@ const colosseum: Builder = (gp) => {
     if (e < 1.32) return (Math.floor(x * 70) + Math.floor(z * 70)) % 2 ? '#d9ccb2' : '#cfc1a5';
     if ((x < -0.28 && z > 0.18) || (x > 0.3 && z < -0.2)) return fbm(x * 20, 1, z * 20) > 0.5 ? '#6f8f47' : '#7c9a50';
     return hash3(Math.floor(x * 90), 2, Math.floor(z * 90)) > 0.5 ? '#8f877c' : '#9d9488';
-  }, { rings: 20, segs: 88, side: strataSide(EARTH) });
+  }, { rings: 16, segs: 72, side: strataSide(EARTH) });
   const Y0 = 0.039;
   for (const [x, z, s] of [[-0.4, 0.27, 0.11], [-0.46, 0.15, 0.1], [0.4, -0.27, 0.11], [0.31, -0.37, 0.1], [0.45, 0.16, 0.1]] as const) umbrellaPine(gp, x, Y0, z, s);
   for (let i = 0; i < 9; i++) { const a = 1.2 + i * 0.22, rr = 0.45 + hash3(i, 1, 1) * 0.03; person(gp, Math.cos(a) * rr, Y0, Math.sin(a) * rr * 0.86, ['#1e3a8a', '#b91c1c', '#f8fafc', '#0f766e'][i % 4]); }
@@ -285,21 +285,25 @@ const colosseum: Builder = (gp) => {
     for (let t = 0; t < Math.min(nt, 3); t++) {
       const c = tone(k, t), y = ty[t];
       // Arched bay (ground: tall arch; upper: pedestal course under the arch)
-      m.arch(T, 0, y, bw, TH[t] - 0.009, D, bw * (t ? 0.6 : 0.62), t ? 0.011 : 0, t ? TH[t] - 0.03 : TH[t] - 0.02, c, 'arch', 4);
+      // Upper-tier back faces of full-height bays sit behind the brick backing panel
+      m.arch(T, 0, y, bw, TH[t] - 0.009, D, bw * (t ? 0.6 : 0.62), t ? 0.011 : 0, t ? TH[t] - 0.03 : TH[t] - 0.02, c, 'arch', 4, false, !(t && nt === 4));
       // Engaged half-column on the pier (Tuscan / Ionic / Corinthian) with its capital
       const cy = y + (t ? 0.011 : 0), ch = TH[t] - 0.009 - (t ? 0.011 : 0) - 0.004;
       m.prism(T, -bw / 2, cy, D / 2, 0.0036, ch, 5, c, 0.0036, 0, false);
-      m.box(T, -bw / 2, cy + ch, D / 2 + 0.001, 0.0095, t === 2 ? 0.006 : 0.004, 0.006, capC(t, shade(c, 1.05)));
+      m.box(T, -bw / 2, cy + ch, D / 2 + 0.001, 0.0095, t === 2 ? 0.006 : 0.004, 0.006, capC(t, shade(c, 1.05)), false, false);
     }
     if (nt === 4) {
       const c = tone(k, 3), y = ty[3];
       // Attic: blind wall with small rectangular windows in alternate bays, Corinthian pilasters and corbels
       if (k % 2) m.arch(T, 0, y, bw, TH[3] - 0.012, D, bw * 0.3, 0.03, 0.014, c, 'rect');
       else m.box(T, 0, y, 0, bw, TH[3] - 0.012, D, c);
-      m.box(T, -bw / 2, y + 0.004, D / 2, 0.006, TH[3] - 0.02, 0.003, shade(c, 1.04));
-      m.box(T, -bw / 2, y + TH[3] - 0.016, D / 2 + 0.001, 0.008, 0.004, 0.004, shade(c, 1.08));
-      for (const dx of [-0.25, 0.25]) m.box(T, dx * bw, y + TH[3] - 0.02, D / 2 + 0.002, 0.003, 0.004, 0.004, shade(c, 0.95));
-      m.box(T, 0, ty[1], -D / 2 - 0.002, bw, TH[1] + TH[2] + TH[3] - 0.004, 0.003, shade(BRICK, 1.1));
+      m.box(T, -bw / 2, y + 0.004, D / 2, 0.006, TH[3] - 0.02, 0.003, shade(c, 1.04), false, false);
+      m.box(T, -bw / 2, y + TH[3] - 0.016, D / 2 + 0.001, 0.008, 0.004, 0.004, shade(c, 1.08), false, false);
+      for (const dx of [-0.25, 0.25]) m.box(T, dx * bw, y + TH[3] - 0.02, D / 2 + 0.002, 0.003, 0.004, 0.004, shade(c, 0.95), false, false);
+      // Brick backing of the upper storeys (inner face + top only; the rest is buried in the shell)
+      const zb = -D / 2 - 0.0035, yb = ty[1] + TH[1] + TH[2] + TH[3] - 0.004, bc = shade(BRICK, 1.1);
+      m.tq(T, [-bw / 2, ty[1], zb], [bw / 2, ty[1], zb], [bw / 2, yb, zb], [-bw / 2, yb, zb], shade(bc, 0.9), [0, 0, -1]);
+      m.tq(T, [-bw / 2, yb, zb], [bw / 2, yb, zb], [bw / 2, yb, -D / 2], [-bw / 2, yb, -D / 2], shade(bc, 1.05), [0, 1, 0]);
     } else {
       // Jagged top of a broken bay
       m.box(T, 0, ty[nt], 0, bw * 0.9, 0.004 + hash3(k, 2, 2) * 0.01, D * 0.9, mix(tone(k, 5), BRICK, 0.35));
@@ -309,12 +313,12 @@ const colosseum: Builder = (gp) => {
   const bandC = (t: number, f: number) => (_th: number, i: number) => (tiersOf(i) > t ? shade(tone(i, t), f) : null);
   const Ao = A + D / 2, Bo = B + D / 2;
   for (let t = 0; t < 3; t++) {
-    ellBand(m, Ao + 0.002, Bo + 0.002, D + 0.004, ty[t] + TH[t] - 0.009, 0.006, bandC(t, 1.02), 0, 0, 0, st);
-    ellBand(m, Ao + 0.004, Bo + 0.004, D + 0.008, ty[t] + TH[t] - 0.003, 0.003, bandC(t, 1.1), 0, 0, 0, st);
-    if (t) ellBand(m, Ao + 0.0015, Bo + 0.0015, 0.004, ty[t], 0.011, bandC(t, 1.05), 0, 0, 0, st);
+    ellBand(m, Ao + 0.002, Bo + 0.002, D + 0.004, ty[t] + TH[t] - 0.009, 0.006, bandC(t, 1.02), 0, 0, 0, st, false);
+    ellBand(m, Ao + 0.004, Bo + 0.004, D + 0.008, ty[t] + TH[t] - 0.003, 0.003, bandC(t, 1.1), 0, 0, 0, st, false);
+    if (t) ellBand(m, Ao + 0.0015, Bo + 0.0015, 0.004, ty[t], 0.011, bandC(t, 1.05), 0, 0, 0, st, false);
   }
-  ellBand(m, Ao + 0.001, Bo + 0.001, D + 0.003, ty[3] + TH[3] - 0.012, 0.009, bandC(3, 1.06), 0, 0, 0, st);
-  ellBand(m, Ao + 0.002, Bo + 0.002, D + 0.004, ty[3] + TH[3] - 0.003, 0.004, bandC(3, 0.96), 0, 0, 0, st);
+  ellBand(m, Ao + 0.001, Bo + 0.001, D + 0.003, ty[3] + TH[3] - 0.012, 0.009, bandC(3, 1.06), 0, 0, 0, st, false);
+  ellBand(m, Ao + 0.002, Bo + 0.002, D + 0.004, ty[3] + TH[3] - 0.003, 0.004, bandC(3, 0.96), 0, 0, 0, st, false);
   // Vaulted ambulatory floors behind the arcades (shadowed galleries read through the arches)
   for (const y of [ty[1], ty[2]]) ellBand(m, A - D / 2, B - D / 2, 0.04, y - 0.004, 0.004, bandC(3, 0.8), 0, 0, 0, st);
   // Brick buttresses (Stern & Valadier) sealing the two break ends with a sloping spur
@@ -339,13 +343,20 @@ const colosseum: Builder = (gp) => {
     const x0 = A2 * Math.cos(st2[k]), z0 = B2 * Math.sin(st2[k]), x1 = A2 * Math.cos(st2[k + 1]), z1 = B2 * Math.sin(st2[k + 1]);
     const T = xform((x0 + x1) / 2, 0, (z0 + z1) / 2, Math.atan2(Math.cos(th) / A2, Math.sin(th) / B2));
     const c = mix(tone(k, 7), BRICK, 0.25 + hash3(k, 8, 1) * 0.25);
-    if (hidden) { m.box(T, 0, Y1, 0, bw2, H2, 0.014, '#4d3a2c'); continue; }
+    if (hidden) {
+      // Plain wall behind the intact shell: neighbours hide the side faces
+      const h = Y1 + H2, w = bw2 / 2;
+      m.tq(T, [-w, Y1, 0.007], [w, Y1, 0.007], [w, h, 0.007], [-w, h, 0.007], '#4d3a2c', [0, 0, 1]);
+      m.tq(T, [-w, Y1, -0.007], [w, Y1, -0.007], [w, h, -0.007], [-w, h, -0.007], shade('#4d3a2c', 0.9), [0, 0, -1]);
+      m.tq(T, [-w, h, -0.007], [w, h, -0.007], [w, h, 0.007], [-w, h, 0.007], shade('#4d3a2c', 1.05), [0, 1, 0]);
+      continue;
+    }
     m.arch(T, 0, Y1, bw2, TH[0], 0.014, bw2 * 0.58, 0, TH[0] - 0.016, c, 'arch', 3, false, false);
     m.arch(T, 0, Y1 + TH[0], bw2, TH[1], 0.014, bw2 * 0.56, 0.008, TH[1] - 0.024, c, 'arch', 3, false, false);
     m.arch(T, 0, Y1 + TH[0] + TH[1], bw2, 0.045, 0.014, bw2 * 0.28, 0.016, 0.014, mix(c, BRICK, 0.4), 'rect', 2, true);
-    m.box(T, 0, Y1 + TH[0] - 0.004, 0.002, bw2, 0.004, 0.018, shade(c, 1.08), true);
-    m.box(T, 0, Y1 + TH[0] + TH[1] - 0.004, 0.002, bw2, 0.004, 0.018, shade(c, 1.08), true);
-    m.box(T, -bw2 / 2, Y1, 0.008, 0.006, TH[0] - 0.004, 0.003, shade(c, 1.04));
+    m.box(T, 0, Y1 + TH[0] - 0.004, 0.002, bw2, 0.004, 0.018, shade(c, 1.08));
+    m.box(T, 0, Y1 + TH[0] + TH[1] - 0.004, 0.002, bw2, 0.004, 0.018, shade(c, 1.08));
+    m.box(T, -bw2 / 2, Y1, 0.008, 0.006, TH[0] - 0.004, 0.003, shade(c, 1.04), false, false);
     // Radial ambulatory walls (stumps of the vaults that once joined the outer ring)
     if (k % 2 === 0) m.box(T, -bw2 / 2, Y1, 0.03, 0.008, 0.02 + hash3(k, 6, 6) * 0.06, 0.044, mix(BRICK, TRAV, 0.3));
   }
@@ -378,12 +389,12 @@ const colosseum: Builder = (gp) => {
     m.quad(sh(o0, 1), sh(o0, -1), sh(i0, -1), sh(i0, 1), shade(c, 1.1), [0, 1, 0]);
   }
   // Podium wall around the arena with its marble parapet
-  ellBand(m, ar + 0.012, br + 0.012, 0.008, Y0, yPod - Y0, '#cdbb98');
-  ellBand(m, ar + 0.014, br + 0.014, 0.012, yPod, 0.004, '#efe6d2');
+  ellBand(m, ar + 0.012, br + 0.012, 0.008, Y0, yPod - Y0, '#cdbb98', 0, TAU, 64);
+  ellBand(m, ar + 0.014, br + 0.014, 0.012, yPod, 0.004, '#efe6d2', 0, TAU, 64);
 
   // Hypogeum: parallel brick corridors in the open pit, partial reconstructed timber arena floor at the east end
   const yA = Y0 + 0.024;
-  ellBand(m, ar, br, 0.006, Y0, yA - Y0 - 0.002, '#9c6448');
+  ellBand(m, ar, br, 0.006, Y0, yA - Y0 - 0.002, '#9c6448', 0, TAU, 64);
   for (let i = -5; i <= 5; i++) {
     const z = i * 0.0205 + (i === 0 ? 0 : Math.sign(i) * 0.004);
     if (i === 0) continue;
@@ -750,37 +761,90 @@ const pisa: Builder = (gp) => {
   }, { rings: 18, segs: 72, side: strataSide(EARTH) });
   for (let i = 0; i < 10; i++) person(gp, -0.12 + hash3(i, 1, 7) * 0.3, Y0, 0.18 + hash3(i, 2, 7) * 0.08, ['#1e3a8a', '#b91c1c', '#f8fafc', '#0f766e', '#ca8a04'][i % 5], 0.011);
 
-  // Duomo: apse with two blind-arcaded galleries, transept wall with striped marble and gabled lead roofs, dome
-  const d = new Mesh3();
-  const AX = -0.15, AZ = -0.14, Tap = xform(AX, 0, AZ, Math.PI * 0.25);
-  const apR = 0.068, segs = 12;
-  for (let k = 0; k < segs; k++) {
-    const a0 = (k / segs) * Math.PI, a1 = ((k + 1) / segs) * Math.PI, am = (a0 + a1) / 2;
-    const w = 2 * apR * Math.sin((a1 - a0) / 2) * 1.02;
-    const T = (v: V3) => Tap(xform(Math.cos(am) * apR * Math.cos((a1 - a0) / 2), 0, Math.sin(am) * apR * Math.cos((a1 - a0) / 2), Math.atan2(Math.cos(am), Math.sin(am)))(v));
-    d.arch(T, 0, Y0, w, 0.07, 0.006, w * 0.62, 0.012, 0.05, MAR, 'arch', 4, false, false);
-    d.arch(T, 0, Y0 + 0.07, w, 0.05, 0.006, w * 0.5, 0.008, 0.032, MAR, 'arch', 4, true, false);
-    for (let b = 0; b < 6; b++) d.box(T, 0, Y0 + 0.006 + b * 0.019, 0.0032, w, 0.0028, 0.001, GREY);
-    d.box(T, 0, Y0 + 0.068, 0.002, w, 0.004, 0.012, shade(MAR, 1.03));
+  // Duomo (east end, facing the tower): double-aisled choir with lean-to roofs and arcaded clerestory, transept
+  // with apsidal ends, the main apse in two arcaded tiers, and the elliptical lead dome on its arcaded drum over
+  // the crossing. White Carrara marble striped with grey bands, blind arcades with dark recesses.
+  const d = new Mesh3(), LEAD = '#8a8f94', BAND = '#a3a197';
+  const Tap = xform(-0.12, 0, -0.11, Math.PI * 0.25);
+  const sub = (T0: Xf, x: number, z: number, ry: number): Xf => { const L = xform(x, 0, z, ry); return v => T0(L(v)); };
+  const bands = (T: Xf, x: number, z: number, w: number, dd: number, y0: number, y1: number) => {
+    for (let y = y0 + 0.011; y < y1 - 0.004; y += 0.0135) d.box(T, x, y, z, w + 0.0016, 0.0034, dd + 0.0016, BAND);
+  };
+  /** Row of blind arches along a wall whose outward face is local +z of frame T, spanning x0..x1. */
+  const arcade = (T: Xf, x0: number, x1: number, y: number, h: number, n: number, ow = 0.62, oh = 0.8) => {
+    const w = (x1 - x0) / n;
+    for (let i = 0; i < n; i++) d.arch(T, x0 + (i + 0.5) * w, y, w, h, 0.004, w * ow, h * 0.05, h * oh, MAR, 'arch', 4, true, false);
+  };
+  /** Half-round apse of radius r facing +z of frame T, `tiers` = [y0, h, openFraction][] */
+  const apse = (T: Xf, r: number, tiers: [number, number, number][], roofY: number) => {
+    const n = 9;
+    for (let k = 0; k < n; k++) {
+      const am = ((k + 0.5) / n) * Math.PI, w = 2 * r * Math.sin(Math.PI / n / 2) * 1.04;
+      const Tk = sub(T, Math.cos(am) * r * Math.cos(Math.PI / n / 2), Math.sin(am) * r * Math.cos(Math.PI / n / 2), Math.atan2(Math.cos(am), Math.sin(am)));
+      for (const [y0, h, of] of tiers) d.arch(Tk, 0, y0, w, h, 0.005, w * of, h * 0.06, h * 0.78, MAR, 'arch', 4, true, false);
+    }
+    d.prism(T, 0, Y0, 0, r - 0.004, roofY - Y0, 18, shade(MAR, 0.8), r - 0.004, 0, false);
+    for (let y = Y0 + 0.011; y < roofY - 0.004; y += 0.0135) d.prism(T, 0, y, 0, r + 0.0018, 0.0034, 18, BAND, r + 0.0018, 0, false);
+    d.prism(T, 0, roofY, 0, r + 0.004, 0.003, 18, shade(MAR, 1.04), r + 0.004, 0);
+    d.prism(T, 0, roofY + 0.003, 0, r + 0.002, r * 0.55, 18, LEAD, 0.003, 0, false);
+  };
+  // marble plinth
+  d.box(Tap, 0, Y0 - 0.002, -0.05, 0.2, 0.005, 0.17, '#e4dfd2');
+  d.box(Tap, 0, Y0 - 0.002, -0.06, 0.4, 0.005, 0.09, '#e4dfd2');
+  // aisles (double, under lean-to roofs) and the clerestory of the choir/nave
+  const AY = Y0 + 0.1, NY = Y0 + 0.17, NW = 0.04, AW = 0.095, Z0 = -0.135, Z1 = 0.03, TZc = -0.06, TD = 0.08, TL = 0.17;
+  d.box(Tap, 0, Y0, (Z0 + Z1) / 2, AW * 2, AY - Y0, Z1 - Z0, MAR);
+  bands(Tap, 0, (Z0 + Z1) / 2, AW * 2, Z1 - Z0, Y0, AY);
+  for (const sx of [-1, 1]) {
+    const Ts = sub(Tap, sx * (AW + 0.0005), 0, sx * Math.PI / 2);
+    // wall stretches not covered by the transept, mapped into the side frame's x (= -z on the +x side)
+    const runs = ([[TZc + TD / 2, Z1, 1], [Z0, TZc - TD / 2, 1]] as const).map(([za, zb, n]) => (sx > 0 ? [-zb, -za, n] : [za, zb, n]) as [number, number, number]);
+    for (const [xa, xb, n] of runs) arcade(Ts, xa, xb, Y0 + 0.006, 0.086, n);
+    d.tq(Tap, [sx * (AW + 0.004), AY, Z0], [sx * (AW + 0.004), AY, Z1 + 0.003], [sx * NW, AY + 0.028, Z1 + 0.003], [sx * NW, AY + 0.028, Z0], LEAD, [sx, 1, 0]);
+    const Tc = sub(Tap, sx * (NW + 0.0005), 0, sx * Math.PI / 2);
+    for (const [za, zb] of runs) {
+      const n = 1, w = (zb - za) / n;
+      for (let i = 0; i < n; i++) d.arch(Tc, za + (i + 0.5) * w, AY + 0.028, w, NY - AY - 0.028, 0.004, w * 0.36, 0.008, 0.026, MAR, 'arch', 4, false, false);
+    }
   }
-  d.prism(Tap, 0, Y0, 0, apR - 0.004, 0.12, 24, '#5d544b', apR - 0.004, 0, false);
-  for (let k = 0; k < segs; k++) {
-    const a0 = (k / segs) * Math.PI, a1 = ((k + 1) / segs) * Math.PI, rr = apR + 0.004;
-    d.tri(Tap([Math.cos(a0) * rr, Y0 + 0.12, Math.sin(a0) * rr]), Tap([Math.cos(a1) * rr, Y0 + 0.12, Math.sin(a1) * rr]), Tap([0, Y0 + 0.16, 0]), '#8a8f94', [0, 1, 0]);
+  d.box(Tap, 0, AY, (Z0 + Z1) / 2, NW * 2, NY - AY, Z1 - Z0, MAR);
+  bands(Tap, 0, (Z0 + Z1) / 2, NW * 2, Z1 - Z0, AY + 0.02, NY);
+  d.box(Tap, 0, NY - 0.003, (Z0 + Z1) / 2, NW * 2 + 0.006, 0.004, Z1 - Z0 + 0.004, shade(MAR, 1.04));
+  d.poly(Tap, [[-NW - 0.004, NY], [NW + 0.004, NY], [0, NY + 0.03]], Z0, Z1, LEAD);
+  // transept with apsidal ends and gabled lead roof
+  d.box(Tap, 0, Y0, TZc, TL * 2, NY - 0.005 - Y0, TD, MAR);
+  bands(Tap, 0, TZc, TL * 2, TD, Y0, NY - 0.005);
+  for (const sz of [-1, 1]) for (const sx of [-1, 1]) {
+    const Tf = sub(Tap, 0, TZc + sz * (TD / 2 + 0.0005), sz > 0 ? 0 : Math.PI);
+    arcade(Tf, sx > 0 ? AW + 0.004 : -TL, sx > 0 ? TL : -AW - 0.004, Y0 + 0.006, 0.09, 2);
+    arcade(Tf, sx > 0 ? AW + 0.004 : -TL, sx > 0 ? TL : -AW - 0.004, Y0 + 0.1, 0.06, 4, 0.4, 0.62);
   }
-  const Tn = (v: V3) => Tap([v[0], v[1], v[2] - 0.045]);
-  d.box(Tn, 0, Y0, 0, apR * 2.6, 0.17, 0.09, MAR);
-  for (let b = 0; b < 9; b++) d.box(Tn, 0, Y0 + 0.01 + b * 0.019, 0, apR * 2.6 + 0.002, 0.003, 0.092, GREY);
-  for (let k = 0; k < 3; k++) for (const sx of [-1, 1]) {
-    const Ta = xform(sx * apR * 1.3, 0, -0.03 + k * 0.03, sx * Math.PI / 2);
-    d.arch((v) => Tn(Ta(v)), 0, Y0 + 0.012, 0.032, 0.09, 0.003, 0.022, 0.006, 0.07, MAR, 'arch', 4, false, false);
+  const Tt = sub(Tap, 0, TZc, Math.PI / 2);
+  d.poly(Tt, [[-TD / 2 - 0.004, NY - 0.005], [TD / 2 + 0.004, NY - 0.005], [0, NY + 0.025]], -TL, TL, LEAD);
+  for (const sx of [-1, 1]) {
+    d.poly(Tt, [[-TD / 2, NY - 0.005], [TD / 2, NY - 0.005], [0, NY + 0.021]], sx * TL - 0.002, sx * TL + 0.002, MAR);
+    d.prism(Tap, sx * TL, NY + 0.021, TZc, 0.003, 0.012, 6, MAR, 0.001);
+    apse(sub(Tap, sx * TL, TZc, sx * Math.PI / 2), 0.032, [[Y0 + 0.004, 0.07, 0.6], [Y0 + 0.078, 0.046, 0.5]], Y0 + 0.124);
   }
+  // main apse, two arcaded tiers with the upper open gallery
+  apse(sub(Tap, 0, Z1, 0), NW + 0.004, [[Y0 + 0.004, 0.1, 0.62], [Y0 + 0.108, 0.058, 0.55]], NY - 0.004);
+  // crossing: arcaded drum and elliptical ribbed lead dome with lantern
+  const Te: Xf = v => Tap([v[0] * 0.86, v[1], TZc + v[2] * 1.12]);
+  const DY = NY + 0.042;
+  d.prism(Te, 0, NY - 0.005, 0, 0.042, DY - NY + 0.005, 16, MAR, 0.042, 0, false);
+  for (let k = 0; k < 16; k++) {
+    const a = ((k + 0.5) / 16) * TAU, w = 2 * 0.044 * Math.sin(Math.PI / 16) * 1.04;
+    d.arch(sub(Te, Math.cos(a) * 0.044, Math.sin(a) * 0.044, Math.atan2(Math.cos(a), Math.sin(a))), 0, DY - 0.026, w, 0.024, 0.004, w * 0.55, 0.003, 0.017, MAR, 'arch', 4, false, false);
+  }
+  d.prism(Te, 0, DY - 0.002, 0, 0.047, 0.004, 16, shade(MAR, 1.04), 0.047, 0);
+  const prof: [number, number][] = [[0.044, 0], [0.043, 0.014], [0.039, 0.03], [0.032, 0.045], [0.022, 0.057], [0.01, 0.064], [0.006, 0.065]];
+  for (let i = 0; i < prof.length - 1; i++) d.prism(Te, 0, DY + 0.002 + prof[i][1], 0, prof[i][0], prof[i + 1][1] - prof[i][1], 16, i % 2 ? shade(LEAD, 0.94) : LEAD, prof[i + 1][0], Math.PI / 16, i === prof.length - 2);
+  d.prism(Te, 0, DY + 0.067, 0, 0.0065, 0.012, 8, MAR, 0.006);
+  d.prism(Te, 0, DY + 0.079, 0, 0.0075, 0.003, 8, LEAD, 0.004);
+  d.prism(Te, 0, DY + 0.082, 0, 0.0012, 0.012, 4, '#b08d3a');
   // marble paths across the lawn
   d.box(xform(0.17, 0, 0.18, -0.6), 0, Y0 - 0.0015, 0, 0.02, 0.0025, 0.2, '#e9e4d6');
   d.box(xform(-0.12, 0, 0.12, 1.2), 0, Y0 - 0.0015, 0, 0.02, 0.0025, 0.2, '#e9e4d6');
-  d.poly(Tn, [[-apR * 1.35, Y0 + 0.17], [apR * 1.35, Y0 + 0.17], [0, Y0 + 0.23]], -0.045, 0.045, '#8a8f94');
-  d.prism(Tn, 0, Y0 + 0.19, -0.02, 0.04, 0.03, 16, MAR, 0.04, 0, false);
-  d.prism(Tn, 0, Y0 + 0.22, -0.02, 0.042, 0.035, 16, '#8f949a', 0.01);
   d.build(gp);
 
   // Tower (local frame, then leaned): r = outer radius per storey
@@ -878,7 +942,7 @@ function corn2(m: Mesh3, T: Xf, yy: number, rr: number, c: string): void {
 // green-painted Westminster Bridge with a red bus.
 const GOLD = '#d2a845';
 /** Calls f with an outward-facing frame for each of the four faces of a square plan (half-size h) at (cx,cz). */
-function faces4(cx: number, cz: number, h: number, f: (T: Xf, i: number) => void): void {
+export function faces4(cx: number, cz: number, h: number, f: (T: Xf, i: number) => void): void {
   for (let i = 0; i < 4; i++) { const a = (i * Math.PI) / 2; f(xform(cx + Math.sin(a) * h, 0, cz + Math.cos(a) * h, a), i); }
 }
 const bigben: Builder = (gp) => {
@@ -921,23 +985,77 @@ const bigben: Builder = (gp) => {
   }
   bus(-0.12, -0.16);
 
-  // Palace of Westminster river front (Perpendicular Gothic bays, parapet pinnacles, slate roof, turrets)
-  const PX0 = 0.1, PX1 = 0.37, PZ = 0.09, PH = 0.15;
+  // Palace of Westminster river front: Perpendicular Gothic bays between buttress shafts that rise into
+  // pinnacles, three tiers of pointed traceried windows with panelled spandrels, pierced crenellated parapet,
+  // projecting end pavilions with steep iron-crested roofs and corner turrets, the steep slate roof with
+  // cresting, and the octagonal Central Tower with its spire and pinnacle ring rising behind.
+  const PX0 = 0.1, PX1 = 0.37, PZ = 0.09, PH = 0.15, LT = shade(STONE, 1.06), WIN = '#3b3428';
   m.box(ID, (PX0 + PX1) / 2, Y0, -0.01, PX1 - PX0, PH, 0.2, shade(STONE, 0.96));
   const pf = xform(0, 0, PZ + 0.0001, 0);
-  for (let x = PX0 + 0.012; x < PX1 - 0.005; x += 0.0225) {
-    m.box(pf, x, Y0, 0, 0.0045, PH + 0.012, 0.004, shade(STONE, 1.05));
-    m.prism(pf, x, Y0 + PH + 0.012, 0, 0.0028, 0.016, 4, shade(STONE, 1.05), 0, Math.PI / 4);
-    for (let r = 0; r < 4; r++) m.box(pf, x + 0.0112, Y0 + 0.018 + r * 0.033, -0.001, 0.009, 0.022, 0.003, '#4a4336');
+  const bayW = 0.0225, nb = Math.floor((PX1 - PX0 - 0.01) / bayW);
+  const pav = (i: number) => i < 2 || i >= nb - 2 || i === 5 || i === 6;
+  for (let i = 0; i <= nb; i++) {
+    const x = PX0 + 0.006 + i * bayW;
+    const proj = (i <= 2 || i >= nb - 2 || (i >= 5 && i <= 7)) ? 0.006 : 0;
+    m.box(pf, x, Y0, proj / 2, 0.0045, PH + 0.014, 0.005 + proj, LT);
+    m.prism(pf, x, Y0 + PH + 0.014, proj / 2, 0.003, 0.02, 4, LT, 0.0004, Math.PI / 4);
+    if (i === nb) break;
+    const xc = x + bayW / 2, dz = pav(i) ? 0.006 : 0;
+    // windows: pointed heads in three tiers with dark glazing and stone mullion/transom
+    for (const [wy, wh] of [[0.016, 0.026], [0.054, 0.034], [0.1, 0.026]] as const) {
+      m.arch(xform(xc, 0, PZ + dz + 0.002, 0), 0, Y0 + wy - 0.004, bayW - 0.0045, wh + 0.008, 0.004, 0.011, 0.004, wh, STONE, 'pointed', 4, false, false);
+      m.box(pf, xc, Y0 + wy, dz - 0.001, 0.011, wh - 0.002, 0.001, WIN);
+      m.box(pf, xc, Y0 + wy, dz - 0.0005, 0.0012, wh - 0.004, 0.0015, LT);
+      m.box(pf, xc, Y0 + wy + wh * 0.55, dz - 0.0005, 0.011, 0.0012, 0.0015, LT);
+    }
+    if (dz) m.box(pf, xc, Y0, dz / 2, bayW - 0.0044, PH, dz, shade(STONE, 0.98));
+    // pierced parapet: merlons over each bay
+    for (let k = 0; k < 3; k++) m.box(pf, x + 0.0045 + k * 0.0068, Y0 + PH + 0.002, dz + 0.001, 0.0036, 0.008, 0.004, LT);
   }
-  for (let r = 0; r < 4; r++) m.box(pf, (PX0 + PX1) / 2, Y0 + 0.013 + r * 0.033, 0.001, PX1 - PX0, 0.003, 0.004, shade(STONE, 1.08));
-  m.box(pf, (PX0 + PX1) / 2, Y0 + PH - 0.004, 0.002, PX1 - PX0, 0.006, 0.006, shade(STONE, 1.08));
-  m.poly(xform((PX0 + PX1) / 2, 0, -0.01, Math.PI / 2), [[-0.09, Y0 + PH], [0.09, Y0 + PH], [0.04, Y0 + PH + 0.045], [-0.04, Y0 + PH + 0.045]], -(PX1 - PX0) / 2 + 0.004, (PX1 - PX0) / 2 - 0.004, SLATE);
-  for (const tx of [0.19, 0.33]) {
-    m.box(ID, tx, Y0, PZ - 0.012, 0.03, PH + 0.06, 0.03, STONE);
-    m.prism(ID, tx, Y0 + PH + 0.06, PZ - 0.012, 0.024, 0.04, 4, SLATE, 0, Math.PI / 4);
-    for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) m.prism(ID, tx + dx * 0.016, Y0 + PH + 0.04, PZ - 0.012 + dz * 0.016, 0.003, 0.04, 6, shade(STONE, 1.05), 0.0008);
+  for (const y of [0.012, 0.048, 0.094, PH - 0.006]) m.box(pf, (PX0 + PX1) / 2, Y0 + y, 0.004, PX1 - PX0, 0.003, 0.009, shade(STONE, 1.1));
+  // west end wall (seen past the clock tower): same window tiers between buttress shafts
+  const ef = xform(PX0 - 0.0001, 0, -0.01, -Math.PI / 2), efa = xform(PX0 - 0.0021, 0, -0.01, -Math.PI / 2), en = 8, ew = 0.19 / en;
+  for (let i = 0; i <= en; i++) {
+    const x = -0.095 + i * ew;
+    m.box(ef, x, Y0, 0, 0.004, PH + 0.006, 0.004, LT, false, false);
+    if (i === en) break;
+    for (const [wy, wh] of [[0.016, 0.026], [0.054, 0.034], [0.1, 0.026]] as const) {
+      m.arch(efa, x + ew / 2, Y0 + wy - 0.004, ew - 0.004, wh + 0.008, 0.003, 0.01, 0.004, wh, STONE, 'pointed', 4, false, false);
+      m.box(ef, x + ew / 2, Y0 + wy, 0.0005, 0.01, wh - 0.002, 0.001, WIN, false, false);
+      m.box(ef, x + ew / 2, Y0 + wy, 0.001, 0.0012, wh - 0.004, 0.0015, LT, false, false);
+    }
   }
+  for (const y of [0.012, 0.048, 0.094, PH - 0.006]) m.box(ef, 0, Y0 + y, 0.002, 0.2, 0.003, 0.005, shade(STONE, 1.1), false, false);
+  // steep slate roof with gilded cresting
+  m.poly(xform((PX0 + PX1) / 2, 0, -0.01, Math.PI / 2), [[-0.09, Y0 + PH], [0.09, Y0 + PH], [0.025, Y0 + PH + 0.05], [-0.025, Y0 + PH + 0.05]], -(PX1 - PX0) / 2 + 0.004, (PX1 - PX0) / 2 - 0.004, SLATE);
+  for (let x = PX0 + 0.01; x < PX1 - 0.005; x += 0.012) m.prism(ID, x, Y0 + PH + 0.05, -0.01, 0.0012, 0.008, 4, GOLD, 0.0003);
+  // end pavilions: steep pyramidal roofs with iron cresting and corner turrets
+  for (const tx of [PX0 + 0.006 + bayW, PX0 + 0.006 + bayW * 6, PX1 - 0.006 - bayW * 1.5]) {
+    const tz = PZ - 0.012;
+    m.box(ID, tx, Y0, tz - 0.004, 0.034, PH + 0.03, 0.034, STONE);
+    for (const y of [0.05, 0.1]) m.box(ID, tx, Y0 + PH + 0.03 - 0.03 + y * 0.2, tz + 0.0135, 0.022, 0.003, 0.004, LT);
+    m.prism(ID, tx, Y0 + PH + 0.03, tz - 0.004, 0.026, 0.05, 4, SLATE, 0.003, Math.PI / 4);
+    m.prism(ID, tx, Y0 + PH + 0.08, tz - 0.004, 0.0012, 0.012, 4, GOLD, 0.0003);
+    for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      m.prism(ID, tx + dx * 0.0165, Y0 + PH - 0.01, tz - 0.004 + dz * 0.0165, 0.004, 0.05, 8, LT, 0.004);
+      m.prism(ID, tx + dx * 0.0165, Y0 + PH + 0.04, tz - 0.004 + dz * 0.0165, 0.0045, 0.022, 8, shade(STONE, 1.02), 0.0006);
+    }
+  }
+  // Central Tower: octagonal lantern with tall lancets, pinnacle ring and the spire
+  const CX = 0.29, CZ = -0.07, cy0 = Y0 + PH + 0.01, cr = 0.03;
+  m.prism(ID, CX, Y0 + PH - 0.02, CZ, cr + 0.004, 0.03, 8, STONE, cr + 0.004, Math.PI / 8);
+  m.prism(ID, CX, cy0, CZ, cr, 0.085, 8, STONE, cr * 0.96, Math.PI / 8);
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * TAU, T = xform(CX + Math.sin(a) * cr * 0.93, 0, CZ + Math.cos(a) * cr * 0.93, a);
+    m.arch(T, 0, cy0 + 0.012, 0.02, 0.06, 0.004, 0.011, 0.004, 0.05, STONE, 'pointed', 4, false, false);
+    const ac = a + Math.PI / 8, px = CX + Math.sin(ac) * cr * 1.04, pz = CZ + Math.cos(ac) * cr * 1.04;
+    m.prism(ID, px, cy0, pz, 0.0035, 0.09, 6, LT, 0.003);
+    m.prism(ID, px, cy0 + 0.09, pz, 0.004, 0.026, 6, LT, 0.0005);
+  }
+  m.prism(ID, CX, cy0 + 0.085, CZ, cr + 0.002, 0.005, 8, LT, cr + 0.002, Math.PI / 8);
+  m.prism(ID, CX, cy0 + 0.09, CZ, cr * 0.82, 0.12, 8, shade(STONE, 0.92), 0.002, Math.PI / 8);
+  for (let k = 0; k < 4; k++) m.prism(ID, CX, cy0 + 0.1 + k * 0.025, CZ, cr * (0.72 - k * 0.17), 0.003, 8, LT, cr * (0.72 - k * 0.17), Math.PI / 8);
+  m.prism(ID, CX, cy0 + 0.21, CZ, 0.001, 0.02, 4, GOLD, 0.0002);
   // link wing between palace and tower
   m.box(ID, 0.06, Y0, -0.02, 0.1, 0.12, 0.1, shade(STONE, 0.94));
 

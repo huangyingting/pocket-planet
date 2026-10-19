@@ -36,13 +36,13 @@ export const ISO: Record<string, [string, Continent]> = {
 // Places that are territories or disputed: never asked as a "country" in quizzes.
 export const NOT_SOVEREIGN = new Set(['EH', 'FK', 'GL', 'TF', 'PR', 'NC', 'PS', 'TW', 'AQ', 'XK']);
 
-export const CONTINENT_NAMES: Record<Continent | 'ocean', Record<'en' | 'ko' | 'ja' | 'zh', string>> = {
-  africa: { en: 'Africa', ko: '아프리카', ja: 'アフリカ', zh: '非洲' },
-  europe: { en: 'Europe', ko: '유럽', ja: 'ヨーロッパ', zh: '欧洲' },
-  asia: { en: 'Asia', ko: '아시아', ja: 'アジア', zh: '亚洲' },
-  'north-america': { en: 'North America', ko: '북아메리카', ja: '北アメリカ', zh: '北美洲' },
-  'south-america': { en: 'South America', ko: '남아메리카', ja: '南アメリカ', zh: '南美洲' },
-  oceania: { en: 'Oceania', ko: '오세아니아', ja: 'オセアニア', zh: '大洋洲' },
-  antarctica: { en: 'Antarctica', ko: '남극', ja: '南極', zh: '南极洲' },
-  ocean: { en: 'The ocean', ko: '바다', ja: '海', zh: '海洋' },
+export const CONTINENT_NAMES: Record<Continent | 'ocean', Record<'en' | 'zh', string>> = {
+  africa: { en: 'Africa', zh: '非洲' },
+  europe: { en: 'Europe', zh: '欧洲' },
+  asia: { en: 'Asia', zh: '亚洲' },
+  'north-america': { en: 'North America', zh: '北美洲' },
+  'south-america': { en: 'South America', zh: '南美洲' },
+  oceania: { en: 'Oceania', zh: '大洋洲' },
+  antarctica: { en: 'Antarctica', zh: '南极洲' },
+  ocean: { en: 'The ocean', zh: '海洋' },
 };

@@ -52,10 +52,10 @@ test('menu: toggles layers & names, language persists', async ({ page }) => {
   await page.getByTestId('mode-minimal').click();
   await expect.poll(() => page.evaluate(() => (window as any).__pp.globe.settings.surfaceMode)).toBe('minimal');
   await page.getByTestId('mode-realistic').click();
-  await page.locator('#lang-select').selectOption('ko');
-  await expect(page.locator('h1')).toHaveText('포켓 플래닛');
+  await page.locator('#lang-select').selectOption('zh');
+  await expect(page.locator('h1')).toHaveText('口袋星球');
   await page.reload();
-  await expect(page.locator('h1')).toHaveText('포켓 플래닛', { timeout: 90_000 });
+  await expect(page.locator('h1')).toHaveText('口袋星球', { timeout: 90_000 });
   await page.getByTestId('btn-menu').click();
   await page.locator('#lang-select').selectOption('en');
   await expect(page.locator('h1')).toHaveText('Pocket Planet');

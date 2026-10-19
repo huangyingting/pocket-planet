@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   type Builder, type Paint, type V3, num, mat, add, sweep as sweep0, slab, paintFaces, strut, g,
-  shade, mix, fbm, worley, hash3, vnoise,
+  mix, fbm, worley, hash3, vnoise,
 } from './prims.ts';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
@@ -60,6 +60,120 @@ function tube(p: THREE.Object3D, pts: V3[], r0: number, r1: number, c: string, o
   return m;
 }
 
+// ---- Smooth parametric surfaces with per-vertex paint (soft gradients instead of a per-triangle checker) ----
+const VCOL = new Map<string, THREE.Color>();
+function vc(h: string): THREE.Color {
+  let c = VCOL.get(h);
+  if (!c) { if (VCOL.size > 6000) VCOL.clear(); c = new THREE.Color(h); VCOL.set(h, c); }
+  return c;
+}
+/** Re-colour an (unshared) mesh geometry per vertex. */
+function vpaint<T extends THREE.Mesh>(m: T, base: string, paint?: Paint): T {
+  const geo = m.geometry;
+  if (!geo.getAttribute('normal')) geo.computeVertexNormals();
+  const pos = geo.getAttribute('position'), nor = geo.getAttribute('normal');
+  const cols = new Float32Array(pos.count * 3), bc = vc(base);
+  for (let i = 0; i < pos.count; i++) {
+    const h = paint ? paint(pos.getX(i), pos.getY(i), pos.getZ(i), nor.getX(i), nor.getY(i), nor.getZ(i)) : null;
+    const c = h ? vc(h) : bc;
+    cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b;
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  m.material = mat('#ffffff', { flat: false, vc: true });
+  return m;
+}
+/** Smooth ellipsoid painted per vertex. */
+function vblob(p: THREE.Object3D, c: string, x: number, y: number, z: number, rx: number, ry: number, rz: number, paint?: Paint, rot: V3 = [0, 0, 0], seg = 22): THREE.Mesh {
+  return vpaint(pblob(p, c, x, y, z, rx, ry, rz, undefined, rot, seg), c, paint);
+}
+/** Grid surface: rings along u∈[0,1], v∈[0,1) wrapping around, fan-capped ends; outward winding is auto-detected. */
+function psurf(p: THREE.Object3D, nu: number, nv: number, f: (u: number, v: number) => V3, c: string, paint?: Paint,
+  uvp?: (u: number, v: number, x: number, y: number, z: number) => string | null): THREE.Mesh {
+  const pos: number[] = [];
+  for (let i = 0; i <= nu; i++) for (let j = 0; j < nv; j++) pos.push(...f(i / nu, j / nv));
+  const idx: number[] = [];
+  for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
+    const a = i * nv + j, b = i * nv + ((j + 1) % nv), c2 = (i + 1) * nv + j, d = (i + 1) * nv + ((j + 1) % nv);
+    idx.push(a, b, c2, b, d, c2);
+  }
+  for (const [ring, sgn] of [[0, -1], [nu, 1]] as const) {
+    const ctr = pos.length / 3;
+    let cx = 0, cy = 0, cz = 0;
+    for (let j = 0; j < nv; j++) { cx += pos[(ring * nv + j) * 3]; cy += pos[(ring * nv + j) * 3 + 1]; cz += pos[(ring * nv + j) * 3 + 2]; }
+    pos.push(cx / nv, cy / nv, cz / nv);
+    for (let j = 0; j < nv; j++) {
+      const a = ring * nv + j, b = ring * nv + ((j + 1) % nv);
+      if (sgn < 0) idx.push(ctr, b, a); else idx.push(ctr, a, b);
+    }
+  }
+  // Winding check on the middle ring: the face normal should point away from the ring centre
+  const mi = Math.floor(nu / 2) * nv, P = (k: number) => new THREE.Vector3(pos[k * 3], pos[k * 3 + 1], pos[k * 3 + 2]);
+  const cen = new THREE.Vector3();
+  for (let j = 0; j < nv; j++) cen.add(P(mi + j));
+  cen.multiplyScalar(1 / nv);
+  const A = P(mi), B = P(mi + 1), C = P(mi + nv);
+  const n = new THREE.Vector3().crossVectors(B.clone().sub(A), C.clone().sub(A));
+  if (n.dot(A.clone().sub(cen)) < 0) for (let k = 0; k < idx.length; k += 3) { const t = idx[k + 1]; idx[k + 1] = idx[k + 2]; idx[k + 2] = t; }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const m = vpaint(add(p, geo, mat('#ffffff', { flat: false, vc: true }), 0, 0, 0, 1, 1, 1), c, paint);
+  if (uvp) {
+    // Surface-parameter paint (e.g. the sucker side of an arm) overrides the positional painter on the grid
+    const col = geo.getAttribute('color') as THREE.BufferAttribute;
+    for (let i = 0; i <= nu; i++) for (let j = 0; j < nv; j++) {
+      const k = i * nv + j, h = uvp(i / nu, j / nv, pos[k * 3], pos[k * 3 + 1], pos[k * 3 + 2]);
+      if (h) { const cc = vc(h); col.setXYZ(k, cc.r, cc.g, cc.b); }
+    }
+  }
+  return m;
+}
+interface SpSt { p: V3; w: number; h: number }
+/**
+ * Body lofted along a spine with elliptical sections; `shape(u, a)` may return a radial multiplier
+ * (pleats, keels, flattened bellies). `side` is the fixed lateral axis used to build the frames.
+ */
+function spine(p: THREE.Object3D, st: SpSt[], c: string, paint?: Paint,
+  o: { nu?: number; nv?: number; side?: V3; shape?: (u: number, a: number) => number; uvp?: (u: number, a: number, x: number, y: number, z: number) => string | null } = {}): THREE.Mesh {
+  const curve = new THREE.CatmullRomCurve3(st.map(s => new THREE.Vector3(...s.p)), false, 'centripetal');
+  const nu = o.nu ?? (st.length - 1) * 8, nv = o.nv ?? 28;
+  const side = new THREE.Vector3(...(o.side ?? [1, 0, 0]));
+  const fr: { P: THREE.Vector3; S: THREE.Vector3; N: THREE.Vector3; w: number; h: number }[] = [];
+  for (let i = 0; i <= nu; i++) {
+    const u = i / nu, P = curve.getPoint(u), T = curve.getTangent(u);
+    const N = new THREE.Vector3().crossVectors(T, side).normalize();
+    const S = new THREE.Vector3().crossVectors(N, T).normalize();
+    const f = u * (st.length - 1), k = Math.min(st.length - 2, Math.floor(f)), t = f - k, s = t * t * (3 - 2 * t);
+    fr.push({ P, S, N, w: st[k].w + (st[k + 1].w - st[k].w) * s, h: st[k].h + (st[k + 1].h - st[k].h) * s });
+  }
+  return psurf(p, nu, nv, (u, v) => {
+    const F = fr[Math.round(u * nu)], a = v * Math.PI * 2, m = o.shape ? o.shape(u, a) : 1;
+    const ca = Math.cos(a) * F.w * m, sa = Math.sin(a) * F.h * m;
+    return [F.P.x + F.S.x * ca + F.N.x * sa, F.P.y + F.S.y * ca + F.N.y * sa, F.P.z + F.S.z * ca + F.N.z * sa];
+  }, c, paint, o.uvp ? (u, v, x, y, z) => o.uvp!(u, v * Math.PI * 2, x, y, z) : undefined);
+}
+/** Streamlined fin / fluke / flipper: span stations root→tip with leading & trailing edge points and thickness along `up`. */
+function foil(p: THREE.Object3D, c: string, st: { le: V3; te: V3; t: number }[], up: V3, paint?: Paint, nu = 14, nv = 14): THREE.Mesh {
+  const L = new THREE.CatmullRomCurve3(st.map(s => new THREE.Vector3(...s.le)), false, 'centripetal');
+  const T = new THREE.CatmullRomCurve3(st.map(s => new THREE.Vector3(...s.te)), false, 'centripetal');
+  const U = new THREE.Vector3(...up).normalize(), le = new THREE.Vector3(), te = new THREE.Vector3();
+  return psurf(p, nu, nv, (u, v) => {
+    L.getPoint(u, le); T.getPoint(u, te);
+    const f = u * (st.length - 1), k = Math.min(st.length - 2, Math.floor(f)), th = st[k].t + (st[k + 1].t - st[k].t) * (f - k);
+    const a = v * Math.PI * 2, ch = (1 - Math.cos(a)) / 2, thick = Math.sin(a) * th * Math.pow(Math.max(0, 1 - ch), 0.7) * Math.pow(ch + 0.02, 0.3) * 1.6;
+    return [le.x + (te.x - le.x) * ch + U.x * thick, le.y + (te.y - le.y) * ch + U.y * thick, le.z + (te.z - le.z) * ch + U.z * thick];
+  }, c, paint);
+}
+/** Mesh on a shared geometry, oriented so its local +y follows `dir`. */
+function orient(p: THREE.Object3D, geo: THREE.BufferGeometry, c: string, at: V3, dir: V3, s: V3): THREE.Mesh {
+  const m = add(p, geo, mat(c, { flat: false }), at[0], at[1], at[2], s[0], s[1], s[2]);
+  _d.set(dir[0], dir[1], dir[2]).normalize();
+  m.quaternion.setFromUnitVectors(_Y, _d);
+  return m;
+}
+const nrm = (v: V3): V3 => { const l = Math.hypot(...v) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+
 // ---- Fast sRGB colour math for per-face painters (avoids THREE.Color churn across 10k+ faces) ----
 const RGB = new Map<string, number[]>();
 function rgb(h: string): number[] {
@@ -104,6 +218,24 @@ const DROP = () => g('an-drop', () => {
   lg.computeVertexNormals();
   return lg;
 });
+/** Lighter teardrop for the many blades (hair locks, leaf lobes, feathers). */
+const LOCK = () => g('an-lock', () => {
+  const pts: THREE.Vector2[] = [];
+  for (let i = 0; i <= 5; i++) { const t = i / 5; pts.push(new THREE.Vector2(Math.max(1e-4, 0.5 * Math.sin(Math.PI * Math.pow(t, 0.6))), t)); }
+  const lg = new THREE.LatheGeometry(pts, 6);
+  lg.computeVertexNormals();
+  return lg;
+});
+/** Mane lock: broad soft teardrop whose tip curls back toward the surface (local −z), so overlapping rows read as hair, not scales. */
+const MLOCK = () => g('an-mlock', () => {
+  const pts: THREE.Vector2[] = [];
+  for (let i = 0; i <= 6; i++) { const t = i / 6; pts.push(new THREE.Vector2(Math.max(1e-4, 0.5 * Math.pow(Math.sin(Math.PI * Math.min(1, t * 0.92 + 0.04)), 0.6) * (1 - 0.45 * t)), t)); }
+  const lg = new THREE.LatheGeometry(pts, 7);
+  const ps = lg.attributes.position as THREE.BufferAttribute;
+  for (let i = 0; i < ps.count; i++) { const y = ps.getY(i); ps.setZ(i, ps.getZ(i) - 0.65 * y * y); }
+  lg.computeVertexNormals();
+  return lg;
+});
 const _Y = new THREE.Vector3(0, 1, 0), _d = new THREE.Vector3();
 /** Teardrop "lock" from base a to pointed tip b — mane locks, fur tufts, claws, horns, teeth, feathers. */
 function drop(p: THREE.Object3D, c: string, a: V3, b: V3, r: number, rz = r): THREE.Mesh {
@@ -111,6 +243,20 @@ function drop(p: THREE.Object3D, c: string, a: V3, b: V3, r: number, rz = r): TH
   const len = _d.length() || 1e-4;
   const m = add(p, DROP(), mat(c, { flat: false }), a[0], a[1], a[2], r * 2, len, rz * 2);
   m.quaternion.setFromUnitVectors(_Y, _d.normalize());
+  return m;
+}
+const _m4 = new THREE.Matrix4(), _bx = new THREE.Vector3(), _by = new THREE.Vector3(), _bz = new THREE.Vector3();
+/** Flattened teardrop a→b whose flat face looks along `up` (leaf lobes, feathers, hair locks, claws). */
+function blade(p: THREE.Object3D, c: string, a: V3, b: V3, w: number, t: number, up: V3, geo: THREE.BufferGeometry = LOCK()): THREE.Mesh {
+  _by.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+  const len = _by.length() || 1e-4;
+  _by.multiplyScalar(1 / len);
+  _bz.set(up[0], up[1], up[2]).addScaledVector(_by, -(up[0] * _by.x + up[1] * _by.y + up[2] * _by.z));
+  if (_bz.lengthSq() < 1e-8) _bz.set(_by.y, _by.z, _by.x);
+  _bz.normalize();
+  _bx.crossVectors(_by, _bz);
+  const m = add(p, geo, mat(c, { flat: false }), a[0], a[1], a[2], w * 2, len, t * 2);
+  m.quaternion.setFromRotationMatrix(_m4.makeBasis(_bx, _by, _bz));
   return m;
 }
 /** Rounded fur clump: ellipsoid spanning a→b (soft sculpted locks for manes, ruffs, wool). */
@@ -474,45 +620,71 @@ function lion(gp: THREE.Group, r: Rec): void {
   const c = r.color!, mane = (r.mane as string) ?? '#8a5a2a';
   const belly = mx(c, '#f3e2c4', 0.72);
   const body = coat(c, belly, { dorsal: 0.88 });
+  // Dry savanna patch with grass tufts and a flat rock
+  const sav = '#c2a964';
+  vblob(gp, sav, 0, -0.026, 0, 0.36, 0.03, 0.46, (x, _y, z) => mx(mx(sav, '#a48a4c', sst(0.45, 0.8, vnoise(x * 9, 1, z * 9)) * 0.6), '#dcc78c', sst(0.6, 0.85, vnoise(x * 28, 2, z * 28)) * 0.5), [0, 0, 0], 18);
+  vblob(gp, '#857b6c', 0.25, 0.0, 0.2, 0.065, 0.032, 0.05, (x, y, z) => mx('#857b6c', '#5e564c', sst(0.4, 0.8, vnoise(x * 40, y * 40, z * 40)) * 0.6), [0, 0.6, 0], 12);
+  for (let i = 0; i < 5; i++) {
+    const a0 = i * 1.37 + 0.4, x0 = Math.cos(a0) * (0.27 + hash3(i, 1, 6) * 0.05), z0 = Math.sin(a0) * 0.36;
+    for (let k = 0; k < 4; k++) {
+      const a = k * 1.57 + i, l = 0.05 + hash3(i, k, 6) * 0.04;
+      blade(gp, mx('#c9b36a', '#8f8a46', hash3(k, i, 6)), [x0, 0, z0], [x0 + Math.cos(a) * l * 0.4, l, z0 + Math.sin(a) * l * 0.4], 0.008, 0.003, [-Math.sin(a), 0, Math.cos(a)]);
+    }
+  }
   const F = quad(gp, {
     c, span: 0.44, leg: 0.22, bw: 0.1, bh: 0.108, R: 0.031, tuck: 0.3, withers: 0.012, feet: 'paw', pawK: 1.12,
     body, legP: coat(c, belly, { hi: 0.1, lo: -0.6 }), neck: 0.13, neckA: 0.5, neckW: 0.068, stride: 0.04, foot: sh(c, 0.97),
   });
-  // Shaggy mane collar: golden near the face, darkening toward shoulders, long chest fringe beneath
-  const gold = mx(mane, c, 0.45), dark = sh(mane, 0.72);
+  // Shaggy layered mane: a streaky base mass under overlapping rows of pointed locks, golden around the face,
+  // darkening to brown-black over the shoulders, with a long chest fringe
+  const gold = mx(mane, c, 0.55), dark = mx(sh(mane, 0.42), '#2a1a10', 0.3);
   const [, ny0, nz0] = F.n0, [, hy, hz] = F.hp;
   const ax: V3 = [0, hy - ny0, hz - nz0], al = Math.hypot(ax[1], ax[2]);
   const A: V3 = [0, ax[1] / al, ax[2] / al], U: V3 = [0, A[2], -A[1]];
-  sweep(gp, [
-    { p: [0, ny0 - 0.03, nz0 - 0.08], w: 0.1, h: 0.115 },
-    { p: [0, ny0 + ax[1] * 0.5, nz0 + ax[2] * 0.5], w: 0.118, h: 0.135 },
-    { p: [0, hy, hz - 0.02], w: 0.112, h: 0.125 },
-  ], dark, { radial: 18, sub: 5, paint: furNoise(dark, 0.12) });
+  const mcol = (t: number, k: number) => mx(mx(gold, dark, Math.min(1, sst(1.05, -0.45, t) * 0.9)), k > 0.5 ? sh(gold, 1.12) : sh(dark, 0.8), Math.abs(k - 0.5) * 0.7);
+  spine(gp, [
+    { p: [0, ny0 - 0.035, nz0 - 0.16], w: 0.03, h: 0.03 },
+    { p: [0, ny0 - 0.045, nz0 - 0.1], w: 0.1, h: 0.11 },
+    { p: [0, ny0 + ax[1] * 0.2 - 0.012, nz0 + ax[2] * 0.2 - 0.02], w: 0.13, h: 0.145 },
+    { p: [0, ny0 + ax[1] * 0.6, nz0 + ax[2] * 0.6], w: 0.138, h: 0.152 },
+    { p: [0, hy - 0.004, hz - 0.025], w: 0.124, h: 0.138 },
+    { p: [0, hy + 0.004, hz + 0.03], w: 0.04, h: 0.04 },
+  ], dark, undefined, {
+    nu: 38, nv: 40,
+    // Soft lobed clumps running along the hair flow, fuller and lower under the chin
+    shape: (u, a) => 1 + (vnoise(Math.cos(a) * 3 + 9, Math.sin(a) * 3, u * 3) - 0.5) * 0.2 + Math.abs(Math.sin(a * 6 + u * 2.5 + vnoise(u * 4 + Math.cos(a), Math.sin(a), 1) * 3)) ** 3 * 0.07
+      + Math.max(0, -Math.sin(a)) * 0.14 * sst(0.2, 0.7, u),
+    uvp: (u, a) => {
+      const k = vnoise(Math.cos(a) * 16, Math.sin(a) * 16, u * 1.6);
+      return mx(mcol(u * 1.3 - 0.4 + (k - 0.5) * 0.4, k), '#1e130b', sst(0.35, 0.2, k) * 0.35);
+    },
+  });
   for (let i = 0; i < 5; i++) {
-    const t = -0.45 + i * 0.32;
-    const nphi = 11;
+    const t = -0.42 + i * 0.32, nphi = 14;
     for (let j = 0; j < nphi; j++) {
-      const phi = (j / nphi) * Math.PI * 2 + i * 0.4;
-      const cs = Math.cos(phi), sn = Math.sin(phi);
-      const rad = 0.06 + (sn < 0 ? -0.006 : 0.01);
-      const b: V3 = [cs * rad, ny0 + A[1] * t * al + U[1] * sn * rad, nz0 + A[2] * t * al + U[2] * sn * rad];
-      const down = sn < -0.3 ? 0.7 : 0.25;
-      const len = (0.1 + hash3(i, j, 7) * 0.03) * (sn < -0.3 ? 1.3 : 1);
-      const d: V3 = [cs, U[1] * sn - A[1] * 0.4 - down, U[2] * sn - A[2] * 0.4];
-      const dl = Math.hypot(...d);
-      const col = mx(gold, dark, Math.min(1, sst(1.1, -0.4, t) * 0.7 + hash3(j, i, 3) * 0.12));
-      clump(gp, col, b, [b[0] + d[0] / dl * len, b[1] + d[1] / dl * len, b[2] + d[2] / dl * len], 0.042, 0.034);
+      const phi = (j / nphi) * Math.PI * 2 + i * 0.9 + (hash3(i, j, 2) - 0.5) * 0.4;
+      const cs = Math.cos(phi), sn = Math.sin(phi), bot = sst(-0.2, -0.75, sn), topk = sst(0.2, 0.8, sn);
+      const rad = 0.118 + bot * 0.03 + sst(0.6, 1.0, t) * 0.012;
+      const tt = t + (hash3(j, i, 8) - 0.5) * 0.14;
+      const b: V3 = [cs * rad, ny0 + A[1] * tt * al + U[1] * sn * rad, nz0 + A[2] * tt * al + U[2] * sn * rad];
+      const len = (0.1 + hash3(i, j, 7) * 0.055) * (1 + bot * 0.4 + (t < 0 ? 0.12 : 0)) * (1 - topk * 0.25);
+      const out: V3 = [cs, U[1] * sn, U[2] * sn], sw = (hash3(j, i, 5) - 0.5) * 0.5;
+      // Lying along the mane: swept back over the neck, drooping on the sides, hanging from the chest
+      const o = 0.22 + bot * 0.08, dn = 0.2 + (1 - topk) * 0.4 + bot * 0.8;
+      const d = nrm([out[0] * o + sw * 0.3, out[1] * o - A[1] * (1 - bot * 0.6) - dn, out[2] * o - A[2] * (1 - bot * 0.6)]);
+      const col = mcol(t + (hash3(j, i, 3) - 0.5) * 0.4, hash3(i, j, 9));
+      blade(gp, col, b, [b[0] + d[0] * len, b[1] + d[1] * len, b[2] + d[2] * len], 0.048 + hash3(i, j, 4) * 0.012, 0.03, out, MLOCK());
     }
   }
   const h = headGroup(gp, F, -0.3, 0.12, 0.04);
-  // Face ruff framing the face
+  // Face ruff: broad locks framing the face, swept back and curling onto the mane, lighter near the face
   for (let k = 0; k < 2; k++) for (let j = 0; j < 13; j++) {
     const phi = (j / 13) * Math.PI * 2 + k * 0.24;
-    const rad = 0.078 + k * 0.022, cs = Math.cos(phi), sn = Math.sin(phi);
-    const b: V3 = [cs * rad, -0.008 + sn * rad * 0.95, 0.03 - k * 0.03];
-    const len = 0.06 + k * 0.02 + hash3(j, k, 1) * 0.02;
-    const col = k ? mx(gold, dark, 0.35 + hash3(j, 2, k) * 0.3) : mx(gold, c, 0.2 + hash3(j, 1, k) * 0.3);
-    clump(h, col, b, [b[0] + cs * len * 0.8, b[1] + sn * len * 0.8 - len * 0.25, b[2] - len * 0.55], 0.032, 0.024);
+    const rad = 0.08 + k * 0.03, cs = Math.cos(phi), sn = Math.sin(phi), fl = sst(-0.3, -0.7, sn);
+    const b: V3 = [cs * rad, -0.012 + sn * rad * 0.95, 0.02 - k * 0.04];
+    const len = (0.08 + k * 0.025 + hash3(j, k, 1) * 0.03) * (1 + fl * 0.45);
+    const col = mcol(1.15 - k * 0.4 + (hash3(j, 2, k) - 0.5) * 0.3, hash3(j, 5, k));
+    blade(h, col, b, [b[0] + cs * len * (0.42 - fl * 0.12), b[1] + sn * len * 0.32 - len * (0.18 + fl * 0.55), b[2] - len * (0.85 - fl * 0.4)], 0.042, 0.026, [cs, sn, 0.35], MLOCK());
   }
   catHead(h, c, { s: 1.12, long: 1.25, wide: 1.06, iris: '#c48a1c', nose: '#7d4036', earBack: sh(c, 0.75) });
   const [tip, dir] = tailOf(gp, F, c, 0.42, 0.014, { droop: 0.3, curl: 0.42, side: 0.1, paint: body });
@@ -877,38 +1049,116 @@ const BEAR: Builder = (gp, r) => {
   bear(gp, r, sp);
 };
 
-function branchPerch(gp: THREE.Group, y: number, len = 0.7): void {
-  const wood = '#6b4c35';
-  tube(gp, [[-len / 2, y, 0], [-len / 6, y + 0.02, 0.01], [len / 6, y - 0.01, -0.01], [len / 2, y + 0.02, 0]], 0.03, 0.022, wood, { paint: furNoise(wood, 0.12), flat: true });
-  for (const sx of [-1, 1]) {
-    tube(gp, [[sx * len * 0.42, 0, 0], [sx * len * 0.44, y * 0.5, 0.01], [sx * len * 0.45, y + 0.02, 0]], 0.04, 0.028, wood, { paint: furNoise(wood, 0.12), flat: true });
-    for (let i = 0; i < 3; i++) {
-      const a = i * 2.1 + sx;
-      pblob(gp, i % 2 ? '#4d8a54' : '#5f9d63', sx * len * 0.45 + Math.cos(a) * 0.05, y + 0.08 + i * 0.03, Math.sin(a) * 0.05, 0.075, 0.06, 0.075, undefined, [0, a, 0], 10, true);
+const barkP = (bark: string, k = 1): Paint => (x, y, z) => {
+  const n = fbm(x * 46 * k, y * 7 * k, z * 46 * k, 3);
+  return mx(bark, n > 0.5 ? '#a89276' : '#2e231a', Math.min(1, Math.abs(n - 0.5) * 1.7));
+};
+/** Cecropia-style palmate leaf: lobes fanning from the petiole tip, drooping at the ends. */
+function palmLeaf(p: THREE.Object3D, at: V3, yaw: number, size: number, col: string, droop = 0.35, lobes = 7): void {
+  for (let k = 0; k < lobes; k++) {
+    const a = yaw + (k - (lobes - 1) / 2) * (Math.PI * 1.7 / lobes);
+    const L = size * (1 - Math.abs(k - (lobes - 1) / 2) * 0.09);
+    const d = nrm([Math.sin(a), -droop - Math.abs(k - (lobes - 1) / 2) * 0.05, Math.cos(a)]);
+    blade(p, k % 2 ? col : sh(col, 0.9), at, [at[0] + d[0] * L, at[1] + d[1] * L, at[2] + d[2] * L], size * 0.2, size * 0.02, [-d[1] * d[0], 1, -d[1] * d[2]]);
+  }
+}
+
+/** Brown-throated three-toed sloth hanging back-down beneath a rainforest branch, face turned to the viewer. */
+function sloth(gp: THREE.Group, r: Rec): void {
+  const c = r.color!, base = mx(c, '#655a46', 0.5), dark = '#2a1f16', cream = '#efe6cf', claw = '#d6c6a2';
+  const fur: Paint = (x, y, z, _nx, ny) => {
+    const s = fbm(x * 70 + 3, y * 10, z * 70, 3);
+    const col = ny < -0.15 ? mx(base, '#6a7048', sst(-0.15, -0.8, ny) * 0.45) : mx(base, '#a3967a', sst(0.2, 0.9, ny) * 0.4);
+    return mx(col, s > 0.5 ? '#c9bc9c' : '#3a2f22', Math.min(0.7, Math.abs(s - 0.5) * 1.8));
+  };
+  // Tree: buttressed trunk on mossy ground, a long horizontal limb, palmate leaf clusters
+  const bark = '#6e5843', moss = '#5d6b3a';
+  vblob(gp, moss, 0.33, -0.005, -0.06, 0.2, 0.04, 0.17, (x, y, z) => mx(moss, '#3f3a26', Math.min(1, fbm(x * 30, y * 30, z * 30) * 1.2 - 0.1)), [0, 0.4, 0], 26);
+  vpaint(sweep(gp, [
+    { p: [0.34, 0.0, -0.06], w: 0.075 }, { p: [0.34, 0.07, -0.06], w: 0.05 }, { p: [0.335, 0.45, -0.05], w: 0.042 },
+    { p: [0.34, 0.8, -0.045], w: 0.036 }, { p: [0.33, 1.0, -0.035], w: 0.024 },
+  ], bark, { radial: 16, sub: 6 }), bark, barkP(bark));
+  for (let i = 0; i < 5; i++) {
+    const a = i * 1.3 + 0.4, ca = Math.cos(a), sa = Math.sin(a);
+    tube(gp, [[0.34 + ca * 0.03, 0.08, -0.06 + sa * 0.03], [0.34 + ca * 0.08, 0.025, -0.06 + sa * 0.08], [0.34 + ca * 0.13, 0.008, -0.06 + sa * 0.13]], 0.02, 0.007, sh(bark, 0.92));
+  }
+  const limbSt: { p: V3; w: number }[] = [
+    { p: [0.33, 0.79, -0.04], w: 0.034 }, { p: [0.15, 0.81, -0.012], w: 0.029 }, { p: [-0.05, 0.81, 0], w: 0.027 },
+    { p: [-0.26, 0.815, 0.006], w: 0.024 }, { p: [-0.47, 0.86, 0.0], w: 0.013 },
+  ];
+  vpaint(sweep(gp, limbSt, bark, { radial: 14, sub: 8 }), bark, barkP(bark, 1.3));
+  tube(gp, [[-0.3, 0.82, 0.005], [-0.36, 0.88, -0.05], [-0.4, 0.95, -0.08]], 0.011, 0.005, bark);
+  tube(gp, [[0.33, 0.95, -0.035], [0.25, 1.02, 0.02], [0.2, 1.04, 0.06]], 0.013, 0.006, bark);
+  const greens = ['#4f7f3f', '#5e8f46', '#46723a', '#6a9a50'];
+  for (const [x, y, z, yaw, s] of [[-0.47, 0.87, 0.0, 0.5, 0.15], [-0.41, 0.96, -0.08, 3.2, 0.14], [-0.52, 0.91, 0.07, -1.4, 0.12],
+    [0.2, 1.05, 0.06, 0.8, 0.15], [0.32, 1.02, -0.04, 2.6, 0.16], [0.38, 0.99, 0.05, -1.0, 0.14], [0.27, 1.07, -0.12, 4.0, 0.13], [0.42, 1.04, -0.1, 1.9, 0.12]] as const) {
+    palmLeaf(gp, [x, y, z], yaw, s, greens[Math.floor(hash3(x * 9, y * 9, z * 9) * 4)]);
+  }
+  // Body hanging back-down: belly toward the branch, shaggy coat falling toward the ground
+  spine(gp, [
+    { p: [0.2, 0.61, 0], w: 0.035, h: 0.03 }, { p: [0.16, 0.6, 0], w: 0.09, h: 0.084 }, { p: [0.07, 0.592, 0], w: 0.112, h: 0.098 },
+    { p: [-0.04, 0.596, 0.002], w: 0.108, h: 0.094 }, { p: [-0.13, 0.602, 0.008], w: 0.084, h: 0.078 },
+    { p: [-0.19, 0.594, 0.018], w: 0.056, h: 0.056 }, { p: [-0.225, 0.588, 0.026], w: 0.04, h: 0.04 },
+  ], base, fur, { side: [0, 0, 1], nv: 30, shape: (u, a) => 1 + (vnoise(Math.cos(a) * 6 + 2, Math.sin(a) * 6, u * 5) - 0.5) * 0.16 * sst(0.2, -0.9, Math.sin(a)) });
+  for (let i = 0; i < 64; i++) {
+    const x = 0.17 - (i / 63) * 0.36, k = Math.sin(Math.PI * Math.min(1, (0.2 - x) / 0.42)) * 0.95 + 0.1;
+    const a = Math.PI * (1.1 + hash3(i, 3, 1) * 0.8), ca = Math.cos(a), sa = Math.sin(a);
+    const b: V3 = [x, 0.596 + sa * 0.088 * k, ca * 0.1 * k];
+    const len = 0.05 + hash3(i, 7, 2) * 0.04;
+    const tipp: V3 = [b[0] + (hash3(i, 1, 9) - 0.5) * 0.03, b[1] - len, b[2] + ca * len * 0.5];
+    blade(gp, sh(fur(...b, 0, sa, 0) ?? base, 0.9 + hash3(i, 4, 4) * 0.2), b, tipp, 0.015, 0.008, [0, 0, ca]);
+  }
+  vblob(gp, sh(base, 0.95), 0.215, 0.6, 0, 0.022, 0.018, 0.02, fur, [0, 0, 0], 12); // stubby tail
+  // Long limbs reaching up, three hooked claws wrapping over the branch
+  for (const [x0, hind] of [[-0.14, false], [0.12, true]] as const) {
+    for (const sz of [-1, 1]) {
+      const st = sz * (hind ? 1 : -1) * 0.012;
+      const sh0: V3 = [x0, 0.625, sz * 0.068], el: V3 = [x0 + (hind ? 0.035 : -0.035) + st, 0.68, sz * 0.13], wr: V3 = [x0 + st * 1.5, 0.772, sz * 0.05];
+      vpaint(limb(gp, base, [[sh0, 0.04, 0.04], [[(sh0[0] + el[0]) / 2, 0.655, sz * 0.105], 0.036, 0.034], [el, 0.03, 0.03], [[(el[0] + wr[0]) / 2, 0.73, sz * 0.1], 0.028, 0.028], [wr, 0.022, 0.022]], undefined, 14), base, fur);
+      for (let i = 0; i < 4; i++) {
+        const t = 0.25 + i * 0.2, q: V3 = [sh0[0] + (el[0] - sh0[0]) * t * 1.6, sh0[1] + (el[1] - sh0[1]) * t * 1.6, sh0[2] + (el[2] - sh0[2]) * t * 1.6];
+        blade(gp, fur(...q, 0, -1, 0) ?? base, q, [q[0], q[1] - 0.04 - i * 0.004, q[2] + sz * 0.01], 0.018, 0.01, [0, 0, 1]);
+      }
+      vblob(gp, sh(base, 0.85), wr[0], 0.783, sz * 0.042, 0.026, 0.02, 0.022, fur, [0, 0, 0], 14);
+      for (const k of [-1, 0, 1]) {
+        const x = wr[0] + k * 0.013, pts: V3[] = [];
+        for (let j = 0; j <= 5; j++) {
+          const ph = -0.4 + j * 0.48;
+          pts.push([x + k * j * 0.002, 0.81 + Math.sin(ph) * 0.037, sz * Math.cos(ph) * 0.037]);
+        }
+        vpaint(sweep(gp, pts.map((pt, j) => ({ p: pt, w: 0.0075 - j * 0.0012 })), claw, { radial: 8, sub: 4 }), claw,
+          (_x, y) => (y > 0.845 ? '#8c7a5c' : null));
+      }
     }
+  }
+  // Round head turned to the viewer: pale face mask, dark eye stripes, button nose, permanent smile
+  const h = grp(gp, [-0.245, 0.583, 0.04], [0.18, -0.55, 0.1]);
+  const headP: Paint = (x, y, z) => {
+    const l = Math.hypot(x, y, z) || 1, lon = Math.atan2(Math.abs(x / l), z / l), lat = Math.asin(y / l);
+    const sl = 0.1 - (lon - 0.45) * 0.28;
+    if (lon > 0.26 && lon < 1.6 && Math.abs(lat - sl) < 0.15 - Math.max(0, lon - 1.0) * 0.12) return dark;
+    if (lon < 1.3 && lat > -0.8 && lat < 0.9) return mx(cream, '#a99a7c', Math.min(1, sst(0.9, 1.3, lon) + sst(0.5, 0.9, lat) * 0.7));
+    return lat < -0.45 ? '#6b4a2c' : fur(x, y, z, 0, 0, 0);
+  };
+  vblob(h, cream, 0, 0, 0, 0.064, 0.06, 0.056, headP, [0, 0, 0], 26);
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+    const b: V3 = [ca * 0.056, sa * 0.053, -0.016];
+    blade(h, i % 3 ? sh(base, 1.1) : mx(base, cream, 0.35), b, [ca * 0.076, sa * 0.07 - 0.014, -0.034], 0.014, 0.007, [0, 0, 1]);
+  }
+  vblob(h, cream, 0, -0.018, 0.046, 0.027, 0.021, 0.018, (x, y) => (y < -0.03 ? '#e2d6b8' : null), [0, 0, 0], 16);
+  ellip(h, '#1a1410', 0, -0.009, 0.064, 0.014, 0.0095, 0.008);
+  lit(ellip(h, '#ffffff', 0.004, -0.004, 0.071, 0.0028));
+  tube(h, [[-0.016, -0.028, 0.055], [0, -0.034, 0.061], [0.016, -0.028, 0.055]], 0.0016, 0.0016, '#2a1d14');
+  for (const sx of [-1, 1]) {
+    bead(h, sx * 0.026, 0.006, 0.05, 0.0072, '#0e0b09');
+    ellip(h, sh(base, 0.8), sx * 0.058, 0.004, -0.008, 0.008, 0.01, 0.005);
   }
 }
 
 const APE: Builder = (gp, r) => {
   const c = r.color!, sp = (r.sp as string) ?? 'gorilla';
-  if (sp === 'sloth') {
-    // Three-toed sloth hanging beneath a branch
-    branchPerch(gp, 0.82, 0.8);
-    const fur = furNoise(c, 0.1);
-    pblob(gp, c, 0, 0.6, 0, 0.13, 0.11, 0.17, fur, [0.1, 0, 0], 18, true);
-    pblob(gp, c, 0, 0.6, 0.18, 0.075, 0.07, 0.07, fur, [0, 0, 0], 16, true);
-    ellip(gp, '#efe4cf', 0, 0.59, 0.235, 0.055, 0.05, 0.03);
-    for (const sx of [-1, 1]) {
-      ellip(gp, '#3b2a1e', sx * 0.022, 0.6, 0.26, 0.022, 0.011, 0.008, 0, 0, sx * 0.25);
-      bead(gp, sx * 0.022, 0.602, 0.265, 0.007);
-      for (const zz of [0.1, -0.12]) {
-        tube(gp, [[sx * 0.09, 0.62, zz], [sx * 0.08, 0.72, zz + 0.02], [sx * 0.05, 0.8, zz + 0.02]], 0.03, 0.022, c, { paint: fur, flat: true });
-        for (const k of [-1, 0, 1]) tube(gp, [[sx * 0.05 + k * 0.01, 0.8, zz + 0.02], [sx * 0.04 + k * 0.01, 0.86, zz + 0.04], [sx * 0.03 + k * 0.01, 0.84, zz + 0.06]], 0.005, 0.003, '#e7dccb');
-      }
-    }
-    ellip(gp, '#1c1917', 0, 0.585, 0.268, 0.012, 0.009, 0.006);
-    return;
-  }
+  if (sp === 'sloth') return sloth(gp, r);
   const isGor = sp === 'gorilla';
   const face = isGor ? '#2b2a2e' : '#9a6a50';
   const fur = furNoise(c, isGor ? 0.07 : 0.1);
@@ -1027,50 +1277,137 @@ const HOPPER: Builder = (gp, r) => {
 };
 
 const PENGUIN: Builder = (gp, r) => {
-  const small = Boolean(r.small), s = small ? 0.78 : 1;
+  const small = Boolean(r.small);
   const back = r.color!, belly = (r.belly as string) ?? '#f8fafc', acc = r.accent ?? '#f59e0b';
   if (small) {
-    // Puffin on a sea-cliff rock
-    pblob(gp, '#78716c', 0, 0.04, 0, 0.26, 0.09, 0.22, furNoise('#78716c', 0.12), [0, 0.4, 0], 12, true);
+    // Atlantic puffin on a lichen-spotted cliff-top rock with thrift grass and sea campion
+    const rock = '#8d8a84';
+    vblob(gp, rock, 0, -0.02, 0, 0.3, 0.15, 0.25, (x, y, z) => {
+      const [f1, f2] = worley(x * 14, y * 14, z * 14), n = vnoise(x * 40, y * 40, z * 40);
+      let col = mx(mx(rock, '#b9b6ae', sst(0.2, 0.0, f1) * 0.5), '#55524c', sst(0.12, 0.02, f2 - f1) * 0.6);
+      col = mx(col, '#d9d6c8', sst(0.62, 0.8, n) * 0.6);
+      return mx(col, '#d7a531', sst(0.72, 0.85, vnoise(x * 22 + 5, y * 22, z * 22)) * 0.8);
+    }, [0, 0.3, 0], 30);
+    for (const [x, z, rr] of [[-0.17, 0.1, 0.08], [0.19, -0.05, 0.07], [-0.04, -0.15, 0.06]] as const) {
+      vblob(gp, '#6f8a46', x, 0.11 - Math.hypot(x, z) * 0.5, z, rr, rr * 0.35, rr * 0.8, (px, py, pz) => mx('#6f8a46', '#a2a560', sst(0.4, 0.8, vnoise(px * 50, py * 50, pz * 50))), [0, 0, 0], 14);
+      for (let i = 0; i < 10; i++) {
+        const a = i * 2.4, rr2 = rr * (0.3 + hash3(i, x * 9, 1) * 0.6), b: V3 = [x + Math.cos(a) * rr2, 0.13 - Math.hypot(x, z) * 0.5, z + Math.sin(a) * rr2 * 0.8];
+        blade(gp, mx('#7c9a4a', '#c3b878', hash3(i, z * 9, 2)), b, [b[0] + Math.cos(a) * 0.02, b[1] + 0.06 + hash3(i, 3, x * 9) * 0.04, b[2] + Math.sin(a) * 0.02], 0.006, 0.002, [-Math.sin(a), 0, Math.cos(a)]);
+        if (i % 3 === 0) vblob(gp, '#f4f1ea', b[0], b[1] + 0.035, b[2], 0.009, 0.007, 0.009, (_x, py) => (py < b[1] + 0.032 ? '#d9c9cf' : null), [0, 0, 0], 8);
+      }
+    }
+    const P = grp(gp, [0.02, 0.098, 0.02], [0, 0.35, 0]);
+    P.scale.setScalar(1.3);
+    // Body: stocky, tilted forward; black back & collar, white belly, pale grey face disc
+    const st: SpSt[] = [
+      { p: [0, 0.07, -0.135], w: 0.012, h: 0.006 }, { p: [0, 0.085, -0.1], w: 0.045, h: 0.035 }, { p: [0, 0.1, -0.05], w: 0.08, h: 0.075 },
+      { p: [0, 0.13, 0.0], w: 0.088, h: 0.088 }, { p: [0, 0.18, 0.03], w: 0.075, h: 0.075 }, { p: [0, 0.225, 0.04], w: 0.058, h: 0.058 },
+      { p: [0, 0.26, 0.045], w: 0.058, h: 0.06 }, { p: [0, 0.295, 0.045], w: 0.048, h: 0.05 }, { p: [0, 0.312, 0.04], w: 0.012, h: 0.012 },
+    ];
+    const face = '#e7e6e2', fr = framer(st.map(s => s.p), [1, 0, 0]);
+    spine(P, st, back, undefined, {
+      nu: 64, nv: 36,
+      uvp: (u, a, x, y, z) => {
+        const s2 = Math.sin(a), c2 = Math.abs(Math.cos(a)), n = vnoise(x * 60, y * 60, z * 60) * 0.06;
+        if (u > 0.68 && y > 0.238 && s2 < 0.45 && s2 > -0.55 && c2 > 0.6 - (y - 0.238) * 2) return mx(face, '#a9a9a6', sst(0.8, 0.95, u) * 0.4 + sst(0.3, -0.5, s2) * 0.25);
+        if (y < 0.205 && s2 < -0.05 - Math.max(0, z - 0.03) * 3) return mx(belly, '#d8d6d0', sst(-0.05, -0.2, s2) * 0.15 + n);
+        return mx(back, '#3d4048', sst(0.3, 1, s2) * 0.3 + n);
+      },
+    });
+    // Eye with red ring and the dark triangular plates above and below
+    for (const sx of [-1, 1]) {
+      const at = fr(0.86).at(sx * 0.042, 0.012, 0.0);
+      vblob(P, '#c43a2f', at[0], at[1], at[2], 0.008, 0.008, 0.008, undefined, [0, 0, 0], 10);
+      bead(P, at[0] + sx * 0.004, at[1], at[2] + 0.002, 0.0055, '#0e0e10');
+      drop(P, '#4a4c52', [at[0] + sx * 0.002, at[1] + 0.008, at[2]], [at[0] + sx * 0.002, at[1] + 0.02, at[2] - 0.004], 0.004, 0.0015);
+      drop(P, '#4a4c52', [at[0] + sx * 0.002, at[1] - 0.007, at[2] - 0.003], [at[0] + sx * 0.001, at[1] - 0.016, at[2] - 0.014], 0.0035, 0.0015);
+      vblob(P, '#f2c230', sx * 0.021, 0.262, 0.088, 0.008, 0.006, 0.007, undefined, [0, 0, 0], 8);
+      // Folded wing on the flank
+      foil(P, back, [
+        { le: [sx * 0.076, 0.17, 0.035], te: [sx * 0.08, 0.15, 0.005], t: 0.01 },
+        { le: [sx * 0.086, 0.13, -0.02], te: [sx * 0.085, 0.115, -0.045], t: 0.008 },
+        { le: [sx * 0.06, 0.1, -0.105], te: [sx * 0.058, 0.094, -0.11], t: 0.003 },
+      ], [sx, 0.1, 0], (_x, py, pz) => mx(back, '#1a1b1f', sst(0.12, 0.09, py + pz * 0.2) * 0.4), 14, 10);
+      // Bright orange legs and webbed feet
+      const hip: V3 = [sx * 0.035, 0.075, 0.0], ft: V3 = [sx * 0.04, 0.025, 0.02];
+      tube(P, [hip, [sx * 0.04, 0.048, 0.008], ft], 0.01, 0.008, '#f47a2a');
+      vblob(P, '#f47a2a', ft[0], ft[1], ft[2] + 0.022, 0.022, 0.004, 0.026, undefined, [0, sx * 0.15, 0], 12);
+      for (const a of [-0.45, 0, 0.45]) drop(P, '#ff8c3a', [ft[0], ft[1] + 0.002, ft[2]], [ft[0] + Math.sin(a + sx * 0.15) * 0.05, ft[1], ft[2] + Math.cos(a + sx * 0.15) * 0.05], 0.004, 0.003);
+    }
+    // Tall, laterally flattened triangular beak: blue-grey base plate, yellow ridge, orange tip with grooves
+    const b0 = fr(0.9).at(0, -0.006, 0.0);
+    spine(P, [
+      { p: [0, b0[1] - 0.003, b0[2] + 0.034], w: 0.021, h: 0.033 }, { p: [0, b0[1] - 0.006, b0[2] + 0.05], w: 0.017, h: 0.03 },
+      { p: [0, b0[1] - 0.011, b0[2] + 0.07], w: 0.011, h: 0.022 }, { p: [0, b0[1] - 0.017, b0[2] + 0.086], w: 0.004, h: 0.008 },
+    ], acc, undefined, {
+      nu: 22, nv: 20,
+      shape: (_u, a) => 1 - 0.25 * Math.abs(Math.cos(a)) ** 2,
+      uvp: (u) => (u < 0.24 ? '#6b7e94' : u < 0.31 ? '#f6d23a' : u > 0.5 && u < 0.56 ? '#f5b25a' : u > 0.68 && u < 0.73 ? '#f5a050' : '#ea5a1c'),
+    });
+    tube(P, [[0, b0[1] - 0.015, b0[2] + 0.04], [0, b0[1] - 0.02, b0[2] + 0.075]], 0.0012, 0.0012, '#7a2c10');
+    return;
   }
-  const by = small ? 0.11 : 0;
-  const paint: Paint = (x, y, z, _nx, _ny, nz) => {
-    const fy = (y - by) / s;
-    if (small && fy > 0.5 && nz > -0.2 && Math.abs(x) > 0.02) return '#f5f5f4';
-    if (!small && nz > -0.45 && ((Math.abs(x) / s - 0.075) / 0.028) ** 2 + ((fy - 0.665) / 0.045) ** 2 < 1) return mix(acc, '#fde68a', 0.3);
-    if (nz > 0.18 && fy < (small ? 0.48 : 0.62)) return !small && fy > 0.5 ? mix(belly, acc, 0.35) : belly;
-    return null;
-  };
-  sweep(gp, [
-    { p: [0, by + 0.03 * s, -0.02 * s], w: 0.08 * s, h: 0.07 * s },
-    { p: [0, by + 0.16 * s, 0], w: 0.16 * s, h: 0.14 * s },
-    { p: [0, by + 0.36 * s, 0.01 * s], w: 0.15 * s, h: 0.13 * s },
-    { p: [0, by + 0.55 * s, 0.02 * s], w: 0.105 * s, h: 0.1 * s },
-    { p: [0, by + 0.68 * s, 0.03 * s], w: 0.095 * s, h: 0.095 * s },
-    { p: [0, by + 0.78 * s, 0.03 * s], w: 0.06 * s, h: 0.06 * s },
-  ], back, { radial: 44, sub: 12, paint, up: [0, 0, 1] });
-  const hy = by + 0.7 * s, hz = 0.03 * s;
-  pblob(gp, back, 0, by + 0.735 * s, 0.03 * s, 0.085 * s, 0.075 * s, 0.09 * s, paint, [0, 0, 0], 34);
+  // Emperor penguin standing on an ice floe
+  vblob(gp, '#e9f2f8', 0, -0.04, 0, 0.36, 0.045, 0.32, (x, _y, z) => mx(mx('#eef5fa', '#bcd3e6', sst(0.45, 0.8, vnoise(x * 9, 2, z * 9)) * 0.6), '#ffffff', sst(0.6, 0.85, vnoise(x * 30, 1, z * 30)) * 0.5), [0, 0, 0], 30);
+  for (let i = 0; i < 5; i++) {
+    const a = i * 1.3 + 0.5, rr = 0.22 + hash3(i, 1, 4) * 0.08;
+    vblob(gp, '#f4f9fc', Math.cos(a) * rr, 0.006, Math.sin(a) * rr, 0.06 + hash3(i, 2, 4) * 0.04, 0.014, 0.035, (x, y) => mx('#f4f9fc', '#c5d9ea', sst(0.03, 0.0, y + x * 0.05) * 0.5), [0, a, 0], 12);
+  }
+  const blk = mx(back, '#111318', 0.5), slate = mx(back, '#55606e', 0.45), gold = mix(acc, '#ffb000', 0.4), cream = '#f6eccd';
+  const st: SpSt[] = [
+    { p: [0, 0.012, -0.01], w: 0.07, h: 0.07 }, { p: [0, 0.06, 0.0], w: 0.135, h: 0.128 }, { p: [0, 0.19, 0.012], w: 0.162, h: 0.15 },
+    { p: [0, 0.34, 0.012], w: 0.152, h: 0.14 }, { p: [0, 0.48, 0.0], w: 0.116, h: 0.11 }, { p: [0, 0.585, 0.0], w: 0.082, h: 0.085 },
+    { p: [0, 0.65, 0.016], w: 0.068, h: 0.074 }, { p: [0, 0.69, 0.024], w: 0.05, h: 0.05 },
+  ];
+  // Upper body leans slightly forward over the feet, pivoting at the base
+  const B = grp(gp, [0, 0.01, 0], [0.14, 0, 0]);
+  spine(B, st, back, undefined, {
+    nu: 80, nv: 48, side: [-1, 0, 0],
+    // Pot belly low on the front, gentle chest swell under the throat, faint feather ripple
+    shape: (u, a) => 1 + Math.max(0, Math.sin(a)) * (0.075 * Math.exp(-(((u - 0.3) / 0.16) ** 2)) + 0.03 * Math.exp(-(((u - 0.7) / 0.08) ** 2)))
+      + (vnoise(Math.cos(a) * 5, Math.sin(a) * 5, u * 14) - 0.5) * 0.02,
+    // N = +z: sin(a) > 0 faces forward
+    uvp: (_u, a, x, y, z) => {
+      const s2 = Math.sin(a), c2 = Math.abs(Math.cos(a)), n = vnoise(x * 50, y * 50, z * 50) * 0.08;
+      const edge = -0.32 + sst(0.45, 0.6, y) * 0.5;
+      const dark = mx(mx(slate, blk, sst(edge - 0.3, edge, s2) + sst(0.45, 0.57, y) * 0.6), '#7d8896', sst(-0.6, -1, s2) * 0.25 + n);
+      // Pale lemon wash on the upper breast deepening to golden-orange under the throat
+      const yel = sst(0.33, 0.55, y) * sst(edge + 0.18, edge + 0.6, s2);
+      const white = mx(mx(belly, '#e9ecef', sst(edge + 0.25, edge, s2) * 0.6 + n), mx(mx(cream, '#fbe08e', sst(0.4, 0.5, y)), gold, sst(0.48, 0.6, y) * 0.7), yel);
+      let col = mx(dark, white, sst(edge - 0.05, edge + 0.05, s2));
+      col = mx(col, mx(blk, '#22262e', n * 3), sst(0.575, 0.6, y));
+      // Comma-shaped ear patch on the neck side, tapering down towards the pale-gold upper breast
+      let e1 = 9;
+      for (let t = 0; t <= 1; t += 0.2) e1 = Math.min(e1, Math.hypot((y - 0.622 + t * 0.04) / (0.028 - t * 0.012), (s2 + 0.15 - t * 0.6) / 0.3));
+      const pw = sst(1, 0.6, e1) * sst(0.12, 0.35, c2);
+      return mx(col, mx(gold, '#ffcf3a', sst(1, 0.3, e1) * 0.6), pw);
+    },
+  });
+  vblob(B, blk, 0, 0.695, 0.03, 0.064, 0.066, 0.078, (x, y, z) => mx(blk, '#2c323c', sst(0.3, 0.9, vnoise(x * 40, y * 40, z * 40)) * 0.4 + sst(0.72, 0.76, y) * 0.2), [0.2, 0, 0], 26);
+  // Long slender down-curved beak: black with a pink-orange lower mandible plate
+  spine(B, [{ p: [0, 0.69, 0.07], w: 0.02, h: 0.018 }, { p: [0, 0.69, 0.12], w: 0.012, h: 0.011 }, { p: [0, 0.682, 0.16], w: 0.007, h: 0.007 }, { p: [0, 0.668, 0.19], w: 0.002, h: 0.002 }],
+    blk, undefined, { nu: 20, nv: 14, uvp: (u, a) => (Math.sin(a) < -0.2 && u < 0.62 ? mix(acc, '#f08a5a', 0.4) : null) });
   for (const sx of [-1, 1]) {
-    bead(gp, sx * 0.052 * s, hy + 0.022 * s, hz + 0.062 * s, 0.011 * s, small ? '#1c1917' : '#2b1d14');
-    if (small) ellip(gp, '#e11d48', sx * 0.052 * s, hy + 0.022 * s, hz + 0.058 * s, 0.015 * s, 0.015 * s, 0.006 * s);
-    // Tapered flipper hanging from the shoulder
-    sweep(gp, [
-      { p: [sx * 0.125 * s, by + 0.56 * s, 0.0], w: 0.045 * s, h: 0.02 * s },
-      { p: [sx * 0.165 * s, by + 0.4 * s, -0.01 * s], w: 0.05 * s, h: 0.016 * s },
-      { p: [sx * 0.185 * s, by + 0.24 * s, -0.03 * s], w: 0.032 * s, h: 0.011 * s },
-      { p: [sx * 0.19 * s, by + 0.16 * s, -0.045 * s], w: 0.01 * s, h: 0.006 * s },
-    ], back, { radial: 14, sub: 6, up: [0, 0, 1], paint: (_x, _y, _z, nx) => (nx * sx < -0.4 ? belly : null) });
-    pblob(gp, acc, sx * 0.055 * s, by + 0.012, 0.05 * s, 0.04 * s, 0.014, 0.065 * s, undefined, [0, sx * 0.25, 0], 12);
+    bead(B, sx * 0.05, 0.7, 0.054, 0.008, '#1a120c');
+    // Flippers hanging along the flanks: dark outside with a pale trailing edge, white underside
+    foil(B, blk, [
+      { le: [sx * 0.08, 0.56, 0.03], te: [sx * 0.085, 0.56, -0.035], t: 0.012 },
+      { le: [sx * 0.112, 0.51, 0.036], te: [sx * 0.117, 0.51, -0.04], t: 0.016 },
+      { le: [sx * 0.155, 0.4, 0.035], te: [sx * 0.158, 0.4, -0.03], t: 0.012 },
+      { le: [sx * 0.172, 0.27, 0.018], te: [sx * 0.168, 0.26, -0.02], t: 0.008 },
+      { le: [sx * 0.168, 0.2, -0.008], te: [sx * 0.166, 0.195, -0.012], t: 0.003 },
+    ], [sx, 0, 0], (px, _py, pz, nx) => (nx * sx < -0.3 ? '#eceff2' : pz < -0.012 + Math.abs(px) * 0 && nx * sx > 0.3 ? mx(slate, '#c8d0d8', 0.35) : mx(blk, slate, 0.25)), 20, 12);
+    // Dark scaly feet with claws peeking from under the belly feathers
+    const ft: V3 = [sx * 0.055, 0.012, 0.1];
+    vblob(gp, '#34343a', ft[0], ft[1], ft[2], 0.032, 0.012, 0.034, undefined, [0, sx * 0.25, 0], 12);
+    for (const a of [-0.45, 0, 0.45]) {
+      const tp: V3 = [ft[0] + Math.sin(a + sx * 0.25) * 0.06, 0.006, ft[2] + Math.cos(a + sx * 0.25) * 0.06];
+      drop(gp, '#3a3a40', [ft[0], 0.012, ft[2]], tp, 0.008, 0.006);
+      drop(gp, '#18181b', tp, [tp[0] + Math.sin(a) * 0.012, 0.002, tp[2] + Math.cos(a) * 0.012], 0.0035, 0.0025);
+    }
   }
-  if (small) {
-    // Puffin's tall striped triangular beak
-    sweep(gp, [{ p: [0, hy - 0.01, hz + 0.07], w: 0.022, h: 0.05 }, { p: [0, hy - 0.02, hz + 0.12], w: 0.014, h: 0.035 }, { p: [0, hy - 0.03, hz + 0.16], w: 0.004, h: 0.01 }],
-      '#ef6c00', { radial: 10, sub: 5, paint: (_x, _y, z) => (z < hz + 0.085 ? '#64748b' : z < hz + 0.095 ? '#fde047' : null) });
-  } else {
-    sweep(gp, [{ p: [0, hy, hz + 0.08], w: 0.02, h: 0.016 }, { p: [0, hy - 0.015, hz + 0.15], w: 0.01, h: 0.009 }, { p: [0, hy - 0.03, hz + 0.19], w: 0.002 }],
-      '#1c1917', { radial: 10, sub: 5, paint: (_x, y) => (y < hy - 0.006 ? acc : null) });
-  }
+  // Stiff short tail propping on the ice
+  drop(gp, blk, [0, 0.07, -0.1], [0, 0.008, -0.16], 0.03, 0.012);
 };
 
 const WADER: Builder = (gp, r) => {
@@ -1162,77 +1499,229 @@ const FLYER: Builder = (gp, r) => {
   }
 };
 
+/** Brown kiwi foraging on the forest floor: pear-shaped shaggy body, long probing bill, stout scaly legs. */
 const ROUNDBIRD: Builder = (gp, r) => {
-  const c = r.color!;
-  pblob(gp, c, 0, 0.26, -0.02, 0.2, 0.18, 0.24, (x, y, z) => speck(c, x * 1.6, y * 1.6, z * 1.6, 0.12), [0, 0, 0], 22);
-  pblob(gp, c, 0, 0.36, 0.17, 0.085, 0.08, 0.09, (x, y, z) => speck(c, x * 1.6, y * 1.6, z * 1.6, 0.1), [0, 0, 0], 16);
-  for (const sx of [-1, 1]) bead(gp, sx * 0.05, 0.38, 0.235, 0.009);
-  sweep(gp, [{ p: [0, 0.35, 0.25], w: 0.014 }, { p: [0, 0.31, 0.36], w: 0.01 }, { p: [0, 0.22, 0.45], w: 0.005 }], '#e6d5b0', { radial: 10, sub: 6 });
+  const c = r.color!, dk = '#43301f', lt = mx(c, '#c9a77a', 0.6);
+  const plum: Paint = (x, y, z, _nx, ny) => {
+    const s = fbm(x * 95 + 7, y * 95, z * 16, 3);
+    const b = ny < -0.3 ? mx(c, '#9a8a74', sst(-0.3, -0.9, ny) * 0.5) : c;
+    return s > 0.5 ? mx(b, lt, Math.min(0.85, (s - 0.5) * 2.4)) : mx(b, dk, Math.min(0.85, (0.5 - s) * 2.2));
+  };
+  // Forest floor with leaf litter, a fallen twig and a small fern
+  const soil = '#4a3a2a';
+  vblob(gp, soil, 0, -0.012, 0, 0.38, 0.03, 0.34, (x, y, z) => {
+    const [f1, f2] = worley(x * 26, y * 26, z * 26);
+    const h = hash3(Math.floor(x * 26 + f1), 0, Math.floor(z * 26));
+    return f2 - f1 < 0.08 ? '#2f241a' : mx(h > 0.6 ? '#8a5a2a' : h > 0.3 ? '#6b4a2a' : '#5a4a30', soil, f1 * 0.8);
+  }, [0, 0, 0], 40);
+  const lc = ['#9a6a32', '#7a5228', '#b07a3a', '#6e6a3a'];
+  for (let i = 0; i < 16; i++) {
+    const a = i * 2.4, rr = 0.18 + hash3(i, 2, 5) * 0.16, x = Math.cos(a) * rr, z = Math.sin(a) * rr * 0.9;
+    blade(gp, lc[i % 4], [x, 0.016, z], [x + Math.cos(a * 3) * 0.06, 0.02, z + Math.sin(a * 3) * 0.06], 0.02, 0.003, [0, 1, 0]);
+  }
+  tube(gp, [[-0.36, 0.02, -0.12], [-0.15, 0.024, -0.22], [0.08, 0.02, -0.3]], 0.016, 0.01, '#5a4532');
+  for (let f = 0; f < 3; f++) {
+    const a = 2.3 + f * 0.55, base: V3 = [-0.25, 0.01, -0.2], pts: V3[] = [];
+    for (let j = 0; j <= 4; j++) { const t = j / 4; pts.push([base[0] + Math.cos(a) * 0.22 * t, base[1] + 0.2 * Math.sin(t * 2.2) , base[2] - Math.sin(a) * 0.22 * t * 0.5 - 0.12 * t]); }
+    tube(gp, pts, 0.005, 0.002, '#3f5a2a');
+    for (let j = 1; j < 9; j++) {
+      const t = j / 9, q = pts[Math.min(3, Math.floor(t * 4))], q2 = pts[Math.min(4, Math.floor(t * 4) + 1)], u = t * 4 - Math.floor(t * 4);
+      const pt: V3 = [q[0] + (q2[0] - q[0]) * u, q[1] + (q2[1] - q[1]) * u, q[2] + (q2[2] - q[2]) * u];
+      const d = nrm([q2[0] - q[0], q2[1] - q[1], q2[2] - q[2]]), sd = nrm([-d[2], 0, d[0]]), L = 0.055 * (1 - t * 0.6);
+      for (const s of [-1, 1]) blade(gp, j % 2 ? '#4f7a32' : '#5d8a3a', pt, [pt[0] + sd[0] * s * L + d[0] * L * 0.4, pt[1] - L * 0.25, pt[2] + sd[2] * s * L + d[2] * L * 0.4], 0.011, 0.002, [0, 1, 0]);
+    }
+  }
+  // Pear-shaped body, widest behind the legs, sloping into a small round head
+  spine(gp, [
+    { p: [0, 0.272, -0.268], w: 0.02, h: 0.02 }, { p: [0, 0.274, -0.252], w: 0.085, h: 0.085 }, { p: [0, 0.277, -0.215], w: 0.135, h: 0.132 }, { p: [0, 0.27, -0.11], w: 0.165, h: 0.16 },
+    { p: [0, 0.262, 0.0], w: 0.16, h: 0.152 }, { p: [0, 0.27, 0.1], w: 0.128, h: 0.126 }, { p: [0, 0.295, 0.17], w: 0.086, h: 0.09 },
+    { p: [0, 0.318, 0.205], w: 0.062, h: 0.064 }, { p: [0, 0.333, 0.235], w: 0.05, h: 0.05 }, { p: [0, 0.336, 0.262], w: 0.036, h: 0.035 },
+  ], c, plum, { nv: 36, shape: (u, a) => 1 + (vnoise(Math.cos(a) * 11 + 4, Math.sin(a) * 11, u * 3) - 0.5) * 0.1 + Math.max(0, -Math.sin(a)) * (vnoise(Math.cos(a) * 20, 1, u * 9) - 0.5) * 0.1 });
+  // Loose hair-like plumes along the flanks, rump and belly fringe
+  for (let i = 0; i < 80; i++) {
+    const u = 0.1 + hash3(i, 1, 4) * 0.74, a = Math.PI * (1.02 + hash3(i, 5, 2) * 0.96) + (i % 2 ? 0 : Math.PI * 0.04);
+    const z = -0.25 + u * 0.43, rad = 0.158 * Math.sin(Math.PI * Math.min(1, (z + 0.26) / 0.5)) + 0.008;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    const b: V3 = [ca * rad, 0.268 + sa * rad * 0.97, z];
+    const rear = sst(-0.1, -0.24, z), len = (0.06 + hash3(i, 9, 9) * 0.05) * (1 - rear * 0.35);
+    const tip: V3 = [b[0] + ca * len * 0.08, b[1] - len * (0.35 + rear * 0.6) + sa * len * 0.05, b[2] - len * (0.92 - rear * 0.75)];
+    blade(gp, sh(plum(...b, ca, sa, 0) ?? c, 0.95 + hash3(i, 3, 3) * 0.2), b, tip, 0.007, 0.003, [ca, sa, 0]);
+  }
+  const h = grp(gp, [0, 0.338, 0.248], [0.45, 0, 0]);
+  vblob(h, c, 0, 0, 0, 0.044, 0.043, 0.046, (x, y, z, nx, ny, nz) => (nz > 0.75 ? mx(c, '#a08c74', 0.3) : plum(x, y, z * 2, nx, ny, nz)), [0, 0, 0], 20);
+  // Long, slightly decurved bill with nostrils at the very tip; whisker bristles at the gape
+  const bill = '#e6d0b2';
+  vpaint(sweep(h, [
+    { p: [0, -0.008, 0.03], w: 0.017, h: 0.016 }, { p: [0, -0.014, 0.1], w: 0.0105, h: 0.01 },
+    { p: [0, -0.024, 0.17], w: 0.0085, h: 0.008 }, { p: [0, -0.042, 0.235], w: 0.0075, h: 0.0072 }, { p: [0, -0.06, 0.262], w: 0.0062, h: 0.006 },
+  ], bill, { radial: 12, sub: 6 }), bill, (_x, _y, z) => mx(bill, '#b39373', sst(0.12, 0.27, z)));
+  ellip(h, '#b39373', 0, -0.061, 0.264, 0.0062);
   for (const sx of [-1, 1]) {
-    tube(gp, [[sx * 0.07, 0.12, 0], [sx * 0.08, 0.04, 0.02], [sx * 0.08, 0.012, 0.03]], 0.02, 0.012, '#d6c39a');
-    for (const a of [-0.5, 0, 0.5]) tube(gp, [[sx * 0.08, 0.008, 0.03], [sx * 0.08 + Math.sin(a) * 0.05, 0.008, 0.03 + Math.cos(a) * 0.05]], 0.007, 0.005, '#d6c39a');
+    ellip(h, '#3a2a1c', sx * 0.004, -0.057, 0.255, 0.0016, 0.0016, 0.004);
+    bead(h, sx * 0.025, 0.01, 0.034, 0.005, '#0c0a08');
+    for (let k = 0; k < 4; k++) tube(h, [[sx * 0.011, -0.004 - k * 0.004, 0.04], [sx * (0.04 + k * 0.006), -0.0 - k * 0.012, 0.068 + k * 0.004]], 0.0011, 0.0006, '#2a1e14');
+  }
+  // Stout scaly legs with thick toes and digging claws (one stepping forward)
+  const leg = '#968272';
+  const scales: Paint = (_x, y, z) => (Math.sin(y * 420 + z * 80) > 0.55 ? sh(leg, 0.8) : null);
+  for (const [sx, dz] of [[-1, 0.05], [1, -0.03]] as const) {
+    const hip: V3 = [sx * 0.07, 0.16, dz - 0.02], ank: V3 = [sx * 0.074, 0.03, dz + 0.02];
+    vblob(gp, c, hip[0], 0.165, hip[2], 0.05, 0.05, 0.055, plum, [0, 0, 0], 14);
+    vpaint(limb(gp, leg, [[hip, 0.026, 0.028], [[sx * 0.072, 0.09, dz], 0.021, 0.022], [ank, 0.019, 0.02]], undefined, 12), leg, scales);
+    for (const a of [-0.45, 0, 0.45]) {
+      const tp: V3 = [ank[0] + Math.sin(a) * 0.065, 0.008, ank[2] + Math.cos(a) * 0.065];
+      vpaint(sweep(gp, [{ p: [ank[0], 0.022, ank[2]], w: 0.013 }, { p: [(ank[0] + tp[0]) / 2, 0.012, (ank[2] + tp[2]) / 2], w: 0.009 }, { p: tp, w: 0.007 }], leg, { radial: 10, sub: 3 }), leg, scales);
+      blade(gp, '#2e2620', tp, [tp[0] + Math.sin(a) * 0.022, 0.002, tp[2] + Math.cos(a) * 0.022], 0.006, 0.004, [0, 1, 0]);
+    }
+    tube(gp, [[ank[0], 0.02, ank[2]], [ank[0], 0.01, ank[2] - 0.035]], 0.008, 0.005, leg);
   }
 };
 
-/** Opaque stylised water patch with ripple rings (sits at y≈0). */
-function water(gp: THREE.Group, rx: number, rz: number, c = '#2f7fb8'): void {
-  pblob(gp, c, 0, 0, 0, rx, 0.018, rz, (x, _y, z) => {
-    const d = Math.hypot(x / rx, z / rz);
-    return Math.sin(d * 34) > 0.82 ? mix(c, '#bfe6ff', 0.45) : d > 0.9 ? shade(c, 1.15) : null;
+/** Smooth sea patch with ripple rings spreading from `rings` centres and foam close to them (sits at y≈0). */
+function water(gp: THREE.Group, rx: number, rz: number, rings: [number, number, number][] = [], c = '#2f7fb8'): void {
+  vblob(gp, c, 0, -0.008, 0, rx, 0.026, rz, (x, _y, z) => {
+    const e = Math.hypot(x / rx, z / rz);
+    let col = mx(mx(c, '#1d5f95', sst(0.2, 1, e) * 0.5), '#4aa3d6', sst(0.5, 0.7, vnoise(x * 9, 3, z * 9)) * 0.35);
+    for (const [cx, cz, cr] of rings) {
+      const d = Math.hypot(x - cx, z - cz) / cr;
+      if (d < 4) col = mx(col, '#cfeaff', Math.max(sst(1.1, 0.5, d) * 0.6, sst(0.7, 0.98, Math.sin(d * 7)) * 0.4 * (1 - d / 4)));
+    }
+    return col;
   }, [0, 0, 0], 40);
 }
-function splash(gp: THREE.Group, x: number, z: number, r: number): void {
-  for (let i = 0; i < 9; i++) {
-    const a = (i / 9) * Math.PI * 2;
-    ellip(gp, '#e0f2fe', x + Math.cos(a) * r, 0.02 + (i % 3) * 0.008, z + Math.sin(a) * r, r * 0.35, r * 0.25, r * 0.35);
+/** Foam crown and flying droplets where a body breaks the surface. */
+function splash(gp: THREE.Group, x: number, z: number, r: number, k = 0): void {
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 + hash3(i, k, 1), rr = r * (0.8 + hash3(i, k, 2) * 0.4), hgt = r * (0.5 + hash3(i, k, 3) * 0.9);
+    drop(gp, '#eaf6ff', [x + Math.cos(a) * rr * 0.7, 0.008, z + Math.sin(a) * rr * 0.7], [x + Math.cos(a) * rr * 1.15, hgt, z + Math.sin(a) * rr * 1.15], r * 0.22);
+    if (i % 2) vblob(gp, '#f4fbff', x + Math.cos(a) * rr * 1.4, hgt * 1.3, z + Math.sin(a) * rr * 1.4, r * 0.08, r * 0.08, r * 0.08, undefined, [0, 0, 0], 8);
   }
+}
+/** Moving frame along a centripetal Catmull-Rom spine (same convention as `spine`). */
+function framer(pts: V3[], side: V3) {
+  const cu = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p)), false, 'centripetal'), sd = new THREE.Vector3(...side);
+  return (u: number) => {
+    const P = cu.getPoint(u), T = cu.getTangent(u), N = new THREE.Vector3().crossVectors(T, sd).normalize(), S = new THREE.Vector3().crossVectors(N, T).normalize();
+    /** Point offset by s along the side axis, n along the up normal and t along the tangent. */
+    const at = (s0: number, n0: number, t0 = 0): V3 => [P.x + S.x * s0 + N.x * n0 + T.x * t0, P.y + S.y * s0 + N.y * n0 + T.y * t0, P.z + S.z * s0 + N.z * n0 + T.z * t0];
+    return { P, T, N, S, at };
+  };
 }
 
 const WHALE: Builder = (gp, r) => {
-  const c = r.color!, L = num(r.L, 1.5);
-  const light = mix(c, '#e2e8f0', 0.6);
+  const c = r.color!;
   if (r.fin) {
-    // Dolphin leaping in an arc out of the sea
-    water(gp, 0.42, 0.34);
-    const ctr: V3 = [0, 0.04, 0];
-    const paint: Paint = (x, y, z, nx, ny, nz) => {
-      const dx = ctr[0] - x, dy = ctr[1] - y, dz = ctr[2] - z, dl = Math.hypot(dx, dy, dz) || 1;
-      return (nx * dx + ny * dy + nz * dz) / dl > 0.35 ? light : null;
+    // Bottlenose dolphin leaping in an arc: melon & short beak, falcate dorsal fin, dark cape over grey flanks, pale belly
+    water(gp, 0.36, 0.5, [[0, -0.36, 0.06]]);
+    const dk = mx(c, '#2f3a46', 0.7), belly = '#eef1f3';
+    const tab: [number, number, number][] = [[0, 0.007, 0.011], [0.08, 0.014, 0.03], [0.2, 0.03, 0.05], [0.35, 0.056, 0.068], [0.5, 0.07, 0.078],
+      [0.65, 0.072, 0.076], [0.78, 0.062, 0.066], [0.86, 0.05, 0.054], [0.905, 0.036, 0.034], [0.925, 0.025, 0.022], [0.96, 0.019, 0.016], [1, 0.007, 0.007]];
+    const wh = (u: number): [number, number] => {
+      let k = 0;
+      while (k < tab.length - 2 && tab[k + 1][0] < u) k++;
+      const t = Math.min(1, Math.max(0, (u - tab[k][0]) / (tab[k + 1][0] - tab[k][0])));
+      return [tab[k][1] + (tab[k + 1][1] - tab[k][1]) * t, tab[k][2] + (tab[k + 1][2] - tab[k][2]) * t];
     };
-    const pts: V3[] = [[0, 0.02, -0.3], [0, 0.2, -0.24], [0, 0.34, -0.08], [0, 0.36, 0.08], [0, 0.26, 0.22], [0, 0.14, 0.3], [0, 0.1, 0.32]];
-    const ws = [0.012, 0.035, 0.065, 0.068, 0.05, 0.022, 0.012];
-    sweep(gp, pts.map((p, i) => ({ p, w: ws[i] * 0.95, h: ws[i] })), c, { radial: 20, sub: 8, paint });
-    leaf(gp, c, 0, 0.405, -0.02, 0.035, 0.08, [0, Math.PI / 2, 0.55], 0.012, 0.05);
-    for (const sx of [-1, 1]) {
-      leaf(gp, shade(c, 0.9), sx * 0.05, 0.27, 0.12, 0.018, 0.07, [0.6, 0, sx * 2.2], 0.008, 0.2);
-      bead(gp, sx * 0.034, 0.24, 0.22, 0.009);
+    const NS = 28, pts: V3[] = [], st: SpSt[] = [];
+    for (let k = 0; k <= NS; k++) {
+      const u = k / NS, th = -1.2 + u * 1.95, R = 0.4 + Math.max(0, u - 0.88) * 0.4;
+      const p: V3 = [0, -0.04 + R * Math.cos(th), R * Math.sin(th)];
+      const [w, h] = wh(u);
+      pts.push(p); st.push({ p, w, h });
     }
-    const fl = slab(gp, [[0, 0.02], [0.07, -0.02], [0.09, -0.05], [0.04, -0.035], [0, -0.02], [-0.04, -0.035], [-0.09, -0.05], [-0.07, -0.02]], 0.01, c, 0.003);
-    fl.position.set(0, 0.03, -0.3); fl.rotation.set(Math.PI / 2 + 0.9, 0, 0);
-    splash(gp, 0, -0.29, 0.06); splash(gp, 0, 0.32, 0.05);
+    const F = framer(pts, [1, 0, 0]);
+    const dolphinP = (u: number, a: number) => {
+      const s2 = Math.sin(a), cape = 0.42 - 0.3 * Math.exp(-(((u - 0.6) / 0.12) ** 2)) + (u > 0.85 ? -0.15 : 0);
+      const lo = -0.32 + 0.08 * Math.sin(u * 6);
+      return s2 > cape ? mx(c, dk, sst(cape, cape + 0.25, s2)) : s2 < lo ? mx(c, belly, sst(lo, lo - 0.25, s2)) : c;
+    };
+    spine(gp, st, c, undefined, {
+      nu: 84, nv: 30,
+      shape: (u, a) => 1 + Math.max(0, Math.sin(a)) * 0.22 * Math.exp(-(((u - 0.86) / 0.04) ** 2)),
+      uvp: (u, a) => dolphinP(u, a),
+    });
+    // Falcate dorsal fin, flippers and flukes
+    const top = (u: number) => F(u).at(0, wh(u)[1] * 0.9);
+    const fd = (u: number, n: number, t: number) => { const f = F(u), b = top(u); return [b[0] + f.N.x * n + f.T.x * t, b[1] + f.N.y * n + f.T.y * t, b[2] + f.N.z * n + f.T.z * t] as V3; };
+    const fs = F(0.52).S;
+    foil(gp, dk, [
+      { le: fd(0.6, 0, 0), te: fd(0.44, 0, 0), t: 0.012 }, { le: fd(0.56, 0.045, -0.01), te: fd(0.47, 0.035, -0.015), t: 0.008 },
+      { le: fd(0.52, 0.075, -0.03), te: fd(0.49, 0.065, -0.04), t: 0.004 }, { le: fd(0.49, 0.088, -0.055), te: fd(0.485, 0.084, -0.058), t: 0.002 },
+    ], [fs.x, fs.y, fs.z], undefined, 12, 12);
+    for (const sx of [-1, 1]) {
+      const f = F(0.76), [w, h] = wh(0.76), b = f.at(sx * w * 0.8, -h * 0.55);
+      const o = (s0: number, n0: number, t0: number): V3 => [b[0] + f.S.x * s0 + f.N.x * n0 + f.T.x * t0, b[1] + f.S.y * s0 + f.N.y * n0 + f.T.y * t0, b[2] + f.S.z * s0 + f.N.z * n0 + f.T.z * t0];
+      foil(gp, dk, [{ le: o(0, 0, 0.025), te: o(0, 0, -0.025), t: 0.01 }, { le: o(sx * 0.045, -0.035, -0.02), te: o(sx * 0.04, -0.03, -0.05), t: 0.006 }, { le: o(sx * 0.075, -0.06, -0.07), te: o(sx * 0.072, -0.058, -0.08), t: 0.002 }],
+        [f.N.x, f.N.y, f.N.z], undefined, 10, 10);
+      const ft = F(0.01), q = (s0: number, t0: number, n0 = 0): V3 => ft.at(s0, n0, t0);
+      foil(gp, dk, [{ le: q(0, 0.015), te: q(0, -0.03), t: 0.011 }, { le: q(sx * 0.05, -0.005, 0.003), te: q(sx * 0.042, -0.045, 0.003), t: 0.007 },
+        { le: q(sx * 0.095, -0.04, 0.008), te: q(sx * 0.088, -0.06, 0.008), t: 0.003 }, { le: q(sx * 0.115, -0.07, 0.01), te: q(sx * 0.112, -0.074, 0.01), t: 0.0015 }], [ft.N.x, ft.N.y, ft.N.z], undefined, 10, 10);
+      // Eye with a dark eye patch, mouth line along the beak
+      const fe = F(0.875), [we, he] = wh(0.875);
+      bead(gp, ...fe.at(sx * we * 0.93, -he * 0.1, 0), 0.007, '#0b0f14');
+      const m1 = F(0.99).at(sx * 0.005, -0.003), m2 = F(0.93).at(sx * 0.02, -0.006), m3 = F(0.9).at(sx * 0.03, -0.012);
+      tube(gp, [m1, m2, m3], 0.0018, 0.0018, '#3a4450');
+    }
+    splash(gp, 0, -0.36, 0.05, 1);
+    for (let i = 0; i < 7; i++) { const f = F(0.02 + i * 0.04); vblob(gp, '#eaf6ff', f.P.x + (hash3(i, 2, 2) - 0.5) * 0.06, f.P.y * (0.3 + i * 0.1), f.P.z - 0.02, 0.008, 0.008, 0.008, undefined, [0, 0, 0], 8); }
     return;
   }
-  // Blue whale surfacing, mottled back, pleated throat, spout
-  water(gp, 0.38 * L * 0.5 + 0.12, 0.36 * L * 0.5 + 0.12);
-  const lw = 0.5 * L;
-  const mottled: Paint = (x, y, z, _nx, ny) => {
-    if (ny < -0.25) return Math.sin(x * 170) > 0.2 ? '#cbd5e1' : '#e2e8f0';
-    return hash3(Math.floor(x * 40), Math.floor(y * 40), Math.floor(z * 40)) > 0.82 ? mix(c, '#e2e8f0', 0.35) : null;
+  // Blue whale cruising at the surface: very long slender mottled body, flat U-shaped head with a splash guard,
+  // ventral throat pleats, tiny dorsal fin far back, slender pale-edged flippers and broad notched flukes, columnar spout
+  const roll = -0.3, base = mx(c, '#7b8c9c', 0.35), pale = mx(base, '#c9d4de', 0.55);
+  water(gp, 0.38, 0.6, [[0.02, 0.32, 0.12], [0, -0.1, 0.13], [0, -0.5, 0.08]]);
+  const wg = grp(gp, [0, 0.105, 0], [0, 0, roll]);
+  const S0: [number, number, number, number][] = [[-0.5, 0.025, 0.011, 0.011], [-0.47, 0.022, 0.015, 0.026], [-0.39, 0.015, 0.03, 0.048], [-0.27, 0.007, 0.058, 0.068],
+    [-0.13, 0.002, 0.088, 0.086], [0.01, 0, 0.104, 0.096], [0.14, 0, 0.105, 0.09], [0.26, 0.002, 0.096, 0.074], [0.36, 0, 0.082, 0.054], [0.44, -0.005, 0.068, 0.036], [0.485, -0.008, 0.042, 0.024], [0.5, -0.009, 0.012, 0.01]];
+  const st: SpSt[] = S0.map(([z, y, w, h]) => ({ p: [0, y, z], w, h }));
+  const tg = grp(wg, [0, 0.03, -0.45], [0, 0, -roll * 1.1]);
+  const mott: Paint = (x, y, z) => {
+    const [f1] = worley(x * 34 + 3, y * 34, z * 34), n = vnoise(x * 14, y * 14 + 2, z * 14);
+    return mx(mx(base, '#9fb0c0', sst(0.3, 0.05, f1) * 0.35), sh(base, 0.72), sst(0.45, 0.8, n) * 0.4);
   };
-  const u = (t: number) => t * lw;
-  sweep(gp, [
-    { p: [0, 0.06, u(-0.5)], w: 0.02, h: 0.016 }, { p: [0, 0.07, u(-0.38)], w: 0.05, h: 0.045 },
-    { p: [0, 0.07, u(-0.15)], w: 0.1, h: 0.08 }, { p: [0, 0.06, u(0.1)], w: 0.12, h: 0.088 },
-    { p: [0, 0.05, u(0.32)], w: 0.11, h: 0.07 }, { p: [0, 0.045, u(0.46)], w: 0.075, h: 0.045 }, { p: [0, 0.045, u(0.5)], w: 0.03, h: 0.02 },
-  ], c, { radial: 26, sub: 8, paint: mottled, squash: 1.1 });
-  const fl = slab(gp, [[0, 0.02], [0.1, -0.02], [0.17, -0.08], [0.1, -0.07], [0, -0.04], [-0.1, -0.07], [-0.17, -0.08], [-0.1, -0.02]], 0.014, c, 0.004);
-  fl.position.set(0, 0.07, u(-0.48)); fl.rotation.set(Math.PI / 2 - 0.15, 0, 0);
-  leaf(gp, c, 0, 0.13, u(-0.25), 0.02, 0.035, [0, Math.PI / 2, 0.6], 0.01, 0.05);
+  spine(wg, st, base, undefined, {
+    nu: 70, nv: 88,
+    shape: (u, a) => {
+      const s2 = Math.sin(a), zone = sst(0.42, 0.52, u) * (1 - sst(0.88, 0.95, u)), ven = sst(-0.25, -0.5, s2);
+      return 1 - 0.035 * zone * ven * Math.pow(0.5 + 0.5 * Math.cos(a * 24), 3) + Math.max(0, s2) * 0.05 * sst(0.75, 0.9, u) * Math.exp(-((Math.cos(a) / 0.25) ** 2));
+    },
+    uvp: (u, a, x, y, z) => {
+      const s2 = Math.sin(a), zone = sst(0.42, 0.52, u) * (1 - sst(0.88, 0.95, u)), ven = sst(-0.2, -0.55, s2);
+      const m = mott(x, y, z, 0, 0, 0) ?? base;
+      if (ven * zone > 0.05) return mx(mx(m, pale, ven * 0.6), '#7d8a99', zone * ven * Math.pow(0.5 + 0.5 * Math.cos(a * 24), 3) * 0.8);
+      return s2 < -0.3 ? mx(m, pale, sst(-0.3, -0.8, s2) * 0.45) : m;
+    },
+  });
+  // Splash guard ridge and paired blowholes; mouth line; small eye behind the gape
+  vblob(wg, base, 0, 0.074, 0.305, 0.03, 0.012, 0.03, mott, [0, 0, 0], 14);
   for (const sx of [-1, 1]) {
-    leaf(gp, shade(c, 0.9), sx * 0.1, 0.03, u(0.22), 0.025, 0.16, [Math.PI / 2, 0, -sx * 2.0], 0.01, 0.25);
-    bead(gp, sx * 0.1, 0.05, u(0.36), 0.008);
+    pblob(wg, '#23303d', sx * 0.009, 0.08, 0.282, 0.005, 0.003, 0.016, undefined, [0, sx * 0.25, 0], 10);
+    tube(wg, [[sx * 0.019, -0.004, 0.488], [sx * 0.047, -0.01, 0.45], [sx * 0.073, -0.016, 0.37], [sx * 0.086, -0.022, 0.3]], 0.0022, 0.0022, '#2c3a48');
+    bead(wg, sx * 0.089, -0.012, 0.28, 0.0065, '#0b1118');
+    foil(wg, base, [
+      { le: [sx * 0.085, -0.045, 0.2], te: [sx * 0.085, -0.05, 0.145], t: 0.013 }, { le: [sx * 0.155, -0.07, 0.14], te: [sx * 0.15, -0.075, 0.105], t: 0.009 },
+      { le: [sx * 0.225, -0.095, 0.05], te: [sx * 0.222, -0.097, 0.04], t: 0.003 },
+    ], [sx * 0.35, 1, 0], (_x, _y, _z, _nx, ny) => (ny < 0 ? pale : base), 12, 12);
+    foil(tg, base, [
+      { le: [0, 0.006, 0.03], te: [0, -0.012, -0.05], t: 0.016 }, { le: [sx * 0.08, 0.004, 0.0], te: [sx * 0.07, -0.014, -0.08], t: 0.011 },
+      { le: [sx * 0.15, 0.002, -0.04], te: [sx * 0.135, -0.008, -0.09], t: 0.006 }, { le: [sx * 0.2, 0.0, -0.085], te: [sx * 0.195, -0.004, -0.102], t: 0.002 },
+    ], [0, 1, 0.3], mott, 12, 12);
   }
-  for (let i = 0; i < 6; i++) ellip(gp, '#f0f9ff', (i % 2 ? 0.01 : -0.01), 0.16 + i * 0.035, u(0.36) - i * 0.006, 0.022 + i * 0.005, 0.02, 0.022 + i * 0.004);
+  foil(wg, base, [
+    { le: [0, 0.055, -0.22], te: [0, 0.05, -0.3], t: 0.009 }, { le: [0, 0.075, -0.265], te: [0, 0.07, -0.3], t: 0.006 }, { le: [0, 0.088, -0.295], te: [0, 0.085, -0.305], t: 0.002 },
+  ], [1, 0, 0], mott, 10, 10);
+  // Misty V-shaped blow from the paired blowholes: puffs that grow, spread and fade with height
+  const bh: V3 = [-0.08 * Math.sin(roll), 0.105 + 0.08 * Math.cos(roll), 0.285];
+  for (const sx of [-1, 1]) for (let i = 0; i < 12; i++) {
+    const t = i / 11, hgt = 0.015 + t * 0.26, sp = 0.008 + t * 0.07, r0 = 0.01 + t * 0.036;
+    for (let k = 0; k < (i < 4 ? 1 : 3); k++) {
+      const jx = (hash3(i, k, sx + 3) - 0.5) * r0 * 1.4, jz = (hash3(k, i, sx + 5) - 0.5) * r0 * 1.4;
+      const m = pblob(gp, '#f4faff', bh[0] + sx * sp + jx, bh[1] + hgt + (hash3(i, k, 7) - 0.5) * 0.03, bh[2] - t * 0.03 + jz, r0, r0 * 0.85, r0, undefined, [0, 0, 0], 10);
+      const mm = mat('#eef6fc', { transparent: Math.round((0.42 - t * 0.3) * 10) / 10, flat: false, emissive: '#b8cfe0' });
+      mm.depthWrite = false;
+      m.material = mm;
+    }
+  }
 };
 
 const SHARK: Builder = (gp, r) => {
@@ -1268,103 +1757,333 @@ const SHARK: Builder = (gp, r) => {
 };
 
 const TURTLE: Builder = (gp, r) => {
-  const c = r.color!;
-  const skin = mix(c, '#c2d59a', 0.6);
-  const scale: Paint = (x, y, z) => { const [a, b] = worley(x * 40, y * 40, z * 40); return b - a < 0.12 ? shade(skin, 0.75) : null; };
-  pblob(gp, '#e9dfb8', 0, 0.09, 0, 0.26, 0.04, 0.32);
-  pblob(gp, c, 0, 0.1, 0, 0.27, 0.15, 0.33, (x, y, z, _nx, ny) => {
-    if (ny < 0.05) return '#e9dfb8';
-    const [f1, f2] = worley(x * 6.5, y * 3, z * 6.5);
-    return f2 - f1 < 0.04 ? '#3f3a26' : mix(shade(c, 1.15), '#8a6a3a', Math.min(1, f1 * 1.6) * 0.55);
-  }, [0, 0, 0], 52);
-  sweep(gp, [{ p: [0, 0.1, 0.28], w: 0.06, h: 0.05 }, { p: [0, 0.12, 0.38], w: 0.06, h: 0.055 }, { p: [0, 0.125, 0.44], w: 0.05, h: 0.048 }, { p: [0, 0.115, 0.48], w: 0.02 }], skin, { radial: 16, sub: 6, paint: scale });
-  for (const sx of [-1, 1]) {
-    bead(gp, sx * 0.042, 0.14, 0.43, 0.012);
-    const ff = slab(gp, [[0, 0.03], [0.12, 0.04], [0.3, -0.02], [0.32, -0.06], [0.15, -0.04], [0, -0.03]].map(([a, b]) => [a * sx, b] as [number, number]), 0.02, skin, 0.006);
-    ff.position.set(sx * 0.2, 0.08, 0.16); ff.rotation.set(Math.PI / 2, 0, sx * 0.5);
-    const bf = slab(gp, [[0, 0.03], [0.1, 0.02], [0.13, -0.03], [0, -0.03]].map(([a, b]) => [a * sx, b] as [number, number]), 0.016, skin, 0.005);
-    bf.position.set(sx * 0.17, 0.08, -0.26); bf.rotation.set(Math.PI / 2, 0, -sx * 0.6);
+  // Green sea turtle gliding over a sandy reef patch: domed teardrop carapace with radiating scutes and pale seams,
+  // pale plastron, scaly head with a pale-edged polygon pattern, long paddle fore-flippers and short hind flippers
+  const c = r.color!, shell = mx(c, '#6b4a26', 0.65), sLt = mx(shell, '#c08a48', 0.6), sDk = sh(shell, 0.55), seam = '#b9a06c';
+  seabed(gp, 0.48, 0.5, '#e2d3a8');
+  // Brain corals with meandering grooves and a little branching coral
+  for (const [x, z, rr, col] of [[-0.31, -0.24, 0.075, '#c9b27a'], [0.33, 0.26, 0.06, '#c79a86'], [-0.3, 0.3, 0.05, '#b5ad78']] as const) {
+    vblob(gp, col, x, 0.015, z, rr, rr * 0.75, rr, (px, py, pz) => mx(col, sh(col, 0.62), sst(0.55, 0.85, Math.abs(Math.sin(vnoise(px * 30, py * 30, pz * 30) * 14)))), [0, 0, 0], 22);
   }
+  for (let i = 0; i < 6; i++) {
+    const a = i * 1.1, b: V3 = [0.34 + Math.cos(a) * 0.015, 0.0, -0.2 + Math.sin(a) * 0.015];
+    tube(gp, [b, [b[0] + Math.cos(a) * 0.03, 0.05, b[2] + Math.sin(a) * 0.03], [b[0] + Math.cos(a) * 0.05, 0.09 + (i % 3) * 0.015, b[2] + Math.sin(a) * 0.05]], 0.009, 0.006, '#e08a6e');
+  }
+  const y0 = 0.27;
+  const scale = (base: string, k = 30): Paint => (x, y, z) => {
+    const [f1, f2] = worley(x * k, y * k, z * k);
+    return mx(mx(base, '#24180e', 0.25 + f1 * 0.35), '#d8c08e', sst(0.14, 0.04, f2 - f1) * 0.75);
+  };
+  const skin = mx(c, '#5a4428', 0.55);
+  // Carapace: segment grid (vertebral / costal / marginal rows) evaluated in loft parameters
+  const scute = (u: number, a: number): string => {
+    const s2 = Math.sin(a);
+    if (s2 < -0.08) return mx('#e9dcae', '#d6c48c', sst(-0.1, -0.9, s2) * 0.4);
+    const ang = Math.abs(Math.atan2(Math.cos(a), Math.max(1e-3, s2)));
+    const [n, a0, a1, u0, u1] = ang < 0.5 ? [5, 0, 0.5, 0.1, 0.92] : ang < 1.22 ? [4, 0.5, 1.22, 0.12, 0.88] : [11, 1.22, 1.62, 0.02, 0.98];
+    const fu = Math.min(0.999, Math.max(0, (u - u0) / (u1 - u0))) * n, iu = Math.floor(fu), lu = fu - iu, la = (ang - a0) / (a1 - a0);
+    if (u < u0 || u > u1 || lu < 0.035 || lu > 0.965 || la < 0.03 || la > 0.97) return seam;
+    const th = Math.atan2(la - 0.5, lu - 0.5), d = Math.hypot(la - 0.5, lu - 0.5);
+    const streak = 0.5 + 0.5 * Math.sin(th * 7 + hash3(iu, n, 3) * 6) * Math.min(1, d * 2.2);
+    return mx(mx(sDk, sLt, 0.25 + streak * 0.6), shell, hash3(iu, n, 5) * 0.4);
+  };
+  const tg = grp(gp, [0, y0, 0], [0.06, 0, 0.05]);
+  spine(tg, [
+    { p: [0, 0.0, -0.31], w: 0.012, h: 0.01 }, { p: [0, 0, -0.27], w: 0.075, h: 0.04 }, { p: [0, 0, -0.18], w: 0.155, h: 0.085 }, { p: [0, 0, -0.06], w: 0.2, h: 0.108 },
+    { p: [0, 0, 0.06], w: 0.208, h: 0.112 }, { p: [0, 0, 0.16], w: 0.178, h: 0.098 }, { p: [0, 0, 0.22], w: 0.12, h: 0.07 }, { p: [0, 0, 0.25], w: 0.04, h: 0.03 },
+  ], shell, undefined, {
+    nu: 64, nv: 60,
+    shape: (_u, a) => { const s2 = Math.sin(a); return s2 < 0 ? 1 - 0.62 * sst(0, 1, -s2) : 1 + 0.03 * Math.exp(-((s2 / 0.12) ** 2)); },
+    uvp: (u, a) => scute(u, a),
+  });
+  // Head & neck
+  const hd = grp(tg, [0, 0.0, 0.25], [0.12, 0, 0]);
+  spine(hd, [{ p: [0, 0, -0.05], w: 0.05, h: 0.04 }, { p: [0, 0.004, 0.0], w: 0.046, h: 0.038 }, { p: [0, 0.014, 0.05], w: 0.058, h: 0.05 },
+    { p: [0, 0.014, 0.095], w: 0.05, h: 0.045 }, { p: [0, 0.0, 0.125], w: 0.026, h: 0.024 }], skin, (x, y, z, nx, ny, nz) => (ny < -0.35 ? mx('#e9dcae', skin, 0.25) : scale(skin, 42)(x, y, z, nx, ny, nz)), { nv: 30, nu: 40 });
+  for (const sx of [-1, 1]) {
+    vblob(hd, '#e9dcae', sx * 0.042, 0.02, 0.07, 0.014, 0.012, 0.013, undefined, [0, 0, 0], 12);
+    bead(hd, sx * 0.048, 0.021, 0.074, 0.009, '#0d0b09');
+    tube(hd, [[sx * 0.014, -0.012, 0.122], [sx * 0.032, -0.014, 0.095], [sx * 0.044, -0.008, 0.07]], 0.0018, 0.0018, '#2a1e14');
+  }
+  // Flippers: long fore-flippers mid-stroke, short rounded hind flippers
+  for (const sx of [-1, 1]) {
+    foil(tg, skin, [
+      { le: [sx * 0.15, -0.01, 0.17], te: [sx * 0.15, -0.015, 0.08], t: 0.024 },
+      { le: [sx * 0.27, 0.0, 0.12], te: [sx * 0.26, -0.01, 0.05], t: 0.016 },
+      { le: [sx * 0.38, -0.01, 0.03], te: [sx * 0.35, -0.018, -0.01], t: 0.01 },
+      { le: [sx * 0.44, -0.03, -0.07], te: [sx * 0.42, -0.03, -0.075], t: 0.004 },
+    ], [-sx * 0.2, 1, 0], scale(skin, 32), 26, 16);
+    foil(tg, skin, [
+      { le: [sx * 0.08, -0.02, -0.22], te: [sx * 0.07, -0.02, -0.27], t: 0.016 },
+      { le: [sx * 0.14, -0.022, -0.27], te: [sx * 0.11, -0.022, -0.33], t: 0.01 },
+      { le: [sx * 0.165, -0.025, -0.33], te: [sx * 0.15, -0.025, -0.35], t: 0.004 },
+    ], [0, 1, 0], scale(skin, 32), 12, 12);
+  }
+  tube(tg, [[0, -0.01, -0.29], [0, -0.016, -0.33]], 0.012, 0.004, skin);
 };
 
-const OCTOPUS: Builder = (gp, r) => {
-  const c = r.color!, under = mix(c, '#ffe4e6', 0.55);
-  pblob(gp, c, 0, 0.46, -0.06, 0.17, 0.21, 0.19, (x, y, z) => (hash3(Math.floor(x * 50), Math.floor(y * 50), Math.floor(z * 50)) > 0.85 ? shade(c, 1.2) : null), [-0.45, 0, 0], 28);
-  pblob(gp, c, 0, 0.27, 0.04, 0.15, 0.1, 0.14);
-  for (const sx of [-1, 1]) {
-    ellip(gp, c, sx * 0.09, 0.33, 0.12, 0.05);
-    ellip(gp, '#fef3c7', sx * 0.1, 0.335, 0.155, 0.032, 0.03, 0.02);
-    ellip(gp, '#111827', sx * 0.1, 0.335, 0.172, 0.022, 0.007, 0.006);
+/** Low cup with a rim and a central dimple (octopus sucker), +y out of the skin. */
+const SUCKER = () => g('an-sucker', () => {
+  const pr = [[0.001, 0.14], [0.34, 0.42], [0.46, 0.5], [0.5, 0.3], [0.48, 0]];
+  const lg = new THREE.LatheGeometry(pr.map(([a, b]) => new THREE.Vector2(a, b)), 7);
+  lg.computeVertexNormals();
+  return lg;
+});
+/** Sandy seabed patch with ripples, pebbles and a shell. */
+function seabed(gp: THREE.Group, rx: number, rz: number, sand = '#d9c49a'): void {
+  vblob(gp, sand, 0, -0.012, 0, rx, 0.03, rz, (x, _y, z) => {
+    const w = Math.sin(x * 38 + z * 12 + vnoise(x * 6, 0, z * 6) * 5);
+    return mx(mx(sand, '#b9a274', sst(0.3, 1, w) * 0.55), '#ead8b0', sst(-0.4, -1, w) * 0.5);
+  }, [0, 0, 0], 36);
+  for (let i = 0; i < 7; i++) {
+    const a = i * 2.1 + 0.4, rr = 0.6 + hash3(i, 3, 1) * 0.3;
+    vblob(gp, ['#8a8478', '#a39b8c', '#6f6a62'][i % 3], Math.cos(a) * rx * rr, 0.012, Math.sin(a) * rz * rr, 0.018 + hash3(i, 1, 1) * 0.014, 0.012, 0.016, undefined, [0, a, 0], 10);
   }
+}
+const OCTOPUS: Builder = (gp, r) => {
+  const c = r.color!, dk = sh(c, 0.62), pale = mx(c, '#f6d6c6', 0.6), suck = '#f3d2c0';
+  seabed(gp, 0.5, 0.46);
+  const skin: Paint = (x, y, z) => {
+    const [f1, f2] = worley(x * 22, y * 22, z * 22), n = vnoise(x * 9 + 2, y * 9, z * 9);
+    let col = mx(c, f2 - f1 < 0.1 ? dk : sh(c, 1.08), f2 - f1 < 0.1 ? 0.45 : 0.3);
+    col = mx(col, '#7a2a1e', sst(0.55, 0.8, n) * 0.4);
+    return f1 < 0.12 ? mx(col, '#f2b8a0', 0.45) : col;
+  };
+  // Mantle: bulbous, wrinkled sac leaning back over a short head with the eyes
+  spine(gp, [
+    { p: [0, 0.15, 0.03], w: 0.115, h: 0.115 }, { p: [0, 0.24, 0.04], w: 0.12, h: 0.11 }, { p: [0, 0.32, 0.0], w: 0.11, h: 0.1 },
+    { p: [0, 0.39, -0.07], w: 0.16, h: 0.15 }, { p: [0, 0.45, -0.16], w: 0.175, h: 0.16 }, { p: [0, 0.49, -0.25], w: 0.14, h: 0.125 },
+    { p: [0, 0.505, -0.31], w: 0.05, h: 0.045 },
+  ], c, skin, {
+    nu: 50, nv: 36, side: [1, 0, 0],
+    shape: (u, a) => 1 + (vnoise(Math.cos(a) * 5 + 1, Math.sin(a) * 5, u * 12) - 0.5) * 0.16 * sst(0.3, 0.6, u)
+      + Math.max(0, Math.cos(a * 2)) * 0.06 * sst(0.1, 0.25, u) * (1 - sst(0.3, 0.42, u)),
+  });
+  // Eyes on raised turrets: golden ball with a horizontal slit pupil, papilla "horn" above
+  for (const sx of [-1, 1]) {
+    const e: V3 = [sx * 0.105, 0.3, 0.07];
+    vblob(gp, c, e[0] * 0.92, e[1] + 0.005, e[2] - 0.005, 0.05, 0.048, 0.05, skin, [0, 0, 0], 18);
+    const eg = grp(gp, e, [0, sx * 0.9, 0]);
+    vblob(eg, '#e7cf7a', 0, 0, 0.022, 0.03, 0.03, 0.022, (_x, y) => mx('#e7cf7a', '#b98a3a', sst(0.01, -0.025, y)), [0, 0, 0], 16);
+    pblob(eg, '#0e0b0a', 0, 0, 0.043, 0.02, 0.0065, 0.004, undefined, [0, 0, 0], 12);
+    ellip(eg, '#ffffff', 0.008, 0.012, 0.042, 0.004, 0.003, 0.002);
+    drop(gp, sh(c, 1.05), [e[0] * 0.98, e[1] + 0.035, e[2] - 0.01], [e[0] * 1.02, e[1] + 0.06, e[2] - 0.02], 0.009);
+  }
+  // Siphon tube on the right side
+  tube(gp, [[0.11, 0.22, -0.02], [0.15, 0.2, 0.0], [0.17, 0.2, 0.02]], 0.022, 0.016, sh(c, 0.92));
+  // Eight arms: spread over the sand from a webbed base, tips curling up (suckers on the outside of the spiral)
+  const curls = [1.5, 0.7, 1.9, 1.1, 1.6, 0.6, 1.8, 1.0];
   for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2 + 0.2;
-    const ca = Math.cos(a), sa = Math.sin(a);
-    const curl = i % 2 ? 1 : -1;
-    const pts: V3[] = [
-      [ca * 0.08, 0.22, sa * 0.08 + 0.03], [ca * 0.2, 0.08, sa * 0.2 + 0.03], [ca * 0.32, 0.03, sa * 0.32 + 0.03],
-      [ca * 0.42 - sa * 0.05 * curl, 0.05, sa * 0.42 + ca * 0.05 * curl + 0.03], [ca * 0.42 - sa * 0.1 * curl, 0.11, sa * 0.42 + ca * 0.1 * curl + 0.03],
-      [ca * 0.37 - sa * 0.1 * curl, 0.13, sa * 0.37 + ca * 0.1 * curl + 0.03],
-    ];
-    sweep(gp, pts.map((p, k) => ({ p, w: 0.05 * (1 - k / 6) + 0.006 })), c, {
-      radial: 12, sub: 7, paint: (x, y, z, _nx, ny) => (ny < -0.2 ? (hash3(Math.floor(x * 70), Math.floor(y * 70), Math.floor(z * 70)) > 0.55 ? '#fff1f2' : under) : null),
+    const a = (i / 8) * Math.PI * 2 + 0.39 + (hash3(i, 2, 7) - 0.5) * 0.25;
+    const ra: V3 = [Math.cos(a), 0, Math.sin(a)], ta: V3 = [-Math.sin(a), 0, Math.cos(a)];
+    const sway = (hash3(i, 9, 1) - 0.5) * 0.16, reach = 0.29 + hash3(i, 4, 4) * 0.07, R0 = 0.06 + hash3(i, 6, 3) * 0.035;
+    const Phi = Math.PI * curls[i], q: [number, number][] = [[0.06, 0.2], [0.12, 0.11], [0.19, 0.045]];
+    for (let k = 0; k <= 2; k++) q.push([0.19 + (reach - 0.19) * (k + 1) / 3, 0.038 - k * 0.002]);
+    const yc = 0.034 + R0;
+    for (let k = 1; k <= 9; k++) { const ph = (k / 9) * Phi, rho = R0 * (1 - 0.6 * k / 9); q.push([reach + rho * Math.sin(ph), yc - rho * Math.cos(ph)]); }
+    const n = q.length, cx = 0, cz = 0.03;
+    const pts: V3[] = q.map(([rr, y], k) => { const sw = sway * Math.sin((k / (n - 1)) * Math.PI) * rr * 2; return [cx + ra[0] * rr + ta[0] * sw, y, cz + ra[2] * rr + ta[2] * sw]; });
+    const W = (u: number) => 0.041 * Math.pow(1 - u, 1.15) + 0.003;
+    const st = pts.map((p, k) => { const w = W(k / (n - 1)); return { p, w, h: w * 0.82 }; });
+    spine(gp, st, c, skin, {
+      nu: 52, nv: 12, side: ta,
+      uvp: (_u, ang, x, y, z) => { const s2 = Math.sin(ang); return s2 > 0.25 ? mx(pale, '#ffffff', 0.1) : s2 > -0.1 ? mx(skin(x, y, z, 0, 0, 0) ?? c, pale, 0.5) : null; },
     });
+    // Two staggered rows of suckers along the underside, shrinking to the tip
+    const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p)), false, 'centripetal');
+    const side = new THREE.Vector3(...ta), P = new THREE.Vector3(), T = new THREE.Vector3(), N = new THREE.Vector3(), S = new THREE.Vector3();
+    for (let k = 0; k < 20; k++) {
+      const u = 0.18 + (k / 20) * 0.78, w = W(u);
+      curve.getPoint(u, P); curve.getTangent(u, T);
+      N.crossVectors(T, side).normalize(); S.crossVectors(N, T).normalize();
+      const ang = Math.PI / 2 + (k % 2 ? 0.5 : -0.5), ca = Math.cos(ang), sa = Math.sin(ang);
+      const nn: V3 = nrm([S.x * ca + N.x * sa, S.y * ca + N.y * sa, S.z * ca + N.z * sa]);
+      const at: V3 = [P.x + S.x * ca * w + N.x * sa * w * 0.82, P.y + S.y * ca * w + N.y * sa * w * 0.82, P.z + S.z * ca * w + N.z * sa * w * 0.82];
+      if (at[1] < 0.012) continue;
+      const d = w * 1.05;
+      orient(gp, SUCKER(), suck, [at[0] - nn[0] * d * 0.05, at[1] - nn[1] * d * 0.05, at[2] - nn[2] * d * 0.05], nn, [d, d * 0.6, d]);
+    }
   }
 };
 
 const CROC: Builder = (gp, r) => {
-  const c = r.color!, short = Boolean(r.short), L = short ? 0.82 : 1;
-  const belly = mix(c, '#e7e5b8', 0.55);
-  const scales: Paint = (x, y, z, _nx, ny) => {
-    if (ny < -0.3) return belly;
-    if (short) return hash3(Math.floor(x * 90), Math.floor(y * 90), Math.floor(z * 90)) > 0.7 ? shade(c, 0.8) : null;
-    return Math.sin(z * 70) > 0.6 ? shade(c, 0.78) : null;
+  // Nile crocodile basking on a wet mud bank (armoured osteoderm rows, double tail crest, long toothy snout, raised eyes)
+  // or, with `short`, a Komodo dragon on dry sand (heavy beaded body, long neck, upright sprawl, forked yellow tongue)
+  const c = r.color!, kom = Boolean(r.short);
+  const st: SpSt[] = kom ? [
+    { p: [-0.22, 0.022, -0.5], w: 0.007, h: 0.008 }, { p: [-0.19, 0.03, -0.41], w: 0.02, h: 0.022 }, { p: [-0.11, 0.045, -0.3], w: 0.038, h: 0.04 },
+    { p: [-0.03, 0.078, -0.17], w: 0.072, h: 0.068 }, { p: [0, 0.1, -0.05], w: 0.104, h: 0.082 }, { p: [0, 0.108, 0.06], w: 0.118, h: 0.088 },
+    { p: [0, 0.116, 0.16], w: 0.096, h: 0.08 }, { p: [0.008, 0.13, 0.24], w: 0.064, h: 0.062 }, { p: [0.02, 0.142, 0.3], w: 0.058, h: 0.056 },
+    { p: [0.034, 0.148, 0.35], w: 0.057, h: 0.05 }, { p: [0.048, 0.142, 0.405], w: 0.046, h: 0.038 }, { p: [0.058, 0.13, 0.45], w: 0.034, h: 0.028 },
+    { p: [0.062, 0.125, 0.468], w: 0.011, h: 0.011 },
+  ] : [
+    { p: [0.2, 0.03, -0.56], w: 0.005, h: 0.01 }, { p: [0.17, 0.034, -0.47], w: 0.016, h: 0.028 }, { p: [0.1, 0.042, -0.35], w: 0.03, h: 0.04 },
+    { p: [0.03, 0.052, -0.21], w: 0.056, h: 0.05 }, { p: [0, 0.06, -0.08], w: 0.098, h: 0.056 }, { p: [0, 0.063, 0.04], w: 0.12, h: 0.06 },
+    { p: [0, 0.062, 0.14], w: 0.1, h: 0.056 }, { p: [0, 0.06, 0.21], w: 0.066, h: 0.044 }, { p: [0, 0.06, 0.26], w: 0.068, h: 0.04 },
+    { p: [0, 0.054, 0.32], w: 0.056, h: 0.03 }, { p: [0, 0.046, 0.38], w: 0.04, h: 0.021 }, { p: [0, 0.041, 0.44], w: 0.031, h: 0.017 },
+    { p: [0, 0.039, 0.48], w: 0.036, h: 0.018 }, { p: [0, 0.037, 0.503], w: 0.012, h: 0.01 },
+  ];
+  const n = st.length, pts = st.map(s => s.p), fr = framer(pts, [1, 0, 0]);
+  const WH = (u: number): [number, number] => {
+    const f = u * (n - 1), k = Math.min(n - 2, Math.floor(f)), t = f - k, s = t * t * (3 - 2 * t);
+    return [st[k].w + (st[k + 1].w - st[k].w) * s, st[k].h + (st[k + 1].h - st[k].h) * s];
   };
-  const y0 = short ? 0.1 : 0.075;
-  sweep(gp, [
-    { p: [0, y0 - 0.03, -0.62 * L], w: 0.008, h: 0.012 }, { p: [0, y0 - 0.01, -0.42 * L], w: 0.04, h: 0.045 },
-    { p: [0, y0, -0.2 * L], w: 0.085, h: 0.06 }, { p: [0, y0 + 0.01, 0.0], w: 0.12, h: 0.07 },
-    { p: [0, y0 + 0.01, 0.18 * L], w: 0.1, h: 0.065 }, { p: [0, y0 + (short ? 0.04 : 0.01), 0.3 * L], w: short ? 0.06 : 0.07, h: 0.05 },
-  ], c, { radial: 22, sub: 8, paint: scales, squash: 0.6 });
-  // Head & snout
-  const hz = 0.3 * L, hy = y0 + (short ? 0.04 : 0.01);
-  const snoutL = short ? 0.14 : 0.24;
-  sweep(gp, [
-    { p: [0, hy, hz], w: short ? 0.055 : 0.065, h: 0.045 }, { p: [0, hy - 0.005, hz + 0.08], w: short ? 0.045 : 0.05, h: 0.032 },
-    { p: [0, hy - 0.012, hz + snoutL], w: short ? 0.032 : 0.03, h: 0.022 }, { p: [0, hy - 0.014, hz + snoutL + 0.015], w: 0.012, h: 0.01 },
-  ], c, { radial: 16, sub: 6, paint: scales, squash: 0.7 });
-  for (const sx of [-1, 1]) {
-    ellip(gp, c, sx * 0.03, hy + 0.035, hz + 0.04, 0.022, 0.018, 0.024);
-    bead(gp, sx * 0.032, hy + 0.044, hz + 0.054, 0.01, '#d4a017');
-    if (!short) for (let i = 0; i < 6; i++) {
-      const tz = hz + 0.05 + i * 0.03, tw = 0.05 - i * 0.004;
-      add(gp, g0Cone(), mat('#fffbeb'), sx * tw, hy - 0.03, tz, 0.008, 0.018, 0.008, 0, Math.PI, 0);
+  // Arc length table (tail tip → snout) so scales keep a constant size along the loft
+  const NU = 128, sT: number[] = [0];
+  for (let i = 1; i <= NU; i++) sT.push(sT[i - 1] + fr(i / NU).P.distanceTo(fr((i - 1) / NU).P));
+  const sAt = (u: number) => sT[Math.round(u * NU)];
+  const uAtS = (s: number) => { let i = 0; while (i < NU && sT[i] < s) i++; return i / NU; };
+  const uSt = (k: number) => k / (n - 1);
+  const sHip = sAt(uSt(4)), sSh = sAt(uSt(6)), sHead = sAt(uSt(8)), sEnd = sT[NU];
+  const ang = (a: number) => { let d = a - Math.PI / 2; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d; };
+  /** Scale cell (crocodile): returns 0 in the middle of a scute → 1 in the crevice, plus the scute id. */
+  const cell = (u: number, a: number): [number, number, number] => {
+    const s = sAt(u), d = ang(a);
+    if (s > sHead - 0.01) return [0, 0, 0];
+    const back = Math.abs(d) < 0.95 ? 1 : 0, rw = back ? 0.27 : 0.42, cl = s < sHip ? 0.034 : back ? 0.036 : 0.022;
+    const fa = d / rw + (back ? 0.5 : 0), ra = Math.round(fa), fc = s / cl + (back ? 0 : (ra % 2) * 0.5), rc = Math.round(fc);
+    const e = Math.max(Math.abs(fa - ra) * 2, Math.abs(fc - rc) * 2);
+    return [e, ra * 31 + rc, back];
+  };
+  const mud = '#6a5640', ground = kom ? '#cdb184' : mud;
+  if (kom) {
+    vblob(gp, ground, 0, -0.03, 0.0, 0.5, 0.032, 0.56, (x, _y, z) => mx(mx(ground, '#a88b62', sst(0.45, 0.8, vnoise(x * 8, 1, z * 8)) * 0.6), '#e2cda0', sst(0.6, 0.85, vnoise(x * 30, 2, z * 30)) * 0.4), [0, 0, 0], 36);
+    for (let i = 0; i < 6; i++) {
+      const a = i * 1.9 + 0.3, rr = 0.33 + hash3(i, 5, 2) * 0.12;
+      vblob(gp, ['#9a8a74', '#b2a28a', '#857664'][i % 3], Math.cos(a) * rr, 0.008, Math.sin(a) * rr * 1.05, 0.014 + hash3(i, 2, 2) * 0.012, 0.01, 0.012, undefined, [0, a, 0], 10);
     }
-    // Sprawling legs: upper limb out sideways, elbow, forearm down to a splayed clawed foot
-    for (const [z, k] of [[0.14 * L, 1], [-0.15 * L, 1.15]] as const) {
-      const el: V3 = [sx * 0.15 * k, y0 + 0.005, z - 0.01], ft: V3 = [sx * 0.17 * k, 0.014, z + 0.04];
-      sweep(gp, [{ p: [sx * 0.07, y0, z], w: 0.034 * k, h: 0.03 * k }, { p: el, w: 0.024 * k, h: 0.022 * k }, { p: ft, w: 0.02 * k, h: 0.014 * k }], c, { radial: 10, sub: 4, paint: scales });
-      pblob(gp, sh(c, 0.92), ft[0], 0.01, ft[2] + 0.012, 0.024 * k, 0.009, 0.026 * k, undefined, [0, 0, 0], 10);
-      for (const a of [-0.8, -0.3, 0.2, 0.7]) {
-        const tp: V3 = [ft[0] + Math.sin(a) * sx * 0.045 * k, 0.006, ft[2] + Math.cos(a) * 0.045 * k];
-        drop(gp, c, [ft[0], 0.01, ft[2] + 0.01], tp, 0.008);
-        drop(gp, '#2a2620', tp, [tp[0] + Math.sin(a) * sx * 0.012, 0.002, tp[2] + Math.cos(a) * 0.012], 0.003);
+    tube(gp, [[0.3, 0.01, -0.32], [0.18, 0.016, -0.26], [0.05, 0.012, -0.3]], 0.008, 0.005, '#6d5338');
+    tube(gp, [[0.18, 0.016, -0.26], [0.2, 0.05, -0.2], [0.22, 0.075, -0.16]], 0.005, 0.003, '#6d5338');
+    for (let i = 0; i < 14; i++) {
+      const x = -0.32 + hash3(i, 1, 9) * 0.1 + (i > 6 ? 0.55 : 0), z = 0.2 + hash3(i, 3, 9) * 0.25 - (i > 6 ? 0.55 : 0), a = hash3(i, 4, 9) * 6;
+      blade(gp, mx('#b49a62', '#8a7448', hash3(i, 5, 9)), [x, 0.005, z], [x + Math.cos(a) * 0.03, 0.06 + hash3(i, 6, 9) * 0.04, z + Math.sin(a) * 0.03], 0.006, 0.002, [Math.sin(a), 0, -Math.cos(a)]);
+    }
+  } else {
+    water(grp(gp, [0, -0.03, 0]), 0.56, 0.58, [[-0.3, 0.42, 0.05]], '#4f6f5c');
+    vblob(gp, mud, 0.04, -0.045, -0.05, 0.46, 0.05, 0.52, (x, _y, z) => {
+      const e = Math.hypot((x - 0.04) / 0.46, (z + 0.05) / 0.52);
+      return mx(mx(mud, '#8a7458', sst(0.4, 0.75, vnoise(x * 10, 0, z * 10)) * 0.5), '#3e3226', sst(0.7, 0.95, e) * 0.7);
+    }, [0, 0, 0], 36);
+  }
+  // Body, neck, head & tail as one loft
+  const top = kom ? mx(c, '#5e5442', 0.4) : mx(c, '#45463a', 0.6), flank = kom ? mx(c, '#8a7c62', 0.35) : mx(c, '#9c9a78', 0.45);
+  const belly = kom ? mx(c, '#b4a68a', 0.6) : '#d8d1a2', crev = kom ? '#3a342a' : '#23251a';
+  const komP = (x: number, y: number, z: number, s2: number, head: number): string => {
+    const [f1, f2] = worley(x * 64, y * 64, z * 64), m = vnoise(x * 11, y * 11, z * 11);
+    let col = s2 < -0.2 ? mx(flank, belly, sst(-0.2, -0.7, s2)) : mx(top, flank, sst(0.6, -0.1, s2));
+    col = mx(col, '#a8946e', sst(0.5, 0.8, m) * 0.5 * Math.max(0, s2));
+    col = mx(col, '#6f7d86', head * 0.35);
+    return mx(mx(col, crev, sst(0.12, 0.02, f2 - f1) * 0.55), sh(col, 1.18), sst(0.25, 0.05, f1) * 0.5);
+  };
+  spine(gp, st, c, undefined, {
+    nu: NU, nv: 44,
+    shape: (u, a) => {
+      const s2 = Math.sin(a), s = sAt(u), d = ang(a);
+      let m = s2 < 0 ? 1 - (kom ? 0.18 : 0.34) * sst(0, 1, -s2) * (s < sHead ? 1 : 0.5) : 1;
+      if (kom) {
+        if (s > sSh && s < sHead + 0.06) m += 0.12 * sst(-0.3, -0.9, s2) * Math.sin(Math.PI * (s - sSh) / (sHead + 0.06 - sSh));
+        return m + (vnoise(Math.cos(a) * 9, Math.sin(a) * 9, s * 40) - 0.5) * 0.04;
       }
+      if (s > sHead - 0.01) {
+        if (Math.abs(s2 + 0.12) < 0.08 && s < sEnd - 0.03) m -= 0.05;
+        return m + (vnoise(Math.cos(a) * 14, Math.sin(a) * 14, s * 70) - 0.5) * 0.05 * sst(0.0, 0.6, s2);
+      }
+      const [e, , back] = cell(u, a), bump = Math.max(0, 1 - e * e);
+      const nuchal = s > sSh + 0.02 && s < sHead - 0.02 && Math.abs(d) < 0.6 ? 0.14 : 0;
+      return m + bump * (back ? 0.07 + nuchal : 0.025) + (back ? 0.04 * bump * bump * bump : 0);
+    },
+    uvp: (u, a, x, y, z) => {
+      const s2 = Math.sin(a), s = sAt(u);
+      const head = sst(sHead - 0.04, sHead + 0.02, s);
+      if (kom) return komP(x, y, z, s2, head);
+      const m = vnoise(x * 12 + 3, y * 12, z * 12);
+      let col = s2 < -0.25 ? mx(flank, belly, sst(-0.25, -0.75, s2)) : mx(top, flank, sst(0.5, -0.15, s2));
+      col = mx(col, '#1f2318', sst(0.55, 0.8, m) * 0.55 * sst(-0.4, 0.2, s2));
+      if (s < sHip) col = mx(col, '#262a1c', sst(0.3, 0.7, Math.sin((s / 0.085) * Math.PI * 2)) * 0.5 * sst(-0.5, 0.0, s2));
+      if (head > 0.5) {
+        const [f1, f2] = worley(x * 80, y * 80, z * 80);
+        col = mx(mx(col, crev, sst(0.1, 0.02, f2 - f1) * 0.5), s2 < -0.12 ? '#c9c095' : col, sst(-0.12, -0.3, s2) * 0.7);
+        if (Math.abs(s2 + 0.12) < 0.06 && s < sEnd - 0.02) col = '#2b231b';
+        return col;
+      }
+      const [e, id] = cell(u, a);
+      col = mx(col, sh(col, 0.82 + hash3(id, 1, 7) * 0.3), 0.6);
+      return mx(col, crev, sst(0.55, 0.95, e) * (s2 < -0.25 ? 0.35 : 0.8));
+    },
+  });
+  // Eyes, nostrils, teeth / tongue
+  const uE = uAtS(sHead + (kom ? 0.045 : 0.05)), FE = fr(uE), [we, he] = WH(uE);
+  for (const sx of [-1, 1]) {
+    if (kom) {
+      const at = FE.at(sx * we * 0.84, he * 0.42);
+      vblob(gp, top, at[0] - sx * 0.003, at[1] + 0.004, at[2], 0.014, 0.012, 0.016, undefined, [0, 0, 0], 12);
+      aEye(gp, at[0] + sx * 0.006, at[1], at[2], 0.0085, sx * 1.3 + 0.18, '#5a3a1e', mx(top, '#c8b48e', 0.3));
+    } else {
+      const at = FE.at(sx * we * 0.42, he * 0.95);
+      vblob(gp, top, at[0], at[1] - 0.004, at[2], 0.018, 0.016, 0.022, (x, y, z) => mx(top, crev, sst(0.2, 0.05, worley(x * 90, y * 90, z * 90)[0]) * 0.3), [0, 0, 0], 14);
+      const eg = grp(gp, [at[0] + sx * 0.008, at[1] + 0.006, at[2] + 0.002], [0, sx * 1.05, 0]);
+      eg.rotateX(-0.45);
+      aEye(eg, 0, 0, 0, 0.0095, 0, '#b59a3c', undefined, true);
     }
   }
-  if (short) {
-    // Komodo forked tongue
-    tube(gp, [[0, hy - 0.02, hz + snoutL], [0, hy - 0.025, hz + snoutL + 0.05]], 0.005, 0.004, '#f43f5e');
-    for (const sx of [-1, 1]) tube(gp, [[0, hy - 0.025, hz + snoutL + 0.05], [sx * 0.012, hy - 0.026, hz + snoutL + 0.075]], 0.004, 0.002, '#f43f5e');
-  } else {
-    // Armoured dorsal scute rows along back and tail
-    for (let i = 0; i < 14; i++) {
-      const z = 0.22 * L - i * 0.06 * L, w = Math.max(0.01, 0.07 - Math.max(0, -z) * 0.11);
-      const yy = y0 + 0.055 - Math.max(0, -z - 0.2) * 0.12;
-      for (const sx of i * 0.06 * L < 0.45 * L ? [-1, 1] : [0]) add(gp, g0Cone(), mat(shade(c, 0.72)), sx * w * 0.5, yy, z, 0.022, 0.028, 0.03, 0, 0, 0);
+  const uT = uAtS(sEnd - (kom ? 0.012 : 0.02)), FT = fr(uT), [wt, ht] = WH(uT);
+  if (kom) {
+    for (const sx of [-1, 1]) bead(gp, ...FT.at(sx * wt * 0.55, ht * 0.35, -0.004), 0.004, '#1a1612');
+    // Long forked tongue flicking down-forward
+    const t0 = FT.at(0, -ht * 0.35, -0.004), t1: V3 = [t0[0] + 0.004, t0[1] - 0.01, t0[2] + 0.03], t2: V3 = [t1[0] + 0.002, t1[1] - 0.02, t1[2] + 0.02];
+    tube(gp, [t0, t1, t2], 0.0065, 0.005, '#e9cf7a');
+    for (const sx of [-1, 1]) tube(gp, [t2, [t2[0] + sx * 0.008, t2[1] - 0.012, t2[2] + 0.012], [t2[0] + sx * 0.013, t2[1] - 0.024, t2[2] + 0.014]], 0.0042, 0.0014, '#e9cf7a');
+    // Lip scales and a pale chin
+    for (const sx of [-1, 1]) for (let i = 0; i < 9; i++) {
+      const u = uAtS(sEnd - 0.012 - i * 0.012), F = fr(u), [w, h] = WH(u);
+      vblob(gp, mx(top, '#c0b090', 0.5), ...F.at(sx * w * 0.93, -h * 0.28), 0.006, 0.004, 0.007, undefined, [0, 0, 0], 8);
     }
+  } else {
+    vblob(gp, top, ...FT.at(0, ht * 0.75, -0.004), 0.022, 0.012, 0.018, (x, y, z) => mx(top, crev, sst(0.2, 0.05, worley(x * 90, y * 90, z * 90)[0]) * 0.3), [0, 0, 0], 14);
+    for (const sx of [-1, 1]) bead(gp, ...FT.at(sx * 0.008, ht * 1.32, -0.002), 0.0045, '#100d0a');
+    // Interlocking teeth along the wavy mouth line; the big 4th lower tooth sits in a notch
+    for (const sx of [-1, 1]) for (let i = 0; i < 15; i++) {
+      const s = sEnd - 0.02 - i * 0.0125, u = uAtS(s), F = fr(u), [w, h] = WH(u);
+      const up = i % 2 === 0, big = i === 2 || i === 8, L = (big ? 0.022 : 0.012 + hash3(i, sx, 4) * 0.006) * (i > 11 ? 0.7 : 1);
+      const b = F.at(sx * w * 0.96, -h * 0.12 + (up ? -0.003 : 0.003));
+      drop(gp, '#efe6c8', b, [b[0] + sx * 0.002, b[1] + (up ? L : -L), b[2] + 0.002], big ? 0.0034 : 0.0026);
+    }
+  }
+  // Tail crest: double row of upright scutes merging into a single row
+  if (!kom) for (let i = 0; i < 26; i++) {
+    const s = sHip - 0.03 - i * 0.026; if (s < 0.03) break;
+    const u = uAtS(s), F = fr(u), [w, h] = WH(u), dbl = i < 15, k = 0.6 + 0.4 * Math.min(1, s / 0.5);
+    for (const sx of dbl ? [-1, 1] : [0]) {
+      const b = F.at(sx * w * 0.42, h * 0.86), hh = 0.026 * k + (dbl ? 0 : 0.004);
+      blade(gp, top, [b[0], b[1] - 0.004, b[2] + 0.006], [b[0] + F.N.x * hh, b[1] + F.N.y * hh, b[2] - 0.006], 0.026 * k, 0.008, [F.S.x, F.S.y, F.S.z]);
+    }
+  }
+  // Sprawling legs with splayed clawed toes (rear feet longer, webbed on the crocodile)
+  const legP: Paint = (x, y, z) => {
+    if (kom) return komP(x, y, z, Math.max(-1, Math.min(1, (y - 0.04) * 12)), 0);
+    const [f1, f2] = worley(x * 70, y * 70, z * 70);
+    return mx(mx(top, flank, sst(0.07, 0.01, y) * 0.8), crev, sst(0.1, 0.02, f2 - f1) * 0.6);
+  };
+  // [arc position, size, foot heading, elbow/knee z offset, out-reach]
+  const legs: [number, number, number, number, number][] = kom ? [[sSh - 0.02, 1, 0.35, -0.012, 0.055], [sHip + 0.02, 1.12, 0.75, 0.01, 0.06]] : [[sSh - 0.03, 1, 0.6, -0.012, 0.05], [sHip + 0.02, 1.15, 2.4, 0.004, 0.06]];
+  for (const [s, k, fd, zo, out] of legs) for (const sx of [-1, 1]) {
+    const u = uAtS(s), F = fr(u), [w, h] = WH(u), sh0 = F.at(sx * w * 0.62, -h * 0.15), th0 = sx * fd;
+    const el: V3 = [F.P.x + sx * (w + out * 0.6), sh0[1] + (kom ? -0.004 : 0.004), sh0[2] + zo];
+    const wr: V3 = [F.P.x + sx * (w + out * (kom ? 0.75 : 0.95)), 0.018, el[2] - zo * 0.4 + Math.cos(th0) * 0.004];
+    const fc: V3 = [wr[0] + Math.sin(th0) * 0.014, 0.008, wr[2] + Math.cos(th0) * 0.014];
+    const tk = kom ? 1.4 : 1.15;
+    spine(gp, [{ p: sh0, w: 0.036 * k * tk, h: 0.034 * k * tk }, { p: el, w: 0.024 * k * tk, h: 0.024 * k * tk }, { p: wr, w: 0.017 * k * tk, h: 0.017 * k * tk }, { p: fc, w: 0.019 * k * tk, h: 0.008 * k * tk }], top, legP, { nu: 24, nv: 14, side: [0, 0, 1] });
+    const nt = kom || fd < 1 ? 5 : 4;
+    for (let t = 0; t < nt; t++) {
+      const th = th0 + (t / (nt - 1) - 0.5) * (kom ? 1.4 : 1.6), L = (fd > 1 ? 0.05 : 0.036) * k * (t === 0 || t === nt - 1 ? 0.75 : 1);
+      const tip: V3 = [fc[0] + Math.sin(th) * L, 0.006, fc[2] + Math.cos(th) * L];
+      drop(gp, mx(top, flank, 0.3), [fc[0], 0.009, fc[2]], tip, 0.0062 * k * (kom ? 1.25 : 1), 0.0042 * k * (kom ? 1.25 : 1));
+      const cl = kom ? 0.02 : 0.01;
+      drop(gp, kom ? '#2a2724' : '#3a3428', [tip[0] - Math.sin(th) * 0.003, 0.007, tip[2] - Math.cos(th) * 0.003], [tip[0] + Math.sin(th) * cl, 0.001, tip[2] + Math.cos(th) * cl], kom ? 0.0032 : 0.0024, kom ? 0.0024 : 0.0018);
+    }
+    if (!kom && fd > 1) vblob(gp, mx(top, flank, 0.5), fc[0] + Math.sin(th0) * 0.026 * k, 0.005, fc[2] + Math.cos(th0) * 0.026 * k, 0.026 * k, 0.003, 0.02 * k, undefined, [0, th0, 0], 12);
   }
 };
-const g0Cone = () => new THREE.ConeGeometry(0.5, 1, 4);
 
 export const ANIMAL_BUILDERS: Record<string, Builder> = {
   quad: quadBuilder, ape: APE, bear: BEAR, hopper: HOPPER, penguin: PENGUIN, wader: WADER, flyer: FLYER,
