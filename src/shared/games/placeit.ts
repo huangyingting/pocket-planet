@@ -32,8 +32,8 @@ export function verdict(score: number): 'perfect' | 'great' | 'good' | 'tryAgain
 
 export function pickRounds(pool: CatalogueItem[], diff: Difficulty, rnd: () => number = Math.random, n = ROUNDS): CatalogueItem[] {
   const cfg = DIFFS[diff];
-  const eligible = pool.filter(i => (i.type === 'landmark' || i.type === 'animal' || i.type === 'discovery') && i.tier <= cfg.tiers);
-  const src = eligible.length >= n ? eligible : pool.filter(i => i.type !== 'vehicle');
+  const eligible = pool.filter(i => !i.route && i.tier <= cfg.tiers);
+  const src = eligible.length >= n ? eligible : pool.filter(i => !i.route);
   return shuffle(src, rnd).slice(0, n);
 }
 

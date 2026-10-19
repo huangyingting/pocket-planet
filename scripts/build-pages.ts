@@ -2,7 +2,8 @@
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LANDMARKS, ANIMALS, DISCOVERIES } from '../src/shared/data/catalogue.ts';
+import { BY_TYPE } from '../src/shared/data/catalogue.ts';
+import { TYPE_META, TYPE_ORDER } from '../src/shared/data/typemeta.ts';
 import type { CatalogueItem } from '../src/shared/data/types.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -15,11 +16,8 @@ const withBase = (html: string) => html.replace(/\b(href|src)="\/(?!\/)/g, `$1="
 if (!existsSync(out)) mkdirSync(out, { recursive: true });
 
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
-const SECTIONS = [
-  { dir: 'landmarks', title: 'Landmarks', items: LANDMARKS, emoji: '🏛️' },
-  { dir: 'animals', title: 'Animals', items: ANIMALS, emoji: '🦁' },
-  { dir: 'discover', title: 'Discoveries', items: DISCOVERIES, emoji: '🔍' },
-] as const;
+const SECTIONS = TYPE_ORDER.filter(ty => TYPE_META[ty].section && BY_TYPE[ty].length)
+  .map(ty => ({ dir: TYPE_META[ty].section, title: TYPE_META[ty].many.en, items: BY_TYPE[ty], emoji: TYPE_META[ty].emoji }));
 
 const CSS = `body{margin:0;font-family:"Nunito","Segoe UI",system-ui,sans-serif;background:#071224;color:#f2f6ff;line-height:1.6}
 a{color:#ffd24a}header,main,footer{max-width:900px;margin:auto;padding:16px 20px}header{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
@@ -50,7 +48,8 @@ const factList = (it: CatalogueItem) => {
   if (f.speedKmh) li.push(`Top speed: ${f.speedKmh} km/h`);
   if (f.lifespanY) li.push(`Lifespan: ${f.lifespanY} years`);
   if (f.depthM) li.push(`Depth: ${f.depthM.toLocaleString('en')} m`);
-  if (f.year) li.push(`Year: ${f.year}`);
+  if (f.year) li.push(`Year: ${f.year < 0 ? `${-f.year} BCE` : f.year}`);
+  if (f.mya) li.push(`Lived: ${f.mya} million years ago`);
   if (it.diet) li.push(`Diet: ${it.diet}`);
   if (it.habitat) li.push(`Lives in: ${it.habitat.en}`);
   return li.length ? `<ul class="facts">${li.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '';

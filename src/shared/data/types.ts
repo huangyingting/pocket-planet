@@ -4,7 +4,8 @@ export type Lang = 'en' | 'zh';
 export const LANGS: Lang[] = ['en', 'zh'];
 export type I18n = { en: string } & Partial<Record<Exclude<Lang, 'en'>, string>>;
 
-export type ItemType = 'landmark' | 'animal' | 'discovery' | 'vehicle';
+export type ItemType = 'landmark' | 'animal' | 'discovery' | 'vehicle'
+  | 'dino' | 'food' | 'festival' | 'space' | 'plant' | 'sport' | 'volcano' | 'migration' | 'voyage';
 
 export interface ModelRecipe {
   kind: string;
@@ -22,10 +23,13 @@ export interface Facts {
   lifespanY?: number;
   depthM?: number;
   year?: number;
+  /** dinosaurs: millions of years ago */
+  mya?: number;
 }
 
 export interface Route {
-  kind: 'ship' | 'plane' | 'train';
+  /** ship/swim/walk/train hug the surface; plane/fly cruise low; orbit circles high above */
+  kind: 'ship' | 'plane' | 'train' | 'swim' | 'fly' | 'walk' | 'orbit';
   pts: [number, number][];
   mode: 'loop' | 'pingpong';
   /** degrees of arc per second at ×1 */
@@ -54,6 +58,8 @@ export interface CatalogueItem {
   route?: Route;
   /** extra km of allowance for very large sites in the location game */
   area?: number;
+  /** festivals: usual date (Gregorian approximation for lunar festivals) and length in days */
+  season?: { month: number; day: number; days?: number };
 }
 
 export function tr(s: I18n | undefined, lang: Lang): string {

@@ -6,6 +6,10 @@ export type Stamp = Record<string, number>;
 export interface Progress {
   v: 1;
   dex: Stamp; logs: Stamp; likes: Stamp; visited: Stamp; stickers: Stamp;
+  /** collectables of the newer types (dinos, foods, festivals, …) */
+  found: Stamp;
+  /** passport stamps: every item whose card was opened */
+  seen: Stamp;
   placeit: Record<string, PlaceItRecord>;
   quiz: { answered: number; correct: number; bySet: Record<string, number> };
   daily: DailyStats;
@@ -13,7 +17,7 @@ export interface Progress {
 }
 
 export function emptyProgress(): Progress {
-  return { v: 1, dex: {}, logs: {}, likes: {}, visited: {}, stickers: {}, placeit: {}, quiz: { answered: 0, correct: 0, bySet: {} },
+  return { v: 1, dex: {}, logs: {}, likes: {}, visited: {}, stickers: {}, found: {}, seen: {}, placeit: {}, quiz: { answered: 0, correct: 0, bySet: {} },
     daily: { ...EMPTY_STATS, dist: [...EMPTY_STATS.dist] }, updatedAt: 0 };
 }
 
@@ -42,6 +46,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
   return {
     v: 1,
     dex: unionEarliest(a.dex, b.dex), logs: unionEarliest(a.logs, b.logs), stickers: unionEarliest(a.stickers, b.stickers),
+    found: unionEarliest(a.found, b.found), seen: unionEarliest(a.seen, b.seen),
     likes: { ...newer.likes }, visited: { ...newer.visited },
     placeit,
     quiz: { answered: Math.max(a.quiz?.answered ?? 0, b.quiz?.answered ?? 0), correct: Math.max(a.quiz?.correct ?? 0, b.quiz?.correct ?? 0), bySet },

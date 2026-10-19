@@ -644,6 +644,7 @@ body.riding .topbar .tools, body.riding .topbar .omnibar, body.riding .bl { visi
 .hub-card:hover { background: var(--hover); border-color: rgba(255, 255, 255, 0.16); }
 .hub-ico { --c: #7dd3fc; width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c) 26%, transparent); margin-bottom: 8px; }
 .c-green .hub-ico { --c: #6ee7b7; } .c-purple .hub-ico { --c: #c4b5fd; } .c-orange .hub-ico { --c: #fcd34d; } .c-violet .hub-ico { --c: #7dd3fc; }
+.c-type .hub-ico { --c: inherit; }
 .hub-card strong { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
 .hub-sub { font-size: .8rem; color: var(--muted); flex: 1; line-height: 1.45; }
 .hub-foot { display: flex; align-items: center; justify-content: space-between; width: 100%; padding-top: 10px; border-top: 1px solid var(--line); margin-top: 6px; }

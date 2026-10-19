@@ -5,6 +5,7 @@ import { latLonToVec, vecToLatLon, slerpLatLon } from '../../shared/lib/geo.ts';
 import { buildModel, mat } from '../models/kit.ts';
 import { paintNightLights, type CountryInfo } from './painter.ts';
 import { CITIES } from '../../shared/data/cities.ts';
+import { TYPE_META, type LayerKey } from '../../shared/data/typemeta.ts';
 
 export type AuraPreset = 'waves' | 'aurora' | 'ember' | 'dusk' | 'sculpture';
 export type SurfaceMode = 'realistic' | 'minimal' | 'political';
@@ -17,15 +18,19 @@ export const AURA_PRESETS: Record<AuraPreset, { label: string; colors: [string, 
   sculpture: { label: 'Ionosphere', colors: ['#22d3ee', '#0369a1', '#67e8f9'] },
 };
 
-export interface Settings {
-  terrain: boolean; names: boolean; borders: boolean; shadows: boolean;
-  landmarks: boolean; animals: boolean; discoveries: boolean; vehicles: boolean; sfx: boolean; bgm: boolean;
+export type Settings = Record<LayerKey, boolean> & {
+  terrain: boolean; names: boolean; borders: boolean; shadows: boolean; sfx: boolean; bgm: boolean;
+  /** globe layers: plate boundaries, drifting clouds, polar aurora */
+  tectonics: boolean; clouds: boolean; aurora: boolean;
   auraPreset?: AuraPreset;
   surfaceMode?: SurfaceMode;
-}
+};
 export const DEFAULT_SETTINGS: Settings = {
   terrain: true, names: true, borders: true, shadows: true,
-  landmarks: true, animals: true, discoveries: true, vehicles: true, sfx: true, bgm: false,
+  landmarks: true, animals: true, discoveries: true, vehicles: true,
+  dinos: true, foods: true, festivals: true, space: true, plants: true, sports: true, volcanoes: true, migrations: true, voyages: true,
+  tectonics: false, clouds: true, aurora: true,
+  sfx: true, bgm: false,
   auraPreset: 'waves', surfaceMode: 'realistic',
 };
 
@@ -37,7 +42,12 @@ export const TIER_ZOOM = [0, 0, 4.3, 5.3];
 export const zoomFromH = (h: number) => (4 * DEFAULT_H) / h;
 export const hFromZoom = (z: number) => (4 * DEFAULT_H) / z;
 
-const LAYER_OF: Record<CatalogueItem['type'], keyof Settings> = { landmark: 'landmarks', animal: 'animals', discovery: 'discoveries', vehicle: 'vehicles' };
+/** Altitude (in globe radii) at which route items travel, given their current model scale. */
+export function routeAltitude(kind: NonNullable<CatalogueItem['route']>['kind'], s: number): number {
+  if (kind === 'orbit') return 1.06 + s * 0.6;
+  if (kind === 'plane' || kind === 'fly') return 1 + Math.max(0.01, s * 1.4);
+  return 1.0;
+}
 const OCEANS: [string, Record<Lang, string>, number, number][] = [
   ['pacific', { en: 'PACIFIC OCEAN', zh: '太平洋' }, 0, -150],
   ['pacific2', { en: 'PACIFIC OCEAN', zh: '太平洋' }, 15, 165],
@@ -274,6 +284,9 @@ export class Globe {
   settings: Settings = { ...DEFAULT_SETTINGS };
   lang: Lang = 'en';
   gameMode = false;
+  /** Optional extra visibility predicate (e.g. the time machine); selected/ridden items always stay visible. */
+  private itemFilter: ((it: CatalogueItem) => boolean) | null = null;
+  setItemFilter(fn: ((it: CatalogueItem) => boolean) | null): void { this.itemFilter = fn; this.dirty = true; }
   private dirty = true;
   private last = performance.now();
   private lastLabel = 0;
@@ -463,10 +476,11 @@ export class Globe {
 
   /** Builds a soft ground contact shadow and subtle micro-collar under each 3D miniature on the globe. */
   private buildPlinth(item: CatalogueItem): THREE.Group | null {
-    if (item.type === 'vehicle') return null;
+    const meta = TYPE_META[item.type];
+    if (item.route || !meta.plinth) return null;
     const g = new THREE.Group();
-    const rimColor = item.type === 'landmark' ? '#38bdf8' : item.type === 'animal' ? '#34d399' : '#f59e0b';
-    const r = item.type === 'landmark' ? 0.42 : 0.34;
+    const rimColor = meta.color;
+    const r = meta.plinth;
     const shadow = new THREE.Mesh(
       new THREE.PlaneGeometry(r * 2.5, r * 2.5).rotateX(-Math.PI / 2).translate(0, 0.004, 0),
       new THREE.MeshBasicMaterial({ map: this.getShadowTexture(), transparent: true, depthWrite: false })
@@ -800,7 +814,7 @@ export class Globe {
   }
 
   private modelScale(item: CatalogueItem): number {
-    const base = item.type === 'vehicle' ? 0.048 : item.type === 'animal' ? 0.055 : 0.075;
+    const base = TYPE_META[item.type].scale;
     return base * Math.max(0.06, Math.min(1.12, Math.pow(this.h / DEFAULT_H, 0.72)));
   }
 
@@ -867,9 +881,11 @@ export class Globe {
     const z = this.zoom;
     for (const p of this.placed.values()) {
       const it = p.item;
-      const layerOn = this.settings[LAYER_OF[it.type]] as boolean;
-      const tierOk = z >= TIER_ZOOM[it.tier] || this.selected === it.key || this.ride?.key === it.key;
-      p.obj.visible = layerOn && tierOk && !this.gameMode;
+      const layerOn = this.settings[TYPE_META[it.type].layer];
+      const focus = this.selected === it.key || this.ride?.key === it.key;
+      const tierOk = z >= TIER_ZOOM[it.tier] || focus;
+      const filterOk = !this.itemFilter || this.itemFilter(it) || focus;
+      p.obj.visible = layerOn && tierOk && filterOk && !this.gameMode;
       if (!p.obj.visible) continue;
       const s = this.modelScale(it);
       p.obj.scale.setScalar(s);
@@ -889,7 +905,7 @@ export class Globe {
         const v1 = new THREE.Vector3(...latLonToVec(la, lo)), v2 = new THREE.Vector3(...latLonToVec(la2, lo2));
         const hd = v2.sub(v1);
         if (hd.lengthSq() > 1e-14) p.heading.copy(hd);
-        const alt = r.kind === 'plane' ? 1 + Math.max(0.01, s * 1.4) : 1.0;
+        const alt = routeAltitude(r.kind, s);
         this.orientAt(p.obj, la, lo, alt, p.heading);
       }
       const inner = p.obj.children[p.obj.children.length - 1];

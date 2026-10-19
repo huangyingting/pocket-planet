@@ -2,19 +2,19 @@ import { h, closeModal, openModal, toast, $ } from './dom.ts';
 import { t, lang, setLang, countryName, fmtNum, onLang } from '../lib/i18n.ts';
 import { store, updateProgress, updateSettings, resetSettings, subscribe } from '../store.ts';
 import { tr, LANGS, type CatalogueItem, type Lang } from '../../shared/data/types.ts';
-import { CATALOGUE } from '../../shared/data/catalogue.ts';
+import { CATALOGUE, BY_TYPE } from '../../shared/data/catalogue.ts';
+import { TYPE_META, TYPE_ORDER } from '../../shared/data/typemeta.ts';
 import { CONTINENT_NAMES } from '../../shared/data/iso.ts';
 import { AURA_PRESETS, type AuraPreset, type SurfaceMode, type Globe, type Settings } from '../globe/scene.ts';
 import { createModelPreview } from '../models/preview.ts';
-import { icon, type IconName } from './icons.ts';
+import { icon, TYPE_ICON, type IconName } from './icons.ts';
 import { sfx, setMusic } from '../lib/sfx.ts';
 import { api } from '../lib/api.ts';
 import { HAS_API, url } from '../lib/env.ts';
 
 export const DEX_ZOOM = 10;
 const LANG_LABEL: Record<Lang, string> = { en: 'English', zh: '中文' };
-const TYPE_KEY = { landmark: 'tLandmark', animal: 'tAnimal', discovery: 'tDiscovery', vehicle: 'tVehicle' } as const;
-const SECTION = { landmark: 'landmarks', animal: 'animals', discovery: 'discover', vehicle: '' } as const;
+const typeName = (ty: CatalogueItem['type']) => tr(TYPE_META[ty].one, lang());
 const AURA_ORDER: AuraPreset[] = ['waves', 'aurora', 'ember', 'dusk', 'sculpture'];
 
 export interface ShellHooks {
@@ -132,7 +132,7 @@ export class Shell {
         },
           h('span', { class: 'dex-emoji' }, it.emoji),
           h('strong', {}, tr(it.name, l)),
-          h('small', {}, countryName(it.country, l) || t(TYPE_KEY[it.type]))
+          h('small', {}, countryName(it.country, l) || typeName(it.type))
         )
       ));
     };
@@ -143,7 +143,7 @@ export class Shell {
       oninput: () => { query = input.value; renderList(); },
     });
     const filterBar = h('div', { class: 'seg-row' },
-      ...(['all', 'landmark', 'animal', 'discovery', 'vehicle'] as const).map(f =>
+      ...(['all', ...TYPE_ORDER.filter(ty => BY_TYPE[ty].length)] as const).map(f =>
         h('button', {
           class: 'pill' + (filter === f ? ' active' : ''),
           onclick: e => {
@@ -152,7 +152,7 @@ export class Shell {
             (e.currentTarget as HTMLElement).classList.add('active');
             renderList();
           },
-        }, f === 'all' ? t('filterAll') : t(TYPE_KEY[f]))
+        }, f === 'all' ? t('filterAll') : typeName(f))
       )
     );
     renderList();
@@ -244,7 +244,8 @@ export class Shell {
       h('h3', {}, t('surfaceMode')), modeRow,
       h('h3', {}, t('auraPreset')), auraRow,
       h('h3', {}, t('mMap')), h('div', { class: 'grid2' }, sw('terrain', 'mountain'), sw('names', 'tag'), sw('borders', 'globe'), sw('shadows', 'contrast')),
-      h('h3', {}, t('mGlobe')), h('div', { class: 'grid2' }, sw('landmarks', 'landmark'), sw('animals', 'paw'), sw('discoveries', 'compass'), sw('vehicles', 'ship')),
+      h('h3', {}, t('mGlobe')), h('div', { class: 'grid2' }, ...TYPE_ORDER.filter(ty => BY_TYPE[ty].length).map(ty => sw(TYPE_META[ty].layer, TYPE_ICON[ty]))),
+      h('h3', {}, t('mLayers')), h('div', { class: 'grid2' }, sw('tectonics', 'plates'), sw('clouds', 'cloud'), sw('aurora', 'aurora')),
       h('h3', {}, t('mSettings')), h('div', { class: 'grid2' }, sw('sfx', 'sound'), sw('bgm', 'music')),
       row('language', t('language'), sel),
       row('reset', t('reset'), h('button', { class: 'pill', 'data-testid': 'reset', onclick: () => { if (confirm(t('resetConfirm'))) { resetSettings(); this.globe.flyTo(25, 40, 2.2); } } }, t('resetBtn'))),
@@ -279,7 +280,9 @@ export class Shell {
         : (item.tier === 3 ? 1.45 : 1.75);
       this.globe.flyTo(item.lat, item.lon, Math.min(this.globe.h, minZoomH));
     }
-    this.renderInfo(item);
+    // Passport stamp; the store update re-renders the open card through the subscription.
+    if (!(item.key in store.progress.seen)) updateProgress(pp => { pp.seen[item.key] = Date.now(); });
+    else this.renderInfo(item);
     this.info.classList.remove('hidden');
   }
 
@@ -300,6 +303,10 @@ export class Shell {
       const have = it.key in p.logs;
       this.dexRow.replaceChildren(have ? h('span', { class: 'ok' }, t('logged'))
         : h('button', { class: 'cta', 'data-testid': 'log-discovery', onclick: () => { updateProgress(pp => { pp.logs[it.key] = Date.now(); }); sfx.good(); } }, t('logIt')));
+    } else if (TYPE_META[it.type].collect === 'found') {
+      const have = it.key in p.found;
+      this.dexRow.replaceChildren(have ? h('span', { class: 'ok' }, t('foundIt'))
+        : h('button', { class: 'cta', 'data-testid': 'collect-found', onclick: () => { updateProgress(pp => { pp.found[it.key] = Date.now(); }); sfx.good(); toast(it.emoji + ' ' + tr(it.name, lang())); } }, t('collectIt')));
     } else this.dexRow.replaceChildren();
   }
 
@@ -309,7 +316,9 @@ export class Shell {
     const nf = (n: number, unit: string) => fmtNum(n) + unit;
     const chips: [string, string][] = [];
     if (f.built !== undefined) chips.push([t('built'), f.built < 0 ? `${-f.built} BCE` : String(f.built)]);
-    if (f.year !== undefined) chips.push([t('year'), String(f.year)]);
+    if (f.year !== undefined) chips.push([t('year'), f.year < 0 ? `${-f.year} BCE` : String(f.year)]);
+    if (f.mya !== undefined) chips.push([t('lived'), t('myaAgo', { n: fmtNum(f.mya) })]);
+    if (it.season) chips.push([t('when'), new Intl.DateTimeFormat(l, { month: 'long', day: 'numeric' }).format(new Date(2024, it.season.month - 1, it.season.day))]);
     if (f.heightM) chips.push([t('height'), nf(f.heightM, ' m')]);
     if (f.lengthM) chips.push([t('length'), f.lengthM >= 10000 ? nf(Math.round(f.lengthM / 1000), ' km') : nf(f.lengthM, ' m')]);
     if (f.depthM) chips.push([t('depth'), nf(f.depthM, ' m')]);
@@ -332,17 +341,17 @@ export class Shell {
         } }, h('span', { class: 'react-label' }, t(kind)), count);
     };
     const secondary = l !== 'en' ? it.name.en : it.name.zh;
-    const section = SECTION[it.type];
+    const section = TYPE_META[it.type].section;
     const key = chips.slice(0, 3), extra = chips.slice(3);
-    if (it.type !== 'vehicle') extra.push([t('latitude'), coordStr]);
+    if (!it.route) extra.push([t('latitude'), coordStr]);
     const hasMore = extra.length > 0 || Boolean(it.funFact) || Boolean(it.habitat);
     this.renderDexRow();
     this.info.replaceChildren(
       h('div', { class: 'info-hero', 'data-type': it.type },
         createModelPreview(it, { width: 360, height: 208, id: 'info-preview' }),
-        h('span', { class: 'type-chip t-' + it.type }, t(TYPE_KEY[it.type])),
+        h('span', { class: 'type-chip t-' + it.type, style: `color:${TYPE_META[it.type].color}` }, typeName(it.type)),
         h('button', { class: 'icon-btn info-x', 'aria-label': t('close'), 'data-testid': 'info-close', html: icon('close', 16), onclick: () => this.showItem(null) }),
-        it.type !== 'animal' ? h('button', { class: 'hero-btn info-zoom-btn', title: t('zoomClose'), html: icon('zoom', 15), onclick: () => this.globe.flyTo(it.lat, it.lon, 0.25) }, h('span', {}, t('zoomClose'))) : null,
+        it.type !== 'animal' && !it.route ? h('button', { class: 'hero-btn info-zoom-btn', title: t('zoomClose'), html: icon('zoom', 15), onclick: () => this.globe.flyTo(it.lat, it.lon, 0.25) }, h('span', {}, t('zoomClose'))) : null,
       ),
       h('div', { class: 'info-body' },
         where ? h('p', { class: 'eyebrow', html: icon('pin', 13) }, h('span', {}, where)) : null,

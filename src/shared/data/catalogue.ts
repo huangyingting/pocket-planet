@@ -1,6 +1,20 @@
-import type { CatalogueItem, Facts, ModelRecipe, Route } from './types.ts';
+import type { CatalogueItem, Facts, ItemType, ModelRecipe, Route } from './types.ts';
 import type { Continent } from './iso.ts';
 import { ZH } from './catalogue-zh.ts';
+import { TYPE_ORDER } from './typemeta.ts';
+import { DINOS } from './more/dinos.ts';
+import { FOODS } from './more/foods.ts';
+import { FESTIVALS } from './more/festivals.ts';
+import { SPACE } from './more/space.ts';
+import { PLANTS } from './more/plants.ts';
+import { SPORTS } from './more/sports.ts';
+import { VOLCANOES } from './more/volcanoes.ts';
+import { MIGRATIONS } from './more/migrations.ts';
+import { VOYAGES } from './more/voyages.ts';
+import { CHINA } from './more/china.ts';
+import { COUNTRIES_A } from './more/countries-a.ts';
+import { COUNTRIES_B } from './more/countries-b.ts';
+import { DEEPSEA } from './more/deepsea.ts';
 
 // All descriptions below are original text written for Pocket Planet. Chinese text lives in catalogue-zh.ts.
 type N2 = [en: string, zh: string];
@@ -679,6 +693,14 @@ export const VEHICLES: CatalogueItem[] = [
     'A colourful balloon drifting over the fairy chimneys of Cappadocia.'),
 ];
 
-export const CATALOGUE: CatalogueItem[] = [...LANDMARKS, ...ANIMALS, ...DISCOVERIES, ...VEHICLES];
+LANDMARKS.push(...CHINA, ...COUNTRIES_A, ...COUNTRIES_B);
+DISCOVERIES.push(...DEEPSEA);
+
+export { DINOS, FOODS, FESTIVALS, SPACE, PLANTS, SPORTS, VOLCANOES, MIGRATIONS, VOYAGES };
+export const CATALOGUE: CatalogueItem[] = [...LANDMARKS, ...ANIMALS, ...DISCOVERIES, ...VEHICLES,
+  ...DINOS, ...FOODS, ...FESTIVALS, ...SPACE, ...PLANTS, ...SPORTS, ...VOLCANOES, ...MIGRATIONS, ...VOYAGES];
+export const BY_TYPE = {} as Record<ItemType, CatalogueItem[]>;
+for (const ty of TYPE_ORDER) BY_TYPE[ty] = [];
+for (const it of CATALOGUE) BY_TYPE[it.type].push(it);
 export const BY_KEY: Map<string, CatalogueItem> = new Map(CATALOGUE.map(i => [i.key, i]));
 export const BY_SLUG: Map<string, CatalogueItem> = new Map(CATALOGUE.map(i => [i.type + '/' + i.slug, i]));

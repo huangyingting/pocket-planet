@@ -1,12 +1,13 @@
 import { h, openModal, closeModal } from './dom.ts';
 import { t, lang } from '../lib/i18n.ts';
 import { store } from '../store.ts';
-import { ANIMALS, DISCOVERIES } from '../../shared/data/catalogue.ts';
+import { ANIMALS, DISCOVERIES, BY_TYPE } from '../../shared/data/catalogue.ts';
+import { TYPE_META, TYPE_ORDER } from '../../shared/data/typemeta.ts';
 import { tr, type CatalogueItem } from '../../shared/data/types.ts';
 import { STICKERS } from '../../shared/lib/stickers.ts';
 import { photos, openAlbum } from './photo.ts';
 import { load, save } from '../lib/storage.ts';
-import { icon, type IconName } from './icons.ts';
+import { icon, TYPE_ICON, type IconName } from './icons.ts';
 
 export function openCollection(go: (it: CatalogueItem) => void): void {
   const p = store.progress;
@@ -16,8 +17,14 @@ export function openCollection(go: (it: CatalogueItem) => void): void {
       h('span', { class: 'hub-foot' }, h('span', { class: 'hub-stat' }, stat), h('span', { class: 'hub-open', html: icon('arrow', 16) })));
   const albumStat = h('span', {}, t('photos', { n: '…' }));
   const grid = h('div', { class: 'hub-grid' },
-    card('hub-animals', 'c-green', 'paw', t('animalDex'), t('animalDexSub'), t('found', { n: Object.keys(p.dex).length, t: ANIMALS.length }), () => dex('animals', ANIMALS, p.dex, go)),
-    card('hub-discoveries', 'c-purple', 'compass', t('discoveryDex'), t('discoveryDexSub'), t('found', { n: Object.keys(p.logs).length, t: DISCOVERIES.length }), () => dex('discoveries', DISCOVERIES, p.logs, go)),
+    card('hub-animals', 'c-green', 'paw', t('animalDex'), t('animalDexSub'), t('found', { n: Object.keys(p.dex).length, t: ANIMALS.length }), () => dex(t('animalDex'), ANIMALS, p.dex, go)),
+    card('hub-discoveries', 'c-purple', 'compass', t('discoveryDex'), t('discoveryDexSub'), t('found', { n: Object.keys(p.logs).length, t: DISCOVERIES.length }), () => dex(t('discoveryDex'), DISCOVERIES, p.logs, go)),
+    ...TYPE_ORDER.filter(ty => TYPE_META[ty].collect === 'found' && BY_TYPE[ty].length).map(ty => {
+      const m = TYPE_META[ty], items = BY_TYPE[ty], l = lang();
+      const c = card('hub-' + ty, 'c-type', TYPE_ICON[ty], tr(m.many, l), tr(m.hint, l), t('found', { n: items.filter(i => i.key in p.found).length, t: items.length }), () => dex(tr(m.many, l), items, p.found, go));
+      c.style.setProperty('--c', m.color);
+      return c;
+    }),
     card('hub-stickers', 'c-orange', 'sparkle', t('stickers'), t('stickersSub'), t('found', { n: Object.keys(p.stickers).length, t: STICKERS.length }), stickers),
     card('hub-album', 'c-violet', 'camera', t('album'), t('albumSub'), '', () => { closeModal('collection'); void openAlbum(); }));
   (grid.lastElementChild!.querySelector('.hub-stat') as HTMLElement).append(albumStat);
@@ -25,10 +32,10 @@ export function openCollection(go: (it: CatalogueItem) => void): void {
   openModal('collection', t('collection'), grid, { wide: true });
 }
 
-function dex(kind: 'animals' | 'discoveries', items: CatalogueItem[], got: Record<string, number>, go: (it: CatalogueItem) => void): void {
+function dex(title: string, items: CatalogueItem[], got: Record<string, number>, go: (it: CatalogueItem) => void): void {
   const groups = new Map<string, CatalogueItem[]>();
   for (const it of items) { const k = it.sub; groups.set(k, [...(groups.get(k) ?? []), it]); }
-  const body = h('div', { class: 'dex' }, h('p', { class: 'muted' }, t('found', { n: Object.keys(got).length, t: items.length })));
+  const body = h('div', { class: 'dex' }, h('p', { class: 'muted' }, t('found', { n: items.filter(i => i.key in got).length, t: items.length })));
   for (const [g, list] of groups) {
     body.append(h('h3', { class: 'dex-group' }, g), h('div', { class: 'dex-grid' }, ...list.map(it => {
       const have = it.key in got;
@@ -37,7 +44,7 @@ function dex(kind: 'animals' | 'discoveries', items: CatalogueItem[], got: Recor
         h('span', { class: 'dex-emoji', 'aria-hidden': 'true' }, have ? it.emoji : '❔'), h('span', { class: 'dex-name' }, have ? tr(it.name, lang()) : '???'));
     })));
   }
-  openModal('dex', kind === 'animals' ? t('animalDex') : t('discoveryDex'), body, { wide: true });
+  openModal('dex', title, body, { wide: true });
 }
 
 function stickers(): void {

@@ -10,6 +10,7 @@ import { CATALOGUE, BY_KEY, BY_SLUG, LANDMARKS } from '../../src/shared/data/cat
 import { EN_KEYS, hasKey, t } from '../../src/client/lib/i18n.ts';
 import { haversineKm as hk } from '../../src/shared/lib/geo.ts';
 import { buildModel } from '../../src/client/models/kit.ts';
+import { HEROES } from '../../src/client/models/heroes/index.ts';
 import { AURA_PRESETS } from '../../src/client/globe/scene.ts';
 
 describe('geo', () => {
@@ -146,6 +147,13 @@ describe('progress merge (sync)', () => {
     expect(m.placeit.hard.best).toBe(100);
     expect(m.quiz.answered).toBe(20); expect(m.quiz.correct).toBe(7); expect(m.quiz.bySet).toEqual({ geo: 3, animals: 4 });
   });
+  it('unions found/seen and tolerates older saves without them', () => {
+    const a = emptyProgress(); a.found = { d1: 5 }; a.seen = { eiffel: 9 };
+    const old = { ...emptyProgress() } as Partial<ReturnType<typeof emptyProgress>>;
+    delete old.found; delete old.seen;
+    const m = mergeProgress(old as ReturnType<typeof emptyProgress>, a);
+    expect(m.found).toEqual({ d1: 5 }); expect(m.seen).toEqual({ eiffel: 9 });
+  });
   it('is idempotent and commutative for collections', () => {
     const a = emptyProgress(); a.dex = { x: 1 }; a.logs = { y: 2 };
     const b = emptyProgress(); b.dex = { z: 3 };
@@ -188,6 +196,9 @@ describe('catalogue & i18n integrity', () => {
       if (i.funFact) expect(i.funFact.zh, i.key).toMatch(/[\u4e00-\u9fff]/);
       if (i.habitat) expect(i.habitat.zh, i.key).toMatch(/[\u4e00-\u9fff]/);
       expect(i.slug).toMatch(/^[a-z0-9-]+$/);
+      if (i.route) expect(i.route.pts.length, i.key).toBeGreaterThanOrEqual(2);
+      if (i.season) expect(i.season.month >= 1 && i.season.month <= 12 && i.season.day >= 1 && i.season.day <= 31, i.key).toBe(true);
+      if (!['landmark', 'animal', 'discovery', 'vehicle'].includes(i.type)) expect(HEROES[String(i.model.hero)], `${i.key} hero`).toBeTypeOf('function');
     }
   });
   it('Chinese dictionary covers every English key', () => {

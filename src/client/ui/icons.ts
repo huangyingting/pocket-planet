@@ -1,4 +1,5 @@
 // Minimal 24px line icons (stroke = currentColor) for the app chrome.
+import type { ItemType } from '../../shared/data/types.ts';
 const P: Record<string, string> = {
   search: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/>',
   shuffle: '<path d="M4 7h3.5c4 0 5 10 9 10H20"/><path d="M4 17h3.5c1.6 0 2.7-1.6 3.6-3.5"/><path d="M13 9.5c.9-1.4 1.9-2.5 3.5-2.5H20"/><path d="m17.5 4.5 2.5 2.5-2.5 2.5M17.5 14.5l2.5 2.5-2.5 2.5"/>',
@@ -35,6 +36,20 @@ const P: Record<string, string> = {
   calendar: '<rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/><circle cx="12" cy="15" r="1.2" fill="currentColor"/>',
   brain: '<path d="M12 5.5a3 3 0 0 0-5.6-1.2A3 3 0 0 0 4.5 9a3.2 3.2 0 0 0 .3 5.4A3 3 0 0 0 9 19a3 3 0 0 0 3-1.5zM12 5.5a3 3 0 0 1 5.6-1.2A3 3 0 0 1 19.5 9a3.2 3.2 0 0 1-.3 5.4A3 3 0 0 1 15 19a3 3 0 0 1-3-1.5z"/><path d="M12 5.5v12"/>',
   sparkle: '<path d="M12 3.5 13.8 10 20.5 12 13.8 14 12 20.5 10.2 14 3.5 12 10.2 10z"/>',
+  dino: '<path d="M4 19c1-4 3-6 6-6.5V8.5a3.5 3.5 0 0 1 3.5-3.5H17l2.5 2-2.5 1.5h-2V13c2.5.5 4 2 5 6"/><path d="M8 19v-2.5M14 19v-3"/>',
+  food: '<path d="M4 12h16a8 8 0 0 1-16 0z"/><path d="M9 4.5c-1 1.2 1 2.3 0 3.5M13 4.5c-1 1.2 1 2.3 0 3.5M17 4.5c-1 1.2 1 2.3 0 3.5"/>',
+  festival: '<path d="M5 20 9.5 7l7.5 7.5z"/><path d="M14 4.5c1 .8 1 2 0 3M17.5 7.5c1.5-.3 2.5.3 3 1.5M16 3.5l.5.5M20 5l.5-.5M19.5 11.5l.5.5"/>',
+  rocket: '<path d="M12 3.5c3 2.2 4.5 5.5 4 10l-1.5 2.5h-5L8 13.5c-.5-4.5 1-7.8 4-10z"/><circle cx="12" cy="9.5" r="1.6"/><path d="M8.5 13 6 16v3l3-1.5M15.5 13l2.5 3v3l-3-1.5M11 19h2"/>',
+  leaf: '<path d="M5 19c0-8 5-13.5 14.5-14.5C19 14 13.5 19 5 19z"/><path d="M5 19 13 11"/>',
+  trophy: '<path d="M8 4.5h8v5a4 4 0 0 1-8 0z"/><path d="M8 6.5H5a3 3 0 0 0 3 4M16 6.5h3a3 3 0 0 1-3 4M12 13.5V17M8.5 20h7M9.5 17h5v3h-5z"/>',
+  volcano: '<path d="M3 20 9 9.5h6L21 20z"/><path d="M10.5 9.5c-.5-2 .5-3.5 1.5-4.5M13.5 9.5c.5-2-.3-3.2-1-4M12 5c-1.5-1-1-2.5.5-2.5"/>',
+  bird: '<path d="M3 9c3-1.5 6-.5 9 2.5 3-3 6-4 9-2.5"/><path d="M8 15c1.5-.7 3-.3 4 1 1-1.3 2.5-1.7 4-1"/>',
+  sail: '<path d="M12 3.5v13M12 4.5 18.5 15H12M11 6 5.5 15H11"/><path d="M3.5 17.5h17l-2 2.5h-13z"/>',
+  cloud: '<path d="M7 18.5a4 4 0 0 1-.6-8 5.5 5.5 0 0 1 10.6-1.3A4.6 4.6 0 0 1 17 18.5z"/>',
+  aurora: '<path d="M3 16c2-6 4-9 6-9s2.5 6 4.5 6S17 6 21 5"/><path d="M3 20h18M6 16v2M10 13v5M14 13.5v4.5M18 9v9"/>',
+  plates: '<circle cx="12" cy="12" r="8.5"/><path d="M5 8.5c3 1 4 3 3.5 6.5M12 3.5c-.5 3 1.5 5 5 5.5M20 14c-3-.5-5.5.5-6.5 6"/>',
+  passport: '<rect x="5.5" y="3.5" width="13" height="17" rx="1.5"/><circle cx="12" cy="11" r="3.5"/><path d="M8.5 11h7M12 7.5c-1.2 1-1.2 6 0 7M9 17.5h6"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/>',
 };
 
 export type IconName = keyof typeof P;
@@ -42,3 +57,8 @@ export type IconName = keyof typeof P;
 export function icon(name: IconName, size = 18): string {
   return `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name]}</svg>`;
 }
+
+export const TYPE_ICON: Record<ItemType, IconName> = {
+  landmark: 'landmark', animal: 'paw', discovery: 'compass', vehicle: 'ship', dino: 'dino', food: 'food', festival: 'festival',
+  space: 'rocket', plant: 'leaf', sport: 'trophy', volcano: 'volcano', migration: 'bird', voyage: 'sail',
+};
