@@ -655,10 +655,112 @@ export class OrbitBeacons {
   }
 }
 
+// ---------- graticule ----------
+
+const GRID_VERT = `
+  varying vec3 vDir;
+  varying vec3 vN;
+  varying vec3 vPos;
+  void main() {
+    vDir = normalize(position);
+    vN = normalize(mat3(modelMatrix) * normal);
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    vPos = wp.xyz;
+    gl_Position = projectionMatrix * viewMatrix * wp;
+  }
+`;
+const GRID_FRAG = `
+  uniform float uMinor;   // 0..1 visibility of the 5° grid
+  uniform float uFine;    // 0..1 visibility of the 1° grid
+  uniform float uOpacity;
+  varying vec3 vDir;
+  varying vec3 vN;
+  varying vec3 vPos;
+  // Anti-aliased line at every multiple of step; d = derivative of the coordinate in degrees per pixel.
+  float grid(float c, float d, float step, float px) {
+    float g = abs(fract(c / step + 0.5) - 0.5) * step;
+    return 1.0 - smoothstep(px * 0.5 * d, (px * 0.5 + 1.0) * d, g);
+  }
+  float at(float c, float d, float v, float px) {
+    return 1.0 - smoothstep(px * 0.5 * d, (px * 0.5 + 1.0) * d, abs(c - v));
+  }
+  void main() {
+    float lat = degrees(asin(clamp(vDir.y, -1.0, 1.0)));
+    float lon = degrees(atan(vDir.x, vDir.z));
+    float lon2 = mod(lon + 360.0, 360.0);
+    float dLat = fwidth(lat);
+    float dLon = min(fwidth(lon), fwidth(lon2));
+    float alat = abs(lat);
+    // Meridians crowd together near the poles: thin them out above 75° (keep every 90°) and stop at 89°.
+    float polarFade = 1.0 - smoothstep(72.0, 80.0, alat);
+    float mer15 = grid(lon2, dLon, 15.0, 1.0) * mix(grid(lon2, dLon, 90.0, 1.0), 1.0, polarFade) * step(alat, 89.0);
+    float par15 = grid(lat, dLat, 15.0, 1.0);
+    float major = max(mer15, par15);
+    float minor = max(grid(lon2, dLon, 5.0, 0.8) * polarFade, grid(lat, dLat, 5.0, 0.8)) * uMinor;
+    float fine = max(grid(lon2, dLon, 1.0, 0.6) * polarFade, grid(lat, dLat, 1.0, 0.6)) * uFine;
+
+    vec3 col = vec3(0.86, 0.93, 1.0);
+    float a = max(major * 0.34, max(minor * 0.16, fine * 0.09));
+    // Prime meridian and antimeridian: sky blue.
+    float pm = max(at(lon, dLon, 0.0, 1.6), at(lon2, dLon, 180.0, 1.2) * 0.7) * step(alat, 89.0);
+    col = mix(col, vec3(0.49, 0.83, 0.99), pm);
+    a = max(a, pm * 0.72);
+    // Equator: amber, thicker.
+    float eq = at(lat, dLat, 0.0, 2.0);
+    col = mix(col, vec3(0.98, 0.75, 0.14), eq);
+    a = max(a, eq * 0.85);
+    // Tropics (warm) and polar circles (icy), dashed every 2°.
+    float dash = step(0.45, fract(lon2 / 2.0));
+    float tr = max(at(lat, dLat, 23.436, 1.3), at(lat, dLat, -23.436, 1.3)) * dash;
+    float pc = max(at(lat, dLat, 66.564, 1.3), at(lat, dLat, -66.564, 1.3)) * dash;
+    col = mix(col, vec3(0.99, 0.65, 0.35), tr);
+    col = mix(col, vec3(0.65, 0.95, 0.99), pc);
+    a = max(a, max(tr, pc) * 0.7);
+    // Fade towards the limb so the edge of the globe stays clean.
+    float facing = dot(normalize(vN), normalize(cameraPosition - vPos));
+    a *= smoothstep(0.02, 0.35, facing) * uOpacity;
+    if (a < 0.004) discard;
+    gl_FragColor = vec4(col, a);
+  }
+`;
+
+/** Latitude/longitude grid drawn analytically on a thin shell: crisp at any zoom, highlights equator, tropics, polar circles and prime meridian. */
+export class Graticule {
+  readonly root: THREE.Mesh;
+  private mat: THREE.ShaderMaterial;
+
+  constructor() {
+    this.mat = new THREE.ShaderMaterial({
+      vertexShader: GRID_VERT, fragmentShader: GRID_FRAG,
+      uniforms: { uMinor: { value: 0 }, uFine: { value: 0 }, uOpacity: { value: 1 } },
+      transparent: false, depthWrite: false, blending: THREE.CustomBlending,
+      blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+    });
+    this.root = new THREE.Mesh(new THREE.SphereGeometry(1.0012, 160, 96), this.mat);
+    this.root.name = 'graticule';
+    this.root.renderOrder = RENDER_ORDER.overlay;
+    this.root.raycast = noRaycast;
+  }
+
+  setVisible(on: boolean): void { this.root.visible = on; }
+
+  update(camAlt: number): void {
+    if (!this.root.visible) return;
+    const u = this.mat.uniforms;
+    u.uMinor.value = 1 - smooth(0.9, 1.6, camAlt);
+    u.uFine.value = 1 - smooth(0.12, 0.3, camAlt);
+    u.uOpacity.value = 0.85 + 0.15 * smooth(0.3, 2.5, camAlt);
+  }
+}
+
+/** Step (degrees) of the labelled grid lines for a given camera altitude, matching the drawn grid. */
+export function graticuleStep(camAlt: number): number { return camAlt < 0.3 ? 1 : camAlt < 1.25 ? 5 : camAlt < 2.6 ? 15 : 30; }
+
 /** All globe overlay layers, wired by Globe. */
 export class GlobeLayers {
   readonly routes: RoutePaths;
   readonly tectonics = new Tectonics();
+  readonly graticule = new Graticule();
   readonly clouds: Clouds;
   readonly aurora: Aurora;
   readonly festivals: FestivalGlow;
@@ -671,10 +773,11 @@ export class GlobeLayers {
     this.aurora = new Aurora(sunDir, lowfx);
     this.festivals = new FestivalGlow(items);
     this.beacons = new OrbitBeacons(items);
-    scene.add(this.clouds.root, this.aurora.root, this.tectonics.root, this.routes.root, this.festivals.root, this.beacons.root);
+    scene.add(this.graticule.root, this.clouds.root, this.aurora.root, this.tectonics.root, this.routes.root, this.festivals.root, this.beacons.root);
   }
 
-  setVisible(s: { clouds: boolean; aurora: boolean; tectonics: boolean }, gameMode: boolean): void {
+  setVisible(s: { clouds: boolean; aurora: boolean; tectonics: boolean; graticule: boolean }, gameMode: boolean): void {
+    this.graticule.setVisible(s.graticule);
     // Games use the globe as a map, so keep it clear of clouds and plate lines.
     this.clouds.setVisible(s.clouds && !gameMode);
     this.aurora.setVisible(s.aurora);
@@ -688,6 +791,7 @@ export class GlobeLayers {
     if (clockMs - this.lastRefresh > 600_000) { this.lastRefresh = clockMs; this.festivals.refresh(); }
     this.routes.update(t, camAlt, state, orbitAlt);
     this.tectonics.update(t, camAlt);
+    this.graticule.update(camAlt);
     this.clouds.update(dt, camAlt, !this.lowfx);
     this.aurora.update(t, camAlt);
     this.festivals.update(t, lookup);

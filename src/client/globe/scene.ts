@@ -6,7 +6,7 @@ import { buildModel, mat, modelReady, whenModelReady } from '../models/kit.ts';
 import { paintNightLights, type CountryInfo } from './painter.ts';
 import { CITIES } from '../../shared/data/cities.ts';
 import { TYPE_META, type LayerKey } from '../../shared/data/typemeta.ts';
-import { GlobeLayers, RENDER_ORDER } from './layers.ts';
+import { GlobeLayers, RENDER_ORDER, graticuleStep } from './layers.ts';
 
 export type AuraPreset = 'waves' | 'aurora' | 'ember' | 'dusk' | 'sculpture';
 export type SurfaceMode = 'realistic' | 'minimal' | 'political';
@@ -22,7 +22,7 @@ export const AURA_PRESETS: Record<AuraPreset, { label: string; colors: [string, 
 export type Settings = Record<LayerKey, boolean> & {
   terrain: boolean; names: boolean; borders: boolean; shadows: boolean; sfx: boolean; bgm: boolean;
   /** globe layers: plate boundaries, drifting clouds, polar aurora */
-  tectonics: boolean; clouds: boolean; aurora: boolean;
+  tectonics: boolean; clouds: boolean; aurora: boolean; graticule: boolean;
   auraPreset?: AuraPreset;
   surfaceMode?: SurfaceMode;
 };
@@ -30,7 +30,7 @@ export const DEFAULT_SETTINGS: Settings = {
   terrain: true, names: true, borders: true, shadows: true,
   landmarks: true, animals: true, discoveries: true, vehicles: true,
   dinos: true, foods: true, festivals: true, space: true, plants: true, sports: true, volcanoes: true, migrations: true, voyages: true,
-  tectonics: false, clouds: true, aurora: true,
+  tectonics: false, clouds: true, aurora: true, graticule: true,
   sfx: true, bgm: false,
   auraPreset: 'waves', surfaceMode: 'realistic',
 };
@@ -49,6 +49,10 @@ export function routeAltitude(kind: NonNullable<CatalogueItem['route']>['kind'],
   if (kind === 'plane' || kind === 'fly') return 1 + Math.max(0.01, s * 1.4);
   return 1.0;
 }
+const GRID_NAMES: Record<string, Record<Lang, string>> = {
+  equator: { en: 'Equator', zh: '赤道' }, tropicN: { en: 'Tropic of Cancer', zh: '北回归线' }, tropicS: { en: 'Tropic of Capricorn', zh: '南回归线' },
+  arcticC: { en: 'Arctic Circle', zh: '北极圈' }, antarcticC: { en: 'Antarctic Circle', zh: '南极圈' }, prime: { en: 'Prime Meridian', zh: '本初子午线' },
+};
 const OCEANS: [string, Record<Lang, string>, number, number][] = [
   ['pacific', { en: 'PACIFIC OCEAN', zh: '太平洋' }, 0, -150],
   ['pacific2', { en: 'PACIFIC OCEAN', zh: '太平洋' }, 15, 165],
@@ -1060,12 +1064,13 @@ export class Globe {
   private updateLabels(): void {
     if (!this.settings.names || this.ride) { for (const s of this.labelPool) s.style.display = 'none'; return; }
     const z = this.zoom;
-    type L = { text: string; cls: string; x: number; y: number; pri: number };
+    type L = { text: string; cls: string; x: number; y: number; pri: number; corner?: boolean };
     const out: L[] = [];
-    const push = (text: string, cls: string, lat: number, lon: number, pri: number) => {
+    const push = (text: string, cls: string, lat: number, lon: number, pri: number, corner = false) => {
       const s = this.project(new THREE.Vector3(...latLonToVec(lat, lon, 1.002)));
-      if (s) out.push({ text, cls, x: s.x, y: s.y, pri });
+      if (s) out.push({ text, cls, x: s.x, y: s.y, pri, corner });
     };
+    if (this.settings.graticule) this.pushGridLabels(push);
     if (!this.gameMode || z > 0) {
       for (const c of this.countries) {
         if (!c.a2 || c.area * z * z < 900) continue;
@@ -1085,7 +1090,8 @@ export class Globe {
     let used = 0;
     for (const l of out) {
       const w = l.text.length * (l.cls === 'lb-country' ? 8 : 6.5) + 10, h = 16;
-      const bx: [number, number, number, number] = [l.x - w / 2, l.y - h / 2, l.x + w / 2, l.y + h / 2];
+      const cx = l.corner ? l.x + w / 2 + 2 : l.x, cy = l.corner ? l.y - h / 2 - 1 : l.y;
+      const bx: [number, number, number, number] = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2];
       if (boxes.some(b => bx[0] < b[2] && bx[2] > b[0] && bx[1] < b[3] && bx[3] > b[1])) continue;
       boxes.push(bx);
       let el = this.labelPool[used];
@@ -1093,11 +1099,31 @@ export class Globe {
       if (el.textContent !== l.text) el.textContent = l.text;
       if (el.className !== l.cls) el.className = l.cls;
       el.style.display = '';
-      el.style.transform = `translate(${l.x.toFixed(1)}px,${l.y.toFixed(1)}px) translate(-50%,-50%)`;
+      el.style.transform = `translate(${l.x.toFixed(1)}px,${l.y.toFixed(1)}px) ` + (l.corner ? 'translate(3px,-100%)' : 'translate(-50%,-50%)');
       used++;
       if (used > 140) break;
     }
     for (let i = used; i < this.labelPool.length; i++) this.labelPool[i].style.display = 'none';
+  }
+
+  /** Degree labels where the grid crosses the meridian/parallel nearest the view centre, plus named circles. */
+  private pushGridLabels(push: (text: string, cls: string, lat: number, lon: number, pri: number, corner?: boolean) => void): void {
+    const step = graticuleStep(this.camera.position.length() - 1);
+    const snap = (v: number) => Math.round(v / step) * step;
+    const lonC = ((snap(this.lon) + 540) % 360) - 180;
+    const latC = Math.abs(this.lat) < step * 2.5 ? 0 : Math.max(-75, Math.min(75, snap(this.lat)));
+    const fmt = (v: number, pos: string, neg: string) => v === 0 ? '0°' : `${Math.abs(v)}°${v > 0 ? pos : neg}`;
+    for (let la = -75; la <= 75; la += step) if (la !== latC) push(fmt(la, 'N', 'S'), 'lb-grid', la, lonC, 40, true);
+    for (let k = -180 / step; k < 180 / step; k++) {
+      const lo = snap(this.lon) + k * step;
+      if (Math.abs(lo - this.lon) > 95) continue;
+      const w = ((lo + 540) % 360) - 180;
+      push(Math.abs(w) === 180 ? '180°' : fmt(w, 'E', 'W'), 'lb-grid', latC, w, 40, true);
+    }
+    const named: [string, number][] = [['equator', 0], ['tropicN', 23.436], ['tropicS', -23.436], ['arcticC', 66.564], ['antarcticC', -66.564]];
+    const off = step * 0.5;
+    for (const [k, la] of named) push(GRID_NAMES[k][this.lang] ?? GRID_NAMES[k].en, 'lb-grid lb-gridname g-' + k, la, lonC + off, 600, true);
+    if (Math.abs(this.lon) < 100) push(GRID_NAMES.prime[this.lang] ?? GRID_NAMES.prime.en, 'lb-grid lb-gridname g-prime', Math.max(-60, Math.min(60, this.lat + step * 0.5)), 0, 600, true);
   }
 
   private names = new Map<string, string>();
