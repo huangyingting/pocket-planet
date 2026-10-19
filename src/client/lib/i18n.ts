@@ -22,7 +22,7 @@ const en: Dict = {
   tLandmark: 'Landmark', tAnimal: 'Animal', tDiscovery: 'Discovery', tVehicle: 'Vehicle', built: 'Built', height: 'Height', length: 'Length', weight: 'Weight', speed: 'Top speed', lifespan: 'Lifespan', depth: 'Depth', year: 'Year',
   diet: 'Diet', carnivore: 'Meat-eater', herbivore: 'Plant-eater', omnivore: 'Eats everything', status: 'Status', habitat: 'Lives in', funFact: 'Fun fact', moreDetails: 'More details',
   LC: 'Doing fine', NT: 'Near threatened', VU: 'Vulnerable', EN: 'Endangered', CR: 'Critically endangered',
-  like: 'Like', visited: 'I’ve been here', ride: 'Ride along', exitRide: 'Exit', rideTip: 'Drag to look around · wheel for distance', readMore: 'Read more →',
+  like: 'Like', visited: 'I’ve been here', ride: 'Ride along', exitRide: 'Exit', rideTip: 'Drag to look around · wheel for distance', readMore: 'Read more',
   collectHint: 'Zoom in closer (×{z}) to add this animal to your dex', collected: 'In your dex ✓', addDex: 'Add to dex', logged: 'Logged ✓', logIt: 'Log this discovery',
   animalDex: 'Animal dex', animalDexSub: 'Find animals and zoom in close to collect them', discoveryDex: 'Discovery dex', discoveryDexSub: 'Find wrecks, mysteries and legends, tap to log them',
   stickers: 'Stickers', stickersSub: 'All the stickers you have earned', album: 'Photo album', albumSub: 'Snapshots you took of the globe', photos: '{n} photos', found: '{n} / {t} found',
@@ -47,6 +47,11 @@ const en: Dict = {
   auraPreset: 'Atmosphere', surfaceMode: 'Surface Mode', modeSat: 'Satellite', modeVec: 'Minimal', modePol: 'Political',
   searchPlaceholder: 'Search places and animals', randomHop: 'Random Hop', filterAll: 'All', coords: 'Coordinates', zoomClose: 'Zoom 3D',
   inOrbit: 'In orbit',
+  readerClose: 'Close reader', readerOpenWiki: 'Open on Wikipedia', readerContinue: 'Continue reading', readerMoreSections: '{n} more sections',
+  readerMinutes: '{n} min read', readerSections: '{n} sections', readerOnlyEn: 'No Chinese article yet — showing the English one.', readerContents: 'Contents',
+  readerLicense: 'Text from the Wikipedia article “{title}”, shared under', readerPage: 'Pocket Planet page', readerOffline: 'Couldn’t reach Wikipedia. Here’s what we know:',
+  readerMissing: 'Wikipedia has no article for this one yet. Here’s what we know:', readerRetry: 'Try again', readerNearby: 'Nearby on Pocket Planet',
+  graticule: 'Latitude & longitude lines',
 };
 
 const zh: Dict = {
@@ -68,7 +73,7 @@ const zh: Dict = {
   tLandmark: '地标', tAnimal: '动物', tDiscovery: '发现', tVehicle: '交通工具', built: '建成', height: '高度', length: '长度', weight: '体重', speed: '最高速度', lifespan: '寿命', depth: '深度', year: '年份',
   diet: '食性', carnivore: '吃肉', herbivore: '吃植物', omnivore: '什么都吃', status: '保护状况', habitat: '栖息地', funFact: '趣味知识', moreDetails: '更多详情',
   LC: '无危', NT: '近危', VU: '易危', EN: '濒危', CR: '极危',
-  like: '喜欢', visited: '我去过', ride: '一起乘坐', exitRide: '退出', rideTip: '拖动环顾四周 · 滚轮调整距离', readMore: '阅读更多 →',
+  like: '喜欢', visited: '我去过', ride: '一起乘坐', exitRide: '退出', rideTip: '拖动环顾四周 · 滚轮调整距离', readMore: '阅读更多',
   collectHint: '再放大一些（×{z}）就能把这种动物收进图鉴', collected: '已收入图鉴 ✓', addDex: '收入图鉴', logged: '已记录 ✓', logIt: '记录这个发现',
   animalDex: '动物图鉴', animalDexSub: '找到动物并放大靠近来收集它们', discoveryDex: '发现图鉴', discoveryDexSub: '寻找沉船、谜团和传说，点击即可记录',
   stickers: '贴纸', stickersSub: '你获得的所有贴纸', album: '相册', albumSub: '你拍下的地球快照', photos: '{n} 张照片', found: '已找到 {n} / {t}',
@@ -93,6 +98,11 @@ const zh: Dict = {
   auraPreset: '大气', surfaceMode: '地表模式', modeSat: '卫星', modeVec: '极简', modePol: '政区',
   searchPlaceholder: '搜索地点和动物', randomHop: '随机跳转', filterAll: '全部', coords: '坐标', zoomClose: '3D 近看',
   inOrbit: '在轨道上',
+  readerClose: '收起', readerOpenWiki: '在维基百科中打开', readerContinue: '继续阅读', readerMoreSections: '还有 {n} 个章节',
+  readerMinutes: '约 {n} 分钟读完', readerSections: '{n} 个章节', readerOnlyEn: '暂无中文条目——显示英文版本。', readerContents: '目录',
+  readerLicense: '正文来自维基百科条目“{title}”，遵循', readerPage: '口袋星球页面', readerOffline: '暂时连不上维基百科。以下是我们知道的：',
+  readerMissing: '维基百科还没有这个条目。以下是我们知道的：', readerRetry: '重试', readerNearby: '附近的地点',
+  graticule: '经纬线',
 };
 
 const DICTS: Record<Lang, Dict> = { en, zh };

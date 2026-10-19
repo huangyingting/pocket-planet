@@ -26,7 +26,10 @@ export interface ShellHooks {
 
 export class Shell {
   private zoomEl = h('span', { class: 'zoom-readout', 'data-testid': 'zoom' }, '×4.0');
-  private info = h('aside', { id: 'info', class: 'info hidden', 'aria-live': 'polite', 'data-testid': 'info' });
+  private infoMain = h('div', { class: 'info-main', 'aria-live': 'polite' });
+  private info = h('aside', { id: 'info', class: 'info hidden', 'data-testid': 'info' }, this.infoMain);
+  private reader: import('./reader.ts').Reader | null = null;
+  private readerOpen = false;
   private menu = h('div', { id: 'menu', class: 'menu hidden', role: 'dialog', 'aria-label': 'Menu' });
   private hints = h('div', { class: 'hints hidden', id: 'hints' });
   private rideBar = h('div', { class: 'ride-bar hidden', 'data-testid': 'ride-bar' });
@@ -70,7 +73,7 @@ export class Shell {
     this.renderHints();
     this.renderMenu();
     subscribe(() => { if (this.current) this.renderInfo(this.current); if (!this.menu.classList.contains('hidden')) this.renderMenu(); });
-    onLang(() => this.relabel());
+    onLang(() => { this.relabel(); this.reader?.relang(); });
     document.addEventListener('keydown', e => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
@@ -81,6 +84,7 @@ export class Shell {
       if (closeModal()) return;
       if (!this.menu.classList.contains('hidden')) { this.toggleMenu(false); return; }
       if (this.globe.ride) { this.exitRide(); return; }
+      if (this.readerOpen) { this.toggleReader(false); return; }
       if (this.current) { this.showItem(null); return; }
       if (this.time.open) this.time.toggle(false);
     });
@@ -252,14 +256,14 @@ export class Shell {
       h('h3', {}, t('auraPreset')), auraRow,
       h('h3', {}, t('mMap')), h('div', { class: 'grid2' }, sw('terrain', 'mountain'), sw('names', 'tag'), sw('borders', 'globe'), sw('shadows', 'contrast')),
       h('h3', {}, t('mGlobe')), h('div', { class: 'grid2' }, ...TYPE_ORDER.filter(ty => BY_TYPE[ty].length).map(ty => sw(TYPE_META[ty].layer, TYPE_ICON[ty]))),
-      h('h3', {}, t('mLayers')), h('div', { class: 'grid2' }, sw('tectonics', 'plates'), sw('clouds', 'cloud'), sw('aurora', 'aurora')),
+      h('h3', {}, t('mLayers')), h('div', { class: 'grid2' }, sw('graticule', 'grid'), sw('tectonics', 'plates'), sw('clouds', 'cloud'), sw('aurora', 'aurora')),
       h('h3', {}, t('mSettings')), h('div', { class: 'grid2' }, sw('sfx', 'sound'), sw('bgm', 'music')),
       row('language', t('language'), sel),
       row('reset', t('reset'), h('button', { class: 'pill', 'data-testid': 'reset', onclick: () => { if (confirm(t('resetConfirm'))) { resetSettings(); this.globe.flyTo(25, 40, 2.2); } } }, t('resetBtn'))),
       ...(HAS_API ? [row('user', store.me ? t('signedInAs', { e: store.me.handle ?? store.me.email }) : t('account'), h('button', { class: 'pill', 'data-testid': 'menu-account', onclick: () => { this.toggleMenu(false); this.hooks.openAccount(); } }, store.me ? t('account') : t('signIn'))),
       row('chat', t('guestbook'), h('button', { class: 'pill', 'data-testid': 'menu-guestbook', onclick: () => { this.toggleMenu(false); this.hooks.openGuestbook(); } }, t('open')))] : []),
       h('footer', { class: 'menu-links' },
-        h('a', { href: url('about/') }, t('about')), h('a', { href: url('landmarks/') }, t('encyclopedia')),
+        h('a', { href: url('about/') }, t('about')), h('a', { href: url('encyclopedia/') }, t('encyclopedia')),
         h('button', { class: 'link', onclick: () => { this.toggleMenu(false); this.hooks.openCredits(); } }, t('credits')), h('a', { href: url('privacy/') }, t('privacy'))));
   }
 
@@ -275,6 +279,7 @@ export class Shell {
     this.current = item;
     this.globe.select(item?.key ?? null);
     if (!item) {
+      this.toggleReader(false);
       this.info.classList.add('hidden');
       if (prev && decodeURIComponent(location.hash.slice(1)) === prev.key) history.replaceState(null, '', location.pathname + location.search);
       return;
@@ -291,6 +296,25 @@ export class Shell {
     if (!(item.key in store.progress.seen)) updateProgress(pp => { pp.seen[item.key] = Date.now(); });
     else this.renderInfo(item);
     this.info.classList.remove('hidden');
+    if (this.readerOpen) this.reader?.show(item);
+  }
+
+  /** Expands the info card sideways into the Wikipedia reader (lazy-loaded) or folds it back. */
+  async toggleReader(open = !this.readerOpen): Promise<void> {
+    if (open === this.readerOpen || (open && !this.current)) return;
+    this.readerOpen = open;
+    this.info.classList.toggle('expanded', open);
+    const btn = this.infoMain.querySelector('.read-more');
+    btn?.setAttribute('aria-expanded', String(open));
+    if (btn?.firstChild) btn.firstChild.textContent = open ? t('readerClose') : t('readMore');
+    if (!open) return;
+    if (!this.reader) {
+      const { Reader } = await import('./reader.ts');
+      this.reader ??= new Reader({ close: () => void this.toggleReader(false), pick: it => this.showItem(it) });
+    }
+    if (!this.readerOpen || !this.current) return;
+    if (!this.reader.el.isConnected) this.info.append(this.reader.el);
+    this.reader.show(this.current);
   }
 
   private dexRow = h('div', { class: 'dex-row' });
@@ -348,12 +372,11 @@ export class Shell {
         } }, h('span', { class: 'react-label' }, t(kind)), count);
     };
     const secondary = l !== 'en' ? it.name.en : it.name.zh;
-    const section = TYPE_META[it.type].section;
     const key = chips.slice(0, 3), extra = chips.slice(3);
     if (!it.route) extra.push([t('latitude'), coordStr]);
     const hasMore = extra.length > 0 || Boolean(it.funFact) || Boolean(it.habitat);
     this.renderDexRow();
-    this.info.replaceChildren(
+    this.infoMain.replaceChildren(
       h('div', { class: 'info-hero', 'data-type': it.type },
         createModelPreview(it, { width: 360, height: 208, id: 'info-preview' }),
         h('span', { class: 'type-chip t-' + it.type, style: `color:${TYPE_META[it.type].color}` }, typeName(it.type)),
@@ -376,7 +399,8 @@ export class Shell {
         h('div', { class: 'info-footer' },
           it.type !== 'vehicle' ? h('div', { class: 'reactions' }, react('like', 'heart'), react('visited', 'flag')) : null,
           it.route ? h('button', { class: 'cta cta-sm', 'data-testid': 'ride', html: icon('ride', 16), onclick: () => void this.startRide(it) }, h('span', {}, t('ride'))) : null,
-          section ? h('a', { class: 'read-more', href: url(`${section}/${it.slug}/`) }, t('readMore').replace(/\s*→$/, ''), h('span', { html: icon('arrow', 14) })) : null)));
+          h('button', { class: 'read-more', 'data-testid': 'read-more', 'aria-expanded': String(this.readerOpen), onclick: () => { sfx.tap(); void this.toggleReader(); } },
+            h('span', {}, this.readerOpen ? t('readerClose') : t('readMore')), h('span', { html: icon('book', 14) })))));
     if (HAS_API && it.type !== 'vehicle') void api.reactions(it.key).then(r => this.setCounts(r)).catch(() => {});
   }
 

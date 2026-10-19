@@ -50,6 +50,10 @@ const P: Record<string, string> = {
   plates: '<circle cx="12" cy="12" r="8.5"/><path d="M5 8.5c3 1 4 3 3.5 6.5M12 3.5c-.5 3 1.5 5 5 5.5M20 14c-3-.5-5.5.5-6.5 6"/>',
   passport: '<rect x="5.5" y="3.5" width="13" height="17" rx="1.5"/><circle cx="12" cy="11" r="3.5"/><path d="M8.5 11h7M12 7.5c-1.2 1-1.2 6 0 7M9 17.5h6"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/>',
+  book: '<path d="M4 5.5c2.5-1 5-1 8 1 3-2 5.5-2 8-1v13c-2.5-1-5-1-8 1-3-2-5.5-2-8-1z"/><path d="M12 6.5v13"/>',
+  external: '<path d="M14 4.5h5.5V10M19.5 4.5 11 13"/><path d="M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/>',
+  collapse: '<path d="m15 6-6 6 6 6"/>',
+  grid: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M5 7.5h14M5 16.5h14M12 3.5v17"/><path d="M12 3.5c-3 2.5-4 5.5-4 8.5s1 6 4 8.5M12 3.5c3 2.5 4 5.5 4 8.5s-1 6-4 8.5"/>',
 };
 
 export type IconName = keyof typeof P;
