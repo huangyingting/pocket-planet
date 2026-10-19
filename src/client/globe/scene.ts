@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import type { CatalogueItem, Lang } from '../../shared/data/types.ts';
 import { tr } from '../../shared/data/types.ts';
 import { latLonToVec, vecToLatLon, slerpLatLon } from '../../shared/lib/geo.ts';
-import { buildModel, mat, modelReady, whenModelReady } from '../models/kit.ts';
+import { buildModel, modelReady, setModelDetail, whenModelReady } from '../models/library.ts';
+import { mat } from '../models/prims.ts';
 import { paintNightLights, type CountryInfo } from './painter.ts';
 import { CITIES } from '../../shared/data/cities.ts';
 import { TYPE_META, type LayerKey } from '../../shared/data/typemeta.ts';
@@ -223,7 +224,15 @@ interface Placed {
   n: THREE.Vector3;
   /** sub-objects with procedural animation ('spin' / 'flap'), collected once instead of traversing every frame */
   anim: THREE.Object3D[];
+  /** model radius (model units) and whether the far level of detail is active */
+  radius: number;
+  far: boolean;
+  /** slot in the instanced plinth batch (shadow + ring), -1 if the item has no plinth */
+  slot: number;
 }
+
+/** Projected model radius (px) below which items switch to their far level of detail (with 25% hysteresis). */
+const LOD_PX = 60;
 
 export interface GlobeEvents {
   onPick?: (item: CatalogueItem | null) => void;
@@ -281,7 +290,9 @@ export class Globe {
    */
   private pending = new Map<string, CatalogueItem>();
   private pendingN = new Map<string, THREE.Vector3>();
-  private packWait = new Set<string>();
+  private modelWait = new Set<string>();
+  /** Every plinth (soft contact shadow + type-coloured ring) is drawn by two instanced meshes: 2 draw calls in total. */
+  private plinths: { shadow: THREE.InstancedMesh; ring: THREE.InstancedMesh; size: number[]; used: number } | null = null;
   private lastDrain = 0;
   private labelsEl: HTMLDivElement;
   private labelPool: HTMLSpanElement[] = [];
@@ -496,23 +507,60 @@ export class Globe {
   }
 
   /** Builds a soft ground contact shadow and subtle micro-collar under each 3D miniature on the globe. */
-  private buildPlinth(item: CatalogueItem): THREE.Group | null {
+  /** Reserves a plinth slot for an item (or -1 when its type has none). */
+  private plinthSlot(item: CatalogueItem): number {
     const meta = TYPE_META[item.type];
-    if (item.route || !meta.plinth) return null;
-    const g = new THREE.Group();
-    const rimColor = meta.color;
-    const r = meta.plinth;
-    const shadow = new THREE.Mesh(
-      new THREE.PlaneGeometry(r * 2.5, r * 2.5).rotateX(-Math.PI / 2).translate(0, 0.004, 0),
-      new THREE.MeshBasicMaterial({ map: this.getShadowTexture(), transparent: true, depthWrite: false })
-    );
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(r * 0.92, r * 1.0, 28).rotateX(-Math.PI / 2).translate(0, 0.006, 0),
-      new THREE.MeshBasicMaterial({ color: rimColor, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false })
-    );
-    g.add(shadow, ring);
-    return g;
+    if (item.route || !meta.plinth) return -1;
+    let b = this.plinths;
+    if (!b || b.used === b.shadow.count) {
+      const cap = Math.max(256, (b?.used ?? 0) * 2);
+      const shadowMat = (b?.shadow.material as THREE.Material) ?? new THREE.MeshBasicMaterial({ map: this.getShadowTexture(), transparent: true, depthWrite: false });
+      const ringMat = (b?.ring.material as THREE.Material) ?? new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false });
+      const shadow = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), shadowMat, cap);
+      const ring = new THREE.InstancedMesh(new THREE.RingGeometry(0.92, 1.0, 28).rotateX(-Math.PI / 2), ringMat, cap);
+      ring.renderOrder = 1; // over the shadows
+      for (const m of [shadow, ring]) {
+        m.frustumCulled = false; // instances move every frame; their bounds are not tracked
+        m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        m.matrixAutoUpdate = false;
+      }
+      const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+      for (let i = 0; i < cap; i++) { shadow.setMatrixAt(i, zero); ring.setMatrixAt(i, zero); ring.setColorAt(i, new THREE.Color()); }
+      if (b) {
+        shadow.instanceMatrix.array.set(b.shadow.instanceMatrix.array);
+        ring.instanceMatrix.array.set(b.ring.instanceMatrix.array);
+        ring.instanceColor!.array.set(b.ring.instanceColor!.array);
+        this.itemsRoot.remove(b.shadow, b.ring);
+        b.shadow.geometry.dispose(); b.ring.geometry.dispose();
+        b.shadow.dispose(); b.ring.dispose();
+      }
+      b = this.plinths = { shadow, ring, size: b?.size ?? [], used: b?.used ?? 0 };
+      this.itemsRoot.add(shadow, ring);
+    }
+    const slot = b.used++;
+    b.size[slot] = meta.plinth;
+    b.ring.setColorAt(slot, new THREE.Color(meta.color));
+    b.ring.instanceColor!.needsUpdate = true;
+    return slot;
   }
+
+  /** Writes this frame's plinth transforms (hidden items get a zero matrix). */
+  private updatePlinths(): void {
+    const b = this.plinths;
+    if (!b) return;
+    const m = new THREE.Matrix4(), k = new THREE.Matrix4();
+    const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+    for (const p of this.placed.values()) {
+      if (p.slot < 0) continue;
+      if (!p.obj.visible) { b.shadow.setMatrixAt(p.slot, zero); b.ring.setMatrixAt(p.slot, zero); continue; }
+      p.obj.updateMatrix();
+      const r = b.size[p.slot];
+      b.shadow.setMatrixAt(p.slot, m.copy(p.obj.matrix).multiply(k.makeScale(r * 2.5, 1, r * 2.5).setPosition(0, 0.004, 0)));
+      b.ring.setMatrixAt(p.slot, m.copy(p.obj.matrix).multiply(k.makeScale(r, 1, r).setPosition(0, 0.006, 0)));
+    }
+    b.shadow.instanceMatrix.needsUpdate = b.ring.instanceMatrix.needsUpdate = true;
+  }
+
 
   private queuePlacement(items: CatalogueItem[]): void {
     // Nearest-to-camera first so the visible hemisphere fills in before the far side.
@@ -548,10 +596,9 @@ export class Globe {
   }
 
   private requestModel(it: CatalogueItem): void {
-    const id = String(it.model.hero ?? '').split('/')[0];
-    if (this.packWait.has(id)) return;
-    this.packWait.add(id);
-    void whenModelReady(it.model).then(() => { this.packWait.delete(id); this.dirty = true; });
+    if (this.modelWait.has(it.key)) return;
+    this.modelWait.add(it.key);
+    void whenModelReady(it.model).then(() => { this.modelWait.delete(it.key); this.dirty = true; });
   }
 
   /** Builds an item's model immediately if it is still queued and loadable (used when the UI targets it directly). */
@@ -577,13 +624,11 @@ export class Globe {
     const obj = buildModel(item.model);
     obj.userData.key = item.key;
     const wrap = new THREE.Group();
-    const plinth = this.buildPlinth(item);
-    if (plinth) wrap.add(plinth);
     wrap.add(obj);
     const anim: THREE.Object3D[] = [];
     obj.traverse(o => { if (o.name === 'spin' || o.name === 'flap') anim.push(o); });
     const p: Placed = { item, obj: wrap, seg: 0, t: 0, pts: item.route ? item.route.pts.map(x => [x[0], x[1]] as [number, number]) : [], heading: new THREE.Vector3(),
-      n: new THREE.Vector3(...latLonToVec(item.lat, item.lon)), anim };
+      n: new THREE.Vector3(...latLonToVec(item.lat, item.lon)), anim, radius: obj.userData.radius ?? 0.6, far: false, slot: this.plinthSlot(item) };
     if (item.route) {
       // Spread vehicles along their routes deterministically.
       const h = [...item.key].reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -937,6 +982,8 @@ export class Globe {
 
   private updateItems(dt: number): void {
     const cdir = this.camera.position.clone().normalize(), hz = this.horizonCos(0.12);
+    // pixels per world unit at distance 1, for the level-of-detail test
+    const pxK = (this.renderer.domElement.clientHeight || 800) / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
     for (const p of this.placed.values()) {
       const it = p.item;
       const focus = this.selected === it.key || this.ride?.key === it.key;
@@ -969,11 +1016,15 @@ export class Globe {
       else if (this.layers?.festivals.has(it.key) && !this.lowfx) inner.position.y = (0.5 + 0.5 * Math.sin(this.clock * 0.0024 + it.lon)) * 0.09;
       const isHovered = this.hoveredKey === it.key;
       inner.scale.setScalar(isHovered ? 1.14 : 1.0);
+      const px = (pxK * s * p.radius) / Math.max(1e-4, this.camera.position.distanceTo(p.obj.position));
+      const far = !focus && !isHovered && px < (p.far ? LOD_PX * 1.25 : LOD_PX);
+      if (far !== p.far) { p.far = far; setModelDetail(inner, far); }
       for (const o of p.anim) {
         if (o.name === 'spin') o.rotation.z += dt * 0.002;
         else o.rotation.z = Math.sin(this.clock * 0.004) * 0.2;
       }
     }
+    this.updatePlinths();
     const sel = this.selected ? this.placed.get(this.selected) : null;
     this.selRing.visible = !!sel?.obj.visible;
     if (sel) {
