@@ -14,6 +14,7 @@ import { HAS_API, url } from './lib/env.ts';
 import { load } from './lib/storage.ts';
 import { mergeProgress } from '../shared/lib/progress.ts';
 import { sfx } from './lib/sfx.ts';
+import { openPassport } from './ui/passport.ts';
 import { openCollection } from './ui/collection.ts';
 import { openPhotoMode } from './ui/photo.ts';
 import { openGames, openDaily } from './ui/games.ts';
@@ -57,14 +58,18 @@ async function boot(): Promise<void> {
   const setGameMode = (on: boolean, names?: boolean) => {
     gaming = on;
     globe.gameMode = on;
-    if (on) { shell.showItem(null); shell.toggleMenu(false); }
+    if (on) { shell.showItem(null); shell.toggleMenu(false); shell.time.toggle(false); }
     document.body.classList.toggle('gaming', on);
     globe.applySettings(on && names === false ? { ...store.settings, names: false } : store.settings);
     if (!on) globe.ev.onGlobeTap = undefined;
   };
   const host = { globe, setGameMode };
 
-  const showCollection = () => openCollection(it => { closeModal(); closeModal(); shell.showItem(it); });
+  const passport = () => openPassport({
+    here: () => shell.current ? [shell.current.lat, shell.current.lon] : [globe.lat, globe.lon],
+    travel: (it, from) => { shell.showItem(it); if (Math.abs(from[0] - it.lat) + Math.abs(from[1] - it.lon) > 2) globe.showFlightArc(from, [it.lat, it.lon]); },
+  });
+  const showCollection = () => openCollection(it => { closeModal(); closeModal(); shell.showItem(it); }, passport);
   shell = new Shell(app, globe, {
     openPhoto: () => openPhotoMode(globe, () => shell.current ? tr(shell.current.name, lang()) : ''),
     openCollection: showCollection,

@@ -8,7 +8,9 @@ import { CONTINENT_NAMES } from '../../shared/data/iso.ts';
 import { AURA_PRESETS, type AuraPreset, type SurfaceMode, type Globe, type Settings } from '../globe/scene.ts';
 import { createModelPreview } from '../models/preview.ts';
 import { icon, TYPE_ICON, type IconName } from './icons.ts';
-import { sfx, setMusic } from '../lib/sfx.ts';
+import { sfx, setMusic, callFor, speak } from '../lib/sfx.ts';
+import { GREETINGS } from '../../shared/data/greetings.ts';
+import { TimeMachine } from './timemachine.ts';
 import { api } from '../lib/api.ts';
 import { HAS_API, url } from '../lib/env.ts';
 
@@ -30,8 +32,11 @@ export class Shell {
   private rideBar = h('div', { class: 'ride-bar hidden', 'data-testid': 'ride-bar' });
   private tipEl = h('div', { id: 'tip', class: 'globe-tip hidden', 'aria-hidden': 'true' });
   current: CatalogueItem | null = null;
+  readonly time: TimeMachine;
 
-  constructor(private root: HTMLElement, private globe: Globe, private hooks: ShellHooks) {}
+  constructor(private root: HTMLElement, private globe: Globe, private hooks: ShellHooks) {
+    this.time = new TimeMachine(globe, it => this.showItem(it), open => $('#btn-time')?.classList.toggle('active', open));
+  }
 
   mount(): void {
     const tool = (id: string, ico: IconName, key: string, fn: () => void) =>
@@ -50,6 +55,7 @@ export class Shell {
         tool('btn-photo', 'camera', 'photo', this.hooks.openPhoto),
         tool('btn-collection', 'collection', 'collection', this.hooks.openCollection),
         tool('btn-game', 'game', 'game', this.hooks.openGames),
+        tool('btn-time', 'clock', 'timeMachine', () => this.time.toggle()),
         h('span', { class: 'tools-sep', 'aria-hidden': 'true' }),
         tool('btn-menu', 'menu', 'menu', () => this.toggleMenu())));
     const bottomLeft = h('div', { class: 'bl' }, this.hints,
@@ -60,7 +66,7 @@ export class Shell {
         h('button', { id: 'btn-zoom-in', 'aria-label': t('zoomIn'), html: icon('plus', 17), onclick: () => this.globe.zoomBy(1.6) }),
         this.zoomEl,
         h('button', { id: 'btn-zoom-out', 'aria-label': t('zoomOut'), html: icon('minus', 17), onclick: () => this.globe.zoomBy(1 / 1.6) })));
-    this.root.append(top, bottomLeft, bottomRight, this.info, this.menu, this.rideBar, this.tipEl);
+    this.root.append(top, bottomLeft, bottomRight, this.info, this.menu, this.rideBar, this.time.el, this.tipEl);
     this.renderHints();
     this.renderMenu();
     subscribe(() => { if (this.current) this.renderInfo(this.current); if (!this.menu.classList.contains('hidden')) this.renderMenu(); });
@@ -75,7 +81,8 @@ export class Shell {
       if (closeModal()) return;
       if (!this.menu.classList.contains('hidden')) { this.toggleMenu(false); return; }
       if (this.globe.ride) { this.exitRide(); return; }
-      if (this.current) this.showItem(null);
+      if (this.current) { this.showItem(null); return; }
+      if (this.time.open) this.time.toggle(false);
     });
     document.addEventListener('pointerdown', e => {
       if (this.menu.classList.contains('hidden')) return;
@@ -315,9 +322,9 @@ export class Shell {
     const f = it.facts ?? {};
     const nf = (n: number, unit: string) => fmtNum(n) + unit;
     const chips: [string, string][] = [];
-    if (f.built !== undefined) chips.push([t('built'), f.built < 0 ? `${-f.built} BCE` : String(f.built)]);
-    if (f.year !== undefined) chips.push([t('year'), f.year < 0 ? `${-f.year} BCE` : String(f.year)]);
-    if (f.mya !== undefined) chips.push([t('lived'), t('myaAgo', { n: fmtNum(f.mya) })]);
+    if (f.built !== undefined) chips.push([t('built'), f.built < 0 ? t('bce', { n: -f.built }) : String(f.built)]);
+    if (f.year !== undefined) chips.push([t('year'), f.year < 0 ? t('bce', { n: -f.year }) : String(f.year)]);
+    if (f.mya !== undefined) chips.push([t('lived'), t('myaAgo', { n: fmtNum(f.mya), w: fmtNum(Math.round(f.mya * 100)) })]);
     if (it.season) chips.push([t('when'), new Intl.DateTimeFormat(l, { month: 'long', day: 'numeric' }).format(new Date(2024, it.season.month - 1, it.season.day))]);
     if (f.heightM) chips.push([t('height'), nf(f.heightM, ' m')]);
     if (f.lengthM) chips.push([t('length'), f.lengthM >= 10000 ? nf(Math.round(f.lengthM / 1000), ' km') : nf(f.lengthM, ' m')]);
@@ -351,6 +358,7 @@ export class Shell {
         createModelPreview(it, { width: 360, height: 208, id: 'info-preview' }),
         h('span', { class: 'type-chip t-' + it.type, style: `color:${TYPE_META[it.type].color}` }, typeName(it.type)),
         h('button', { class: 'icon-btn info-x', 'aria-label': t('close'), 'data-testid': 'info-close', html: icon('close', 16), onclick: () => this.showItem(null) }),
+        this.heroActions(it),
         it.type !== 'animal' && !it.route ? h('button', { class: 'hero-btn info-zoom-btn', title: t('zoomClose'), html: icon('zoom', 15), onclick: () => this.globe.flyTo(it.lat, it.lon, 0.25) }, h('span', {}, t('zoomClose'))) : null,
       ),
       h('div', { class: 'info-body' },
@@ -370,6 +378,23 @@ export class Shell {
           it.route ? h('button', { class: 'cta cta-sm', 'data-testid': 'ride', html: icon('ride', 16), onclick: () => this.startRide(it) }, h('span', {}, t('ride'))) : null,
           section ? h('a', { class: 'read-more', href: url(`${section}/${it.slug}/`) }, t('readMore').replace(/\s*→$/, ''), h('span', { html: icon('arrow', 14) })) : null)));
     if (HAS_API && it.type !== 'vehicle') void api.reactions(it.key).then(r => this.setCounts(r)).catch(() => {});
+  }
+
+  /** "Say hello" (local greeting via speech) and "Hear it" (procedural animal call) buttons over the model. */
+  private heroActions(it: CatalogueItem): HTMLElement | null {
+    const l = lang();
+    const g = it.country && it.type !== 'animal' && it.type !== 'dino' && it.type !== 'migration' ? GREETINGS[it.country] : undefined;
+    const call = callFor(it);
+    if (!g && !call) return null;
+    const btn = (id: string, emoji: string, label: string, fn: () => void) =>
+      h('button', { class: 'hero-btn', 'data-testid': id, title: label, onclick: fn }, h('span', { 'aria-hidden': 'true' }, emoji), h('span', {}, label));
+    return h('div', { class: 'hero-acts' },
+      g ? btn('say-hello', '👋', t('sayHello'), () => {
+        const langName = new Intl.DisplayNames([l], { type: 'language' }).of(g[1].split('-')[0]) ?? g[1];
+        const ok = speak(g[0], g[1]);
+        toast(t('helloIn', { lang: langName, say: g[2] }) + (ok ? '' : ' ' + t('noSpeech')), 4200);
+      }) : null,
+      call ? btn('hear-it', '🔊', t('hearIt'), () => sfx.call(call)) : null);
   }
 
   private setCounts(r: { like: number; visited: number }): void {

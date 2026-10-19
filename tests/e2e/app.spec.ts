@@ -100,6 +100,38 @@ test('collect an animal into the dex and earn a sticker', async ({ page }) => {
   await expect(page.locator('.sticker.have').first()).toBeVisible();
 });
 
+test('passport stamps, time machine and sounds', async ({ page }) => {
+  await openApp(page, '/?lowfx=1&notut#eiffel');
+  await expect(page.getByTestId('info-name')).toHaveText('Eiffel Tower');
+  await page.getByTestId('say-hello').click();
+  await expect(page.locator('#toast')).toContainText('Hello in French');
+  await page.keyboard.press('Escape');
+  await page.getByTestId('btn-collection').click();
+  await expect(page.getByTestId('hub-passport')).toContainText('1 / ');
+  await page.getByTestId('hub-passport').click();
+  await page.getByTestId('book-europe').click();
+  await expect(page.getByTestId('stamp-eiffel')).toHaveClass(/have/);
+  await shot(page, 'desktop_06b_passport');
+  await page.getByTestId('next-stop').click();
+  await expect(page.getByTestId('info-name')).not.toHaveText('Eiffel Tower');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => { location.hash = 'an_lion'; });
+  await expect(page.getByTestId('hear-it')).toBeVisible();
+  await page.getByTestId('hear-it').click();
+  await page.keyboard.press('Escape');
+
+  await page.getByTestId('btn-time').click();
+  await expect(page.getByTestId('time-bar')).toBeVisible();
+  await expect(page.getByTestId('time-year')).toHaveText('Today');
+  await page.getByTestId('time-range').fill('0');
+  await expect(page.getByTestId('time-year')).toHaveText('Age of dinosaurs');
+  expect(await page.evaluate(() => (window as any).__pp.globe.itemFilter !== null)).toBe(true);
+  await shot(page, 'desktop_06c_time_machine');
+  await page.getByTestId('time-close').click();
+  await expect(page.getByTestId('time-bar')).toBeHidden();
+  expect(await page.evaluate(() => (window as any).__pp.globe.itemFilter)).toBeNull();
+});
+
 test('vehicle ride mode', async ({ page }) => {
   await openApp(page);
   const key = await page.evaluate(() => { const g = (window as any).__pp.globe; return [...g.placed.keys()].find((k: string) => k.startsWith('vh_')); });

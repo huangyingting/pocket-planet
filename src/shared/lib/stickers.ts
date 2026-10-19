@@ -1,5 +1,6 @@
 import type { Progress } from './progress.ts';
 import type { I18n } from '../data/types.ts';
+import { PASSPORTS, bookDone } from '../data/passports.ts';
 
 export interface StickerDef { id: string; emoji: string; name: I18n; test: (p: Progress, totals: { animals: number; discoveries: number }) => boolean }
 
@@ -18,6 +19,12 @@ export const STICKERS: StickerDef[] = [
   { id: 'daily_win', emoji: '📅', name: { en: 'Daily solver', zh: '每日解题王' }, test: p => p.daily.won >= 1 },
   { id: 'daily_streak3', emoji: '🔥', name: { en: 'On a roll', zh: '连胜中' }, test: p => p.daily.maxStreak >= 3 },
   { id: 'traveller', emoji: '🧳', name: { en: 'Globetrotter', zh: '环球旅行家' }, test: p => n(p.visited) >= 5 },
+  { id: 'passport_10', emoji: '🛂', name: { en: 'Stamp collector', zh: '集章小能手' }, test: p => n(p.seen) >= 10 },
+  { id: 'passport_50', emoji: '🌍', name: { en: 'World explorer', zh: '世界探险家' }, test: p => n(p.seen) >= 50 },
+  { id: 'book_done', emoji: '📕', name: { en: 'Full passport book', zh: '集满一本护照' }, test: p => PASSPORTS.some(b => bookDone(b, p.seen)) },
+  { id: 'found_10', emoji: '🧺', name: { en: 'Keen collector', zh: '收藏达人' }, test: p => n(p.found) >= 10 },
+  { id: 'fossil_hunter', emoji: '🦴', name: { en: 'Fossil hunter', zh: '化石猎人' }, test: p => Object.keys(p.found).some(k => k.startsWith('dn_')) },
+  { id: 'foodie', emoji: '🍜', name: { en: 'Little foodie', zh: '小吃货' }, test: p => Object.keys(p.found).filter(k => k.startsWith('fd_')).length >= 5 },
 ];
 
 /** Returns ids of stickers newly earned; caller persists them. */

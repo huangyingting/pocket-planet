@@ -554,6 +554,59 @@ a:hover { text-decoration: underline; }
 .ride-bar .tip { color: var(--muted); font-size: .8rem; }
 body.riding .topbar .tools, body.riding .topbar .omnibar, body.riding .bl { visibility: hidden; }
 
+/* ---- time machine ---- */
+.time-bar {
+  position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%);
+  width: min(560px, calc(100vw - 32px)); z-index: 9;
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--panel); backdrop-filter: blur(20px);
+  border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px 12px;
+  box-shadow: var(--shadow);
+}
+.time-head { display: flex; align-items: center; gap: 10px; }
+.time-head .icon-btn { margin-left: auto; }
+.time-ico { color: var(--accent); display: grid; }
+.time-year { font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.time-head .muted { font-size: .8rem; }
+.time-bar input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
+.time-ticks { display: flex; justify-content: space-between; padding: 0 6px; margin-top: -6px; font-size: .7rem; color: var(--muted); }
+.time-ticks span { width: 4px; height: 4px; border-radius: 2px; background: var(--line); display: grid; place-items: center; overflow: visible; }
+.time-ticks span.on { background: var(--accent); }
+.time-new { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .8rem; }
+.time-new .chip { padding: 4px 10px; font-size: .78rem; }
+body.time-travel .bl, body.riding .time-bar, body.gaming .time-bar { visibility: hidden; }
+
+/* ---- info hero actions ---- */
+.hero-acts { position: absolute; right: 12px; bottom: 12px; z-index: 3; display: flex; gap: 6px; }
+.hero-acts .hero-btn { position: static; }
+
+/* ---- passport ---- */
+.passport { display: flex; flex-direction: column; gap: 14px; }
+.passport-tabs { gap: 6px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -2px; padding: 2px; mask-image: linear-gradient(90deg, #000 92%, transparent); }
+.passport-tabs::-webkit-scrollbar { display: none; }
+.passport-tabs .pill { flex: none; }
+.passport-tabs .pill small { opacity: .6; font-variant-numeric: tabular-nums; }
+.passport-tabs .pill.done:not(.active) { border-color: rgba(245, 177, 76, .5); }
+.passport-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.passport-head h3 { margin: 0; font-size: 1.1rem; }
+.passport-head p { margin: 2px 0 0; font-size: .84rem; }
+.passport-head .ok { color: var(--good); font-weight: 500; }
+.passport-bar { height: 6px; border-radius: 3px; background: var(--panel2); overflow: hidden; }
+.passport-bar span { display: block; height: 100%; background: linear-gradient(90deg, #f5b14c, #f97316); border-radius: 3px; transition: width .4s; }
+.stamp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; }
+.stamp {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center;
+  padding: 12px 8px 10px; border-radius: 12px; background: var(--panel2);
+  border: 1.5px dashed var(--line); color: var(--muted);
+}
+.stamp .stamp-emoji { font-size: 1.6rem; filter: grayscale(1); opacity: .35; }
+.stamp .stamp-name { font-size: .78rem; line-height: 1.2; }
+.stamp small { font-size: .68rem; opacity: .7; font-variant-numeric: tabular-nums; }
+.stamp.have { color: var(--text); border: 1.5px solid rgba(245, 177, 76, .55); background: rgba(245, 177, 76, .07); transform: rotate(var(--r)); }
+.stamp.have .stamp-emoji { filter: none; opacity: 1; }
+.stamp.have small { color: #f5b14c; opacity: 1; }
+.stamp:hover { border-color: var(--accent); }
+
 /* ---- search modal ---- */
 .search-modal { display: flex; flex-direction: column; gap: 10px; }
 .search-modal .input {

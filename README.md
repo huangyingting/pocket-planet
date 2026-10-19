@@ -1,6 +1,6 @@
 # Pocket Planet
 
-An original 3D toy globe for curious kids. Spin the Earth, tap landmarks, animals and discoveries, and collect them in a dex. You can also ride ships, planes and trains, take photos, and play three geography games: Place it!, Quiz and Daily Planet.
+An original 3D toy globe for curious kids. Spin the Earth and tap landmarks, animals, dinosaurs, foods, festivals, volcanoes, space sites and discoveries, then collect them in a dex. Every place you open gets a stamp in your **passport**. The **time machine** rewinds the globe to the age of dinosaurs or any century. Animals can play their calls, and places can say hello in the local language. Layers show clouds, aurora and tectonic plates, and migration and voyage routes can be ridden. You can also ride ships, planes and trains, take photos, and play three geography games: Place it!, Quiz and Daily Planet.
 
 **▶ Play it: https://huangyingting.github.io/pocket-planet/** (static GitHub Pages edition: [see Deployment](#deployment))
 
@@ -66,14 +66,14 @@ The e2e config builds nothing. It starts `node src/server/index.ts` on port 8790
 │   │   ├── store.ts            progress + settings + session state, debounced sync
 │   │   ├── styles.css
 │   │   ├── globe/              scene.ts (three.js globe, controls, picking, LOD, rides), painter.ts (map texture)
-│   │   ├── models/kit.ts       procedural low-poly model builders
-│   │   ├── ui/                 shell (top bar, menu, info card), collection, photo, games, account, tutorial, dom helpers
-│   │   └── lib/                api client, i18n (English + Simplified Chinese), storage, sfx
+│   │   ├── models/             kit.ts primitives; heroes/ hand-built detailed models per content type
+│   │   ├── ui/                 shell (top bar, menu, info card), collection, passport, time machine, photo, games, account, tutorial, dom helpers
+│   │   └── lib/                api client, i18n (English + Simplified Chinese), storage, sfx (UI tones, procedural animal calls, speech)
 │   ├── server/                 index.ts (env/boot), app.ts (Express routes), db.ts (SQLite schema)
 │   └── shared/                 pure TS used by client, server and build script (no DOM)
-│       ├── data/               catalogue (landmarks/animals/discoveries/vehicles), cities, ISO names, types
+│       ├── data/               catalogue + more/ (dinos, foods, festivals, space, …), typemeta, passports, greetings, cities, ISO names, types
 │       ├── games/              placeit.ts, quiz.ts, daily.ts
-│       └── lib/                geo, rng, progress (merge), stickers
+│       └── lib/                geo, rng, progress (merge), stickers, timeline (time machine), season
 ├── public/                     static assets copied as-is (favicon, Natural Earth TopoJSON)
 ├── scripts/build-pages.ts      static /landmarks, /animals, /discover pages + sitemap.xml, robots.txt, 404.html
 ├── tests/

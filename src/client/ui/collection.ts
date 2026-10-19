@@ -1,7 +1,7 @@
 import { h, openModal, closeModal } from './dom.ts';
 import { t, lang } from '../lib/i18n.ts';
 import { store } from '../store.ts';
-import { ANIMALS, DISCOVERIES, BY_TYPE } from '../../shared/data/catalogue.ts';
+import { ANIMALS, DISCOVERIES, BY_TYPE, CATALOGUE } from '../../shared/data/catalogue.ts';
 import { TYPE_META, TYPE_ORDER } from '../../shared/data/typemeta.ts';
 import { tr, type CatalogueItem } from '../../shared/data/types.ts';
 import { STICKERS } from '../../shared/lib/stickers.ts';
@@ -9,14 +9,16 @@ import { photos, openAlbum } from './photo.ts';
 import { load, save } from '../lib/storage.ts';
 import { icon, TYPE_ICON, type IconName } from './icons.ts';
 
-export function openCollection(go: (it: CatalogueItem) => void): void {
+export function openCollection(go: (it: CatalogueItem) => void, passport?: () => void): void {
   const p = store.progress;
   const card = (id: string, cls: string, ic: IconName, title: string, sub: string, stat: string, fn: () => void) =>
     h('button', { class: 'hub-card ' + cls, 'data-testid': id, onclick: fn },
       h('span', { class: 'hub-ico', html: icon(ic, 20) }), h('strong', {}, title), h('span', { class: 'hub-sub' }, sub),
       h('span', { class: 'hub-foot' }, h('span', { class: 'hub-stat' }, stat), h('span', { class: 'hub-open', html: icon('arrow', 16) })));
   const albumStat = h('span', {}, t('photos', { n: '…' }));
-  const grid = h('div', { class: 'hub-grid' },
+  const pass = passport ? card('hub-passport', 'c-type', 'passport', t('passport'), t('passportSub'), t('stamps', { n: Object.keys(p.seen).length, t: CATALOGUE.length }), passport) : null;
+  pass?.style.setProperty('--c', '#f5b14c');
+  const grid = h('div', { class: 'hub-grid' }, pass,
     card('hub-animals', 'c-green', 'paw', t('animalDex'), t('animalDexSub'), t('found', { n: Object.keys(p.dex).length, t: ANIMALS.length }), () => dex(t('animalDex'), ANIMALS, p.dex, go)),
     card('hub-discoveries', 'c-purple', 'compass', t('discoveryDex'), t('discoveryDexSub'), t('found', { n: Object.keys(p.logs).length, t: DISCOVERIES.length }), () => dex(t('discoveryDex'), DISCOVERIES, p.logs, go)),
     ...TYPE_ORDER.filter(ty => TYPE_META[ty].collect === 'found' && BY_TYPE[ty].length).map(ty => {
