@@ -12,6 +12,9 @@ import { CHINA } from './china.ts';
 import { COUNTRIES_A } from './countries-a.ts';
 import { COUNTRIES_B } from './countries-b.ts';
 import { DEEPSEA } from './deepsea.ts';
+import { ANIMALS2 } from './animals2.ts';
+import { COUNTRIES_C } from './countries-c.ts';
+import { ARCHAEOLOGY } from './archaeology.ts';
 
 /**
  * Content packs. A pack is a data file in this folder (built with `many()` from make.ts) plus, usually, a hero
@@ -21,4 +24,5 @@ import { DEEPSEA } from './deepsea.ts';
 export const CONTENT_PACKS: Record<string, CatalogueItem[]> = {
   dinos: DINOS, foods: FOODS, festivals: FESTIVALS, space: SPACE, plants: PLANTS, sports: SPORTS, volcanoes: VOLCANOES,
   migrations: MIGRATIONS, voyages: VOYAGES, china: CHINA, 'countries-a': COUNTRIES_A, 'countries-b': COUNTRIES_B, deepsea: DEEPSEA,
+  animals2: ANIMALS2, 'countries-c': COUNTRIES_C, archaeology: ARCHAEOLOGY,
 };

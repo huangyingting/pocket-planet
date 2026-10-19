@@ -60,6 +60,8 @@ export interface CatalogueItem {
   area?: number;
   /** festivals: usual date (Gregorian approximation for lunar festivals) and length in days */
   season?: { month: number; day: number; days?: number };
+  /** exact English Wikipedia article title when it differs from name.en (used by the reader) */
+  wiki?: string;
 }
 
 export function tr(s: I18n | undefined, lang: Lang): string {

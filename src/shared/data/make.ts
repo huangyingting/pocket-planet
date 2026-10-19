@@ -26,6 +26,8 @@ export interface ItemSpec {
   route?: Route;
   area?: number;
   season?: CatalogueItem['season'];
+  /** exact English Wikipedia article title, if it differs from name[0] */
+  wiki?: string;
 }
 
 const n = ([en, zh]: N2) => ({ en, zh });
@@ -36,7 +38,7 @@ export function make(type: ItemType, s: ItemSpec): CatalogueItem {
     key: s.key, slug: s.slug, type, name: n(s.name), country: s.country, continent: s.continent, lat, lon,
     tier: s.tier ?? 2, emoji: s.emoji, sub: s.sub, model: s.model, facts: s.facts, desc: n(s.desc),
     funFact: s.fun && n(s.fun), habitat: s.habitat && n(s.habitat), diet: s.diet, status: s.status,
-    route: s.route, area: s.area, season: s.season,
+    route: s.route, area: s.area, season: s.season, wiki: s.wiki,
   };
 }
 
