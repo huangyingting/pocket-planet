@@ -134,7 +134,8 @@ test('passport stamps, time machine and sounds', async ({ page }) => {
 
 test('vehicle ride mode', async ({ page }) => {
   await openApp(page);
-  const key = await page.evaluate(() => { const g = (window as any).__pp.globe; return [...g.placed.keys()].find((k: string) => k.startsWith('vh_')); });
+  const key = await page.evaluate(() => { const g = (window as any).__pp.globe; return [...g.placed.keys(), ...g.pending.keys()].find((k: string) => k.startsWith('vh_')); });
+  expect(key).toBeTruthy();
   await page.evaluate(k => { location.hash = k; }, key);
   await expect(page.getByTestId('ride')).toBeVisible();
   await page.getByTestId('ride').click();
