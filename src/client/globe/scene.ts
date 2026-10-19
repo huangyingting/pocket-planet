@@ -253,6 +253,8 @@ export class Globe {
   private pinsRoot = new THREE.Group();
   private flightArcGroup = new THREE.Group();
   private placed = new Map<string, Placed>();
+  /** Items whose models are still waiting to be built — drained a few per frame so startup never blocks. */
+  private pending = new Map<string, CatalogueItem>();
   private labelsEl: HTMLDivElement;
   private labelPool: HTMLSpanElement[] = [];
   private countries: CountryInfo[] = [];
@@ -351,7 +353,7 @@ export class Globe {
     this.scene.add(this.earth, this.itemsRoot, this.pinsRoot, this.flightArcGroup, this.sun, this.sun.target, this.fillLight, this.fillLight.target, this.ambient, this.selRing);
     this.addAtmosphere();
     this.addStars();
-    for (const it of items) this.place(it);
+    this.queuePlacement(items);
     this.applySettings(this.settings);
     this.resize();
     new ResizeObserver(() => this.resize()).observe(this.container);
@@ -475,6 +477,31 @@ export class Globe {
     );
     g.add(shadow, ring);
     return g;
+  }
+
+  private queuePlacement(items: CatalogueItem[]): void {
+    // Nearest-to-camera first so the visible hemisphere fills in before the far side.
+    const cam = new THREE.Vector3(...latLonToVec(this.lat, this.lon));
+    const d = (it: CatalogueItem) => -cam.dot(new THREE.Vector3(...latLonToVec(it.lat, it.lon)));
+    for (const it of [...items].sort((a, b) => d(a) - d(b))) this.pending.set(it.key, it);
+  }
+
+  private drainPlacement(budgetMs: number): void {
+    const t0 = performance.now();
+    for (const [key, it] of this.pending) {
+      this.pending.delete(key);
+      this.place(it);
+      this.dirty = true;
+      if (performance.now() - t0 > budgetMs) break;
+    }
+  }
+
+  /** Builds an item's model immediately if it is still queued (used when the UI targets it directly). */
+  private ensurePlaced(key: string | null): Placed | null {
+    if (!key) return null;
+    const it = this.pending.get(key);
+    if (it) { this.pending.delete(key); this.place(it); }
+    return this.placed.get(key) ?? null;
   }
 
   private place(item: CatalogueItem): void {
@@ -670,7 +697,7 @@ export class Globe {
   }
 
   itemScreen(key: string): { x: number; y: number } | null {
-    const p = this.placed.get(key);
+    const p = this.ensurePlaced(key);
     if (!p || !p.obj.visible) return null;
     const c = p.obj.position.clone().add(p.obj.position.clone().normalize().multiplyScalar(this.modelScale(p.item) * 0.4));
     return this.project(c);
@@ -690,7 +717,7 @@ export class Globe {
 
   select(key: string | null): void {
     const prev = this.selected ? this.placed.get(this.selected) : null;
-    const next = key ? this.placed.get(key) : null;
+    const next = this.ensurePlaced(key);
     if (prev && next && prev.item.key !== next.item.key) {
       this.showFlightArc([prev.item.lat, prev.item.lon], [next.item.lat, next.item.lon]);
     } else if (!key) {
@@ -733,7 +760,7 @@ export class Globe {
 
   // ---------- ride ----------
   startRide(key: string): boolean {
-    const p = this.placed.get(key);
+    const p = this.ensurePlaced(key);
     if (!p?.item.route) return false;
     this.ride = { key, yaw: 0, dist: 2, first: false };
     this.select(null);
@@ -1017,7 +1044,7 @@ export class Globe {
     return s;
   }
 
-  itemName(key: string): string { const p = this.placed.get(key); return p ? tr(p.item.name, this.lang) : ''; }
+  itemName(key: string): string { const it = this.placed.get(key)?.item ?? this.pending.get(key); return it ? tr(it.name, this.lang) : ''; }
 
   private frame(): void {
     const now = performance.now();
@@ -1026,6 +1053,7 @@ export class Globe {
     this.clock += dt;
     const animate = !this.lowfx || now - this.lastLabel > 1000;
     this.updateCamera(dt);
+    if (this.pending.size) this.drainPlacement(this.lowfx ? 6 : 10);
     if (!animate && !this.dirty) return;
     this.updateItems(dt);
     this.updateSun();

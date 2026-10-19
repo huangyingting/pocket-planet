@@ -186,7 +186,13 @@ export class Shell {
     this.counts.textContent = t('counts', { l: LANDMARKS.length, c: 177, ci: CITIES.length, a: ANIMALS.length, d: DISCOVERIES.length, v: VEHICLES.length });
   }
 
-  setZoom(z: number): void { this.zoomEl.textContent = '×' + z.toFixed(1); if (this.current?.type === 'animal') this.renderDexRow(); }
+  private dexClose: boolean | null = null;
+  setZoom(z: number): void {
+    this.zoomEl.textContent = '×' + z.toFixed(1);
+    // onView fires on every dirty frame; only rebuild the dex row when crossing the collect threshold
+    const close = z >= DEX_ZOOM;
+    if (this.current?.type === 'animal' && close !== this.dexClose) this.renderDexRow();
+  }
 
   private renderHints(): void {
     this.hints.replaceChildren(
@@ -298,6 +304,7 @@ export class Shell {
 
   private renderDexRow(): void {
     const it = this.current;
+    this.dexClose = this.globe.zoom >= DEX_ZOOM;
     if (!it) return;
     const p = store.progress;
     if (it.type === 'animal') {

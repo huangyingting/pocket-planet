@@ -22,24 +22,30 @@ let sharedRoot: THREE.Group | null = null;
 let rafId = 0;
 const activePreviews = new Set<ActivePreview>();
 
+/** Configures the shared 3-point studio lighting rig used by every miniature turntable preview. */
+export function setupStudio(renderer: THREE.WebGLRenderer, scene: THREE.Scene): void {
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  const key = new THREE.DirectionalLight(0xfffbeb, 2.75);
+  key.position.set(2.8, 4.2, 3.4);
+  const fill = new THREE.DirectionalLight(0x38bdf8, 1.25);
+  fill.position.set(-3.2, 1.8, -2.0);
+  const rimLight = new THREE.DirectionalLight(0xfde68a, 0.9);
+  rimLight.position.set(0.5, 2.5, -3.5);
+  const amb = new THREE.HemisphereLight(0xe0f2fe, 0x0f172a, 1.3);
+  scene.add(key, fill, rimLight, amb);
+}
+
 function ensureRenderer(w: number, hPx: number): THREE.WebGLRenderer | null {
   if (sharedFailed) return null;
   if (!sharedRenderer) {
     try {
       sharedRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
       sharedRenderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-      sharedRenderer.outputColorSpace = THREE.SRGBColorSpace;
       sharedScene = new THREE.Scene();
       sharedCamera = new THREE.PerspectiveCamera(28, w / hPx, 0.05, 20);
-      const key = new THREE.DirectionalLight(0xfffbeb, 2.75);
-      key.position.set(2.8, 4.2, 3.4);
-      const fill = new THREE.DirectionalLight(0x38bdf8, 1.25);
-      fill.position.set(-3.2, 1.8, -2.0);
-      const rimLight = new THREE.DirectionalLight(0xfde68a, 0.9);
-      rimLight.position.set(0.5, 2.5, -3.5);
-      const amb = new THREE.HemisphereLight(0xe0f2fe, 0x0f172a, 1.3);
+      setupStudio(sharedRenderer, sharedScene);
       sharedRoot = new THREE.Group();
-      sharedScene.add(key, fill, rimLight, amb, sharedRoot);
+      sharedScene.add(sharedRoot);
     } catch {
       sharedFailed = true;
       return null;

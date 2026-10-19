@@ -1,206 +1,16 @@
 import * as THREE from 'three';
 import type { ModelRecipe } from '../../shared/data/types.ts';
+import {
+  type Builder, num, mat, g, CYL, CONE, SPH, add, box, cyl, cone, ball, shade,
+  tbox, gable, archPath, panel, loft, lathe, strut, rod, tree,
+} from './prims.ts';
+import { ANIMAL_BUILDERS } from './animals.ts';
+import { NATURE_BUILDERS } from './nature.ts';
+import { VEHICLE_BUILDERS } from './vehicles.ts';
+import { DISCOVERY_BUILDERS } from './discoveries.ts';
+import { ICON_BUILDERS } from './icons.ts';
 
-// Every model is built from architectural & sculptural primitives at runtime (~1 unit tall, base at y=0, front +z)
-// and baked into vertex-colored BufferGeometries per material look so detailed 3D architecture draws in 1–2 calls.
-const mats = new Map<string, THREE.MeshStandardMaterial>();
-export function mat(color: string, opts: { emissive?: string; transparent?: number; metal?: number; flat?: boolean; rough?: number } = {}): THREE.MeshStandardMaterial {
-  const k = color + JSON.stringify(opts);
-  let m = mats.get(k);
-  if (!m) {
-    m = new THREE.MeshStandardMaterial({
-      color,
-      roughness: opts.rough ?? 0.65,
-      metalness: opts.metal ?? 0.08,
-      flatShading: opts.flat ?? true,
-    });
-    if (opts.emissive) { m.emissive = new THREE.Color(opts.emissive); m.emissiveIntensity = 0.85; }
-    if (opts.transparent !== undefined) { m.transparent = true; m.opacity = opts.transparent; }
-    mats.set(k, m);
-  }
-  return m;
-}
-
-const geos = new Map<string, THREE.BufferGeometry>();
-function g<T extends THREE.BufferGeometry>(key: string, make: () => T): T {
-  let x = geos.get(key) as T | undefined;
-  if (!x) { x = make(); geos.set(key, x); }
-  return x;
-}
-const BOX = () => g('box', () => new THREE.BoxGeometry(1, 1, 1));
-const CYL = (s = 8) => g('cyl' + s, () => new THREE.CylinderGeometry(0.5, 0.5, 1, s));
-const CONE = (s = 8) => g('cone' + s, () => new THREE.ConeGeometry(0.5, 1, s));
-const SPH = (s = 12) => g('sph' + s, () => new THREE.SphereGeometry(0.5, s, Math.max(6, Math.round(s * 0.65))));
-
-function add(grp: THREE.Object3D, geo: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, sx: number, sy: number, sz: number, ry = 0, rx = 0, rz = 0): THREE.Mesh {
-  const mesh = new THREE.Mesh(geo, m);
-  mesh.position.set(x, y, z);
-  mesh.scale.set(sx, sy, sz);
-  mesh.rotation.set(rx, ry, rz);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  grp.add(mesh);
-  return mesh;
-}
-const box = (p: THREE.Object3D, c: string, x: number, y: number, z: number, sx: number, sy: number, sz: number, ry = 0, rx = 0, rz = 0) =>
-  add(p, BOX(), mat(c), x, y + sy / 2, z, sx, sy, sz, ry, rx, rz);
-const cyl = (p: THREE.Object3D, c: string, x: number, y: number, z: number, r: number, h: number, s = 10) =>
-  add(p, CYL(s), mat(c), x, y + h / 2, z, r * 2, h, r * 2);
-const cone = (p: THREE.Object3D, c: string, x: number, y: number, z: number, r: number, h: number, s = 10, ry = 0) =>
-  add(p, CONE(s), mat(c), x, y + h / 2, z, r * 2, h, r * 2, ry);
-const ball = (p: THREE.Object3D, c: string, x: number, y: number, z: number, sx: number, sy = sx, sz = sx, ry = 0, rx = 0, rz = 0) =>
-  add(p, SPH(), mat(c), x, y, z, sx, sy, sz, ry, rx, rz);
-
-function shade(hex: string, f: number): string {
-  const c = new THREE.Color(hex);
-  c.multiplyScalar(f);
-  return '#' + c.getHexString();
-}
-
-// ---- Architectural CAD Primitives ----
-
-/** Tapered / leaning 6-face frustum box: bottom w0×d0 at y, top w1×d1 shifted by (ox,oz) at y+h. */
-function tbox(
-  p: THREE.Object3D, w0: number, d0: number, w1: number, d1: number, h: number,
-  c: string, x = 0, y = 0, z = 0, ox = 0, oz = 0, ry = 0
-): THREE.Mesh {
-  const hw0 = w0 / 2, hd0 = d0 / 2, hw1 = w1 / 2, hd1 = d1 / 2;
-  const v = [
-    [-hw0, 0, -hd0], [hw0, 0, -hd0], [hw0, 0, hd0], [-hw0, 0, hd0],
-    [ox - hw1, h, oz - hd1], [ox + hw1, h, oz - hd1], [ox + hw1, h, oz + hd1], [ox - hw1, h, oz + hd1],
-  ];
-  const faces = [[0, 3, 2, 1], [4, 5, 6, 7], [3, 7, 6, 2], [1, 5, 4, 0], [2, 6, 5, 1], [0, 4, 7, 3]];
-  const pos: number[] = [];
-  for (const [a, b, d, e] of faces) {
-    pos.push(...v[a], ...v[b], ...v[d], ...v[a], ...v[d], ...v[e]);
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.computeVertexNormals();
-  return add(p, geo, mat(c), x, y, z, 1, 1, 1, ry);
-}
-
-/** Gable roof prism (ridge along X, triangular gable ends on ±X). */
-function gable(p: THREE.Object3D, w: number, h: number, d: number, c: string, x = 0, y = 0, z = 0, ry = 0): THREE.Mesh {
-  const hw = w / 2, hd = d / 2;
-  const v = [[-hw, 0, -hd], [hw, 0, -hd], [hw, 0, hd], [-hw, 0, hd], [-hw, h, 0], [hw, h, 0]];
-  const tris = [[0, 3, 2], [0, 2, 1], [3, 4, 5], [3, 5, 2], [1, 5, 4], [1, 4, 0], [0, 4, 3], [2, 5, 1]];
-  const pos: number[] = [];
-  for (const [a, b, e] of tris) pos.push(...v[a], ...v[b], ...v[e]);
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.computeVertexNormals();
-  return add(p, geo, mat(c), x, y, z, 1, 1, 1, ry);
-}
-
-/** 2D arch cutout path (rounded Roman arch or pointed Gothic/Mughal iwan arch) for extruded walls. */
-function archPath(cx: number, cy: number, w: number, h: number, pointed = false): THREE.Path {
-  const hw = w / 2, r = Math.min(hw, h * 0.55);
-  const path = new THREE.Path();
-  path.moveTo(cx - hw, cy);
-  path.lineTo(cx - hw, cy + h - r);
-  if (pointed) {
-    path.quadraticCurveTo(cx - hw, cy + h - r * 0.15, cx, cy + h);
-    path.quadraticCurveTo(cx + hw, cy + h - r * 0.15, cx + hw, cy + h - r);
-  } else {
-    path.absarc(cx, cy + h - r, hw, Math.PI, 0, true);
-  }
-  path.lineTo(cx + hw, cy);
-  path.closePath();
-  return path;
-}
-
-/** Extruded architectural wall panel of width w, height h, thickness d with optional arch/window holes. */
-function panel(
-  p: THREE.Object3D, w: number, h: number, d: number, c: string,
-  holes: THREE.Path[] = [], x = 0, y = 0, z = 0, ry = 0
-): THREE.Mesh {
-  const shape = new THREE.Shape();
-  shape.moveTo(-w / 2, 0);
-  shape.lineTo(w / 2, 0);
-  shape.lineTo(w / 2, h);
-  shape.lineTo(-w / 2, h);
-  shape.closePath();
-  for (const hole of holes) shape.holes.push(hole);
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false, curveSegments: 8 });
-  geo.translate(0, 0, -d / 2);
-  geo.computeVertexNormals();
-  return add(p, geo, mat(c), x, y, z, 1, 1, 1, ry);
-}
-
-/** Lofted surface through an array of 3D point rings (all rings have the same vertex count). */
-function loft(p: THREE.Object3D, rings: [number, number, number][][], c: string, caps = true, x = 0, y = 0, z = 0, ry = 0): THREE.Mesh {
-  const m = rings.length, n = rings[0].length;
-  const pos: number[] = [];
-  for (let j = 0; j < m - 1; j++) {
-    const r0 = rings[j], r1 = rings[j + 1];
-    for (let i = 0; i < n; i++) {
-      const ni = (i + 1) % n;
-      pos.push(...r0[i], ...r0[ni], ...r1[ni], ...r0[i], ...r1[ni], ...r1[i]);
-    }
-  }
-  if (caps) {
-    const [b, t] = [rings[0], rings[m - 1]];
-    for (let i = 1; i < n - 1; i++) {
-      pos.push(...b[0], ...b[i + 1], ...b[i]);
-      pos.push(...t[0], ...t[i], ...t[i + 1]);
-    }
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.computeVertexNormals();
-  return add(p, geo, mat(c), x, y, z, 1, 1, 1, ry);
-}
-
-/** Revolved 2D [radius, height] profile around the Y axis (domes, spires, urns, robes). */
-function lathe(p: THREE.Object3D, pts: [number, number][], c: string, x = 0, y = 0, z = 0, seg = 14): THREE.Mesh {
-  const key = 'lathe:' + seg + ':' + pts.map(pt => pt[0].toFixed(3) + ',' + pt[1].toFixed(3)).join(';');
-  const geo = g(key, () => {
-    const lg = new THREE.LatheGeometry(pts.map(([r, py]) => new THREE.Vector2(r, py)), seg);
-    lg.computeVertexNormals();
-    return lg;
-  });
-  return add(p, geo, mat(c, { flat: seg <= 12 }), x, y, z, 1, 1, 1);
-}
-
-const _up = new THREE.Vector3(0, 1, 0);
-const _va = new THREE.Vector3();
-const _vb = new THREE.Vector3();
-const _vd = new THREE.Vector3();
-
-/** Tapered 3D structural strut / beam connecting point a=[x,y,z] to b=[x,y,z]. */
-function strut(p: THREE.Object3D, a: [number, number, number], b: [number, number, number], ra: number, rb: number, c: string, seg = 6): THREE.Mesh {
-  _va.set(a[0], a[1], a[2]);
-  _vb.set(b[0], b[1], b[2]);
-  _vd.subVectors(_vb, _va);
-  const len = _vd.length() || 0.001;
-  const key = `strut:${seg}:${(ra / Math.max(0.001, rb)).toFixed(2)}`;
-  const geo = g(key, () => new THREE.CylinderGeometry(0.5, 0.5 * (ra / Math.max(0.001, rb)), 1, seg));
-  const mesh = new THREE.Mesh(geo, mat(c));
-  mesh.scale.set(rb * 2, len, rb * 2);
-  mesh.position.addVectors(_va, _vb).multiplyScalar(0.5);
-  mesh.quaternion.setFromUnitVectors(_up, _vd.normalize());
-  mesh.castShadow = true;
-  p.add(mesh);
-  return mesh;
-}
-const rod = (p: THREE.Object3D, a: [number, number, number], b: [number, number, number], r: number, c: string, seg = 6) =>
-  strut(p, a, b, r, r, c, seg);
-
-/** Architectural miniature tree (deciduous canopy or conifer pine). */
-function tree(p: THREE.Object3D, x: number, y: number, z: number, s = 0.06, c = '#4d8a54', pine = false): void {
-  cyl(p, '#6b4c35', x, y, z, s * 0.16, s * 0.5, 5);
-  if (pine) {
-    cone(p, c, x, y + s * 0.32, z, s * 0.56, s * 0.95, 6);
-    cone(p, shade(c, 1.12), x, y + s * 0.72, z, s * 0.42, s * 0.75, 6);
-  } else {
-    ball(p, c, x, y + s * 0.78, z, s * 0.95, s * 0.85, s * 0.95);
-  }
-}
-
-type Builder = (gp: THREE.Group, r: ModelRecipe) => void;
-const num = (v: unknown, d: number) => (typeof v === 'number' ? v : d);
-
+export { mat };
 const B: Record<string, Builder> = {
   // ---------- landmarks ----------
   lattice: (gp, r) => {
@@ -360,19 +170,7 @@ const B: Record<string, Builder> = {
         .material = mat('#fde047', { emissive: '#f59e0b' });
       return;
     }
-    // Christ the Redeemer: steep Corcovado granite peak + Art Deco octagonal pedestal + outstretched arms
-    tbox(gp, 0.62, 0.56, 0.28, 0.26, 0.34, '#64748b', 0, 0, 0);
-    tbox(gp, 0.52, 0.48, 0.24, 0.22, 0.22, '#4d7c5d', 0, 0.02, 0.04);
-    for (const [tx, tz] of [[-0.22, 0.14], [0.22, 0.12], [-0.18, -0.16], [0.20, -0.14]]) tree(gp, tx, 0.14, tz, 0.065, '#3f6b4e');
-    cyl(gp, '#94a3b8', 0, 0.34, 0, 0.14, 0.14, 8);
-    tbox(gp, 0.19, 0.13, 0.17, 0.11, 0.50, c, 0, 0.48, 0);
-    box(gp, shade(c, 0.92), 0, 0.50, 0.058, 0.06, 0.44, 0.015);
-    // Outstretched arms + hands
-    box(gp, c, 0, 0.84, 0, 0.78, 0.075, 0.075);
-    box(gp, shade(c, 1.06), -0.41, 0.85, 0, 0.05, 0.045, 0.03);
-    box(gp, shade(c, 1.06), 0.41, 0.85, 0, 0.05, 0.045, 0.03);
-    // Slightly bowed head
-    ball(gp, c, 0, 1.04, 0.015, 0.10, 0.12, 0.10, 0, 0.12);
+    ICON_BUILDERS.redeemer(gp, r);
   },
   clocktower: (gp, r) => {
     const c = r.color!;
@@ -525,64 +323,9 @@ const B: Record<string, Builder> = {
       tbox(gp, 0.17, 0.17, 0.08, 0.08, 0.055, '#334155', tx, ty + 0.22, tz);
     }
   },
-  mountain: (gp, r) => {
-    const peaks = num(r.peaks, 1), c = r.color!;
-    if (r.sharp) {
-      // Matterhorn: Iconic crooked 4-face pyramidal horn rising from alpine valley + Riffelsee lake
-      box(gp, '#4d7c5d', 0, 0, 0, 0.88, 0.035, 0.78);
-      box(gp, '#38bdf8', 0.16, 0.036, 0.22, 0.26, 0.008, 0.18);
-      tbox(gp, 0.68, 0.62, 0.42, 0.36, 0.26, shade(c, 0.86), 0, 0.035, 0);
-      tbox(gp, 0.42, 0.36, 0.18, 0.15, 0.44, c, 0, 0.295, 0, 0.05, -0.02);
-      tbox(gp, 0.18, 0.15, 0.03, 0.02, 0.32, '#f8fafc', 0.05, 0.735, -0.02, 0.06, 0.01);
-      for (const [tx, tz] of [[-0.32, 0.24], [-0.24, 0.28], [0.34, 0.18]]) tree(gp, tx, 0.035, tz, 0.06, '#2d6a4f', true);
-      return;
-    }
-    if (r.flat && !r.snow) {
-      // Table Mountain: Cape Town bay water + sheer flat-topped sandstone cliff mesa + Devil's Peak + Lion's Head + tablecloth cloud
-      box(gp, '#0284c7', 0, 0, 0.22, 0.96, 0.025, 0.36);
-      tbox(gp, 0.88, 0.56, 0.66, 0.34, 0.22, '#4d7c5d', 0, 0, -0.04);
-      tbox(gp, 0.66, 0.34, 0.58, 0.26, 0.26, c, 0, 0.22, -0.04);
-      // Vertical cliff buttress grooves
-      for (let i = -3; i <= 3; i++) box(gp, shade(c, 0.84), i * 0.08, 0.22, 0.09, 0.035, 0.25, 0.03);
-      cone(gp, shade(c, 0.9), -0.38, 0.02, 0.06, 0.16, 0.36, 6);
-      cone(gp, shade(c, 0.92), 0.36, 0.02, 0.14, 0.13, 0.28, 6);
-      // Floating "tablecloth" cloud over the flat rim
-      for (let i = -2; i <= 2; i++) {
-        ball(gp, '#f8fafc', i * 0.10, 0.49, -0.02 + (i % 2) * 0.03, 0.16, 0.055, 0.14).material = mat('#f8fafc', { transparent: 0.85 });
-      }
-      return;
-    }
-    if (r.flat && r.snow) {
-      // Mount Kilimanjaro: Savanna foothills + broad Kibo volcanic dome + glacier snow cap + Mawenzi peak
-      tbox(gp, 0.96, 0.78, 0.72, 0.58, 0.14, '#856d4d', 0, 0, 0);
-      lathe(gp, [[0.38, 0], [0.30, 0.16], [0.21, 0.32], [0.16, 0.38], [0.11, 0.35], [0, 0.35]], c, -0.06, 0.14, 0, 14);
-      lathe(gp, [[0.20, 0], [0.165, 0.07], [0.12, 0.05], [0, 0.05]], '#f8fafc', -0.06, 0.45, 0, 14);
-      cone(gp, shade(c, 0.85), 0.28, 0.14, -0.04, 0.14, 0.26, 6);
-      return;
-    }
-    if (peaks > 1) {
-      // Mount Everest & Himalayan massif (Everest + Lhotse + Nuptse + Khumbu glacier)
-      tbox(gp, 0.98, 0.82, 0.78, 0.66, 0.16, shade(c, 0.82), 0, 0, 0);
-      const pk: [number, number, number, number][] = [[0, -0.04, 0.96, 0.38], [-0.28, 0.08, 0.72, 0.28], [0.28, 0.10, 0.66, 0.26]];
-      for (const [px, pz, ph, pr] of pk) {
-        cone(gp, c, px, 0.14, pz, pr, ph * 0.68, 6, 0.3);
-        cone(gp, '#f8fafc', px, 0.14 + ph * 0.44, pz, pr * 0.56, ph * 0.42, 6, 0.3);
-      }
-      // Khumbu glacier river of ice
-      tbox(gp, 0.18, 0.42, 0.10, 0.22, 0.18, '#e0f2fe', 0.02, 0.08, 0.20, 0, -0.08);
-      return;
-    }
-    // Mount Fuji: Symmetrical concave volcanic stratocone + jagged snow cap + Lake Kawaguchi + Chureito Pagoda
-    box(gp, '#38bdf8', 0, 0, 0.32, 0.76, 0.02, 0.24);
-    lathe(gp, [[0.46, 0], [0.34, 0.18], [0.22, 0.38], [0.13, 0.58], [0.09, 0.68], [0.06, 0.64], [0, 0.64]], c, 0, 0.02, -0.04, 16);
-    lathe(gp, [[0.18, 0], [0.13, 0.14], [0.09, 0.24], [0.06, 0.21], [0, 0.21]], '#f8fafc', 0, 0.46, -0.04, 16);
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2;
-      cone(gp, '#f8fafc', Math.cos(a) * 0.15, 0.38, -0.04 + Math.sin(a) * 0.15, 0.038, 0.14, 4, a);
-    }
-  },
   needle: (gp, r) => {
     const h = num(r.h, 1);
+    if (h > 1.2) return ICON_BUILDERS.cnTower(gp, r);
     if (r.saucer) {
       // Seattle Space Needle: 3 curved tripod legs + central elevator core + multi-tier flying saucer + spire
       cyl(gp, '#64748b', 0, 0, 0, 0.28, 0.035, 16);
@@ -601,21 +344,6 @@ const B: Record<string, Builder> = {
       add(gp, CYL(18), mat('#f59e0b'), 0, 0.79, 0, 0.36, 0.024, 0.36);
       cyl(gp, '#e2e8f0', 0, 0.83, 0, 0.012, 0.22, 8);
       ball(gp, '#ef4444', 0, 1.06, 0, 0.03).material = mat('#ef4444', { emissive: '#dc2626' });
-      return;
-    }
-    if (h > 1.2) {
-      // CN Tower (Toronto): Y-shaped 3-wing tapered concrete buttresses + SkyPod + SpaceDeck + antenna
-      cyl(gp, '#64748b', 0, 0, 0, 0.24, 0.035, 12);
-      tbox(gp, 0.11, 0.11, 0.06, 0.06, 0.92, r.color!, 0, 0.035, 0);
-      for (let i = 0; i < 3; i++) {
-        const a = (i / 3) * Math.PI * 2;
-        tbox(gp, 0.06, 0.18, 0.03, 0.05, 0.74, shade(r.color!, 0.92), Math.cos(a) * 0.07, 0.035, Math.sin(a) * 0.07, -Math.cos(a) * 0.04, -Math.sin(a) * 0.04, -a + Math.PI / 2);
-      }
-      // 7-story SkyPod observation deck
-      lathe(gp, [[0.05, 0], [0.15, 0.03], [0.16, 0.075], [0.12, 0.11], [0.045, 0.125]], '#f8fafc', 0, 0.82, 0, 16);
-      add(gp, CYL(16), mat('#38bdf8', { emissive: '#0284c7' }), 0, 0.88, 0, 0.325, 0.025, 0.325);
-      add(gp, CYL(12), mat('#e2e8f0'), 0, 1.12, 0, 0.09, 0.04, 0.09);
-      cyl(gp, '#ef4444', 0, 1.14, 0, 0.014, 0.28, 8);
       return;
     }
     // N Seoul Tower: Namsan green mountain hill + stone fortress terrace + observation pod + mast
@@ -1021,26 +749,8 @@ const B: Record<string, Builder> = {
     tbox(gp, 0.055, 0.05, 0.035, 0.035, 0.16, shade(c, 0.9), 0.42, 0.03, 0.18, 0.02, 0);
   },
   skyscraper: (gp, r) => {
+    if (r.taper) return ICON_BUILDERS.burj(gp, r);
     const h = num(r.h, 1.4), c = r.color!;
-    if (r.taper) {
-      // Burj Khalifa: Dubai Fountain turquoise lake + Y-shaped 3-wing floorplan with 15 spiraling setback tiers + needle spire
-      cyl(gp, '#0284c7', 0, 0, 0, 0.36, 0.022, 18);
-      cyl(gp, '#cbd5e1', 0, 0.022, 0, 0.24, 0.02, 6);
-      const totalH = 1.28;
-      cyl(gp, shade(c, 1.08), 0, 0.04, 0, 0.055, totalH * 0.84, 12);
-      for (let i = 0; i < 15; i++) {
-        const wing = i % 3;
-        const a = (wing * Math.PI * 2) / 3 + 0.2;
-        const tierH = totalH * (0.14 + (14 - i) * 0.048);
-        const reach = 0.05 + (14 - i) * 0.011;
-        const wg = new THREE.Group(); wg.rotation.y = a; gp.add(wg);
-        tbox(wg, 0.068, reach, 0.052, reach * 0.86, tierH, shade(c, 0.90 + (i % 3) * 0.08), 0, 0.04, reach * 0.55);
-        cyl(wg, '#e2e8f0', 0, 0.04, reach * 0.95, 0.026, tierH, 8);
-      }
-      cyl(gp, '#e2e8f0', 0, 0.04 + totalH * 0.84, 0, 0.022, 0.18, 8);
-      cyl(gp, '#f8fafc', 0, 0.04 + totalH * 0.84 + 0.18, 0, 0.008, 0.18, 6);
-      return;
-    }
     // Empire State Building: 5th Ave Art Deco podium + stepped Indiana limestone setbacks + window mullions + mooring mast
     box(gp, shade(c, 0.86), 0, 0, 0, 0.44, 0.14, 0.32);
     box(gp, shade(c, 0.92), 0, 0.14, 0, 0.34, 0.10, 0.26);
@@ -1147,40 +857,7 @@ const B: Record<string, Builder> = {
       cone(gp, roof, tx, 0.14 + th, tz, tr * 1.22, 0.22, 10);
     }
   },
-  carved: (gp, r) => {
-    const c = r.color!;
-    const cliff = shade(c, 0.72);
-    const carve = shade(c, 1.12);
-    // Petra (Al-Khazneh / The Treasury): Rose-red sandstone cliff massif + carved 6-column portico + pediment + upper tholos & urn
-    tbox(gp, 0.96, 0.42, 0.88, 0.36, 0.92, cliff, 0, 0, -0.08);
-    // Flanking Siq canyon cliff projections
-    tbox(gp, 0.18, 0.44, 0.14, 0.38, 0.92, shade(cliff, 0.92), -0.39, 0, 0.02);
-    tbox(gp, 0.18, 0.44, 0.14, 0.38, 0.92, shade(cliff, 0.92), 0.39, 0, 0.02);
-    // Recessed dark portico shadow cavity
-    box(gp, shade(c, 0.38), 0, 0.04, 0.08, 0.52, 0.76, 0.06);
-    // Lower order: 6 Corinthian columns + entablature + triangular pediment
-    box(gp, carve, 0, 0.0, 0.12, 0.56, 0.05, 0.12);
-    for (let i = 0; i < 6; i++) {
-      const cx = -0.22 + i * 0.088;
-      cyl(gp, carve, cx, 0.05, 0.13, 0.022, 0.32, 10);
-      box(gp, shade(carve, 1.08), cx, 0.37, 0.13, 0.048, 0.025, 0.048);
-    }
-    box(gp, c, 0, 0.395, 0.12, 0.54, 0.055, 0.08);
-    gable(gp, 0.36, 0.08, 0.09, carve, 0, 0.45, 0.13);
-    // Upper order: Broken-pediment flanking pavilions + central circular Tholos kiosk + conical roof & Pharaoh's Urn
-    for (const sx of [-0.18, 0.18]) {
-      box(gp, c, sx, 0.48, 0.11, 0.14, 0.22, 0.07);
-      for (const ox of [-0.045, 0.045]) cyl(gp, carve, sx + ox, 0.48, 0.14, 0.018, 0.20, 8);
-      tbox(gp, 0.15, 0.08, 0.12, 0.08, 0.05, carve, sx, 0.70, 0.12, -sx * 0.15, 0);
-    }
-    cyl(gp, c, 0, 0.48, 0.12, 0.078, 0.20, 12);
-    for (let k = 0; k < 6; k++) {
-      const a = -0.9 + (k / 5) * 1.8;
-      cyl(gp, carve, Math.sin(a) * 0.082, 0.48, 0.12 + Math.cos(a) * 0.082, 0.014, 0.19, 8);
-    }
-    cone(gp, carve, 0, 0.68, 0.12, 0.092, 0.10, 12);
-    lathe(gp, [[0.014, 0], [0.032, 0.035], [0.020, 0.07], [0, 0.085]], shade(carve, 1.1), 0, 0.78, 0.12, 10);
-  },
+  carved: (gp, r) => ICON_BUILDERS.petra(gp, r),
   palace: (gp, r) => {
     const roof = (r.roof as string) ?? '#eab308', c = r.color!;
     // Forbidden City / Gyeongbokgung: 3-tier white marble Sumi terrace + triple dragon staircases + vermilion colonnade + double-eaved hip roof
@@ -1250,78 +927,6 @@ const B: Record<string, Builder> = {
     box(gp, c, -0.10, 0.155, 0, 0.17, 0.026, 0.12, 0, 0, 0.28);
     box(gp, c, 0.10, 0.155, 0, 0.17, 0.026, 0.12, 0, 0, -0.28);
   },
-  canyon: (gp, r) => {
-    const c = r.color!;
-    // Grand Canyon: 6 stratified geological cliff layers + central eroded butte temple + winding turquoise Colorado River
-    box(gp, '#0ea5e9', 0, 0, 0, 0.96, 0.028, 0.88);
-    const strata = [shade(c, 0.72), '#b45309', c, '#d97706', shade(c, 1.15), '#fde68a'];
-    for (let i = 0; i < 6; i++) {
-      const y = 0.025 + i * 0.068, w = 0.38 - i * 0.032;
-      tbox(gp, w, 0.86, w - 0.025, 0.82 - i * 0.02, 0.068, strata[i], -0.29 - i * 0.012, y, 0);
-      tbox(gp, w, 0.86, w - 0.025, 0.82 - i * 0.02, 0.068, strata[i], 0.29 + i * 0.012, y, 0);
-      if (i < 4) tbox(gp, 0.16 - i * 0.03, 0.22 - i * 0.03, 0.13 - i * 0.03, 0.18 - i * 0.03, 0.062, strata[i], 0.02, y, -0.12);
-    }
-  },
-  waterfall: (gp, r) => {
-    const w = r.wide ? 0.88 : 0.56;
-    // Horseshoe / cliff gorge + upper river + forested rim + multi-sheet cascading falls + mist clouds + rainbow arc
-    tbox(gp, w + 0.26, 0.34, w + 0.22, 0.30, 0.52, '#57534e', 0, 0, -0.20);
-    box(gp, '#4d7c5d', 0, 0.52, -0.20, w + 0.22, 0.03, 0.30);
-    box(gp, '#0284c7', 0, 0.525, -0.20, w, 0.028, 0.28);
-    for (const sx of [-1, 1]) {
-      tbox(gp, 0.18, 0.52, 0.14, 0.46, 0.52, '#57534e', sx * (w / 2 + 0.08), 0, -0.02);
-      tree(gp, sx * (w / 2 + 0.06), 0.52, -0.10, 0.065, '#2d6a4f', true);
-      tree(gp, sx * (w / 2 + 0.08), 0.52, 0.05, 0.055, '#3f6b4e');
-    }
-    // Cascading water sheets + foam ribs
-    tbox(gp, w, 0.05, w * 1.04, 0.12, 0.50, r.color!, 0, 0.03, -0.06, 0, -0.04)
-      .material = mat(r.color!, { transparent: 0.88, emissive: '#0284c7' });
-    for (let i = -3; i <= 3; i++) {
-      cyl(gp, '#f8fafc', i * (w * 0.13), 0.04, -0.04, 0.022, 0.49, 6);
-    }
-    // Plunge pool + billowing mist + translucent rainbow arc
-    add(gp, CYL(18), mat('#0ea5e9'), 0, 0.02, 0.10, w + 0.20, 0.04, 0.48);
-    for (let i = -2; i <= 2; i++) {
-      ball(gp, '#f8fafc', i * (w * 0.16), 0.09, 0.02 + (i % 2) * 0.03, 0.18, 0.12, 0.16).material = mat('#f8fafc', { transparent: 0.72 });
-    }
-    add(gp, g('wfBow', () => new THREE.TorusGeometry(0.24, 0.014, 6, 18, Math.PI)), mat('#fbbf24', { emissive: '#f59e0b', transparent: 0.65 }), 0, 0.12, 0.12, 1, 1, 1, 0.25);
-  },
-  rock: (gp, r) => {
-    const c = r.color!;
-    // Uluru (Ayers Rock): Red Centre desert sand pad + spinifex scrub + fluted arkose sandstone monolith
-    cyl(gp, '#d97706', 0, 0, 0, 0.56, 0.028, 20);
-    tbox(gp, 0.92, 0.50, 0.76, 0.38, 0.24, c, 0, 0.028, 0);
-    tbox(gp, 0.76, 0.38, 0.54, 0.26, 0.12, shade(c, 1.08), 0, 0.268, 0);
-    // Characteristic vertical fluting ribs along the monolith flanks
-    for (let i = -5; i <= 5; i++) {
-      tbox(gp, 0.055, 0.48, 0.042, 0.34, 0.33, shade(c, 0.88 + (Math.abs(i) % 2) * 0.14), i * 0.072, 0.028, 0);
-    }
-    for (const [bx, bz] of [[-0.42, 0.22], [0.38, 0.24], [-0.36, -0.22], [0.40, -0.20]]) {
-      ball(gp, '#65a30d', bx, 0.04, bz, 0.055, 0.035, 0.055);
-    }
-  },
-  reef: (gp, r) => {
-    // Great Barrier Reef: Sandy turquoise atoll seabed + table corals + staghorn corals + anemones + tropical fish
-    cyl(gp, '#fde68a', 0, 0, 0, 0.52, 0.03, 20);
-    cyl(gp, '#0ea5e9', 0, 0.015, 0, 0.56, 0.02, 20).material = mat('#0ea5e9', { transparent: 0.55 });
-    const cs = [r.color!, '#f59e0b', '#c084fc', '#fb7185', '#2dd4bf', '#38bdf8'];
-    // Tiered table corals & brain corals
-    for (let i = 0; i < 12; i++) {
-      const a = i * 2.399, d = 0.08 + (i % 4) * 0.095, col = cs[i % cs.length];
-      const cx = Math.cos(a) * d, cz = Math.sin(a) * d;
-      if (i % 3 === 0) {
-        cyl(gp, shade(col, 0.8), cx, 0.03, cz, 0.03, 0.09 + (i % 2) * 0.05, 6);
-        cyl(gp, col, cx, 0.11 + (i % 2) * 0.05, cz, 0.11, 0.025, 10);
-      } else {
-        ball(gp, col, cx, 0.09, cz, 0.15, 0.16 + (i % 3) * 0.04, 0.15);
-      }
-    }
-    // Branching staghorn coral fingers
-    for (let i = 0; i < 7; i++) {
-      const a = (i / 7) * Math.PI * 2;
-      strut(gp, [Math.cos(a) * 0.08, 0.04, Math.sin(a) * 0.08], [Math.cos(a) * 0.22, 0.34, Math.sin(a) * 0.22], 0.018, 0.012, cs[(i + 1) % cs.length], 6);
-    }
-  },
   pagoda: (gp, r) => {
     const fl = num(r.floors, 3), c = r.color!;
     // Kinkaku-ji (Golden Pavilion): Kyoko-chi mirror pond + pine island + timber deck + 3 distinct stories with upturned irimoya roofs + golden phoenix
@@ -1353,259 +958,121 @@ const B: Record<string, Builder> = {
     box(gp, '#fde047', -0.04, topY + 0.06, -0.04, 0.045, 0.04, 0.045);
     ball(gp, '#fde047', -0.04, topY + 0.13, -0.04, 0.06, 0.08, 0.04).material = mat('#fde047', { emissive: '#eab308' });
   },
-  // ---------- animals ----------
-  quad: (gp, r) => {
-    const L = num(r.L, 1), H = num(r.H, 0.6), c = r.color!;
-    ball(gp, c, 0, H * 0.75, 0, 0.34, 0.28 * (r.chunky ? 1.32 : 1), L * 0.62);
-    for (const [x, z] of [[-0.095, -0.2], [0.095, -0.2], [-0.095, 0.2], [0.095, 0.2]]) {
-      cyl(gp, shade(c, 0.84), x, 0, z * L, 0.038, H * 0.68, 6);
-      cyl(gp, '#292524', x, 0, z * L, 0.042, 0.04, 6);
-    }
-    const neck = num(r.neck, 0.2);
-    add(gp, CYL(8), mat(c), 0, H * 0.8 + neck * 0.3, L * 0.28 + neck * 0.08, 0.11, neck * 0.7 + 0.1, 0.11, 0, 0.5);
-    const hy = H * 0.82 + neck * 0.6, hz = L * 0.34 + neck * 0.18;
-    ball(gp, c, 0, hy, hz, 0.18, 0.17, 0.23);
-    // Eyes & ears
-    for (const sx of [-1, 1]) {
-      ball(gp, '#111827', sx * 0.065, hy + 0.02, hz + 0.075, 0.028);
-      if (!r.trunk) ball(gp, shade(c, 0.85), sx * 0.08, hy + 0.08, hz - 0.02, 0.04, 0.07, 0.03);
-    }
-    if (r.mane) ball(gp, r.mane as string, 0, hy, L * 0.3 + neck * 0.18, 0.31, 0.31, 0.18);
-    if (r.trunk) {
-      add(gp, CYL(6), mat(c), 0, H * 0.54, L * 0.46, 0.065, 0.42, 0.065, 0, 0.22);
-      for (const sx of [-1, 1]) {
-        ball(gp, shade(c, 0.92), sx * 0.18, H * 0.85, L * 0.32, 0.045, 0.30, 0.24);
-        add(gp, CONE(6), mat('#fefce8'), sx * 0.06, H * 0.66, L * 0.48, 0.03, 0.18, 0.03, 0, 1.15);
-      }
-    }
-    if (r.hump) ball(gp, shade(c, 0.94), 0, H * 0.99, 0, 0.21, 0.19 * num(r.hump, 1), 0.25);
-    if (r.antlers) for (const x of [-0.06, 0.06]) add(gp, CYL(5), mat('#d8c8a0'), x, H * 1.05 + neck * 0.6, L * 0.32, 0.022, 0.24, 0.022, 0, -0.4, x * 6);
-    if (r.pattern === 'stripes') for (let i = -2; i <= 2; i++) box(gp, '#1e293b', 0, H * 0.62, i * L * 0.09, 0.35, 0.25, 0.026);
-    if (r.pattern === 'spots') for (let i = 0; i < 6; i++) ball(gp, shade(c, 0.55), (i % 2 ? 1 : -1) * 0.15, H * 0.8, -0.15 + i * 0.06, 0.055);
-    if (r.fluffy) ball(gp, shade(c, 1.06), 0, H * 0.8, 0, 0.37, 0.31, L * 0.63);
-    add(gp, CYL(5), mat(shade(c, 0.85)), 0, H * 0.75, -L * 0.33, 0.03, num(r.tail, 0.3), 0.03, 0, 0.9);
-  },
-  ape: (gp, r) => {
-    const c = r.color!;
-    ball(gp, c, 0, 0.35, 0, 0.44, 0.46, 0.38);
-    ball(gp, shade(c, 1.25), 0, 0.38, -0.04, 0.36, 0.32, 0.30);
-    ball(gp, c, 0, 0.66, 0.04, 0.25);
-    ball(gp, shade(c, 1.5), 0, 0.64, 0.145, 0.14, 0.11, 0.065);
-    for (const sx of [-1, 1]) ball(gp, '#111827', sx * 0.045, 0.68, 0.15, 0.024);
-    for (const x of [-0.24, 0.24]) add(gp, CYL(6), mat(c), x, 0.25, 0.04, 0.085, 0.46, 0.085, 0, 0, x * 0.6);
-    for (const x of [-0.1, 0.1]) cyl(gp, c, x, 0, 0, 0.055, 0.18, 6);
-  },
-  bear: (gp, r) => {
-    const s = r.small ? 0.78 : 1, c = r.color!, p = (r.patch as string) ?? shade(c, 0.85);
-    ball(gp, c, 0, 0.32 * s, 0, 0.46 * s, 0.41 * s, 0.62 * s);
-    ball(gp, c, 0, 0.51 * s, 0.30 * s, 0.31 * s);
-    for (const x of [-0.10, 0.10]) ball(gp, p, x * s, 0.65 * s, 0.28 * s, 0.095 * s);
-    if (r.patch) {
-      ball(gp, p, 0, 0.36 * s, 0.12 * s, 0.47 * s, 0.32 * s, 0.22 * s);
-      for (const x of [-0.065, 0.065]) ball(gp, p, x * s, 0.53 * s, 0.43 * s, 0.075 * s, 0.085 * s, 0.035 * s);
-    }
-    for (const x of [-0.055, 0.055]) ball(gp, '#111827', x * s, 0.53 * s, 0.445 * s, 0.025 * s);
-    ball(gp, shade(c, 0.8), 0, 0.47 * s, 0.45 * s, 0.11 * s, 0.085 * s, 0.09 * s);
-    ball(gp, '#111827', 0, 0.49 * s, 0.49 * s, 0.04 * s);
-    for (const [x, z] of [[-0.13, -0.15], [0.13, -0.15], [-0.13, 0.15], [0.13, 0.15]]) cyl(gp, p, x * s, 0, z * s, 0.065 * s, 0.19 * s, 6);
-  },
-  hopper: (gp, r) => {
-    const c = r.color!;
-    add(gp, SPH(), mat(c), 0, 0.38, 0, 0.31, 0.46, 0.31, 0, 0.3);
-    ball(gp, shade(c, 1.25), 0, 0.35, 0.08, 0.22, 0.32, 0.20);
-    ball(gp, c, 0, 0.71, 0.12, 0.17, 0.17, 0.23);
-    for (const x of [-0.05, 0.05]) {
-      cone(gp, c, x, 0.77, 0.10, 0.032, 0.14, 5);
-      ball(gp, '#111827', x, 0.73, 0.21, 0.024);
-    }
-    for (const x of [-0.1, 0.1]) ball(gp, shade(c, 0.9), x, 0.12, 0.05, 0.12, 0.21, 0.33);
-    add(gp, CONE(6), mat(c), 0, 0.15, -0.3, 0.11, 0.52, 0.11, 0, -1.2);
-  },
-  penguin: (gp, r) => {
-    const s = r.small ? 0.75 : 1;
-    ball(gp, r.color!, 0, 0.35 * s, 0, 0.37 * s, 0.71 * s, 0.33 * s);
-    ball(gp, (r.belly as string) ?? '#f8fafc', 0, 0.32 * s, 0.075 * s, 0.29 * s, 0.57 * s, 0.23 * s);
-    ball(gp, r.color!, 0, 0.75 * s, 0.02 * s, 0.25 * s);
-    for (const sx of [-0.055, 0.055]) ball(gp, '#f8fafc', sx * s, 0.77 * s, 0.12 * s, 0.032 * s);
-    add(gp, CONE(6), mat(r.accent ?? '#f59e0b'), 0, 0.73 * s, 0.17 * s, 0.075 * s, 0.15 * s, 0.075 * s, 0, Math.PI / 2);
-    for (const x of [-0.185, 0.185]) add(gp, SPH(), mat(r.color!), x * s, 0.40 * s, 0, 0.065 * s, 0.36 * s, 0.15 * s, 0, 0, x * 1.4);
-    for (const x of [-0.08, 0.08]) box(gp, r.accent ?? '#f59e0b', x * s, 0, 0.06 * s, 0.08 * s, 0.03 * s, 0.14 * s);
-  },
-  wader: (gp, r) => {
-    const c = r.color!;
-    ball(gp, c, 0, 0.62, 0, 0.24, 0.21, 0.38);
-    ball(gp, shade(c, 0.88), 0, 0.63, -0.02, 0.26, 0.16, 0.30);
-    for (const lx of [-0.035, 0.035]) cyl(gp, '#e11d48', lx, 0, 0, 0.012, 0.56, 5);
-    const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0.65, 0.12), new THREE.Vector3(0, 0.85, 0.22), new THREE.Vector3(0, 0.98, 0.08), new THREE.Vector3(0, 1.05, 0.16)]);
-    gp.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.026, 6), mat(c)));
-    ball(gp, c, 0, 1.06, 0.18, 0.085);
-    add(gp, CONE(5), mat('#1e293b'), 0, 1.03, 0.26, 0.042, 0.11, 0.042, 0, 2.2);
-  },
-  flyer: (gp, r) => {
-    const c = r.color!;
-    const body = new THREE.Group(); body.position.y = 0.5; body.name = 'flap'; gp.add(body);
-    ball(body, c, 0, 0, 0, 0.19, 0.19, 0.46);
-    ball(body, (r.head as string) ?? c, 0, 0.05, 0.25, 0.16);
-    add(body, CONE(5), mat('#eab308'), 0, 0.03, 0.36, 0.055, 0.11, 0.055, 0, Math.PI / 2);
-    for (const x of [-1, 1]) {
-      add(body, BOX(), mat(shade(c, 0.9)), x * 0.35, 0.02, 0, 0.62, 0.032, 0.23, 0, 0, x * 0.15);
-      add(body, BOX(), mat(shade(c, 0.78)), x * 0.58, 0.05, -0.02, 0.22, 0.024, 0.16, 0, 0, x * 0.25);
-    }
-  },
-  roundbird: (gp, r) => {
-    ball(gp, r.color!, 0, 0.30, 0, 0.50, 0.45, 0.55);
-    ball(gp, shade(r.color!, 1.08), 0, 0.42, 0.16, 0.26);
-    add(gp, CYL(6), mat('#d8c8a0'), 0, 0.32, 0.38, 0.022, 0.32, 0.022, 0, 1.3);
-    for (const x of [-0.08, 0.08]) cyl(gp, '#d8c8a0', x, 0, 0, 0.024, 0.12, 5);
-  },
-  whale: (gp, r) => {
-    const L = num(r.L, 1.5), c = r.color!;
-    ball(gp, c, 0, 0.14, 0, 0.34 * Math.min(L, 1.2), 0.24, L * 0.62);
-    add(gp, BOX(), mat(c), 0, 0.15, -L * 0.34, 0.38, 0.032, 0.14);
-    for (const sx of [-1, 1]) add(gp, BOX(), mat(shade(c, 0.9)), sx * 0.22, 0.09, 0.08, 0.24, 0.025, 0.09, sx * 0.3, 0, -sx * 0.25);
-    if (r.fin) add(gp, CONE(4), mat(c), 0, 0.32, -0.02, 0.045, 0.18, 0.15, 0, -0.3);
-    ball(gp, shade(c, 1.45), 0, 0.08, 0.03, 0.27 * Math.min(L, 1.2), 0.11, L * 0.52);
-  },
-  shark: (gp, r) => {
-    const c = r.color!;
-    ball(gp, c, 0, 0.16, 0, 0.26, 0.25, 0.92);
-    add(gp, CONE(4), mat(c), 0, 0.37, -0.02, 0.065, 0.28, 0.21, 0, -0.35);
-    add(gp, CONE(4), mat(c), 0, 0.22, -0.49, 0.055, 0.32, 0.15, 0, -0.9);
-    for (const sx of [-1, 1]) add(gp, CONE(4), mat(c), sx * 0.18, 0.11, 0.08, 0.04, 0.22, 0.12, 0, 0, -sx * 1.2);
-    ball(gp, '#f8fafc', 0, 0.10, 0.05, 0.21, 0.11, 0.72);
-  },
-  turtle: (gp, r) => {
-    const c = r.color!;
-    add(gp, SPH(12), mat(shade(c, 0.85)), 0, 0.10, 0, 0.56, 0.24, 0.66);
-    add(gp, SPH(10), mat(shade(c, 1.05)), 0, 0.13, 0, 0.46, 0.20, 0.54);
-    ball(gp, '#9ab070', 0, 0.08, 0.39, 0.15, 0.13, 0.19);
-    for (const [x, z, rz] of [[-0.31, 0.12, 0.3], [0.31, 0.12, -0.3], [-0.21, -0.22, 0.2], [0.21, -0.22, -0.2]] as const) add(gp, SPH(), mat('#9ab070'), x, 0.05, z, 0.32, 0.045, 0.13, 0, 0, rz);
-  },
-  octopus: (gp, r) => {
-    const c = r.color!;
-    ball(gp, c, 0, 0.42, 0, 0.38, 0.44, 0.38);
-    for (const x of [-0.085, 0.085]) {
-      ball(gp, '#f8fafc', x, 0.36, 0.165, 0.085);
-      ball(gp, '#111827', x, 0.36, 0.195, 0.04);
-    }
-    for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; add(gp, CONE(6), mat(c), Math.cos(a) * 0.19, 0.11, Math.sin(a) * 0.19, 0.085, 0.36, 0.085, 0, Math.sin(a) * 1.0, -Math.cos(a) * 1.0); }
-  },
-  croc: (gp, r) => {
-    const c = r.color!, L = r.short ? 0.78 : 1;
-    ball(gp, c, 0, 0.11, 0, 0.27, 0.16, 0.82 * L);
-    box(gp, c, 0, 0.06, 0.50 * L, 0.15, 0.075, 0.32 * L);
-    for (const sx of [-0.05, 0.05]) ball(gp, '#fde047', sx, 0.15, 0.32 * L, 0.035);
-    add(gp, CONE(5), mat(c), 0, 0.09, -0.60 * L, 0.13, 0.46 * L, 0.07, 0, -Math.PI / 2);
-    for (const [x, z] of [[-0.16, 0.2], [0.16, 0.2], [-0.16, -0.18], [0.16, -0.18]]) box(gp, shade(c, 0.85), x, 0, z * L, 0.075, 0.075, 0.075);
-    for (let i = 0; i < 5; i++) cone(gp, shade(c, 0.78), 0, 0.17, (-0.3 + i * 0.13) * L, 0.028, 0.065, 4);
-  },
   // ---------- discoveries ----------
-  wreck: (gp, r) => {
-    box(gp, '#d8c08a', 0, 0, 0, 0.96, 0.025, 1.04);
-    const t = new THREE.Group(); t.rotation.set(0.16, 0, 0.22); gp.add(t);
-    box(t, r.color!, 0, 0.02, 0, 0.30, 0.18, 0.88);
-    add(t, CONE(4), mat(r.color!), 0, 0.11, 0.54, 0.30, 0.25, 0.25, Math.PI / 4, Math.PI / 2);
-    box(t, '#f8fafc', 0, 0.20, -0.08, 0.22, 0.11, 0.42);
-    for (const z of [-0.18, -0.04, 0.10]) {
-      cyl(t, '#d97706', 0, 0.31, z, 0.042, 0.18, 8);
-      cyl(t, '#1e293b', 0, 0.45, z, 0.044, 0.04, 8);
-    }
-  },
-  mystery: (gp, r) => {
-    const q = add(gp, g('torus', () => new THREE.TorusGeometry(0.22, 0.065, 8, 18, Math.PI * 1.4)), mat(r.color!, { emissive: r.color }), 0, 0.68, 0, 1, 1, 1, 0, 0, -0.6);
-    q.name = 'spin';
-    cyl(gp, r.color!, 0, 0.25, 0, 0.055, 0.21, 8).material = mat(r.color!, { emissive: r.color });
-    ball(gp, r.color!, 0, 0.12, 0, 0.13).material = mat(r.color!, { emissive: r.color });
-  },
-  serpent: (gp, r) => {
-    cyl(gp, '#0369a1', 0, 0, 0, 0.52, 0.025, 18).material = mat('#0369a1', { transparent: 0.65 });
-    for (let i = 0; i < 4; i++) add(gp, g('hump', () => new THREE.TorusGeometry(0.12, 0.055, 8, 12, Math.PI)), mat(r.color!), -0.34 + i * 0.22, 0.02, 0, 1, 1 + (i === 0 ? 0.6 : 0), 1);
-    ball(gp, r.color!, -0.42, 0.34, 0, 0.15, 0.13, 0.11);
-    if (r.tentacles) for (let i = 0; i < 3; i++) add(gp, CONE(6), mat(r.color!), 0.20 + i * 0.12, 0.22, 0.10, 0.065, 0.46, 0.065, 0, 0, -0.3);
-  },
-  vent: (gp, r) => {
-    cyl(gp, '#1e293b', 0, 0, 0, 0.46, 0.03, 14);
-    for (let i = 0; i < 3; i++) cone(gp, '#334155', -0.24 + i * 0.24, 0.03, i * 0.05, 0.13, 0.36 + i * 0.12, 8);
-    ball(gp, r.color!, 0, 0.62, 0.08, 0.20).material = mat(r.color!, { emissive: r.color, transparent: 0.72 });
-  },
-  footprints: (gp, r) => {
-    cyl(gp, '#d6d3d1', 0, 0, 0, 0.48, 0.025, 16);
-    for (let i = 0; i < 4; i++) add(gp, SPH(8), mat(r.color!), (i % 2 ? 0.10 : -0.10), 0.03, -0.36 + i * 0.24, 0.14, 0.04, 0.24);
-    tree(gp, 0.32, 0.025, 0.18, 0.10, '#2d6a4f', true);
-    tree(gp, -0.32, 0.025, -0.18, 0.11, '#2d6a4f', true);
-  },
-  sunkencity: (gp, r) => {
-    cyl(gp, '#cbd5e1', 0, 0, 0, 0.48, 0.03, 16);
-    for (let i = 0; i < 5; i++) cyl(gp, '#e2e8f0', -0.30 + i * 0.15, 0.03, 0, 0.042, 0.22 + ((i * 7) % 3) * 0.12, 8);
-    box(gp, '#e2e8f0', -0.15, 0.35, 0, 0.36, 0.045, 0.11);
-    ball(gp, r.color!, 0, 0.04, 0, 0.96, 0.12, 0.62).material = mat(r.color!, { transparent: 0.45 });
-  },
-  crater: (gp, r) => {
-    add(gp, g('craterRing', () => new THREE.TorusGeometry(0.32, 0.10, 8, 18).rotateX(Math.PI / 2)), mat('#785a3c'), 0, 0.06, 0, 1, 1, 1);
-    ball(gp, r.color!, 0, 0.04, 0, 0.50, 0.065, 0.50).material = mat(r.color!, { emissive: r.color });
-    if (r.trees) for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; add(gp, CYL(5), mat('#5a4a3a'), Math.cos(a) * 0.54, 0.03, Math.sin(a) * 0.54, 0.03, 0.30, 0.03, -a, 0, Math.PI / 2); }
-    else for (let i = 0; i < 4; i++) cone(gp, '#fde047', -0.12 + i * 0.08, 0.04, (i % 2) * 0.08, 0.045, 0.22, 6).material = mat('#fde047', { emissive: '#f59e0b' });
-  },
-  crystals: (gp, r) => {
-    cyl(gp, '#475569', 0, 0, 0, 0.36, 0.04, 12);
-    for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2; add(gp, CONE(6), mat(r.color!, { emissive: shade(r.color!, 0.45), transparent: 0.86 }), Math.cos(a) * 0.15, 0.26, Math.sin(a) * 0.15, 0.12, 0.62 - (i % 3) * 0.1, 0.12, 0, Math.sin(a) * 0.5, -Math.cos(a) * 0.5); }
-  },
-  // ---------- vehicles ----------
-  ship: (gp, r) => {
-    const c = r.color!, a = r.accent ?? '#dc2626';
-    box(gp, c, 0, 0, 0, 0.28, 0.13, 0.92);
-    add(gp, CONE(4), mat(c), 0, 0.065, 0.52, 0.28, 0.22, 0.13, Math.PI / 4, Math.PI / 2);
-    box(gp, '#f8fafc', 0, 0.13, -0.16, 0.24, 0.14, 0.38);
-    box(gp, '#38bdf8', 0, 0.22, 0.035, 0.22, 0.035, 0.02);
-    cyl(gp, a, 0, 0.27, -0.16, 0.052, 0.15, 10);
-    if (r.containers) for (let i = 0; i < 6; i++) box(gp, ['#dc2626', '#2563eb', '#eab308', '#16a34a'][i % 4], 0, 0.13, 0.04 + i * 0.065, 0.23, 0.09, 0.055);
-  },
-  plane: (gp, r) => {
-    const c = r.color!, a = r.accent ?? '#2563eb';
-    add(gp, CYL(12), mat(c), 0, 0, 0, 0.13, 0.92, 0.13, 0, Math.PI / 2);
-    add(gp, CONE(12), mat(c), 0, 0, 0.52, 0.13, 0.14, 0.13, 0, Math.PI / 2);
-    box(gp, '#38bdf8', 0, 0.03, 0.44, 0.09, 0.03, 0.06);
-    box(gp, c, 0, -0.01, 0.02, 0.94, 0.024, 0.19);
-    box(gp, c, 0, -0.01, -0.40, 0.36, 0.022, 0.11);
-    box(gp, a, 0, 0.09, -0.40, 0.024, 0.18, 0.14);
-    for (const x of [-0.23, 0.23]) add(gp, CYL(8), mat('#94a3b8'), x, -0.065, 0.04, 0.065, 0.15, 0.065, 0, Math.PI / 2);
-  },
-  train: (gp, r) => {
-    const cars = num(r.cars, 4), c = r.color!, a = r.accent ?? '#dc2626';
-    for (let i = 0; i < cars; i++) {
-      box(gp, c, 0, 0.02, -i * 0.26, 0.15, 0.14, 0.24);
-      box(gp, a, 0, 0.08, -i * 0.26, 0.154, 0.032, 0.24);
-      box(gp, '#38bdf8', 0, 0.115, -i * 0.26, 0.156, 0.028, 0.18);
-    }
-    if (r.nose) add(gp, SPH(10), mat(c), 0, 0.07, 0.16, 0.15, 0.13, 0.28);
-  },
-  balloon: (gp, r) => {
-    add(gp, SPH(14), mat(r.color!), 0, 0.70, 0, 0.56, 0.66, 0.56);
-    for (let i = 0; i < 4; i++) add(gp, SPH(14), mat(r.accent ?? '#fde047'), 0, 0.70, 0, 0.57, 0.67, 0.12, (i * Math.PI) / 4);
-    box(gp, '#92400e', 0, 0.12, 0, 0.15, 0.11, 0.15);
-    for (const [x, z] of [[-0.06, -0.06], [0.06, -0.06], [-0.06, 0.06], [0.06, 0.06]]) add(gp, CYL(4), mat('#475569'), x, 0.30, z, 0.008, 0.30, 0.008);
-  },
 };
 
 const FALLBACK: Builder = (gp, r) => { cyl(gp, r.color ?? '#ffcc33', 0, 0, 0, 0.12, 0.5); ball(gp, r.color ?? '#ffcc33', 0, 0.6, 0, 0.3); };
 
+Object.assign(B, ANIMAL_BUILDERS, NATURE_BUILDERS, VEHICLE_BUILDERS, DISCOVERY_BUILDERS);
 export const KINDS = Object.keys(B);
 
-// Vertex-colored shared materials for baked static meshes
-const bakedMatStd = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.08, flatShading: true });
+// Shared vertex-colored materials for baked static meshes: smooth/flat × matte/metal.
+const bakedMats = new Map<string, THREE.MeshStandardMaterial>();
+function bakedMat(flat: boolean, metal: boolean): THREE.MeshStandardMaterial {
+  const k = `${flat}:${metal}`;
+  let m = bakedMats.get(k);
+  if (!m) {
+    m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: metal ? 0.38 : 0.66, metalness: metal ? 0.55 : 0.04, flatShading: flat });
+    bakedMats.set(k, m);
+  }
+  return m;
+}
 
 interface Bucket { pos: number[]; norm: number[]; col: number[] }
 
+// Cosine-weighted hemisphere ray set (z-up) for the ambient-occlusion bake.
+const AO_DIRS: THREE.Vector3[] = (() => {
+  const out: THREE.Vector3[] = [];
+  const n = 10;
+  for (let i = 0; i < n; i++) {
+    const u = (i + 0.5) / n, phi = i * 2.399963;
+    const r = Math.sqrt(u);
+    out.push(new THREE.Vector3(Math.cos(phi) * r, Math.sin(phi) * r, Math.sqrt(1 - u)));
+  }
+  return out;
+})();
+
 /**
- * Merges static standard child meshes of a built model group into a single vertex-colored BufferGeometry mesh,
- * while preserving any animated sub-groups (`spin`, `flap`) or special emissive/transparent meshes.
+ * Bakes ambient occlusion into vertex colors: triangles are voxelised into an occupancy grid, then a short
+ * cosine-weighted ray fan is marched from every vertex. Crevices, arcades, undersides and ground contact darken.
+ */
+function bakeAO(buckets: Bucket[], minY: number): void {
+  const bb = new THREE.Box3();
+  const v = new THREE.Vector3();
+  for (const b of buckets) for (let i = 0; i < b.pos.length; i += 3) bb.expandByPoint(v.set(b.pos[i], b.pos[i + 1], b.pos[i + 2]));
+  if (bb.isEmpty()) return;
+  const size = bb.getSize(new THREE.Vector3());
+  const R = 44;
+  const cs = Math.max(size.x, size.y, size.z) / R;
+  const ox = bb.min.x - cs * 2, oy = bb.min.y - cs * 2, oz = bb.min.z - cs * 2;
+  const nx = Math.ceil(size.x / cs) + 5, ny = Math.ceil(size.y / cs) + 5, nz = Math.ceil(size.z / cs) + 5;
+  const grid = new Uint8Array(nx * ny * nz);
+  const mark = (x: number, y: number, z: number) => {
+    const ix = Math.floor((x - ox) / cs), iy = Math.floor((y - oy) / cs), iz = Math.floor((z - oz) / cs);
+    if (ix >= 0 && iy >= 0 && iz >= 0 && ix < nx && iy < ny && iz < nz) grid[ix + nx * (iy + ny * iz)] = 1;
+  };
+  for (const b of buckets) {
+    const P = b.pos;
+    for (let t = 0; t < P.length; t += 9) {
+      const ax = P[t], ay = P[t + 1], az = P[t + 2], bx = P[t + 3], by = P[t + 4], bz = P[t + 5], cx = P[t + 6], cy = P[t + 7], cz = P[t + 8];
+      const e = Math.max(Math.hypot(bx - ax, by - ay, bz - az), Math.hypot(cx - ax, cy - ay, cz - az), Math.hypot(cx - bx, cy - by, cz - bz));
+      const n = Math.min(160, Math.max(1, Math.ceil(e / (cs * 0.6))));
+      for (let i = 0; i <= n; i++) for (let j = 0; j <= n - i; j++) {
+        const u = i / n, w = j / n, s = 1 - u - w;
+        mark(ax * s + bx * u + cx * w, ay * s + by * u + cy * w, az * s + bz * u + cz * w);
+      }
+    }
+  }
+  const occ = (x: number, y: number, z: number) => {
+    if (y < minY - cs * 0.5) return true;
+    const ix = Math.floor((x - ox) / cs), iy = Math.floor((y - oy) / cs), iz = Math.floor((z - oz) / cs);
+    if (ix < 0 || iy < 0 || iz < 0 || ix >= nx || iy >= ny || iz >= nz) return false;
+    return grid[ix + nx * (iy + ny * iz)] === 1;
+  };
+  const N = new THREE.Vector3(), Tg = new THREE.Vector3(), Bt = new THREE.Vector3(), D = new THREE.Vector3();
+  const cache = new Map<number, number>();
+  const STEPS = 7;
+  for (const b of buckets) {
+    for (let i = 0; i < b.pos.length; i += 3) {
+      const px = b.pos[i], py = b.pos[i + 1], pz = b.pos[i + 2];
+      N.set(b.norm[i], b.norm[i + 1], b.norm[i + 2]);
+      // Numeric spatial hash of (half-cell position, coarse normal) — vertices shared by faces reuse one sample
+      const key = (Math.round(px / cs * 2) * 73856093) ^ (Math.round(py / cs * 2) * 19349663) ^ (Math.round(pz / cs * 2) * 83492791)
+        ^ ((Math.round(N.x * 3) + 3) | ((Math.round(N.y * 3) + 3) << 3) | ((Math.round(N.z * 3) + 3) << 6)) * 2654435761;
+      let ao = cache.get(key);
+      if (ao === undefined) {
+        Tg.set(Math.abs(N.y) < 0.9 ? 0 : 1, Math.abs(N.y) < 0.9 ? 1 : 0, 0).cross(N).normalize();
+        Bt.crossVectors(N, Tg);
+        let hit = 0;
+        for (const d of AO_DIRS) {
+          D.set(0, 0, 0).addScaledVector(Tg, d.x).addScaledVector(Bt, d.y).addScaledVector(N, d.z);
+          for (let s = 1; s <= STEPS; s++) {
+            const dist = cs * (0.9 + s * 1.3);
+            if (occ(px + N.x * cs * 0.9 + D.x * dist, py + N.y * cs * 0.9 + D.y * dist, pz + N.z * cs * 0.9 + D.z * dist)) {
+              hit += 1 - (s - 1) / (STEPS * 1.4);
+              break;
+            }
+          }
+        }
+        ao = Math.max(0.34, 1 - 0.95 * (hit / AO_DIRS.length));
+        cache.set(key, ao);
+      }
+      b.col[i] *= ao; b.col[i + 1] *= ao; b.col[i + 2] *= ao;
+    }
+  }
+}
+
+/**
+ * Merges static child meshes of a built model group into a few vertex-colored meshes (smooth/flat × matte/metal),
+ * baking ambient occlusion, while preserving animated sub-groups (`spin`, `flap`) and emissive/transparent meshes.
  */
 function bakeStaticMeshes(gp: THREE.Group): void {
   gp.updateMatrixWorld(true);
-  const std: Bucket = { pos: [], norm: [], col: [] };
+  const buckets = new Map<string, Bucket>();
   const toRemove: THREE.Mesh[] = [];
   const tmpV = new THREE.Vector3();
   const tmpN = new THREE.Vector3();
+  const tmpC = new THREE.Color();
   const normMat = new THREE.Matrix3();
 
   const walk = (obj: THREE.Object3D, animated: boolean) => {
@@ -1614,42 +1081,52 @@ function bakeStaticMeshes(gp: THREE.Group): void {
       const mesh = obj as THREE.Mesh;
       const m = mesh.material as THREE.MeshStandardMaterial;
       if (m && !m.transparent && (!m.emissive || m.emissive.getHex() === 0)) {
-        const g0 = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry;
+        let g0 = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry;
+        if (!g0.getAttribute('normal')) { g0 = g0 === mesh.geometry ? g0.clone() : g0; g0.computeVertexNormals(); }
         const pAttr = g0.getAttribute('position');
-        let nAttr = g0.getAttribute('normal');
-        if (!nAttr) {
-          g0.computeVertexNormals();
-          nAttr = g0.getAttribute('normal');
+        const nAttr = g0.getAttribute('normal');
+        const cAttr = m.vertexColors ? g0.getAttribute('color') : undefined;
+        const key = `${m.flatShading}:${m.metalness > 0.3}`;
+        let b = buckets.get(key);
+        if (!b) { b = { pos: [], norm: [], col: [] }; buckets.set(key, b); }
+        normMat.getNormalMatrix(mesh.matrixWorld);
+        const flipped = mesh.matrixWorld.determinant() < 0;
+        for (let i = 0; i < pAttr.count; i++) {
+          const vi = flipped ? i - (i % 3) + (2 - (i % 3)) : i;
+          tmpV.fromBufferAttribute(pAttr, vi).applyMatrix4(mesh.matrixWorld);
+          tmpN.fromBufferAttribute(nAttr, vi).applyMatrix3(normMat).normalize();
+          b.pos.push(tmpV.x, tmpV.y, tmpV.z);
+          b.norm.push(tmpN.x, tmpN.y, tmpN.z);
+          if (cAttr) tmpC.fromBufferAttribute(cAttr as THREE.BufferAttribute, vi).multiply(m.color);
+          else tmpC.copy(m.color);
+          b.col.push(tmpC.r, tmpC.g, tmpC.b);
         }
-        if (pAttr && nAttr) {
-          normMat.getNormalMatrix(mesh.matrixWorld);
-          const cr = m.color.r, cg = m.color.g, cb = m.color.b;
-          for (let i = 0; i < pAttr.count; i++) {
-            tmpV.fromBufferAttribute(pAttr, i).applyMatrix4(mesh.matrixWorld);
-            tmpN.fromBufferAttribute(nAttr, i).applyMatrix3(normMat).normalize();
-            std.pos.push(tmpV.x, tmpV.y, tmpV.z);
-            std.norm.push(tmpN.x, tmpN.y, tmpN.z);
-            std.col.push(cr, cg, cb);
-          }
-          toRemove.push(mesh);
-        }
+        toRemove.push(mesh);
       }
     }
     for (const ch of obj.children) walk(ch, isAnim);
   };
   walk(gp, false);
-
   for (const m of toRemove) m.parent?.remove(m);
 
-  if (std.pos.length > 0) {
-    const mergedGeo = new THREE.BufferGeometry();
-    mergedGeo.setAttribute('position', new THREE.Float32BufferAttribute(std.pos, 3));
-    mergedGeo.setAttribute('normal', new THREE.Float32BufferAttribute(std.norm, 3));
-    mergedGeo.setAttribute('color', new THREE.Float32BufferAttribute(std.col, 3));
-    const bakedMesh = new THREE.Mesh(mergedGeo, bakedMatStd);
-    bakedMesh.castShadow = true;
-    bakedMesh.receiveShadow = true;
-    gp.add(bakedMesh);
+  const minY = new THREE.Box3().setFromObject(gp).min.y;
+  const list = [...buckets.values()];
+  let lo = Infinity;
+  for (const b of list) for (let i = 1; i < b.pos.length; i += 3) lo = Math.min(lo, b.pos[i]);
+  bakeAO(list, Math.min(minY, lo));
+
+  for (const [key, b] of buckets) {
+    if (!b.pos.length) continue;
+    const [flat, metal] = key.split(':').map(s => s === 'true');
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(b.pos, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(b.norm, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(b.col, 3));
+    geo.computeBoundingSphere();
+    const mesh = new THREE.Mesh(geo, bakedMat(flat, metal));
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    gp.add(mesh);
   }
 }
 
@@ -1666,4 +1143,3 @@ export function buildModel(recipe: ModelRecipe): THREE.Group {
   }
   return proto.clone(true);
 }
-
