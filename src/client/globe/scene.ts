@@ -6,6 +6,7 @@ import { buildModel, mat } from '../models/kit.ts';
 import { paintNightLights, type CountryInfo } from './painter.ts';
 import { CITIES } from '../../shared/data/cities.ts';
 import { TYPE_META, type LayerKey } from '../../shared/data/typemeta.ts';
+import { GlobeLayers, RENDER_ORDER } from './layers.ts';
 
 export type AuraPreset = 'waves' | 'aurora' | 'ember' | 'dusk' | 'sculpture';
 export type SurfaceMode = 'realistic' | 'minimal' | 'political';
@@ -117,8 +118,9 @@ const EARTH_FRAG = `
 
     // Warm city lights on the night hemisphere (masked to landmasses)
     float lights = texture2D(uNightTex, vUv).r;
+    lights *= lights; // keep bright city cores, drop the faint haze between them
     float lightPulse = 1.0 + uAudioMid * 0.35;
-    vec3 nightGlow = vec3(1.0, 0.85, 0.63) * lights * landMask * lightPulse * (1.0 - day) * uNightMix * max(0.35, uLandMix) * 0.92;
+    vec3 nightGlow = vec3(1.0, 0.78, 0.46) * lights * landMask * lightPulse * (1.0 - day) * uNightMix * max(0.35, uLandMix) * 0.7;
     lit += nightGlow;
 
     // Concentric geodesic wave rings radiating from active landmark/object
@@ -287,6 +289,7 @@ export class Globe {
   /** Optional extra visibility predicate (e.g. the time machine); selected/ridden items always stay visible. */
   private itemFilter: ((it: CatalogueItem) => boolean) | null = null;
   setItemFilter(fn: ((it: CatalogueItem) => boolean) | null): void { this.itemFilter = fn; this.dirty = true; }
+  private layers: GlobeLayers | null = null;
   private dirty = true;
   private last = performance.now();
   private lastLabel = 0;
@@ -331,7 +334,7 @@ export class Globe {
     landTex.colorSpace = THREE.SRGBColorSpace;
     landTex.anisotropy = r.capabilities.getMaxAnisotropy();
 
-    const nightCanvas = paintNightLights(countries, this.lowfx ? 256 : 2048);
+    const nightCanvas = paintNightLights(countries, this.lowfx ? 1024 : 2048);
     const nightTex = new THREE.CanvasTexture(nightCanvas);
     nightTex.anisotropy = r.capabilities.getMaxAnisotropy();
 
@@ -360,12 +363,14 @@ export class Globe {
     this.earth = new THREE.Mesh(new THREE.SphereGeometry(1, this.lowfx ? 64 : 96, this.lowfx ? 48 : 96), this.earthMat);
     // Our lat/lon convention puts lon=0 on +Z; SphereGeometry's u=0 seam is at -X, so rotate by -90°.
     this.earth.rotation.y = -Math.PI / 2;
+    this.earth.renderOrder = RENDER_ORDER.earth;
 
     if (borderPositions) this.setBorderPositions(borderPositions);
 
     this.scene.add(this.earth, this.itemsRoot, this.pinsRoot, this.flightArcGroup, this.sun, this.sun.target, this.fillLight, this.fillLight.target, this.ambient, this.selRing);
     this.addAtmosphere();
     this.addStars();
+    this.layers = new GlobeLayers(r, this.scene, items, this.earthUniforms.uSunDir.value, this.lowfx);
     this.queuePlacement(items);
     this.applySettings(this.settings);
     this.resize();
@@ -910,6 +915,7 @@ export class Globe {
       }
       const inner = p.obj.children[p.obj.children.length - 1];
       if (it.type === 'animal' && !this.lowfx) inner.position.y = Math.abs(Math.sin(this.clock * 0.003 + it.lat)) * 0.06;
+      else if (this.layers?.festivals.has(it.key) && !this.lowfx) inner.position.y = (0.5 + 0.5 * Math.sin(this.clock * 0.0024 + it.lon)) * 0.09;
       const isHovered = this.hoveredKey === it.key;
       inner.scale.setScalar(isHovered ? 1.14 : 1.0);
       inner.traverse(o => {
@@ -1073,6 +1079,10 @@ export class Globe {
     if (!animate && !this.dirty) return;
     this.updateItems(dt);
     this.updateSun();
+    if (this.layers) {
+      this.layers.setVisible(this.settings, this.gameMode);
+      this.layers.update(this.clock, dt, this.camera.position.length() - 1, this.routeState, this.orbitAlt, this.placedObj);
+    }
     this.renderer.render(this.scene, this.camera);
     if (this.dirty || now - this.lastLabel > (this.lowfx ? 1000 : 120)) { this.updateLabels(); this.lastLabel = now; }
     if (this.dirty) this.ev.onView?.(this.zoom, this.lat, this.lon);
@@ -1080,4 +1090,13 @@ export class Globe {
   }
 
   markDirty(): void { this.dirty = true; }
+
+  // Bound once so the per-frame layer update does not allocate closures.
+  private routeState = (it: CatalogueItem): 0 | 1 | 2 => {
+    if (this.gameMode || !this.settings[TYPE_META[it.type].layer]) return 0;
+    if (this.selected === it.key || this.ride?.key === it.key) return 2;
+    return !this.itemFilter || this.itemFilter(it) ? 1 : 0;
+  };
+  private orbitAlt = (it: CatalogueItem): number => routeAltitude('orbit', this.modelScale(it));
+  private placedObj = (key: string): THREE.Object3D | undefined => this.placed.get(key)?.obj;
 }

@@ -46,6 +46,7 @@ const en: Dict = {
   notFound: 'Nothing found', search: 'Search', resetConfirm: 'Reset the camera and all settings?', sticker_unlocked: 'Sticker unlocked: {s}',
   auraPreset: 'Atmosphere', surfaceMode: 'Surface Mode', modeSat: 'Satellite', modeVec: 'Minimal', modePol: 'Political',
   searchPlaceholder: 'Search places and animals', randomHop: 'Random Hop', filterAll: 'All', coords: 'Coordinates', zoomClose: 'Zoom 3D',
+  inOrbit: 'In orbit',
 };
 
 const zh: Dict = {
@@ -91,6 +92,7 @@ const zh: Dict = {
   notFound: '没有找到', search: '搜索', resetConfirm: '要重置镜头和所有设置吗？', sticker_unlocked: '获得贴纸：{s}',
   auraPreset: '大气', surfaceMode: '地表模式', modeSat: '卫星', modeVec: '极简', modePol: '政区',
   searchPlaceholder: '搜索地点和动物', randomHop: '随机跳转', filterAll: '全部', coords: '坐标', zoomClose: '3D 近看',
+  inOrbit: '在轨道上',
 };
 
 const DICTS: Record<Lang, Dict> = { en, zh };

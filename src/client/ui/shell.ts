@@ -97,7 +97,7 @@ export class Shell {
       return;
     }
     const l = lang();
-    const where = countryName(item.country, l) || (CONTINENT_NAMES[item.continent]?.[l] ?? '');
+    const where = item.route?.kind === 'orbit' ? t('inOrbit') : countryName(item.country, l) || (CONTINENT_NAMES[item.continent]?.[l] ?? '');
     this.tipEl.replaceChildren(
       h('span', { class: 'tip-emoji' }, item.emoji),
       h('span', { class: 'tip-name' }, tr(item.name, l)),
@@ -334,7 +334,7 @@ export class Shell {
     if (f.lifespanY) chips.push([t('lifespan'), nf(f.lifespanY, l === 'en' ? ' yrs' : '')]);
     if (it.diet) chips.push([t('diet'), t(it.diet)]);
     if (it.status) chips.push([t('status'), t(it.status)]);
-    const where = [countryName(it.country, l), CONTINENT_NAMES[it.continent]?.[l]].filter(Boolean).join(' · ');
+    const where = it.route?.kind === 'orbit' ? t('inOrbit') : [countryName(it.country, l), CONTINENT_NAMES[it.continent]?.[l]].filter(Boolean).join(' · ');
     const coordStr = `${Math.abs(it.lat).toFixed(1)}°${it.lat >= 0 ? 'N' : 'S'} · ${Math.abs(it.lon).toFixed(1)}°${it.lon >= 0 ? 'E' : 'W'}`;
     const p = store.progress;
     const react = (kind: 'like' | 'visited', ico: IconName) => {

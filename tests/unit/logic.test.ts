@@ -218,3 +218,30 @@ describe('catalogue & i18n integrity', () => {
     }
   }, 120_000);
 });
+
+describe('festival season', async () => {
+  const { isHappening, daysUntil, LEAD_DAYS } = await import('../../src/shared/lib/season.ts');
+  const nye = { season: { month: 12, day: 31, days: 3 } };
+  const d = (y: number, m: number, day: number) => new Date(y, m - 1, day, 12);
+  it('wraps around the new year (Dec 31 → Jan 2)', () => {
+    expect(isHappening(nye, d(2026, 12, 31))).toBe(true);
+    expect(isHappening(nye, d(2027, 1, 2))).toBe(true);
+    expect(daysUntil(nye, d(2027, 1, 2))).toBe(0);
+    expect(daysUntil(nye, d(2027, 1, 3))).toBe(362);
+    expect(daysUntil(nye, d(2026, 12, 25))).toBe(6);
+  });
+  it('multi-day festivals glow for their whole run plus the lead window', () => {
+    const f = { season: { month: 7, day: 10, days: 5 } };
+    expect(isHappening(f, d(2026, 7, 14))).toBe(true);
+    expect(isHappening(f, d(2026, 7, 10 - LEAD_DAYS))).toBe(true);
+    expect(isHappening(f, d(2026, 7, 10 - LEAD_DAYS - 1))).toBe(false);
+    expect(isHappening(f, d(2026, 7, 15 + LEAD_DAYS - 1))).toBe(true);
+    expect(isHappening(f, d(2026, 7, 15 + LEAD_DAYS))).toBe(false);
+  });
+  it('is not happening far from its date or without a season', () => {
+    expect(isHappening({ season: { month: 4, day: 1 } }, d(2026, 10, 19))).toBe(false);
+    expect(isHappening({}, d(2026, 10, 19))).toBe(false);
+    expect(daysUntil({}, d(2026, 10, 19))).toBeNull();
+    expect(daysUntil({ season: { month: 10, day: 20 } }, d(2026, 10, 19))).toBe(1);
+  });
+});

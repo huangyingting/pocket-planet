@@ -300,11 +300,12 @@ export function paintNightLights(countries: CountryInfo[], width: number): HTMLC
   for (let i = 0; i < CITIES.length; i++) {
     const [, , lat, lon, pop, capital] = CITIES[i];
     const cx = X(lon), cy = Y(lat);
-    const rOuter = (4.5 + Math.sqrt(pop) * 2.2 + (capital ? 1.5 : 0)) * scale;
+    // Kept compact: large overlapping domes merged into solid cream washes over dense regions (Japan, E China).
+    const rOuter = (2 + Math.sqrt(pop) * 1.2 + (capital ? 0.8 : 0)) * scale;
     const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, rOuter);
-    grd.addColorStop(0, 'rgba(255, 250, 220, 0.95)');
-    grd.addColorStop(0.25, 'rgba(255, 215, 145, 0.65)');
-    grd.addColorStop(0.6, 'rgba(255, 185, 100, 0.22)');
+    grd.addColorStop(0, 'rgba(255, 245, 215, 0.9)');
+    grd.addColorStop(0.2, 'rgba(255, 215, 145, 0.5)');
+    grd.addColorStop(0.55, 'rgba(255, 185, 100, 0.12)');
     grd.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = grd;
     ctx.beginPath();
@@ -331,9 +332,9 @@ export function paintNightLights(countries: CountryInfo[], width: number): HTMLC
     const c = countries[i];
     if (c.a2 === 'AQ' || Math.abs(c.lat) > 68) continue;
     const cx = X(c.lon), cy = Y(c.lat);
-    const r = Math.min(10, 2.5 + Math.sqrt(Math.max(1, c.area)) * 0.4) * scale;
+    const r = Math.min(6, 2 + Math.sqrt(Math.max(1, c.area)) * 0.25) * scale;
     const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-    grd.addColorStop(0, 'rgba(255, 225, 160, 0.55)');
+    grd.addColorStop(0, 'rgba(255, 225, 160, 0.3)');
     grd.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = grd;
     ctx.beginPath();
