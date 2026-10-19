@@ -10,7 +10,7 @@ import { CATALOGUE, BY_KEY, BY_SLUG, LANDMARKS } from '../../src/shared/data/cat
 import { EN_KEYS, hasKey, t } from '../../src/client/lib/i18n.ts';
 import { haversineKm as hk } from '../../src/shared/lib/geo.ts';
 import { buildModel } from '../../src/client/models/kit.ts';
-import { HEROES } from '../../src/client/models/heroes/index.ts';
+import { heroBuilder, loadHeroesFor, PACK_IDS } from '../../src/client/models/heroes/index.ts';
 import { AURA_PRESETS } from '../../src/client/globe/scene.ts';
 
 describe('geo', () => {
@@ -198,8 +198,17 @@ describe('catalogue & i18n integrity', () => {
       expect(i.slug).toMatch(/^[a-z0-9-]+$/);
       if (i.route) expect(i.route.pts.length, i.key).toBeGreaterThanOrEqual(2);
       if (i.season) expect(i.season.month >= 1 && i.season.month <= 12 && i.season.day >= 1 && i.season.day <= 31, i.key).toBe(true);
-      if (!['landmark', 'animal', 'discovery', 'vehicle'].includes(i.type)) expect(HEROES[String(i.model.hero)], `${i.key} hero`).toBeTypeOf('function');
     }
+  });
+  it('every hero reference names a lazily loadable pack/builder', async () => {
+    await loadHeroesFor(CATALOGUE.map(i => i.model.hero));
+    for (const i of CATALOGUE) {
+      if (i.model.hero === undefined) continue;
+      expect(String(i.model.hero), i.key).toMatch(/^[a-z0-9-]+\/[A-Za-z0-9_]+$/);
+      expect(PACK_IDS, i.key).toContain(String(i.model.hero).split('/')[0]);
+      expect(heroBuilder(i.model.hero), `${i.key} hero`).toBeTypeOf('function');
+    }
+    for (const i of CATALOGUE) if (!['landmark', 'animal', 'discovery', 'vehicle'].includes(i.type)) expect(i.model.hero, i.key).toBeTruthy();
   });
   it('Chinese dictionary covers every English key', () => {
     const missing = EN_KEYS.filter(k => !hasKey(k, 'zh'));
@@ -210,8 +219,9 @@ describe('catalogue & i18n integrity', () => {
     expect(t('round', { r: 2, n: 10 }, 'zh')).toContain('2');
     expect(t('no_such_key', {}, 'en')).toBe('no_such_key');
   });
-  it('builds a valid 3D mesh group for every catalogue item and defines 5 Aura presets', () => {
+  it('builds a valid 3D mesh group for every catalogue item and defines 5 Aura presets', async () => {
     expect(Object.keys(AURA_PRESETS)).toHaveLength(5);
+    await loadHeroesFor(CATALOGUE.map(i => i.model.hero));
     for (const item of CATALOGUE) {
       const g = buildModel(item.model);
       expect(g.children.length, item.key).toBeGreaterThan(0);

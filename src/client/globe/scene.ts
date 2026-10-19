@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { CatalogueItem, Lang } from '../../shared/data/types.ts';
 import { tr } from '../../shared/data/types.ts';
 import { latLonToVec, vecToLatLon, slerpLatLon } from '../../shared/lib/geo.ts';
-import { buildModel, mat } from '../models/kit.ts';
+import { buildModel, mat, modelReady, whenModelReady } from '../models/kit.ts';
 import { paintNightLights, type CountryInfo } from './painter.ts';
 import { CITIES } from '../../shared/data/cities.ts';
 import { TYPE_META, type LayerKey } from '../../shared/data/typemeta.ts';
@@ -213,7 +213,13 @@ const ATMOS_FRAG = `
   }
 `;
 
-interface Placed { item: CatalogueItem; obj: THREE.Group; seg: number; t: number; pts: [number, number][]; heading: THREE.Vector3 }
+interface Placed {
+  item: CatalogueItem; obj: THREE.Group; seg: number; t: number; pts: [number, number][]; heading: THREE.Vector3;
+  /** surface normal (static items) for horizon culling */
+  n: THREE.Vector3;
+  /** sub-objects with procedural animation ('spin' / 'flap'), collected once instead of traversing every frame */
+  anim: THREE.Object3D[];
+}
 
 export interface GlobeEvents {
   onPick?: (item: CatalogueItem | null) => void;
@@ -265,8 +271,14 @@ export class Globe {
   private pinsRoot = new THREE.Group();
   private flightArcGroup = new THREE.Group();
   private placed = new Map<string, Placed>();
-  /** Items whose models are still waiting to be built — drained a few per frame so startup never blocks. */
+  /**
+   * Items whose models are not built yet. Only items that would actually be visible (layer on, zoomed in far
+   * enough, on the camera's side of the globe) are built, a few per frame, once their hero pack has loaded.
+   */
   private pending = new Map<string, CatalogueItem>();
+  private pendingN = new Map<string, THREE.Vector3>();
+  private packWait = new Set<string>();
+  private lastDrain = 0;
   private labelsEl: HTMLDivElement;
   private labelPool: HTMLSpanElement[] = [];
   private countries: CountryInfo[] = [];
@@ -501,26 +513,60 @@ export class Globe {
   private queuePlacement(items: CatalogueItem[]): void {
     // Nearest-to-camera first so the visible hemisphere fills in before the far side.
     const cam = new THREE.Vector3(...latLonToVec(this.lat, this.lon));
-    const d = (it: CatalogueItem) => -cam.dot(new THREE.Vector3(...latLonToVec(it.lat, it.lon)));
-    for (const it of [...items].sort((a, b) => d(a) - d(b))) this.pending.set(it.key, it);
+    const nv = (it: CatalogueItem) => new THREE.Vector3(...latLonToVec(it.lat, it.lon));
+    for (const it of [...items].sort((a, b) => cam.dot(nv(b)) - cam.dot(nv(a)))) { this.pending.set(it.key, it); this.pendingN.set(it.key, nv(it)); }
+  }
+
+  /** Cosine of the angle from the camera axis beyond which surface points are hidden behind the globe. */
+  private horizonCos(margin: number): number { return 1 / Math.max(1.0001, this.camera.position.length()) - margin; }
+
+  /** Whether an item should be shown right now, ignoring which side of the globe it is on. */
+  private shown(it: CatalogueItem): boolean {
+    const focus = this.selected === it.key || this.ride?.key === it.key;
+    if (focus) return true;
+    return !this.gameMode && this.settings[TYPE_META[it.type].layer] && this.zoom >= TIER_ZOOM[it.tier] && (!this.itemFilter || this.itemFilter(it));
   }
 
   private drainPlacement(budgetMs: number): void {
     const t0 = performance.now();
+    const cdir = this.camera.position.clone().normalize(), hz = this.horizonCos(0.3);
     for (const [key, it] of this.pending) {
+      if (!this.shown(it)) continue;
+      const focus = this.selected === key || this.ride?.key === key;
+      if (!it.route && !focus && this.pendingN.get(key)!.dot(cdir) < hz) continue;
+      if (!modelReady(it.model)) { this.requestModel(it); continue; }
       this.pending.delete(key);
+      this.pendingN.delete(key);
       this.place(it);
       this.dirty = true;
       if (performance.now() - t0 > budgetMs) break;
     }
   }
 
-  /** Builds an item's model immediately if it is still queued (used when the UI targets it directly). */
+  private requestModel(it: CatalogueItem): void {
+    const id = String(it.model.hero ?? '').split('/')[0];
+    if (this.packWait.has(id)) return;
+    this.packWait.add(id);
+    void whenModelReady(it.model).then(() => { this.packWait.delete(id); this.dirty = true; });
+  }
+
+  /** Builds an item's model immediately if it is still queued and loadable (used when the UI targets it directly). */
   private ensurePlaced(key: string | null): Placed | null {
     if (!key) return null;
     const it = this.pending.get(key);
-    if (it) { this.pending.delete(key); this.place(it); }
+    if (it) {
+      if (!modelReady(it.model)) { this.requestModel(it); return null; }
+      this.pending.delete(key); this.pendingN.delete(key); this.place(it);
+    }
     return this.placed.get(key) ?? null;
+  }
+
+  /** Loads (if needed) and places an item's model so it can be targeted, e.g. before starting a ride. */
+  async prepare(key: string): Promise<boolean> {
+    const it = this.pending.get(key) ?? this.placed.get(key)?.item;
+    if (!it) return false;
+    await whenModelReady(it.model);
+    return this.ensurePlaced(key) !== null;
   }
 
   private place(item: CatalogueItem): void {
@@ -530,7 +576,10 @@ export class Globe {
     const plinth = this.buildPlinth(item);
     if (plinth) wrap.add(plinth);
     wrap.add(obj);
-    const p: Placed = { item, obj: wrap, seg: 0, t: 0, pts: item.route ? item.route.pts.map(x => [x[0], x[1]] as [number, number]) : [], heading: new THREE.Vector3() };
+    const anim: THREE.Object3D[] = [];
+    obj.traverse(o => { if (o.name === 'spin' || o.name === 'flap') anim.push(o); });
+    const p: Placed = { item, obj: wrap, seg: 0, t: 0, pts: item.route ? item.route.pts.map(x => [x[0], x[1]] as [number, number]) : [], heading: new THREE.Vector3(),
+      n: new THREE.Vector3(...latLonToVec(item.lat, item.lon)), anim };
     if (item.route) {
       // Spread vehicles along their routes deterministically.
       const h = [...item.key].reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -883,14 +932,12 @@ export class Globe {
   }
 
   private updateItems(dt: number): void {
-    const z = this.zoom;
+    const cdir = this.camera.position.clone().normalize(), hz = this.horizonCos(0.12);
     for (const p of this.placed.values()) {
       const it = p.item;
-      const layerOn = this.settings[TYPE_META[it.type].layer];
       const focus = this.selected === it.key || this.ride?.key === it.key;
-      const tierOk = z >= TIER_ZOOM[it.tier] || focus;
-      const filterOk = !this.itemFilter || this.itemFilter(it) || focus;
-      p.obj.visible = layerOn && tierOk && filterOk && !this.gameMode;
+      // Static models fully behind the horizon are skipped entirely (no draw calls, no animation).
+      p.obj.visible = this.shown(it) && (focus || !!it.route || p.n.dot(cdir) >= hz);
       if (!p.obj.visible) continue;
       const s = this.modelScale(it);
       p.obj.scale.setScalar(s);
@@ -918,10 +965,10 @@ export class Globe {
       else if (this.layers?.festivals.has(it.key) && !this.lowfx) inner.position.y = (0.5 + 0.5 * Math.sin(this.clock * 0.0024 + it.lon)) * 0.09;
       const isHovered = this.hoveredKey === it.key;
       inner.scale.setScalar(isHovered ? 1.14 : 1.0);
-      inner.traverse(o => {
+      for (const o of p.anim) {
         if (o.name === 'spin') o.rotation.z += dt * 0.002;
-        if (o.name === 'flap') o.rotation.z = Math.sin(this.clock * 0.004) * 0.2;
-      });
+        else o.rotation.z = Math.sin(this.clock * 0.004) * 0.2;
+      }
     }
     const sel = this.selected ? this.placed.get(this.selected) : null;
     this.selRing.visible = !!sel?.obj.visible;
@@ -1075,7 +1122,8 @@ export class Globe {
     this.clock += dt;
     const animate = !this.lowfx || now - this.lastLabel > 1000;
     this.updateCamera(dt);
-    if (this.pending.size) this.drainPlacement(this.lowfx ? 6 : 10);
+    // Re-scan the queue when the view changed (or every ¼ s for moving vehicles / freshly loaded packs).
+    if (this.pending.size && (this.dirty || now - this.lastDrain > 250)) { this.lastDrain = now; this.drainPlacement(this.lowfx ? 6 : 10); }
     if (!animate && !this.dirty) return;
     this.updateItems(dt);
     this.updateSun();

@@ -2,7 +2,7 @@
 // Query params: ?type=landmark|animal|discovery|vehicle  &keys=eiffel,lion  &cols=4  &size=320  &yaw=0.6  &pitch=0.35
 import * as THREE from 'three';
 import { CATALOGUE } from '../src/shared/data/catalogue.ts';
-import { buildModel } from '../src/client/models/kit.ts';
+import { buildModel, whenModelReady } from '../src/client/models/kit.ts';
 import { setupStudio } from '../src/client/models/preview.ts';
 
 const q = new URLSearchParams(location.search);
@@ -21,6 +21,7 @@ setupStudio(renderer, scene);
 const camera = new THREE.PerspectiveCamera(28, 1, 0.05, 50);
 const grid = document.getElementById('grid')!;
 
+await Promise.all(items.map(i => whenModelReady(i.model)));
 const timings: [string, number][] = [];
 for (const item of items) {
   const t0 = performance.now();

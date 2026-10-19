@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { CatalogueItem } from '../../shared/data/types.ts';
-import { buildModel } from './kit.ts';
+import { buildModel, modelReady, whenModelReady } from './kit.ts';
 import { h } from '../ui/dom.ts';
 
 interface ActivePreview {
@@ -92,6 +92,14 @@ function buildPreviewScene(item: CatalogueItem): THREE.Group {
   return wrap;
 }
 
+/** Empty turntable shown for the moment it takes to fetch a model's hero pack. */
+function placeholderGroup(): THREE.Group {
+  const g = new THREE.Group();
+  g.userData.fitH = 0.6; g.userData.fitW = 1;
+  g.add(contactShadow());
+  return g;
+}
+
 const isLowFx = () => typeof location !== 'undefined' && new URLSearchParams(location.search).has('lowfx');
 
 function renderOne(p: ActivePreview): void {
@@ -164,7 +172,7 @@ export function createModelPreview(item: CatalogueItem, opts: { width?: number; 
     canvas,
     ctx,
     item,
-    group: buildPreviewScene(item),
+    group: modelReady(item.model) ? buildPreviewScene(item) : placeholderGroup(),
     yaw: 0.45,
     pitch: 0.08,
     dragging: false,
@@ -194,6 +202,7 @@ export function createModelPreview(item: CatalogueItem, opts: { width?: number; 
   canvas.addEventListener('pointercancel', stopDrag);
 
   renderOne(preview);
+  if (!modelReady(item.model)) void whenModelReady(item.model).then(() => { preview.group = buildPreviewScene(item); renderOne(preview); });
   if (!isLowFx()) {
     activePreviews.add(preview);
     if (!rafId) {

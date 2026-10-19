@@ -375,7 +375,7 @@ export class Shell {
           extra.length ? h('dl', { class: 'facts' }, ...extra.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v)))) : null) : null,
         h('div', { class: 'info-footer' },
           it.type !== 'vehicle' ? h('div', { class: 'reactions' }, react('like', 'heart'), react('visited', 'flag')) : null,
-          it.route ? h('button', { class: 'cta cta-sm', 'data-testid': 'ride', html: icon('ride', 16), onclick: () => this.startRide(it) }, h('span', {}, t('ride'))) : null,
+          it.route ? h('button', { class: 'cta cta-sm', 'data-testid': 'ride', html: icon('ride', 16), onclick: () => void this.startRide(it) }, h('span', {}, t('ride'))) : null,
           section ? h('a', { class: 'read-more', href: url(`${section}/${it.slug}/`) }, t('readMore').replace(/\s*→$/, ''), h('span', { html: icon('arrow', 14) })) : null)));
     if (HAS_API && it.type !== 'vehicle') void api.reactions(it.key).then(r => this.setCounts(r)).catch(() => {});
   }
@@ -402,8 +402,8 @@ export class Shell {
   }
 
   // ---------- ride ----------
-  startRide(it: CatalogueItem): void {
-    if (!this.globe.startRide(it.key)) return;
+  async startRide(it: CatalogueItem): Promise<void> {
+    if (!(await this.globe.prepare(it.key)) || !this.globe.startRide(it.key)) return;
     this.info.classList.add('hidden');
     document.body.classList.add('riding');
     let first = false;

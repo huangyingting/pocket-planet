@@ -9,7 +9,7 @@ import { NATURE_BUILDERS } from './nature.ts';
 import { VEHICLE_BUILDERS } from './vehicles.ts';
 import { DISCOVERY_BUILDERS } from './discoveries.ts';
 import { ICON_BUILDERS } from './icons.ts';
-import { HEROES } from './heroes/index.ts';
+import { heroBuilder, heroReady, whenHeroReady } from './heroes/index.ts';
 
 export { mat };
 const B: Record<string, Builder> = {
@@ -1133,15 +1133,24 @@ function bakeStaticMeshes(gp: THREE.Group): void {
 
 const modelProtoCache = new Map<string, THREE.Group>();
 
+/** True when `buildModel(recipe)` can produce the final model synchronously (its hero pack is loaded). */
+export const modelReady = (recipe: ModelRecipe): boolean => heroReady(recipe.hero);
+/** Loads whatever `buildModel(recipe)` needs (the recipe's hero pack). */
+export const whenModelReady = (recipe: ModelRecipe): Promise<void> => whenHeroReady(recipe.hero);
+
+/**
+ * Builds (or clones a cached prototype of) a recipe's model. Call `whenModelReady` first for hero recipes;
+ * if the pack is still loading this returns the generic kind model without caching it.
+ */
 export function buildModel(recipe: ModelRecipe): THREE.Group {
   const key = JSON.stringify(recipe);
   let proto = modelProtoCache.get(key);
   if (!proto) {
     proto = new THREE.Group();
-    const hero = typeof recipe.hero === 'string' ? HEROES[recipe.hero] : undefined;
+    const hero = heroBuilder(recipe.hero);
     (hero ?? B[recipe.kind] ?? FALLBACK)(proto, { color: '#cccccc', ...recipe });
     bakeStaticMeshes(proto);
-    modelProtoCache.set(key, proto);
+    if (hero || heroReady(recipe.hero)) modelProtoCache.set(key, proto);
   }
   return proto.clone(true);
 }
