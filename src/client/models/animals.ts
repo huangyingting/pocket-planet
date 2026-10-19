@@ -17,6 +17,7 @@ export function pblob(p: THREE.Object3D, c: string, x: number, y: number, z: num
   const geo = new THREE.SphereGeometry(1, sg, Math.round(sg * 0.7));
   geo.applyMatrix4(new THREE.Matrix4().compose(
     new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rot[0], rot[1], rot[2])), new THREE.Vector3(rx, ry, rz)));
+  if (isInk(paint)) return inkMesh(add(p, geo, mat('#ffffff', { flat: false, vc: true }), 0, 0, 0, 1, 1, 1), c, paint);
   return add(p, paintFaces(geo, c, paint), mat('#ffffff', { flat: false, vc: true }), 0, 0, 0, 1, 1, 1);
 }
 
@@ -29,6 +30,7 @@ const ellip = (p: THREE.Object3D, c: string, x: number, y: number, z: number, rx
 
 /** prims.sweep, always smooth-shaded: faceted normals + per-face paint read as a pixel checker on organic forms. */
 function sweep(p: THREE.Object3D, st: Parameters<typeof sweep0>[1], c: string, o: Parameters<typeof sweep0>[3] = {}): THREE.Mesh {
+  if (isInk(o.paint)) return inkMesh(sweep0(p, st, c, { ...o, paint: undefined, flat: false }), c, o.paint);
   return sweep0(p, st, c, { ...o, flat: false });
 }
 
@@ -67,8 +69,181 @@ function vc(h: string): THREE.Color {
   if (!c) { if (VCOL.size > 6000) VCOL.clear(); c = new THREE.Color(h); VCOL.set(h, c); }
   return c;
 }
+// ---- Crisp coat markings: triangles are cut along the zero isoline of a smooth field, so stripe / spot edges are
+// clean wavy curves instead of following the mesh's triangle staircase ----
+type Field = (x: number, y: number, z: number, nx: number, ny: number, nz: number) => number;
+/** One marking layer: where `f` > 0 the surface is inked with `c`; `lv` = adaptive subdivision levels near the edge. */
+interface InkLayer { f: Field; c: string | Paint; lv?: number }
+type Inked = Paint & { ink?: InkLayer[]; base?: Paint };
+/** Paint whose markings are rendered as crisp vector edges by the sweep / blob / surface helpers (falls back per face elsewhere). */
+function inked(base: Paint, ...ink: InkLayer[]): Paint {
+  const p: Inked = (x, y, z, nx, ny, nz) => {
+    for (let i = ink.length - 1; i >= 0; i--) {
+      const L = ink[i];
+      if (L.f(x, y, z, nx, ny, nz) > 0) return typeof L.c === 'string' ? L.c : L.c(x, y, z, nx, ny, nz);
+    }
+    return base(x, y, z, nx, ny, nz);
+  };
+  p.ink = ink; p.base = base;
+  return p;
+}
+type Vx = number[]; // x y z nx ny nz r g b s
+function vlerp(a: Vx, b: Vx, t: number): Vx {
+  const o = new Array(10);
+  for (let i = 0; i < 10; i++) o[i] = a[i] + (b[i] - a[i]) * t;
+  const l = Math.hypot(o[3], o[4], o[5]) || 1;
+  o[3] /= l; o[4] /= l; o[5] /= l;
+  return o;
+}
+/** Re-colour a mesh per vertex with an inked paint, splitting triangles along every layer's isoline. */
+function inkMesh<T extends THREE.Mesh>(m: T, base: string, P: Inked, minLen = 0.005): T {
+  let geo = m.geometry as THREE.BufferGeometry;
+  if (geo.index) geo = geo.toNonIndexed();
+  if (!geo.getAttribute('normal')) geo.computeVertexNormals();
+  const pa = geo.getAttribute('position'), na = geo.getAttribute('normal'), bc = vc(base), bp = P.base!;
+  let tris: Vx[][] = [];
+  for (let i = 0; i < pa.count; i += 3) {
+    const t: Vx[] = [];
+    for (let k = i; k < i + 3; k++) {
+      const x = pa.getX(k), y = pa.getY(k), z = pa.getZ(k), nx = na.getX(k), ny = na.getY(k), nz = na.getZ(k);
+      const h = bp(x, y, z, nx, ny, nz), c = h ? vc(h) : bc;
+      t.push([x, y, z, nx, ny, nz, c.r, c.g, c.b, 0]);
+    }
+    tris.push(t);
+  }
+  const ml2 = minLen * minLen, d2 = (a: Vx, b: Vx) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+  // Exact position key on a 25 µm grid (17 bits per axis, unique within ±1.6 units)
+  const key = (v: Vx) => ((Math.round(v[0] * 4e4) & 131071) * 131072 + (Math.round(v[1] * 4e4) & 131071)) * 131072 + (Math.round(v[2] * 4e4) & 131071);
+  // Soup corners / shared-edge midpoints repeat the same positions many times: evaluate each position once per layer
+  const memos = P.ink!.map(() => new Map<number, number>());
+  const evOf = (L: InkLayer, memo: Map<number, number>) => (v: Vx) => {
+    const k = key(v);
+    let f = memo.get(k);
+    if (f === undefined) { f = L.f(v[0], v[1], v[2], v[3], v[4], v[5]); memo.set(k, f); }
+    v[9] = f; return v;
+  };
+  // Snap: slide base-mesh vertices that lie close to an edge onto it (exact zero), so most crossings need no extra
+  // triangles. Only original (conforming) vertices move, before any refinement, so no cracks open.
+  const groups = new Map<number, Vx[]>(), locked = new Set<number>();
+  for (const t of tris) for (const v of t) { const k = key(v); const g = groups.get(k); if (g) g.push(v); else groups.set(k, [v]); }
+  P.ink!.forEach((L, li) => {
+    const ev = evOf(L, memos[li]);
+    for (const t of tris) for (const v of t) ev(v);
+    for (const t of tris) for (let e = 0; e < 3; e++) {
+      const p = t[e], q = t[(e + 1) % 3];
+      if (p[9] === 0 || q[9] === 0 || (p[9] > 0) === (q[9] > 0)) continue;
+      const u = p[9] / (p[9] - q[9]), tg = u < 0.3 ? p : u > 0.7 ? q : null;
+      if (!tg) continue;
+      const kt = key(tg), g = groups.get(kt);
+      if (!g || locked.has(kt)) continue;
+      // Only where the field is near-linear along the edge (midpoint agrees with the interpolation)
+      const fm = L.f((p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2, (p[3] + q[3]) / 2, (p[4] + q[4]) / 2, (p[5] + q[5]) / 2);
+      if (Math.abs(fm - (p[9] + q[9]) / 2) > 0.15 * Math.abs(p[9] - q[9])) continue;
+      const x = p[0] + (q[0] - p[0]) * u, y = p[1] + (q[1] - p[1]) * u, z = p[2] + (q[2] - p[2]) * u;
+      for (const c of g) { c[0] = x; c[1] = y; c[2] = z; c[9] = 0; }
+      const nk = key(g[0]);
+      locked.add(nk); groups.delete(kt); groups.set(nk, g); memos[li].set(nk, 0);
+    }
+  });
+  P.ink!.forEach((L, li) => {
+    const ev = evOf(L, memos[li]);
+    for (const t of tris) for (const v of t) ev(v);
+    // Refine only triangles the edge passes through (sign change among corners and edge midpoints)
+    for (let lv = 0; lv < (L.lv ?? 3); lv++) {
+      const out: Vx[][] = [];
+      for (const t of tris) {
+        const [a, b, c] = t;
+        if (Math.max(d2(a, b), d2(b, c), d2(c, a)) < ml2) { out.push(t); continue; }
+        // Split only where a feature hides between two corners (both corners on one side, edge midpoint on the other):
+        // a thin stripe or small spot the straight cut would miss. One such edge → bisect it, otherwise 4-way split.
+        const ab = ev(vlerp(a, b, 0.5)), bc2 = ev(vlerp(b, c, 0.5)), ca = ev(vlerp(c, a, 0.5));
+        const hid = (p: Vx, q: Vx, m: Vx) => d2(p, q) > ml2 && (p[9] === 0 ? (m[9] > 0) !== (q[9] > 0) && q[9] !== 0
+          : q[9] === 0 ? (m[9] > 0) !== (p[9] > 0) : (p[9] > 0) === (q[9] > 0) && (m[9] > 0) !== (p[9] > 0));
+        const e0 = hid(a, b, ab), e1 = hid(b, c, bc2), e2 = hid(c, a, ca), nb = +e0 + +e1 + +e2;
+        if (nb === 0) out.push(t);
+        else if (nb > 1) out.push([a, ab, ca], [ab, b, bc2], [ca, bc2, c], [ab, bc2, ca]);
+        else if (e0) out.push([a, ab, c], [ab, b, c]);
+        else if (e1) out.push([a, b, bc2], [a, bc2, c]);
+        else out.push([a, b, ca], [ca, b, c]);
+      }
+      tris = out;
+    }
+    const ink = (v: Vx): Vx => {
+      const h = typeof L.c === 'string' ? L.c : L.c(v[0], v[1], v[2], v[3], v[4], v[5]), c = h ? vc(h) : bc;
+      return [v[0], v[1], v[2], v[3], v[4], v[5], c.r, c.g, c.b, v[9]];
+    };
+    // Edge crossing located from the corners plus the edge midpoint (piecewise-linear), so curved edges stay accurate
+    const cut = (p: Vx, q: Vx) => {
+      const m = ev(vlerp(p, q, 0.5));
+      return vlerp(p, q, (m[9] > 0) !== (p[9] > 0) ? 0.5 * p[9] / (p[9] - m[9]) : 0.5 + 0.5 * m[9] / (m[9] - q[9]));
+    };
+    const keep = (v: Vx) => v, side = (v: Vx) => (v[9] > 0 ? ink : keep);
+    const out: Vx[][] = [];
+    for (const t of tris) {
+      const f0 = t[0][9], f1 = t[1][9], f2 = t[2][9];
+      if (f0 <= 0 && f1 <= 0 && f2 <= 0) { out.push(t); continue; }
+      if (f0 >= 0 && f1 >= 0 && f2 >= 0) { out.push(t.map(ink)); continue; }
+      const z = f0 === 0 ? 0 : f1 === 0 ? 1 : f2 === 0 ? 2 : -1;
+      if (z >= 0) {
+        // Edge runs through a snapped corner: one cut on the opposite side
+        const a = t[(z + 1) % 3], b = t[(z + 2) % 3], p = cut(a, b), fa = side(a), fb = side(b);
+        out.push([fa(t[z]), fa(a), fa(p)], [fb(t[z]), fb(p), fb(b)]);
+        continue;
+      }
+      const i0 = f0 > 0, i1 = f1 > 0, i2 = f2 > 0;
+      const k = i0 !== i1 && i0 !== i2 ? 0 : i1 !== i0 && i1 !== i2 ? 1 : 2;
+      const a = t[k], b = t[(k + 1) % 3], c = t[(k + 2) % 3];
+      const pab = cut(a, b), pac = cut(a, c);
+      const lone = a[9] > 0, fa = lone ? ink : keep, fo = lone ? keep : ink;
+      out.push([fa(a), fa(pab), fa(pac)], [fo(pab), fo(b), fo(c)], [fo(pab), fo(c), fo(pac)]);
+    }
+    tris = out;
+  });
+  const n = tris.length * 3, po = new Float32Array(n * 3), no = new Float32Array(n * 3), co = new Float32Array(n * 3);
+  let j = 0;
+  for (const t of tris) for (const v of t) {
+    po[j] = v[0]; po[j + 1] = v[1]; po[j + 2] = v[2];
+    no[j] = v[3]; no[j + 1] = v[4]; no[j + 2] = v[5];
+    co[j] = v[6]; co[j + 1] = v[7]; co[j + 2] = v[8];
+    j += 3;
+  }
+  const ng = new THREE.BufferGeometry();
+  ng.setAttribute('position', new THREE.BufferAttribute(po, 3));
+  ng.setAttribute('normal', new THREE.BufferAttribute(no, 3));
+  ng.setAttribute('color', new THREE.BufferAttribute(co, 3));
+  m.geometry = ng;
+  m.material = mat('#ffffff', { flat: false, vc: true });
+  return m;
+}
+const isInk = (p?: Paint): p is Inked => Boolean(p && (p as Inked).ink);
+/** Distance from u to the nearest integer (0 on a stripe centre line, 0.5 midway between stripes). */
+const tri = (u: number) => Math.abs(u - Math.round(u));
+/** Jittered-grid cell noise with well-separated sites: nearest distance f1, second f2, site id hash and offset to the site. */
+const SITES = new Map<number, Map<number, number[]>>();
+function cells(x: number, y: number, z: number, jit = 0.6): { f1: number; f2: number; id: number; dx: number; dy: number; dz: number } {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  let f1 = 9, f2 = 9, id = 0, dx = 0, dy = 0, dz = 0;
+  // With small jitter the nearest site is always in this cell or the neighbour on the near side of each axis
+  const n = jit <= 0.5, i0 = n ? (x - xi < 0.5 ? -1 : 0) : -1, j0 = n ? (y - yi < 0.5 ? -1 : 0) : -1, k0 = n ? (z - zi < 0.5 ? -1 : 0) : -1;
+  const i1 = n ? i0 + 1 : 1, j1 = n ? j0 + 1 : 1, k1 = n ? k0 + 1 : 1;
+  let cache = SITES.get(jit);
+  if (!cache || cache.size > 300000) SITES.set(jit, cache = new Map());
+  for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) for (let k = k0; k <= k1; k++) {
+    const a = xi + i, b = yi + j, c = zi + k, key = ((a + 4096) * 8192 + b + 4096) * 8192 + c + 4096;
+    let st = cache.get(key);
+    if (!st) {
+      st = [a + 0.5 + (hash3(a, b, c) - 0.5) * jit, b + 0.5 + (hash3(b + 17, c, a) - 0.5) * jit, c + 0.5 + (hash3(c + 31, a, b) - 0.5) * jit, hash3(a + 5, b + 9, c + 2)];
+      cache.set(key, st);
+    }
+    const ex = x - st[0], ey = y - st[1], ez = z - st[2], d = Math.sqrt(ex * ex + ey * ey + ez * ez);
+    if (d < f1) { f2 = f1; f1 = d; id = st[3]; dx = ex; dy = ey; dz = ez; } else if (d < f2) f2 = d;
+  }
+  return { f1, f2, id, dx, dy, dz };
+}
+
 /** Re-colour an (unshared) mesh geometry per vertex. */
 function vpaint<T extends THREE.Mesh>(m: T, base: string, paint?: Paint): T {
+  if (isInk(paint)) return inkMesh(m, base, paint);
   const geo = m.geometry;
   if (!geo.getAttribute('normal')) geo.computeVertexNormals();
   const pos = geo.getAttribute('position'), nor = geo.getAttribute('normal');
@@ -330,46 +505,155 @@ function tuft(p: THREE.Object3D, c: string, at: V3, dir: V3, len: number, r: num
 }
 
 // ---- Coat pattern painters ----
-/** Tiger: tapering forked black stripes across a countershaded orange coat, fading out on the white belly. */
-function tigerP(c: string, white: string, axis: 'z' | 'y'): Paint {
-  return (x, y, z, _nx, ny) => {
-    const wt = sst(-0.12, -0.62, ny);
-    if (wt > 0.9) return white;
-    const base = wt > 0 ? mx(c, white, wt) : ny > 0.5 ? mx(c, sh(c, 0.86), sst(0.5, 0.95, ny)) : c;
-    const w = fbm(x * 7 + 3, y * 7, z * 7);
-    const v = axis === 'z' ? z * 46 + w * 7 + Math.abs(x) * 5 : y * 58 + w * 6 + z * 8;
-    const thr = 0.3 + wt * 0.7 + (fbm(x * 15, y * 15 + 4, z * 15) - 0.5) * 0.9 + (axis === 'y' ? 0.2 : 0);
-    return Math.sin(v) > thr ? '#1d1714' : speck(base, x, y, z, 0.04);
+const INK = '#1b1512';
+/**
+ * Bengal tiger coat: countershaded orange fading to a white belly and inner legs, crossed by crisp black stripes that
+ * wander, swell and pinch, taper to points toward the belly and often split into doubles low on the flanks.
+ */
+function tigerCoat(c: string, white: string, part: 'body' | 'leg' | 'neck' | 'tail' | 'head' | 'cheek', o: { a?: number; y0?: number; z0?: number } = {}): Paint {
+  const dk = sh(c, 0.84), pale = mx(c, '#f3dcb6', 0.5);
+  const base: Paint = (x, y, z, nx, ny) => {
+    let b = c;
+    if (part === 'leg') {
+      const inner = sst(-0.3, -0.8, nx * Math.sign(x || 1));
+      b = mx(mx(c, pale, sst(-0.0, -0.4, nx * Math.sign(x || 1))), white, Math.max(inner * 0.9, sst(-0.2, -0.7, ny)));
+    } else if (part === 'cheek') b = white;
+    else {
+      const wt = sst(-0.12, -0.62, ny);
+      b = wt > 0 ? mx(mx(c, pale, sst(0, 0.5, wt)), white, sst(0.35, 1, wt)) : ny > 0.45 ? mx(c, dk, sst(0.45, 0.95, ny)) : c;
+    }
+    if (part === 'head') {
+      // White eyebrow spots, pale chin and muzzle sides, ruddier forehead
+      const brow = Math.hypot((Math.abs(x) - 0.03) * 1.3, y - 0.042) < 0.011 && z > 0.06;
+      if (brow) b = white;
+      else if (y < -0.012 && z > 0.06) b = mx(b, white, sst(-0.012, -0.03, y));
+    }
+    return speck(b, x, y, z, 0.035);
   };
+  let f: Field;
+  if (part === 'body') f = (x, y, z, _nx, ny) => {
+    const t = sst(-0.55, 0.8, ny), rear = sst(-0.12, -0.3, z);
+    // Phase along the body; on the haunch the stripes swing round to slant across the thigh
+    const u = z * 17 + (fbm(x * 8 + 2, y * 8, z * 8, 3) - 0.5) * 2.6 + Math.abs(x) * 3 + (0.32 - y) * (3 + rear * 6);
+    const id = Math.round(u), h = hash3(id, 3, 7), h2 = hash3(id, 11, 2);
+    const e = 0.08 + h * 0.42;
+    let w = (0.12 + h2 * 0.1) * Math.pow(sst(e, e + 0.42, t), 0.8) * (0.7 + 0.6 * vnoise(x * 26, y * 26, z * 26));
+    let d = Math.abs(u - id);
+    if (h2 > 0.5) {
+      const k = sst(0.92, 0.5, t);
+      d = Math.abs(d - w * 0.8 * k); w *= 1 - 0.5 * k;
+    }
+    const u2 = u - 0.5, id2 = Math.round(u2), w2 = 0.08 * sst(0.7, 0.95, t) * +(hash3(id2, 5, 5) > 0.5);
+    return Math.max(w - d, w2 - Math.abs(u2 - id2));
+  };
+  else if (part === 'leg') f = (x, y, z, nx) => {
+    const out = nx * Math.sign(x || 1);
+    const u = y * 24 + (fbm(x * 9, y * 9 + 5, z * 9, 3) - 0.5) * 1.8 + z * 4;
+    const id = Math.round(u), h = hash3(id, 9, 1);
+    const w = (0.1 + h * 0.08) * sst(0.0 + h * 0.4, 0.5 + h * 0.4, out) * sst(0.08, 0.14, y);
+    return w - tri(u);
+  };
+  else if (part === 'neck') {
+    const a = o.a ?? 0.42, sa = Math.sin(a), ca = Math.cos(a);
+    f = (x, y, z, _nx, ny) => {
+      const t = sst(-0.6, 0.6, ny);
+      const u = (y * sa + z * ca) * 20 + (fbm(x * 9, y * 9, z * 9 + 3, 3) - 0.5) * 2 + Math.abs(x) * 2;
+      const id = Math.round(u), h = hash3(id, 2, 13);
+      return (0.1 + h * 0.08) * Math.pow(sst(0.15 + h * 0.4, 0.6 + h * 0.3, t), 0.8) - tri(u);
+    };
+  } else if (part === 'tail') f = (x, y, z) => {
+    const d = Math.hypot(y - (o.y0 ?? 0), z - (o.z0 ?? 0));
+    const u = d * 21 + (fbm(x * 12, y * 12, z * 12, 2) - 0.5) * 0.6;
+    return d > 0.37 ? 1 : 0.2 + sst(0.05, 0.3, d) * 0.08 - tri(u);
+  };
+  else if (part === 'head') f = (x, y, z, nx, ny, nz) => {
+    const ax = Math.abs(x);
+    // Forehead: thin arcs concentric about the nose bridge, broken at the midline
+    const rr = Math.hypot(ax * 1.25, y + 0.02);
+    const fh = rr * 80 + (fbm(x * 40, y * 40, 3) - 0.5) * 1.0;
+    let s = sst(0.035, 0.05, y) * sst(0.35, 0.55, nz) * sst(0.09, 0.075, rr) * sst(0.04, 0.06, z) * (0.2 * sst(0.004, 0.012, ax)) - tri(fh);
+    // Sides of the head: stripes running down and back behind the eyes
+    const sd = (z - y * 0.8) * 36 + (fbm(x * 30, y * 30, z * 30) - 0.5) * 0.6, sid = Math.round(sd);
+    const g = +(Math.abs(nx) > 0.55) * +(z < 0.068) * +(y > -0.025) * +(y < 0.05) * +(hash3(sid, 4, 4) > 0.25);
+    s = Math.max(s, (0.12 + 0.16 * sst(0.05, -0.02, y)) * g - 0.9 * (1 - g) - tri(sd));
+    // Dark line trailing back from the outer eye corner
+    s = Math.max(s, 0.0035 - Math.abs(y - 0.02 + (0.09 - z) * 0.25) - Math.max(0, z - 0.088) * 2 - Math.max(0, 0.05 - z) * 0.2 - (ax < 0.04 ? 1 : 0));
+    return ny < -0.6 ? -1 : s;
+  };
+  else f = (x, y, z) => {
+    // Cheek ruff: two or three bold black bars sweeping back from the whisker pads
+    const u = (y * 1.1 + Math.abs(x) * 0.5 - z * 0.5) * 120 + (fbm(x * 30, y * 30, z * 30) - 0.5);
+    return (0.16 * sst(0.085, 0.055, z)) - tri(u);
+  };
+  return inked(base, { f, c: INK });
 }
-function zebraP(axis: 'z' | 'y' | 'rump' | 'neck', k = 1): Paint {
-  return (x, y, z, _nx, ny) => {
-    if (axis === 'z' && ny < -0.8) return '#f4f2ec';
-    const w = fbm(x * 8, y * 8, z * 8) * 2.6;
-    const v = axis === 'z' ? z * 62 * k + (y - 0.4) * 12 : axis === 'y' ? y * 82 * k : axis === 'rump' ? Math.hypot(y - 0.25, z + 0.2) * 70 * k : (y - z * 0.55) * 74 * k;
-    return Math.sin(v + w) > 0.08 ? '#151313' : '#f4f2ec';
+/** Plains-zebra coat: broad vertical torso stripes swinging round to horizontal bands over the haunch, thin leg rings,
+ * neck bands perpendicular to the neck, dorsal + belly midlines and fine face stripes. */
+function zebraCoat(part: 'body' | 'leg' | 'neck' | 'head' | 'tail', o: { by?: number; top?: number; zr?: number; a?: number } = {}): Paint {
+  const W = '#f4f2ec', B = '#151313';
+  const base: Paint = (x, y, z) => speck(W, x, y, z, 0.03);
+  let f: Field;
+  if (part === 'body') {
+    const by = o.by ?? 0.41, top = o.top ?? 0.52, zr = o.zr ?? -0.19;
+    f = (x, y, z, _nx, ny) => {
+      const wp = (fbm(x * 7 + 3, y * 7, z * 7, 3) - 0.5) * 1.1;
+      const ut = z * 20 + (by - y) * 2.5 + wp, uh = (top - y) * 22 + 0.3 + wp + Math.abs(x) * 12;
+      const k = sst(zr + 0.17, zr + 0.05, z), u = ut + (uh - ut) * k;
+      const s = 0.25 + 0.05 * (vnoise(x * 20, y * 20, z * 20) - 0.5) - tri(u);
+      const dorsal = 0.008 - Math.abs(x) - Math.max(0, 0.8 - ny) * 0.08;
+      const belly = 0.016 - Math.abs(x) - Math.max(0, ny + 0.8) * 0.1;
+      return Math.max(s, dorsal, belly);
+    };
+  } else if (part === 'leg') f = (x, y, z) => {
+    const u = y * 27 + (fbm(x * 10, y * 10, z * 10, 2) - 0.5) * 0.8 + Math.abs(x) * 6;
+    return 0.24 + 0.06 * sst(0.25, 0.05, y) - tri(u) + (y < 0.035 ? 1 : 0) * sst(0.045, 0.025, y);
   };
+  else if (part === 'neck') {
+    const a = o.a ?? 0.95, sa = Math.sin(a), ca = Math.cos(a);
+    f = (x, y, z) => 0.25 - tri((y * sa + z * ca) * 21 + (fbm(x * 8, y * 8, z * 8 + 5, 3) - 0.5) * 1.1 + Math.abs(x) * 3);
+  } else if (part === 'tail') f = (x, y, z) => 0.22 - tri(y * 44 + (fbm(x * 9, y * 9, z * 9) - 0.5) * 0.6);
+  else f = (x, y, z, nx) => {
+    // Face: fine bars across the nose, curving down and back over the cheeks; narrow vertical lines on the forehead
+    const wp = (fbm(x * 30, y * 30, z * 30, 2) - 0.5) * 0.7, side = sst(0.35, 0.8, Math.abs(nx));
+    const u0 = z * 38 + Math.abs(x) * 14 + wp, u1 = (z * 0.7 - y * 1.0) * 38 + wp;
+    return 0.25 + 0.05 * sst(0.16, 0.08, z) - tri(u0 + (u1 - u0) * side);
+  };
+  return inked(base, { f, c: B, lv: part === 'body' ? 2 : 1 });
 }
-function giraffeP(s = 13, pale = '#f1e2c2'): Paint {
-  return (x, y, z) => {
-    const [f1, f2] = worley(x * s, y * s, z * s);
-    if (f2 - f1 < 0.16) return pale;
-    const h = hash3(Math.floor(x * s * 0.5), Math.floor(y * s * 0.5), 3);
-    return f1 < 0.18 ? '#7a3a16' : h > 0.5 ? '#94471d' : '#a65a26';
+/** Giraffe coat: jagged chestnut patches separated by a pale cream network; patches shrink away on the lower legs. */
+function giraffeCoat(s: number, pale = '#efdcb4', legFade = false): Paint {
+  const base: Paint = (x, y, z) => speck(pale, x, y, z, 0.03);
+  const at = (x: number, y: number, z: number) => {
+    const w = 0.42;
+    const wx = vnoise(x * 11, y * 11, z * 11) + 0.5 * vnoise(x * 29, y * 29, z * 29), wy = vnoise(x * 11 + 7, y * 11, z * 11) + 0.5 * vnoise(x * 29 + 7, y * 29, z * 29);
+    return cells(x * s + (wx - 0.75) * w * 1.6, y * s + (wy - 0.75) * w * 1.6, z * s + (wx - wy) * w, 0.5);
   };
+  const f: Field = (x, y, z) => {
+    const c = at(x, y, z);
+    const lw = 0.13 + 0.05 * vnoise(x * 40, y * 40, z * 40) + (legFade ? sst(0.28, 0.1, y) * 0.6 : 0);
+    return c.f2 - c.f1 - lw;
+  };
+  const col: Paint = (x, y, z) => mx(mx('#8a4520', '#6e3216', vnoise(x * 14, y * 14, z * 14)), '#9a5426', sst(0.5, 0.8, vnoise(x * 40 + 3, y * 40, z * 40)) * 0.5);
+  return inked(base, { f, c: col, lv: legFade ? 1 : 2 });
 }
-/** Jaguar / snow-leopard rosettes: broken dark rings around a slightly darker centre (+ solid spots on legs). */
-function rosetteP(c: string, ring: string, fill: string | null, s = 21, belly = '#f5efe4', dots = false): Paint {
-  return (x, y, z, _nx, ny) => {
-    const bt = sst(-0.2, -0.65, ny);
-    if (bt > 0.92) return hash3(Math.floor(x * 40), Math.floor(y * 40), Math.floor(z * 40)) > 0.85 ? ring : belly;
-    const [f1, f2] = worley(x * s, y * s, z * s);
-    if (dots) return f1 < 0.22 ? ring : speck(bt > 0 ? mx(c, belly, bt) : c, x, y, z, 0.04);
-    const broken = fbm(x * s * 1.7, y * s * 1.7, z * s * 1.7) > 0.62;
-    if (f1 > 0.2 && f1 < 0.36 && f2 - f1 > 0.06 && !broken) return ring;
-    if (f1 <= 0.2 && fill) return fill;
-    return speck(bt > 0 ? mx(c, belly, bt) : c, x, y, z, 0.04);
+/** Jaguar / snow-leopard rosettes: broken rings (optionally with a darker centre and inner dots) that close up into solid
+ * spots on the belly, legs and head. `ring` = open rosette radius in cell units (0 → solid spots everywhere). */
+function rosetteCoat(c: string, ink: string, s: number, belly: string, o: { ring?: number; fill?: string; dots?: boolean; spot?: number } = {}): Paint {
+  const r0 = o.ring ?? 0.2, sp = o.spot ?? 0.16;
+  const base: Paint = (x, y, z, _nx, ny) => speck(mx(c, belly, sst(-0.15, -0.6, ny)), x, y, z, 0.035);
+  const at = (x: number, y: number, z: number) => cells(x * s, y * s, z * s, 0.32);
+  const shape = (ny: number) => sst(-0.65, -0.2, ny);
+  const ringF: Field = (x, y, z, _nx, ny) => {
+    const q = at(x, y, z), d = q.f1 || 1e-6, k = shape(ny) * (r0 > 0 ? 1 : 0), r = r0 * k * (0.85 + 0.3 * q.id);
+    const seg = vnoise(q.dx / d * 1.7 + q.id * 37, q.dy / d * 1.7 + q.id * 11, q.dz / d * 1.7);
+    const w = (0.085 + 0.03 * q.id) * (k > 0.5 ? sst(0.18, 0.3, seg) : 1) + (sp * (0.7 + 0.5 * q.id) - 0.085) * (1 - k);
+    return w - Math.abs(d - r);
   };
+  const L: InkLayer[] = [];
+  if (o.fill && r0 > 0) L.push({ f: (x, y, z, _nx, ny) => { const q = at(x, y, z); return r0 * shape(ny) * (0.85 + 0.3 * q.id) - 0.035 - q.f1; }, c: o.fill });
+  L.push({ f: ringF, c: ink });
+  if (o.dots && r0 > 0) L.push({ f: (x, y, z, _nx, ny) => { const q = at(x, y, z); return q.id > 0.4 && shape(ny) > 0.8 ? 0.055 - Math.hypot(q.dx - 0.04, q.dy, q.dz + 0.03) : -1; }, c: ink });
+  return inked(base, ...L);
 }
 
 // ---- Quadruped anatomy ----
@@ -613,6 +897,55 @@ function headGroup(gp: THREE.Group, F: Frame, yaw: number, pitch: number, roll =
   return grp(gp, F.hp, [pitch, yaw, roll]);
 }
 
+// ---- Habitat plinths: every land animal stands on a small, soft-edged patch of its home terrain ----
+type Hab = 'savanna' | 'jungle' | 'forest' | 'snow' | 'rock' | 'desert' | 'tundra' | 'puna' | 'prairie' | 'mud' | 'bamboo' | 'outback';
+const HAB: Record<Hab, { g: [string, string, string]; grass?: [string, string]; tall?: number; rock?: string }> = {
+  savanna: { g: ['#c2a964', '#a48a4c', '#dcc78c'], grass: ['#c9b36a', '#8f8a46'], tall: 1, rock: '#857b6c' },
+  jungle: { g: ['#5d5a30', '#3f4424', '#7a5a32'], grass: ['#6f9a3a', '#3f6a26'], tall: 1.5, rock: '#6f6a5c' },
+  forest: { g: ['#5c4a32', '#3e3222', '#62703a'], grass: ['#6a8a3e', '#4a6a2e'], tall: 0.8, rock: '#7a756c' },
+  bamboo: { g: ['#5f6a34', '#3f4a26', '#7a6a3e'], grass: ['#7aa648', '#4f7a30'], tall: 0.9, rock: '#7a756c' },
+  snow: { g: ['#eef3f8', '#c3d2e2', '#ffffff'], rock: '#6d6f74' },
+  rock: { g: ['#8d8983', '#5f5b55', '#b7b3aa'], grass: ['#9a9a5e', '#6e7440'], tall: 0.6, rock: '#7d7972' },
+  desert: { g: ['#dcb57a', '#c0955a', '#ecd09c'], grass: ['#a69a5a', '#7e7440'], tall: 0.5, rock: '#a07a56' },
+  tundra: { g: ['#7d7c4c', '#5e5a38', '#b9b48a'], grass: ['#9a8a4a', '#8a4a2a'], tall: 0.55, rock: '#7f7d78' },
+  puna: { g: ['#a89a62', '#857a4a', '#c9b986'], grass: ['#d8c27a', '#b09a52'], tall: 1.5, rock: '#7a7268' },
+  prairie: { g: ['#8f8a4e', '#6e6a3a', '#b8aa6a'], grass: ['#a8a256', '#76803e'], tall: 1.1, rock: '#7a756c' },
+  mud: { g: ['#6e5c46', '#4c3e2e', '#8a7458'], grass: ['#6a8a3e', '#4a6a2e'], tall: 1.2, rock: '#6a645a' },
+  outback: { g: ['#b8693a', '#94502c', '#d39462'], grass: ['#b7a85c', '#8c8a44'], tall: 0.9, rock: '#8a5236' },
+};
+function habitat(gp: THREE.Group, kind: Hab, rx: number, rz: number, o: { tufts?: number; rocks?: number; seed?: number; cx?: number; cz?: number } = {}): void {
+  const P = HAB[kind], [g0, g1, g2] = P.g, sd = o.seed ?? 1, cx = o.cx ?? 0, cz = o.cz ?? 0;
+  const snow = kind === 'snow';
+  vblob(gp, g0, cx, -0.026, cz, rx, 0.03, rz, (x, y, z) => {
+    let col = mx(g0, g1, sst(0.45, 0.8, vnoise(x * 9 + sd, 1, z * 9)) * 0.65);
+    col = mx(col, g2, sst(0.58, 0.85, vnoise(x * 26, 2 + sd, z * 26)) * 0.55);
+    if (kind === 'desert') col = mx(col, g1, sst(0.6, 0.95, Math.sin(x * 70 + z * 30 + vnoise(x * 6, 1, z * 6) * 6)) * 0.35);
+    if (kind === 'tundra') col = mx(col, g2, sst(0.35, 0.2, worley(x * 22, 1, z * 22)[0]) * 0.8);
+    if (snow) col = mx(col, g1, sst(0.2, -0.5, y) * 0.4);
+    return speck(col, x, y, z, 0.03);
+  }, [0, 0, 0], 26);
+  // Rocks / snow drifts
+  const nr = o.rocks ?? 1;
+  for (let i = 0; i < nr; i++) {
+    const a = 0.7 + i * 2.3 + sd, rr = 0.78 + hash3(i, sd, 2) * 0.1, x = cx + Math.cos(a) * rx * rr, z = cz + Math.sin(a) * rz * rr, k = 0.8 + hash3(i, sd, 4) * 0.5;
+    const rc = snow ? g2 : P.rock!;
+    vblob(gp, rc, x, 0.0, z, 0.06 * k, 0.034 * k, 0.045 * k, (px, py, pz) => snow ? mx(g2, g1, sst(0.3, -0.6, py - 0.01) * 0.6)
+      : mx(mx(rc, sh(rc, 0.72), sst(0.4, 0.8, vnoise(px * 40, py * 40, pz * 40)) * 0.7), g2, sst(0.025, 0.04, py) * (kind === 'rock' ? 0 : 0.25)), [0, a, 0], 14);
+  }
+  // Grass tufts around the rim (kept clear of the feet in the middle)
+  if (P.grass) {
+    const nt = o.tufts ?? 6, tall = P.tall ?? 1;
+    for (let i = 0; i < nt; i++) {
+      const a0 = i * (Math.PI * 2 / nt) + hash3(i, sd, 6) * 0.8 + sd, rr = 0.7 + hash3(i, sd, 7) * 0.2;
+      const x0 = cx + Math.cos(a0) * rx * rr, z0 = cz + Math.sin(a0) * rz * rr, nb = kind === 'puna' ? 9 : 5;
+      for (let k = 0; k < nb; k++) {
+        const a = k * (Math.PI * 2 / nb) + i, l = (0.045 + hash3(i, k, 6 + sd) * 0.04) * tall;
+        blade(gp, mx(P.grass[0], P.grass[1], hash3(k, i, 6 + sd)), [x0, 0, z0], [x0 + Math.cos(a) * l * 0.4, l, z0 + Math.sin(a) * l * 0.4], 0.008, 0.003, [-Math.sin(a), 0, Math.cos(a)]);
+      }
+    }
+  }
+}
+
 // ---- Species ----
 type Rec = Record<string, unknown> & { color?: string };
 
@@ -692,29 +1025,30 @@ function lion(gp: THREE.Group, r: Rec): void {
 }
 
 function bigcat(gp: THREE.Group, r: Rec, sp: string): void {
-  const c = r.color!;
+  // Snow leopard: smoky grey-beige rather than chalk white
+  const c = sp === 'snowleopard' ? mx(r.color!, '#b3ab9c', 0.5) : r.color!;
   const white = sp === 'snowleopard' ? '#f7f5ef' : '#f6efe2';
   let body: Paint, legP: Paint, neckP: Paint, headP: Paint, cheekP: Paint;
   let spec: Partial<Quad>;
   if (sp === 'tiger') {
-    body = tigerP(c, white, 'z'); legP = tigerP(c, white, 'y'); neckP = tigerP(c, white, 'y');
-    headP = (x, y, z, nx, ny, nz) => {
-      if (nz > 0.2 && y > 0.026 && Math.abs(x) > 0.016 && Math.abs(x) < 0.05 && y < 0.05) return white;
-      if (y > 0.03 && nz > -0.3) return Math.sin(y * 260 + Math.abs(x) * 160) > 0.55 && Math.abs(x) < 0.05 ? '#1d1714' : c;
-      return tigerP(c, white, 'y')(x, y, z, nx, ny, nz);
-    };
-    cheekP = (x, y) => (Math.sin((y + Math.abs(x) * 0.8) * 200) > 0.72 ? '#1d1714' : white);
+    body = tigerCoat(c, white, 'body'); legP = tigerCoat(c, white, 'leg'); neckP = tigerCoat(c, white, 'neck');
+    headP = tigerCoat(c, white, 'head'); cheekP = tigerCoat(c, white, 'cheek');
     spec = { span: 0.5, leg: 0.2, bw: 0.096, bh: 0.1, R: 0.03, tuck: 0.3 };
   } else if (sp === 'jaguar') {
-    const fill = sh(c, 0.84);
-    body = rosetteP(c, '#21160f', fill, 20, '#f5ecd8'); legP = rosetteP(c, '#21160f', null, 30, '#f5ecd8', true); neckP = rosetteP(c, '#21160f', null, 28, '#f5ecd8', true);
-    headP = rosetteP(c, '#21160f', null, 46, '#f5ecd8', true); cheekP = (x, y, z, nx, ny, nz) => (ny < -0.2 ? '#f5ecd8' : headP(x, y, z, nx, ny, nz));
+    const cr = '#f5ecd8', ink = '#21160f';
+    body = rosetteCoat(c, ink, 16, cr, { ring: 0.21, fill: sh(c, 0.84), dots: true }); legP = rosetteCoat(c, ink, 24, cr, { ring: 0, spot: 0.24 });
+    neckP = rosetteCoat(c, ink, 19, cr, { ring: 0.19, fill: sh(c, 0.86) });
+    headP = rosetteCoat(c, ink, 36, cr, { ring: 0, spot: 0.2 }); cheekP = headP;
     spec = { span: 0.42, leg: 0.17, bw: 0.104, bh: 0.104, R: 0.033, tuck: 0.2, pawK: 1.12 };
   } else {
-    body = rosetteP(c, '#4d5058', sh(c, 0.92), 18, white); legP = rosetteP(c, '#4d5058', null, 28, white, true); neckP = rosetteP(c, '#4d5058', null, 26, white, true);
-    headP = rosetteP(c, '#4d5058', null, 44, white, true); cheekP = (x, y, z, nx, ny, nz) => (ny < -0.2 ? white : headP(x, y, z, nx, ny, nz));
+    const ink = '#3f4249';
+    body = rosetteCoat(c, ink, 13, white, { ring: 0.22, fill: sh(c, 0.9) }); legP = rosetteCoat(c, ink, 22, white, { ring: 0, spot: 0.22 });
+    neckP = rosetteCoat(c, ink, 16, white, { ring: 0.2 });
+    headP = rosetteCoat(c, ink, 34, white, { ring: 0, spot: 0.18 }); cheekP = headP;
     spec = { span: 0.38, leg: 0.16, bw: 0.088, bh: 0.094, R: 0.028, tuck: 0.22, pawK: 1.25, flat: true };
   }
+  if (sp === 'snowleopard') habitat(gp, 'rock', 0.3, 0.4, { seed: 4, rocks: 3, tufts: 3 });
+  else habitat(gp, 'jungle', sp === 'tiger' ? 0.34 : 0.32, sp === 'tiger' ? 0.48 : 0.44, { seed: sp === 'tiger' ? 2 : 5 });
   const F = quad(gp, { c, feet: 'paw', foot: sp === 'tiger' ? white : undefined, body, legP, neckP, neck: 0.12, neckA: 0.42, neckW: 0.058, stride: 0.045, ...spec } as Quad);
   const h = headGroup(gp, F, -0.32, 0.18, 0.03);
   catHead(h, c, {
@@ -729,17 +1063,17 @@ function bigcat(gp: THREE.Group, r: Rec, sp: string): void {
   }
   const sn = sp === 'snowleopard';
   const tailP: Paint = sp === 'tiger'
-    ? (x, y, z) => (z < F.zr - 0.38 ? '#1d1714' : Math.sin(Math.hypot(y - F.tail0[1], z - F.tail0[2]) * 75) > 0.3 ? '#1d1714' : c)
-    : sn ? rosetteP(c, '#4d5058', null, 26, white, false) : rosetteP(c, '#21160f', null, 30, '#f5ecd8', true);
+    ? tigerCoat(c, white, 'tail', { y0: F.tail0[1], z0: F.tail0[2] })
+    : sn ? rosetteCoat(c, '#3f4249', 22, white, { ring: 0.2 }) : rosetteCoat(c, '#21160f', 18, '#f5ecd8', { ring: 0.16 });
   tailOf(gp, F, c, sn ? 0.6 : 0.44, sn ? 0.03 : 0.016, { droop: sn ? 0.28 : 0.3, curl: sn ? 0.55 : 0.4, side: sn ? 0.18 : 0.08, paint: tailP, tip: sn ? 0.8 : 0.6, flat: sn });
 }
 
 function zebra(gp: THREE.Group, _r: Rec): void {
   const W = '#f4f2ec', B = '#151313';
+  habitat(gp, 'savanna', 0.3, 0.4, { seed: 3 });
   const F = quad(gp, {
     c: W, span: 0.38, leg: 0.3, bw: 0.092, bh: 0.11, R: 0.026, tuck: 0.12, feet: 'hoof', foot: '#1c1917',
-    body: (x, y, z, nx, ny, nz) => (z < -0.12 ? zebraP('rump')(x, y, z, nx, ny, nz) : zebraP('z')(x, y, z, nx, ny, nz)),
-    legP: zebraP('y'), neckP: zebraP('neck'), neck: 0.22, neckA: 0.95, neckW: 0.046, neckH: 1.35, arch: 0.1, stride: 0.035,
+    body: zebraCoat('body', { by: 0.41, top: 0.52, zr: -0.19 }), legP: zebraCoat('leg'), neckP: zebraCoat('neck', { a: 0.95 }), neck: 0.22, neckA: 0.95, neckW: 0.046, neckH: 1.35, arch: 0.1, stride: 0.035,
   });
   // Upright brush mane
   const [, ny0, nz0] = F.n0, [, hy, hz] = F.hp;
@@ -749,17 +1083,18 @@ function zebra(gp: THREE.Group, _r: Rec): void {
     drop(gp, col, [0, y, z], [0, y + 0.05, z - 0.016], 0.011, 0.02);
   }
   const h = headGroup(gp, F, -0.28, 1.0);
-  longHead(h, W, { P: (x, y, z) => (Math.sin(z * 120 + Math.abs(x) * 30) > 0.25 || Math.abs(x) < 0.006 && z > 0.06 ? B : W), muz: '#221d1b', earH: 0.07, earW: 0.024, earIn: '#e7e3da', len: 1.02 });
+  longHead(h, W, { P: zebraCoat('head'), muz: '#221d1b', earH: 0.07, earW: 0.024, earIn: '#e7e3da', len: 1.02 });
   drop(h, B, [0, 0.03, -0.02], [0, 0.04, 0.05], 0.014);
-  const [tip, dir] = tailOf(gp, F, W, 0.3, 0.012, { droop: 0.55, curl: 0, side: 0.05, paint: zebraP('rump') });
+  const [tip, dir] = tailOf(gp, F, W, 0.3, 0.012, { droop: 0.55, curl: 0, side: 0.05, paint: zebraCoat('tail') });
   tuft(gp, B, tip, dir, 0.08, 0.014, 6, 0.3);
 }
 
 function giraffe(gp: THREE.Group, _r: Rec): void {
-  const base = '#d9a35b', pale = '#f1e2c2';
+  const base = '#d9a35b', pale = '#efdcb4';
+  habitat(gp, 'savanna', 0.3, 0.38, { seed: 7 });
   const F = quad(gp, {
     c: base, span: 0.27, leg: 0.43, bw: 0.085, bh: 0.1, R: 0.022, tuck: 0.15, withers: 0.07, rump: 0.03, feet: 'hoof', foot: '#3a2a1f',
-    body: giraffeP(14), neckP: giraffeP(17), legP: (x, y, z, nx, ny, nz) => (y < 0.2 ? speck(pale, x, y, z, 0.05) : giraffeP(19)(x, y, z, nx, ny, nz)),
+    body: giraffeCoat(12, pale), neckP: giraffeCoat(14, pale), legP: giraffeCoat(16, pale, true),
     neck: 0.5, neckA: 1.12, neckW: 0.036, neckH: 1.45, arch: 0.04, stride: 0.035, hind: 0.9,
   });
   const [, ny0, nz0] = F.n0, [, hy, hz] = F.hp;
@@ -768,17 +1103,18 @@ function giraffe(gp: THREE.Group, _r: Rec): void {
     drop(gp, i % 2 ? '#6b3a1a' : '#7d4520', [0, y + 0.02, z - 0.02], [0, y + 0.045, z - 0.04], 0.008, 0.012);
   }
   const h = headGroup(gp, F, -0.3, 0.95);
-  longHead(h, base, { P: giraffeP(30), muz: '#c99a62', nostril: '#3a2a1f', earH: 0.06, earW: 0.02, earRot: [-0.9, 0.9, -1.1], earIn: pale, len: 1.05, wide: 0.92 });
+  longHead(h, base, { P: giraffeCoat(21, pale), muz: '#c99a62', nostril: '#3a2a1f', earH: 0.06, earW: 0.02, earRot: [-0.9, 0.9, -1.1], earIn: pale, len: 1.05, wide: 0.92 });
   for (const sx of [-1, 1]) {
     tube(h, [[sx * 0.016, 0.03, -0.0], [sx * 0.022, 0.08, -0.02]], 0.008, 0.007, '#c58c4c');
     tuft(h, '#2a1d14', [sx * 0.022, 0.085, -0.02], [0, 1, 0], 0.012, 0.012, 4, 0.8);
   }
-  const [tip, dir] = tailOf(gp, F, base, 0.3, 0.009, { droop: 0.55, curl: 0, side: 0.04, paint: giraffeP(22) });
+  const [tip, dir] = tailOf(gp, F, base, 0.3, 0.009, { droop: 0.55, curl: 0, side: 0.04, paint: giraffeCoat(22, pale) });
   tuft(gp, '#1f1611', tip, dir, 0.07, 0.012, 6, 0.35);
 }
 
 function elephant(gp: THREE.Group, r: Rec): void {
   const c = r.color!;
+  habitat(gp, 'savanna', 0.36, 0.46, { seed: 5, rocks: 1, tufts: 6 });
   const skin: Paint = (x, y, z, _nx, ny) => {
     const m = Math.round(fbm(x * 9, y * 9, z * 9, 2) * 5) / 5;
     return sh(mx(c, '#a58f78', sst(0.3, 0.05, y) * 0.35), (0.95 + m * 0.08) * (ny > 0.6 ? 1.04 : 1));
@@ -822,55 +1158,120 @@ function elephant(gp: THREE.Group, r: Rec): void {
   tuft(gp, '#2b2622', tip, dir, 0.035, 0.009, 5, 0.4);
 }
 
+/** Hippo yawning on a muddy riverbank: barrel body on stumpy legs, huge open jaws with tusks, eye/ear turrets. */
 function hippo(gp: THREE.Group, r: Rec): void {
-  const c = r.color!, pink = mx(c, '#e7a59a', 0.55);
-  const body: Paint = (x, y, z, _nx, ny) => speck(ny < -0.2 ? mx(c, pink, sst(-0.2, -0.7, ny)) : ny > 0.5 ? sh(c, 0.9) : c, x, y, z, 0.04);
-  const F = quad(gp, {
-    c, span: 0.42, leg: 0.1, bw: 0.16, bh: 0.15, R: 0.048, tuck: 0.02, feet: 'pad', body, legP: body,
-    neck: 0.06, neckA: 0.15, neckW: 0.13, stride: 0.02, legX: 0.62,
-  });
-  const h = headGroup(gp, F, -0.3, 0.08);
-  pblob(h, c, 0, 0.0, 0.03, 0.11, 0.095, 0.1, body, [0, 0, 0], 22);
-  pblob(h, c, 0, -0.035, 0.14, 0.125, 0.075, 0.09, body, [0, 0, 0], 22);
-  pblob(h, pink, 0, -0.08, 0.13, 0.105, 0.03, 0.08, undefined, [0, 0, 0], 16);
-  ellip(h, '#4a2f2f', 0, -0.062, 0.15, 0.12, 0.004, 0.08);
-  for (const sx of [-1, 1]) {
-    pblob(h, c, sx * 0.045, 0.03, 0.19, 0.03, 0.022, 0.025, body, [0, 0, 0], 12);
-    ellip(h, '#1c1917', sx * 0.045, 0.048, 0.2, 0.01, 0.006, 0.008, 0, 0, sx * 0.4);
-    pblob(h, c, sx * 0.055, 0.075, 0.035, 0.03, 0.026, 0.028, body, [0, 0, 0], 12);
-    aEye(h, sx * 0.055, 0.085, 0.055, 0.011, sx * 0.4, '#3a2416', c);
-    cupEar(h, [sx * 0.07, 0.09, -0.01], [-0.2, sx * 0.3, -sx * 0.6], 0.014, 0.024, c, pink);
-    drop(h, '#f8f0dc', [sx * 0.07, -0.07, 0.19], [sx * 0.075, -0.035, 0.2], 0.009);
+  const c = mx(r.color!, '#6f6058', 0.85), pink = '#c98a7e', wet = sh(c, 1.12);
+  habitat(gp, 'mud', 0.36, 0.46, { seed: 18, rocks: 1, tufts: 5 });
+  // Shallow pool lapping at the front-left of the bank
+  vblob(gp, '#3c6f78', -0.13, -0.004, 0.27, 0.13, 0.011, 0.085, (x, _y, z) => mx(mx('#3c6f78', '#5b97a0', sst(0.45, 0.75, vnoise(x * 14, 2, z * 14)) * 0.5), '#cfe6ea', sst(0.86, 0.98, Math.sin(Math.hypot(x + 0.13, z - 0.27) * 90)) * 0.35), [0, 0.4, 0], 22);
+  const skin: Paint = (x, y, z, _nx, ny) => {
+    let col = mx(c, pink, sst(-0.15, -0.65, ny) * 0.75);
+    col = mx(col, wet, sst(0.5, 0.9, ny) * 0.5);
+    return speck(col, x, y, z, 0.035);
+  };
+  // Massive barrel body
+  spine(gp, [
+    { p: [0, 0.2, -0.27], w: 0.07, h: 0.06 }, { p: [0, 0.21, -0.23], w: 0.135, h: 0.12 }, { p: [0, 0.215, -0.1], w: 0.165, h: 0.145 },
+    { p: [0, 0.22, 0.05], w: 0.16, h: 0.145 }, { p: [0, 0.235, 0.15], w: 0.135, h: 0.125 }, { p: [0, 0.25, 0.22], w: 0.105, h: 0.1 },
+  ], c, skin, { nu: 30, nv: 30 });
+  // Stumpy columnar legs with four toenails
+  for (const sx of [-1, 1]) for (const [z, f] of [[0.11, 1], [-0.17, 1.08]] as const) {
+    const x = sx * 0.1;
+    vblob(gp, c, x, 0.17, z, 0.06 * f, 0.07, 0.07 * f, skin, [0, 0, sx * 0.15], 16);
+    limb(gp, c, [[[x, 0.15, z], 0.05 * f, 0.055 * f], [[x * 1.02, 0.07, z + 0.01], 0.042, 0.045], [[x * 1.02, 0.018, z + 0.012], 0.047, 0.049]], skin, 16);
+    for (const a of [-0.75, -0.25, 0.25, 0.75]) ellip(gp, '#5a4c48', x * 1.02 + Math.sin(a) * 0.044, 0.012, z + 0.014 + Math.cos(a) * 0.046, 0.012, 0.01, 0.008, a);
   }
-  const [tip, dir] = tailOf(gp, F, c, 0.08, 0.016, { droop: 0.6, curl: 0, side: 0 });
-  tuft(gp, sh(c, 0.6), tip, dir, 0.02, 0.008, 4, 0.5);
+  // Stubby flattened tail
+  limb(gp, c, [[[0, 0.22, -0.27], 0.02, 0.014], [[0, 0.17, -0.31], 0.012, 0.008], [[0, 0.13, -0.32], 0.007, 0.005]], skin, 10);
+  // Head raised in a full yawn
+  const h = grp(gp, [0, 0.29, 0.25], [-0.32, -0.35, 0]);
+  const hP: Paint = (x, y, z, nx, ny, nz) => skin(x, y, z, nx, ny, nz);
+  // Cranium with eye and ear turrets on top
+  sculpt(h, c, [0, 0.03, 0.02], [0.105, 0.085, 0.1], [
+    [[0.6, 0.7, 0.3], 0.18, 0.06], [[-0.6, 0.7, 0.3], 0.18, 0.06], [[0, -0.6, -0.8], 0.15, 0.3],
+  ], hP, 26);
+  for (const sx of [-1, 1]) {
+    aEye(h, sx * 0.064, 0.098, 0.05, 0.012, sx * 0.55, '#3a1e14', sh(c, 0.95));
+    ellip(h, pink, sx * 0.064, 0.087, 0.058, 0.02, 0.01, 0.012, sx * 0.55);
+    cupEar(h, [sx * 0.06, 0.108, -0.035], [-0.3, sx * 0.4, -sx * 0.4], 0.014, 0.022, c, pink);
+  }
+  // Upper jaw: broad squared muzzle with nostril domes, tilted up
+  const uj = grp(h, [0, 0.0, 0.07], [-0.55, 0, 0]);
+  sculpt(uj, c, [0, 0.0, 0.1], [0.12, 0.06, 0.11], [
+    [[0.75, 0.0, 0.66], 0.22, 0.07], [[-0.75, 0.0, 0.66], 0.22, 0.07], [[0.3, 0.75, 0.6], 0.12, 0.05], [[-0.3, 0.75, 0.6], 0.12, 0.05], [[0, -1, 0], -0.4, 0.25],
+  ], hP, 28);
+  pblob(uj, '#b4646a', 0, -0.026, 0.1, 0.1, 0.012, 0.1, undefined, [0, 0, 0], 18);
+  for (const sx of [-1, 1]) {
+    ellip(uj, '#2a1d1b', sx * 0.04, 0.058, 0.18, 0.011, 0.004, 0.007, sx * 0.3);
+    // Upper canines and incisors
+    drop(uj, '#f2ead6', [sx * 0.085, -0.02, 0.16], [sx * 0.08, -0.06, 0.165], 0.011, 0.009);
+    drop(uj, '#f2ead6', [sx * 0.025, -0.02, 0.2], [sx * 0.03, -0.045, 0.205], 0.007);
+  }
+  // Lower jaw dropped open: deep chin, pink mouth floor, huge curved tusks
+  const lj = grp(h, [0, -0.04, 0.05], [0.8, 0, 0]);
+  sculpt(lj, c, [0, -0.02, 0.1], [0.115, 0.05, 0.11], [
+    [[0.8, -0.2, 0.5], 0.2, 0.08], [[-0.8, -0.2, 0.5], 0.2, 0.08], [[0, 1, 0], -0.45, 0.25],
+  ], hP, 26);
+  pblob(lj, '#d58990', 0, 0.012, 0.09, 0.09, 0.016, 0.09, undefined, [0, 0, 0], 18);
+  pblob(lj, '#c46a74', 0, 0.022, 0.06, 0.05, 0.016, 0.06, undefined, [0, 0, 0], 14);
+  for (const sx of [-1, 1]) {
+    tube(lj, [[sx * 0.085, 0.0, 0.15], [sx * 0.092, 0.05, 0.16], [sx * 0.08, 0.095, 0.15], [sx * 0.065, 0.12, 0.13]], 0.016, 0.004, '#f4ecd6');
+    for (const k of [0.022, 0.05]) tube(lj, [[sx * k, 0.0, 0.19], [sx * k * 1.1, 0.012, 0.225], [sx * k * 1.15, 0.025, 0.25]], 0.008, 0.005, '#efe5cc');
+  }
+  // Pink inner cheeks joining the jaws
+  for (const sx of [-1, 1]) vblob(h, '#b76a6f', sx * 0.1, -0.05, 0.08, 0.016, 0.06, 0.05, undefined, [0.25, 0, 0], 12);
 }
 
+/** Dromedary on a desert dune patch: deep barrel body under one broad hump, long legs with padded feet, U-shaped neck. */
 function camel(gp: THREE.Group, r: Rec): void {
-  const c = r.color!;
-  const body = coat(c, mx(c, '#f4e6cc', 0.45), { dorsal: 0.92, n: 0.06 });
-  const F = quad(gp, {
-    c, span: 0.34, leg: 0.31, bw: 0.1, bh: 0.115, R: 0.026, tuck: 0.22, withers: 0.0, feet: 'cloven', foot: sh(c, 0.72), body, legP: body, legX: 0.62,
-    neck: 0.25, neckA: 0.22, neckW: 0.05, neckH: 1.45, arch: -0.14, stride: 0.04,
-  });
-  // Single dromedary hump
+  const c = r.color!, pale = mx(c, '#f4e6cc', 0.4);
+  habitat(gp, 'desert', 0.3, 0.44, { seed: 3, rocks: 1, tufts: 0 });
+  const body = coat(c, pale, { dorsal: 0.9, n: 0.06 });
+  const L = (st: LS[], rad = 14) => vpaint(limb(gp, c, st, undefined, rad), c, body);
+  // Deep barrel: low brisket, tucked flank, sloping rump
+  spine(gp, [
+    { p: [0, 0.43, -0.23], w: 0.04, h: 0.04 }, { p: [0, 0.44, -0.19], w: 0.085, h: 0.09 }, { p: [0, 0.445, -0.09], w: 0.1, h: 0.105 },
+    { p: [0, 0.445, 0.03], w: 0.105, h: 0.115 }, { p: [0, 0.445, 0.12], w: 0.095, h: 0.115 }, { p: [0, 0.46, 0.19], w: 0.065, h: 0.085 },
+  ], c, body, { nu: 30, nv: 28 });
+  // Broad hump sitting just behind the middle of the back
   const hk = num(r.hump, 1);
-  pblob(gp, c, 0, F.by + F.bh * 0.85, (F.zs + F.zr) / 2 + 0.01, 0.08, 0.13 * hk, 0.14, body, [0.1, 0, 0], 22);
-  // Upward-curving upper neck (S-neck)
-  const [, hy, hz] = F.hp;
-  sweep(gp, [{ p: [0, hy - 0.02, hz - 0.03], w: 0.036, h: 0.045 }, { p: [0, hy + 0.05, hz + 0.02], w: 0.032, h: 0.036 }, { p: [0, hy + 0.1, hz + 0.03], w: 0.03, h: 0.032 }], c, { radial: 16, sub: 5, paint: body });
-  pblob(gp, c, 0, hy - 0.01, hz - 0.025, 0.045, 0.05, 0.05, body, [0, 0, 0], 14);
-  const h = grp(gp, [0, hy + 0.1, hz + 0.03], [0.15, -0.3, 0]);
-  longHead(h, c, { muz: mx(c, '#e8d4b4', 0.4), lip: true, earH: 0.025, earW: 0.016, len: 1.1, lid: sh(c, 0.8) });
-  for (const sx of [-1, 1]) ellip(h, sh(c, 0.85), sx * 0.034, 0.024, 0.034, 0.016, 0.008, 0.016);
-  const [tip, dir] = tailOf(gp, F, c, 0.24, 0.011, { droop: 0.6, curl: 0, side: 0.04 });
-  tuft(gp, sh(c, 0.6), tip, dir, 0.04, 0.01, 4, 0.4);
-  // Knee callosities
-  for (const sx of [-1, 1]) ellip(gp, sh(c, 0.82), sx * F.bw * 0.62 * 0.97, 0.31 * 0.42, F.zs - F.bh * 0.08 + sx * 0.04 + 0.02, 0.017, 0.016, 0.007);
+  sculpt(gp, c, [0, 0.52, -0.02], [0.08, 0.1 * hk, 0.16], [[[0, 1, 0.1], 0.35, 0.16], [[0, -1, 0], -0.3, 0.3]], body, 26);
+  // Chest pad (sternal callus) under the brisket
+  pblob(gp, sh(c, 0.82), 0, 0.33, 0.1, 0.035, 0.016, 0.04, undefined, [0, 0, 0], 12);
+  for (const sx of [-1, 1]) {
+    const f = sx > 0 ? 0.03 : -0.025;
+    // Foreleg: shoulder mass, elbow free of the body, knobbly knee, slim cannon, splayed pad
+    vblob(gp, c, sx * 0.06, 0.44, 0.12, 0.04, 0.08, 0.06, body, [-0.2, 0, 0], 16);
+    L([[[sx * 0.068, 0.42, 0.13], 0.04, 0.05], [[sx * 0.072, 0.33, 0.1], 0.03, 0.036], [[sx * 0.07, 0.19, 0.12 + f], 0.024, 0.026], [[sx * 0.07, 0.17, 0.122 + f], 0.027, 0.027],
+      [[sx * 0.069, 0.09, 0.125 + f], 0.019, 0.02], [[sx * 0.069, 0.035, 0.13 + f], 0.019, 0.02], [[sx * 0.069, 0.018, 0.145 + f], 0.026, 0.02]]);
+    pblob(gp, sh(c, 0.8), sx * 0.069, 0.012, 0.15 + f, 0.03, 0.013, 0.036, undefined, [0, 0, 0], 14);
+    ellip(gp, sh(c, 0.72), sx * 0.071, 0.17, 0.142 + f, 0.016, 0.017, 0.007);
+    // Hind leg: heavy thigh, stifle, hock angled back, cannon, pad
+    vblob(gp, c, sx * 0.068, 0.42, -0.15, 0.05, 0.095, 0.075, body, [0.2, 0, 0], 16);
+    L([[[sx * 0.07, 0.4, -0.14], 0.045, 0.06], [[sx * 0.075, 0.3, -0.1], 0.035, 0.045], [[sx * 0.07, 0.2, -0.17 - f], 0.024, 0.03], [[sx * 0.069, 0.17, -0.185 - f], 0.02, 0.026],
+      [[sx * 0.068, 0.09, -0.17 - f], 0.019, 0.02], [[sx * 0.068, 0.035, -0.16 - f], 0.019, 0.02], [[sx * 0.068, 0.018, -0.145 - f], 0.025, 0.02]]);
+    pblob(gp, sh(c, 0.8), sx * 0.068, 0.012, -0.14 - f, 0.029, 0.013, 0.035, undefined, [0, 0, 0], 14);
+  }
+  // U-shaped neck: dips forward and down from the chest, then rises steeply to the head
+  vpaint(sweep(gp, [
+    { p: [0, 0.47, 0.17], w: 0.06, h: 0.075 }, { p: [0, 0.41, 0.27], w: 0.048, h: 0.058 }, { p: [0, 0.43, 0.35], w: 0.042, h: 0.046 },
+    { p: [0, 0.53, 0.39], w: 0.036, h: 0.04 }, { p: [0, 0.63, 0.4], w: 0.033, h: 0.036 },
+  ], c, { radial: 18, sub: 7 }), c, body);
+  const h = grp(gp, [0, 0.655, 0.4], [0.1, -0.3, 0]);
+  const muz = mx(c, '#e8d4b4', 0.4);
+  longHead(h, c, { s: 1.15, muz, lip: true, earH: 0.028, earW: 0.018, earRot: [-0.4, 0.6, -0.6], len: 1.05, wide: 0.92, lid: sh(c, 0.75), P: body });
+  for (const sx of [-1, 1]) {
+    ellip(h, sh(c, 0.85), sx * 0.039, 0.028, 0.04, 0.018, 0.009, 0.019);
+    pblob(h, muz, sx * 0.013, -0.046, 0.222, 0.017, 0.019, 0.02, undefined, [0, 0, 0], 12);
+  }
+  // Thin tail with a dark tassel
+  vpaint(sweep(gp, [{ p: [0, 0.45, -0.24], w: 0.012 }, { p: [0, 0.38, -0.27], w: 0.009 }, { p: [0.005, 0.3, -0.275], w: 0.007 }], c, { radial: 8, sub: 4 }), c, body);
+  tuft(gp, sh(c, 0.55), [0.005, 0.3, -0.275], [0, -1, -0.1], 0.05, 0.01, 4, 0.35);
 }
 
 function llama(gp: THREE.Group, r: Rec): void {
   const c = r.color!;
+  habitat(gp, 'puna', 0.28, 0.38, { seed: 8, rocks: 2, tufts: 5 });
   const wool: Paint = (x, y, z) => sh(c, 0.88 + fbm(x * 40, y * 40, z * 40) * 0.2);
   const F = quad(gp, {
     c, span: 0.3, leg: 0.3, bw: 0.092, bh: 0.11, R: 0.02, tuck: 0.05, feet: 'cloven', foot: '#4a4440', body: wool, legP: wool, neckP: wool, flat: true,
@@ -886,6 +1287,7 @@ function llama(gp: THREE.Group, r: Rec): void {
 
 function bison(gp: THREE.Group, r: Rec): void {
   const c = r.color!, dark = sh(c, 0.6);
+  habitat(gp, 'prairie', 0.34, 0.46, { seed: 9, rocks: 1, tufts: 7 });
   const body: Paint = (x, y, z) => speck(z > -0.02 ? mx(c, dark, sst(-0.02, 0.12, z)) : c, x, y, z, 0.1);
   const F = quad(gp, {
     c, span: 0.4, leg: 0.21, bw: 0.12, bh: 0.14, R: 0.035, tuck: 0.15, withers: 0.1, rump: 0.02, feet: 'cloven', foot: '#1c1917',
@@ -914,6 +1316,7 @@ function bison(gp: THREE.Group, r: Rec): void {
 
 function reindeer(gp: THREE.Group, r: Rec): void {
   const c = r.color!, cream = '#efe8dc';
+  habitat(gp, 'tundra', 0.3, 0.42, { seed: 11, rocks: 2, tufts: 5 });
   const body = coat(c, mx(c, cream, 0.5), { dorsal: 0.82 });
   const F = quad(gp, {
     c, span: 0.34, leg: 0.3, bw: 0.088, bh: 0.1, R: 0.022, tuck: 0.16, feet: 'cloven', foot: '#2a2420', body,
@@ -943,6 +1346,7 @@ function reindeer(gp: THREE.Group, r: Rec): void {
 
 function redpanda(gp: THREE.Group, r: Rec): void {
   const c = r.color!, dk = '#2a1a14', white = '#fbf6ee';
+  habitat(gp, 'forest', 0.28, 0.4, { seed: 12, rocks: 1, tufts: 5, cz: -0.04 });
   const fur: Paint = (x, y, z, _nx, ny) => speck(ny < -0.25 ? dk : ny > 0.6 ? sh(c, 0.92) : c, x, y, z, 0.07);
   const F = quad(gp, {
     c, span: 0.3, leg: 0.11, bw: 0.072, bh: 0.078, R: 0.022, tuck: 0.1, feet: 'paw', foot: dk, body: fur, legP: () => dk, flat: true,
@@ -968,41 +1372,85 @@ function redpanda(gp: THREE.Group, r: Rec): void {
   ], c, { radial: 16, sub: 8, flat: true, paint: (x, y, z) => speck(Math.sin((z - z0) * 50 + x * 10) > 0.25 ? '#efcc9e' : sh(c, 0.92), x, y, z, 0.06) });
 }
 
+/** Grizzly / polar bear on one smooth spine body: shoulder hump (grizzly) or long neck and high rump (polar), columnar plantigrade legs. */
+function walkBear(gp: THREE.Group, r: Rec, polar: boolean): void {
+  const c = r.color!;
+  const tip = polar ? '#fbf6e8' : mx(c, '#c49a62', 0.55), dk = polar ? mx(c, '#d9cdb0', 0.5) : sh(c, 0.62);
+  const fur: Paint = (x, y, z, _nx, ny) => {
+    const n = fbm(x * 30, y * 30, z * 30, 2), st = vnoise(x * 90, y * 40, z * 90);
+    let col = polar ? mx(c, '#e4d6b4', sst(-0.1, -0.7, ny) * 0.55 + sst(0.12, 0.02, y) * 0.4) : mx(c, dk, sst(0.2, 0.05, y) * 0.75 + sst(-0.3, -0.8, ny) * 0.3);
+    col = mx(col, tip, sst(0.35, 0.9, ny) * sst(0.4, 0.7, n) * (polar ? 0.5 : 0.85));
+    return sh(col, 0.93 + st * 0.12);
+  };
+  const V = (x: number, y: number, z: number, rx: number, ry: number, rz: number, rot: V3 = [0, 0, 0], seg = 18) => vblob(gp, c, x, y, z, rx, ry, rz, fur, rot, seg);
+  const L = (st: LS[]) => vpaint(limb(gp, c, st, undefined, 16), c, fur);
+  // Torso: rump → loins → ribs → shoulders → chest → neck
+  const y0 = polar ? 0.29 : 0.27;
+  spine(gp, polar ? [
+    { p: [0, 0.29, -0.27], w: 0.07, h: 0.07 }, { p: [0, 0.3, -0.21], w: 0.11, h: 0.12 }, { p: [0, 0.29, -0.08], w: 0.12, h: 0.125 },
+    { p: [0, 0.275, 0.06], w: 0.112, h: 0.12 }, { p: [0, 0.27, 0.15], w: 0.09, h: 0.1 }, { p: [0, 0.27, 0.24], w: 0.06, h: 0.07 }, { p: [0, 0.26, 0.32], w: 0.05, h: 0.058 },
+  ] : [
+    { p: [0, 0.27, -0.25], w: 0.07, h: 0.07 }, { p: [0, 0.275, -0.2], w: 0.115, h: 0.12 }, { p: [0, 0.27, -0.07], w: 0.125, h: 0.13 },
+    { p: [0, 0.285, 0.06], w: 0.125, h: 0.14 }, { p: [0, 0.28, 0.15], w: 0.105, h: 0.125 }, { p: [0, 0.27, 0.22], w: 0.07, h: 0.085 },
+  ], c, fur, { nu: 40, nv: 30 });
+  if (!polar) V(0, 0.36, 0.07, 0.09, 0.075, 0.1, [0.2, 0, 0], 20);
+  // Legs: right fore and left hind advanced
+  const pw = polar ? 1.12 : 1, claw = polar ? '#2e2a26' : '#e9dcc4', pad = polar ? '#3a3330' : sh(c, 0.5);
+  for (const sx of [-1, 1]) {
+    const ff = sx * 0.035, hf = -sx * 0.03, x = sx * 0.075;
+    V(sx * 0.06, y0 - 0.035, 0.105, 0.064, 0.1, 0.075, [-0.15, 0, sx * 0.06]);
+    L([[[x * 0.85, y0 - 0.03, 0.11], 0.05, 0.06], [[x * 1.08, 0.17, 0.1 + ff * 0.4], 0.048, 0.054], [[x * 1.06, 0.08, 0.12 + ff], 0.04, 0.044], [[x * 1.06, 0.035, 0.13 + ff], 0.042 * pw, 0.04]]);
+    V(sx * 0.062, y0 - 0.03, -0.165, 0.07, 0.11, 0.09, [0.12, 0, 0]);
+    L([[[x * 0.85, y0 - 0.05, -0.15], 0.054, 0.064], [[x * 1.06, 0.16, -0.11 + hf * 0.5], 0.05, 0.058], [[x * 1.04, 0.08, -0.17 + hf], 0.04, 0.046], [[x * 1.04, 0.035, -0.16 + hf], 0.042 * pw, 0.04]]);
+    for (const [px, pz] of [[x * 1.06, 0.15 + ff], [x * 1.04, -0.14 + hf]] as const) {
+      vblob(gp, c, px, 0.024, pz, 0.046 * pw, 0.026, 0.056 * pw, fur, [0, 0, 0], 16);
+      ellip(gp, pad, px, 0.006, pz, 0.04 * pw, 0.006, 0.048 * pw);
+      for (let k = 0; k < 5; k++) {
+        const a = (k - 2) * 0.32, ox = px + Math.sin(a) * 0.04 * pw, oz = pz + Math.cos(a) * 0.05 * pw;
+        drop(gp, claw, [ox, 0.016, oz - 0.004], [ox + Math.sin(a) * 0.008, 0.004, oz + (polar ? 0.012 : 0.026)], polar ? 0.005 : 0.0055, 0.0035);
+      }
+    }
+  }
+  // Short tail
+  vblob(gp, c, 0, 0.29, -0.28, 0.022, 0.02, 0.022, fur, [0, 0, 0], 10);
+  // Head: low and forward on a long neck (polar) or heavy below the hump (grizzly)
+  const h = grp(gp, polar ? [0, 0.275, 0.35] : [0, 0.28, 0.25], [polar ? 0.12 : 0.08, -0.35, 0]);
+  bearHead(h, c, {
+    s: polar ? 0.9 : 1.05, long: polar ? 1.5 : 1.15, ear: c, earIn: polar ? '#bdb2a0' : sh(c, 0.55),
+    muz: polar ? sh(c, 0.97) : mx(c, '#c7a57a', 0.45), P: fur, nose: '#141110', eyeC: '#24150d',
+  });
+  if (!polar) for (const sx of [-1, 1]) tuft(h, sh(c, 0.92), [sx * 0.08, -0.03, 0.02], [sx, -0.6, -0.4], 0.035, 0.016, 3, 0.45);
+}
+
 /** Bears share the quadruped engine with plantigrade paws and claws. */
 function bear(gp: THREE.Group, r: Rec, sp: string): void {
   const c = r.color!;
   const panda = sp === 'panda', polar = sp === 'polarbear';
+  habitat(gp, panda ? 'bamboo' : polar ? 'snow' : 'forest', 0.36, 0.48, { seed: panda ? 15 : polar ? 16 : 17, rocks: polar ? 3 : 1, tufts: 6 });
+  if (!panda) return walkBear(gp, r, polar);
   const blk = (r.patch as string) ?? '#1c1917';
-  const pandaP: Paint = (x, y, z, _nx, ny) => {
+  const body: Paint = (x, y, z, _nx, ny) => {
     // Black limbs joined by a saddle band over the shoulders
     const band = Math.abs(z - 0.13 + (y - 0.3) * 0.25) < 0.065;
     return band || (y < 0.2 && ny < 0.8) ? blk : speck(c, x, y, z, 0.03);
   };
-  const body = panda ? pandaP : polar ? coat(c, sh(c, 0.93), { dorsal: 1.0, n: 0.04 }) : coat(c, sh(c, 0.85), { dorsal: 0.78, n: 0.1 });
   const F = quad(gp, {
-    c, span: polar ? 0.44 : 0.4, leg: polar ? 0.2 : 0.17, bw: 0.125, bh: 0.13, R: 0.04, tuck: 0.05, rump: polar ? -0.03 : 0, withers: sp === 'grizzly' ? 0.035 : 0,
-    feet: 'paw', foot: panda ? blk : sh(c, 0.8), claw: polar ? '#3a332c' : panda ? '#2a2a2a' : '#e9dcc4', pawK: 1.15, hind: 0.95,
-    body, legP: panda ? () => blk : body, flat: sp === 'grizzly',
-    neck: polar ? 0.17 : 0.1, neckA: polar ? 0.25 : 0.35, neckW: polar ? 0.07 : 0.085, stride: 0.035,
+    c, span: 0.4, leg: 0.17, bw: 0.125, bh: 0.13, R: 0.04, tuck: 0.05, rump: 0, withers: 0,
+    feet: 'paw', foot: blk, claw: '#2a2a2a', pawK: 1.15, hind: 0.95,
+    body, legP: () => blk, flat: false,
+    neck: 0.1, neckA: 0.35, neckW: 0.085, stride: 0.035,
   });
-  if (sp === 'grizzly') pblob(gp, c, 0, F.by + F.bh * 0.85, F.zs - 0.04, 0.085, 0.07, 0.1, furNoise(sh(c, 0.92), 0.1), [0, 0, 0], 14, true);
-  const h = headGroup(gp, F, -0.3, polar ? 0.25 : 0.12);
-  bearHead(h, c, {
-    s: polar ? 0.92 : panda ? 1.12 : 1, long: polar ? 1.35 : panda ? 0.75 : 1.1,
-    ear: panda ? blk : c, earIn: panda ? blk : sh(c, 0.7), muz: panda ? '#f5f5f4' : polar ? sh(c, 0.97) : mx(c, '#d6c3a5', 0.3),
-    P: panda ? furNoise(c, 0.03) : furNoise(c, polar ? 0.04 : 0.08),
-  });
-  if (panda) {
-    for (const sx of [-1, 1]) {
-      ellip(h, blk, sx * 0.042, 0.027, 0.105, 0.025, 0.033, 0.016, 0, 0, sx * 0.7);
-      bead(h, sx * 0.043, 0.03, 0.118, 0.0085, '#0f0f0f');
-    }
-    // Bamboo snack held in the mouth
-    const bam = '#7cb342';
-    tube(h, [[-0.13, -0.05, 0.14], [0.15, 0.0, 0.11]], 0.011, 0.011, bam, { paint: (x) => (Math.abs(Math.sin(x * 40)) < 0.14 ? '#558b2f' : null) });
-    for (let i = 0; i < 3; i++) leaf(h, i % 2 ? '#8bc34a' : '#9ccc65', 0.15, 0.0, 0.11, 0.016, 0.07, [0.3 * i, 0, -0.9 - i * 0.5], 0.004, 0.2);
+  const h = headGroup(gp, F, -0.3, 0.12);
+  bearHead(h, c, { s: 1.12, long: 0.75, ear: blk, earIn: blk, muz: '#f5f5f4', P: furNoise(c, 0.03) });
+  for (const sx of [-1, 1]) {
+    ellip(h, blk, sx * 0.042, 0.027, 0.105, 0.025, 0.033, 0.016, 0, 0, sx * 0.7);
+    bead(h, sx * 0.043, 0.03, 0.118, 0.0085, '#0f0f0f');
   }
-  const [tip] = tailOf(gp, F, panda ? c : c, 0.05, 0.026, { droop: 0.5, curl: 0, side: 0, lift: -0.3 });
+  // Bamboo snack held in the mouth
+  const bam = '#7cb342';
+  tube(h, [[-0.13, -0.05, 0.14], [0.15, 0.0, 0.11]], 0.011, 0.011, bam, { paint: (x) => (Math.abs(Math.sin(x * 40)) < 0.14 ? '#558b2f' : null) });
+  for (let i = 0; i < 3; i++) leaf(h, i % 2 ? '#8bc34a' : '#9ccc65', 0.15, 0.0, 0.11, 0.016, 0.07, [0.3 * i, 0, -0.9 - i * 0.5], 0.004, 0.2);
+  const [tip] = tailOf(gp, F, c, 0.05, 0.026, { droop: 0.5, curl: 0, side: 0, lift: -0.3 });
   ellip(gp, c, tip[0], tip[1], tip[2], 0.024);
 }
 
@@ -1025,24 +1473,94 @@ const quadBuilder: Builder = (gp, r) => {
 };
 
 const BEAR: Builder = (gp, r) => {
-  const c = r.color!, sp = (r.sp as string) ?? '';
+  const c0 = r.color!, sp = (r.sp as string) ?? '';
   if (sp === 'koala') {
-    // Koala hugging a eucalyptus trunk
-    const wood = '#8b7355';
-    tube(gp, [[0, 0, -0.05], [0.01, 0.5, -0.06], [-0.01, 1.0, -0.05]], 0.07, 0.055, wood, { paint: furNoise(wood, 0.1), flat: true });
-    for (const [y, sx] of [[0.82, 1], [0.95, -1]] as const) {
-      tube(gp, [[0, y, -0.05], [sx * 0.15, y + 0.08, -0.04], [sx * 0.24, y + 0.1, -0.02]], 0.018, 0.01, wood);
-      for (let i = 0; i < 4; i++) leaf(gp, i % 2 ? '#6b9e7a' : '#7fb08c', sx * (0.14 + i * 0.03), y + 0.08 + (i % 2) * 0.02, -0.03, 0.025, 0.07, [0.3, 0, sx * (1.2 + i * 0.2)], 0.006, 0.2);
+    const c = mx(c0, '#776d66', 0.35);
+    // Koala clinging to a smooth-barked eucalyptus, body in profile, head turned to look at the viewer
+    habitat(gp, 'forest', 0.3, 0.28, { tufts: 5, rocks: 1, seed: 6 });
+    const bark = '#b4aa98';
+    const gum: Paint = (x, y, z) => {
+      const [f1, f2] = worley(x * 22, y * 7, z * 22), h = hash3(Math.floor(x * 22 + f1 * 3), Math.floor(y * 7), 3);
+      const base = h > 0.66 ? '#e2d8c2' : h > 0.33 ? '#8f8573' : h > 0.15 ? '#c4a27c' : bark;
+      return speck(f2 - f1 < 0.06 ? sh(base, 0.82) : mx(base, '#c9a77e', sst(0.75, 1, vnoise(x * 9, y * 3, z * 9)) * 0.5), x, y, z, 0.03);
+    };
+    const T = (y: number): V3 => [Math.sin(y * 3) * 0.008, y, -0.03];
+    vpaint(sweep(gp, [
+      { p: [0, -0.02, -0.03], w: 0.105 }, { p: [0, 0.05, -0.03], w: 0.08 }, { p: T(0.35), w: 0.068 }, { p: T(0.62), w: 0.062 }, { p: T(0.8), w: 0.054 }, { p: T(0.9), w: 0.04 }, { p: [0.03, 0.98, -0.03], w: 0.012 },
+    ], bark, { radial: 20, sub: 7 }), bark, gum);
+    for (const [ang, len, ny] of [[-0.9, 0.26, 0.76], [2.4, 0.24, 0.86], [0.9, 0.2, 0.84]] as const) {
+      const b0 = T(ny), d: V3 = [Math.sin(ang), 0.55, Math.cos(ang)];
+      const e: V3 = [b0[0] + d[0] * len, b0[1] + d[1] * len, b0[2] + d[2] * len], m: V3 = [(b0[0] + e[0]) / 2, (b0[1] + e[1]) / 2 + 0.02, (b0[2] + e[2]) / 2];
+      vpaint(tube(gp, [b0, m, e], 0.024, 0.008, bark), bark, gum);
+      // Drooping, sickle-shaped grey-green gum leaves in loose sprays
+      for (let i = 0; i < 18; i++) {
+        const t = 0.3 + (i / 17) * 0.75, p: V3 = [b0[0] + d[0] * len * t, b0[1] + d[1] * len * t + 0.01, b0[2] + d[2] * len * t];
+        const a = i * 2.4 + ang, L = 0.07 + hash3(i, ang, 1) * 0.03;
+        const tip: V3 = [p[0] + Math.cos(a) * L * 0.55, p[1] - L * 0.8, p[2] + Math.sin(a) * L * 0.55];
+        blade(gp, ['#7f9e86', '#6a8a72', '#93ad8f', '#5f7d68'][i % 4], p, tip, 0.014, 0.0025, [-Math.sin(a), 0.2, Math.cos(a)]);
+      }
     }
-    const fur = furNoise(c, 0.08);
-    pblob(gp, c, 0, 0.42, 0.07, 0.13, 0.17, 0.11, (x, y, z, nx, ny, nz) => (nz > 0.5 && y < 0.48 ? '#e7e2da' : fur(x, y, z, nx, ny, nz)), [0, 0, 0], 18, true);
-    pblob(gp, c, 0, 0.63, 0.1, 0.11, 0.095, 0.095, fur, [0, 0, 0], 18, true);
-    ellip(gp, '#2a2420', 0, 0.615, 0.2, 0.03, 0.042, 0.025);
+    const th = 1.0, R = 0.066;
+    const k = grp(gp, [Math.sin(th) * R, 0, -0.03 + Math.cos(th) * R], [0, th + Math.PI, 0]);
+    // Local frame: +z points into the trunk (koala hugs it), +y up
+    const back = mx(c, '#8c7b6b', 0.35), cream = '#efe8dc';
+    const fur: Paint = (x, y, z, _nx, _ny, nz) => {
+      const b = nz > 0.35 ? mx(c, cream, sst(0.35, 0.75, nz)) : nz < -0.3 ? mx(c, back, sst(-0.3, -0.8, nz) * 0.8) : c;
+      return sh(b, 0.9 + fbm(x * 70, y * 70, z * 70, 2) * 0.2);
+    };
+    // Round, heavy rump with the pale speckled sitting patch, torso hugging the trunk
+    vblob(k, c, 0, 0.36, -0.105, 0.098, 0.1, 0.095, (x, y, z, nx, ny, nz) => (ny < -0.45 && nz < 0.2 ? speck('#d7d0c4', x, y, z, 0.15) : fur(x, y, z, nx, ny, nz)), [0.15, 0, 0], 24);
+    spine(k, [
+      { p: [0, 0.34, -0.1], w: 0.085, h: 0.08 }, { p: [0, 0.42, -0.095], w: 0.095, h: 0.09 },
+      { p: [0, 0.5, -0.085], w: 0.088, h: 0.08 }, { p: [0, 0.56, -0.075], w: 0.07, h: 0.066 }, { p: [0, 0.6, -0.07], w: 0.055, h: 0.055 },
+    ], c, fur, { nu: 28, nv: 26 });
+    const claw = '#2a2522', palm = '#4a403a';
+    const hand = (p: V3, sx: number, up: number) => {
+      vblob(k, sh(c, 0.92), p[0], p[1], p[2], 0.024, 0.03, 0.02, fur, [0, 0, 0], 12);
+      for (let f = 0; f < 4; f++) {
+        const a = (f - 1.5) * 0.45 + up;
+        const b: V3 = [p[0] - sx * 0.006, p[1] + Math.sin(a) * 0.018, p[2] + 0.012];
+        const e: V3 = [b[0] - sx * 0.022, b[1] + Math.sin(a) * 0.012, b[2] + 0.02];
+        drop(k, palm, b, e, 0.0065, 0.006);
+        drop(k, claw, e, [e[0] - sx * 0.008, e[1] - 0.004, e[2] + 0.004], 0.0028, 0.0022);
+      }
+    };
     for (const sx of [-1, 1]) {
-      pblob(gp, c, sx * 0.11, 0.7, 0.08, 0.06, 0.06, 0.03, (_x, _y, _z, _nx, _ny, nz) => (nz > 0.3 ? '#f5f3ef' : null), [0, 0, 0], 14, true);
-      bead(gp, sx * 0.045, 0.645, 0.18, 0.011);
-      tube(gp, [[sx * 0.1, 0.5, 0.1], [sx * 0.11, 0.55, 0.0], [sx * 0.05, 0.56, -0.05]], 0.035, 0.028, c, { paint: fur, flat: true });
-      tube(gp, [[sx * 0.09, 0.3, 0.08], [sx * 0.12, 0.3, 0.0], [sx * 0.05, 0.28, -0.04]], 0.04, 0.03, c, { paint: fur, flat: true });
+      const hi = sx > 0 ? 0.03 : 0;
+      // Arms reaching round the trunk, one higher than the other
+      const sh0: V3 = [sx * 0.065, 0.55, -0.075], el: V3 = [sx * 0.105, 0.53 + hi * 0.6, -0.01], wr: V3 = [sx * 0.085, 0.58 + hi, 0.05];
+      limb(k, c, [[sh0, 0.04, 0.042], [el, 0.032, 0.032], [wr, 0.024, 0.024]], fur, 14);
+      hand(wr, sx, 0.2);
+      // Folded hind legs: big thigh, knee forward, foot gripping lower down
+      const hip: V3 = [sx * 0.07, 0.36, -0.07], kn: V3 = [sx * 0.1, 0.4, 0.0], an: V3 = [sx * 0.08, 0.32 - hi * 0.5, 0.045];
+      vblob(k, c, sx * 0.075, 0.37, -0.06, 0.05, 0.065, 0.075, fur, [0.5, 0, 0], 16);
+      limb(k, c, [[hip, 0.042, 0.045], [kn, 0.034, 0.036], [an, 0.026, 0.024]], fur, 12);
+      hand(an, sx, -0.3);
+    }
+    // Head: broad and flat-faced with a huge leathery nose and fluffy round ears
+    const h = grp(k, [0, 0.65, -0.075], [0.1, 1.3, 0]);
+    h.scale.setScalar(1.12);
+    const hf: Paint = (x, y, z, nx, ny, nz) => (ny < -0.5 && nz > -0.2 ? speck(cream, x, y, z, 0.06) : speck(c, x, y, z, 0.1));
+    sculpt(h, c, [0, 0, 0], [0.072, 0.064, 0.062], [
+      [[0.75, -0.45, 0.4], 0.12, 0.12], [[-0.75, -0.45, 0.4], 0.12, 0.12], [[0, 0.9, 0.3], -0.05, 0.2], [[0, -0.1, 1], -0.06, 0.12],
+    ], hf, 26);
+    const nose = '#2b2725';
+    vblob(h, nose, 0, -0.01, 0.058, 0.024, 0.037, 0.021, (_x, y) => (y < -0.03 ? sh(nose, 0.8) : y > 0.012 ? sh(nose, 1.25) : null), [-0.15, 0, 0], 18);
+    lit(ellip(h, '#ffffff', 0.008, 0.012, 0.073, 0.004, 0.006, 0.002));
+    for (const sx of [-1, 1]) ellip(h, '#141110', sx * 0.009, -0.034, 0.064, 0.005, 0.004, 0.004, 0, 0, sx * 0.5);
+    ellip(h, cream, 0, -0.05, 0.045, 0.026, 0.014, 0.018);
+    ellip(h, '#3a302c', 0, -0.046, 0.058, 0.012, 0.002, 0.004);
+    for (const sx of [-1, 1]) {
+      bead(h, sx * 0.034, 0.012, 0.052, 0.0075, '#1a1210');
+      // Ear disc with a white fringe radiating from its rim
+      const e = grp(h, [sx * 0.07, 0.045, -0.012], [0, sx * 0.35, sx * -0.35]);
+      ellip(e, c, 0, 0, 0, 0.042, 0.04, 0.016);
+      ellip(e, '#e9e4dc', 0, -0.004, 0.009, 0.03, 0.028, 0.008);
+      for (let i = 0; i < 30; i++) {
+        const a = i / 30 * Math.PI * 2 + hash3(i, sx, 2) * 0.4, L = 0.012 + hash3(i, sx, 4) * 0.018, r0 = 0.024 + (i % 3) * 0.004;
+        const b: V3 = [Math.cos(a) * r0, Math.sin(a) * r0 * 0.95, 0.004 + (i % 3) * 0.003];
+        clump(e, ['#f2eee8', '#d4cec5', '#e6e1d9'][i % 3], b, [b[0] + Math.cos(a + 0.2) * L, b[1] + Math.sin(a + 0.2) * L, 0.007], 0.011, 0.005);
+      }
     }
     return;
   }
@@ -1160,6 +1678,7 @@ const APE: Builder = (gp, r) => {
   const c = r.color!, sp = (r.sp as string) ?? 'gorilla';
   if (sp === 'sloth') return sloth(gp, r);
   const isGor = sp === 'gorilla';
+  habitat(gp, 'jungle', 0.32, 0.32, { seed: isGor ? 13 : 14, rocks: 1, tufts: 6 });
   const face = isGor ? '#2b2a2e' : '#9a6a50';
   const fur = furNoise(c, isGor ? 0.07 : 0.1);
   const silver = '#a7a9ad';
@@ -1225,55 +1744,53 @@ const APE: Builder = (gp, r) => {
   ellip(h, '#141212', 0, -0.06, 0.098, 0.03, 0.003, 0.012);
 };
 
+/** Red kangaroo standing alert on the tripod of its hind feet and tail, joey peeking from the pouch, on red outback sand. */
 const HOPPER: Builder = (gp, r) => {
   const c = r.color!, belly = mx(c, '#f3e3cc', 0.62);
-  const body = coat(c, belly, { dorsal: 0.86, hi: 0.25, lo: -0.4, n: 0.05 });
-  const front: Paint = (x, y, z, nx, ny, nz) => (nz > 0.35 && y > 0.16 && y < 0.56 ? speck(mx(c, belly, sst(0.35, 0.7, nz)), x, y, z, 0.04) : body(x, y, z, nx, ny, nz));
-  // Upright torso leaning forward: pear-shaped, heavy hips, narrow chest
-  sweep(gp, [
-    { p: [0, 0.16, -0.08], w: 0.07, h: 0.07 },
-    { p: [0, 0.24, -0.04], w: 0.11, h: 0.11 },
-    { p: [0, 0.36, 0.01], w: 0.1, h: 0.1 },
-    { p: [0, 0.48, 0.05], w: 0.075, h: 0.072 },
-    { p: [0, 0.58, 0.08], w: 0.048, h: 0.05 },
-    { p: [0, 0.64, 0.1], w: 0.038, h: 0.04 },
-  ], c, { radial: 22, sub: 6, paint: front, up: [0, 0, 1] });
-  // Joey peeking from the pouch
-  pblob(gp, belly, 0, 0.27, 0.085, 0.07, 0.05, 0.032, undefined, [0, 0, 0], 14);
-  const jh = grp(gp, [0.005, 0.325, 0.1], [0.2, -0.3, 0.1]);
-  pblob(jh, c, 0, 0, 0, 0.03, 0.028, 0.03, body, [0, 0, 0], 12);
-  pblob(jh, c, 0, -0.006, 0.03, 0.016, 0.014, 0.022, body, [0, 0, 0], 10);
+  habitat(gp, 'outback', 0.32, 0.36, { tufts: 5, rocks: 2, seed: 2, cz: -0.06 });
+  const body = coat(c, belly, { dorsal: 0.86, hi: 0.2, lo: -0.45, n: 0.05 });
+  const front: Paint = (x, y, z, nx, ny, nz) => (nz > 0.3 && y > 0.2 && y < 0.56 ? speck(mx(c, belly, sst(0.3, 0.7, nz)), x, y, z, 0.04) : body(x, y, z, nx, ny, nz));
+  const L = (st: LS[], P: Paint, rad = 12) => vpaint(limb(gp, c, st, undefined, rad), c, P);
+  // Pear-shaped torso leaning forward from heavy hips to a narrow chest
+  spine(gp, [
+    { p: [0, 0.2, -0.085], w: 0.075, h: 0.075 }, { p: [0, 0.25, -0.05], w: 0.105, h: 0.11 }, { p: [0, 0.34, -0.01], w: 0.1, h: 0.1 },
+    { p: [0, 0.44, 0.035], w: 0.074, h: 0.074 }, { p: [0, 0.52, 0.07], w: 0.048, h: 0.05 }, { p: [0, 0.585, 0.095], w: 0.036, h: 0.038 },
+  ], c, front, { nu: 36, nv: 24 });
+  // Pouch with joey peeking out
+  vblob(gp, belly, 0, 0.27, 0.035, 0.07, 0.06, 0.05, front, [0.15, 0, 0], 16);
+  ellip(gp, sh(belly, 0.6), 0, 0.315, 0.07, 0.038, 0.008, 0.014);
+  const jh = grp(gp, [0.005, 0.33, 0.075], [0.2, -0.4, 0.1]);
+  vblob(jh, c, 0, 0, 0, 0.03, 0.028, 0.03, body, [0, 0, 0], 14);
+  vblob(jh, c, 0, -0.006, 0.03, 0.016, 0.014, 0.022, body, [0, 0, 0], 12);
   ellip(jh, '#2a1d14', 0, -0.002, 0.051, 0.006, 0.005, 0.004);
-  for (const sx of [-1, 1]) { bead(jh, sx * 0.014, 0.008, 0.024, 0.005); drop(jh, c, [sx * 0.014, 0.02, -0.006], [sx * 0.024, 0.055, -0.012], 0.01, 0.005); }
-  const fc = sh(c, 0.6);
+  for (const sx of [-1, 1]) { bead(jh, sx * 0.014, 0.008, 0.024, 0.005); cupEar(jh, [sx * 0.014, 0.02, -0.006], [-0.2, sx * 0.3, -sx * 0.3], 0.009, 0.03, c, belly, true); }
+  const fc = sh(c, 0.55);
   for (const sx of [-1, 1]) {
-    const k = sx > 0 ? 1 : 0.96;
-    // Massive thigh, reverse-angled shin, long hind foot
-    pblob(gp, c, sx * 0.08, 0.2, -0.01, 0.06, 0.1, 0.13, body, [0.55, 0, 0], 16);
-    limb(gp, c, [
-      [[sx * 0.09, 0.15, 0.07 * k], 0.045, 0.05],
-      [[sx * 0.095, 0.09, -0.01], 0.03, 0.032],
-      [[sx * 0.09, 0.04, -0.08], 0.024, 0.026],
-    ], body, 12);
-    limb(gp, sh(c, 0.92), [
-      [[sx * 0.088, 0.03, -0.09], 0.026, 0.024],
-      [[sx * 0.085, 0.022, 0.0], 0.026, 0.02],
-      [[sx * 0.082, 0.016, 0.09 * k], 0.02, 0.014],
-      [[sx * 0.08, 0.012, 0.14 * k], 0.012, 0.008],
-    ], body, 10);
-    drop(gp, fc, [sx * 0.08, 0.012, 0.13 * k], [sx * 0.08, 0.004, 0.165 * k], 0.008);
-    // Short forearms held in front, little hands
-    limb(gp, c, [[[sx * 0.065, 0.52, 0.08], 0.022, 0.024], [[sx * 0.08, 0.44, 0.13], 0.016, 0.017], [[sx * 0.06, 0.41 + (k - 1) * 0.3, 0.16], 0.011, 0.011]], front, 10);
-    pblob(gp, fc, sx * 0.058, 0.405 + (k - 1) * 0.3, 0.165, 0.014, 0.01, 0.014, undefined, [0, 0, 0], 10);
+    const k = sx > 0 ? 1 : 0.97;
+    // Massive thigh, knee forward, reverse-angled shin, long hind foot flat on the ground
+    vblob(gp, c, sx * 0.068, 0.2, -0.02, 0.058, 0.08, 0.125, body, [0.75, 0, sx * 0.08], 20);
+    const kn: V3 = [sx * 0.085, 0.13, 0.07 * k], hk: V3 = [sx * 0.08, 0.032, -0.06];
+    L([[[sx * 0.075, 0.17, 0.03], 0.04, 0.045], [kn, 0.03, 0.032], [[sx * 0.083, 0.08, 0.0], 0.024, 0.026], [hk, 0.019, 0.022]], body);
+    L([[hk, 0.02, 0.018], [[sx * 0.08, 0.018, 0.02], 0.022, 0.016], [[sx * 0.078, 0.014, 0.1 * k], 0.018, 0.012], [[sx * 0.076, 0.011, 0.15 * k], 0.01, 0.008]], (x, y, z) => speck(sh(c, 0.82), x, y, z, 0.04), 10);
+    drop(gp, fc, [sx * 0.076, 0.011, 0.145 * k], [sx * 0.076, 0.005, 0.175 * k], 0.007);
+    // Short forearms held in front of the chest, dark little hands
+    L([[[sx * 0.05, 0.47, 0.06], 0.022, 0.024], [[sx * 0.07, 0.41, 0.1], 0.016, 0.017], [[sx * 0.05, 0.38 + (k - 1), 0.135], 0.011, 0.011]], front, 10);
+    vblob(gp, fc, sx * 0.047, 0.372 + (k - 1), 0.14, 0.013, 0.01, 0.014, undefined, [0, 0, 0], 10);
+    for (let f = 0; f < 3; f++) drop(gp, fc, [sx * (0.042 + f * 0.005), 0.366 + (k - 1), 0.148], [sx * (0.04 + f * 0.006), 0.35 + (k - 1), 0.152], 0.004);
   }
-  // Thick muscular tail sweeping back to the ground
-  sweep(gp, [{ p: [0, 0.17, -0.1], w: 0.05 }, { p: [0, 0.08, -0.2], w: 0.038 }, { p: [0.02, 0.025, -0.34], w: 0.025 }, { p: [0.04, 0.018, -0.46], w: 0.012 }], c,
-    { radial: 12, sub: 5, paint: body });
-  // Head: deer-like face, big mobile ears
-  const h = grp(gp, [0, 0.66, 0.11], [0.15, -0.35, 0.06]);
-  pblob(h, c, 0, 0.0, 0.0, 0.042, 0.04, 0.048, body, [0, 0, 0], 14);
-  const hl = longHead(h, c, { s: 0.85, len: 0.82, wide: 1.05, P: body, muz: sh(c, 0.85), nostril: '#2a1d14', earH: 0.11, earW: 0.028, earRot: [-0.15, 0.3, -0.35], earIn: belly, iris: '#2b1a10' });
-  ellip(h, '#3a2a20', 0, -0.012, hl.tip + 0.026, 0.018, 0.012, 0.008);
+  // Thick muscular tail sweeping back to the ground (third leg of the tripod)
+  vpaint(sweep(gp, [{ p: [0, 0.2, -0.1], w: 0.05 }, { p: [0, 0.1, -0.2], w: 0.038 }, { p: [0.01, 0.03, -0.32], w: 0.027 }, { p: [0.03, 0.018, -0.44], w: 0.017 }, { p: [0.05, 0.016, -0.52], w: 0.008 }], c,
+    { radial: 14, sub: 6 }), c, (x, y, z, nx, ny, nz) => (z < -0.4 ? speck(mx(c, '#3a2418', sst(-0.42, -0.5, z)), x, y, z, 0.04) : body(x, y, z, nx, ny, nz)));
+  // Head: deer-like face, pale muzzle stripe, big mobile ears
+  const h = grp(gp, [0, 0.615, 0.11], [0.2, -0.4, 0.06]);
+  vblob(h, c, 0, 0.0, 0.0, 0.042, 0.04, 0.048, body, [0, 0, 0], 16);
+  const hl = longHead(h, c, { s: 0.85, len: 0.82, wide: 1.05, muz: sh(c, 0.75), nostril: '#2a1d14', earH: 0.11, earW: 0.028, earRot: [-0.15, 0.3, -0.3], earIn: belly, iris: '#2b1a10' });
+  ellip(h, '#2e2018', 0, -0.012, hl.tip + 0.026, 0.018, 0.012, 0.008);
+  for (const sx of [-1, 1]) {
+    // Pale moustache band and dark malar patch typical of red kangaroos (flush with the muzzle)
+    ellip(h, '#efe3d2', sx * 0.021, -0.026, 0.13, 0.004, 0.006, 0.022, sx * 0.12);
+    ellip(h, '#3a2a22', sx * 0.025, -0.012, 0.115, 0.003, 0.005, 0.016, sx * 0.12);
+  }
 };
 
 const PENGUIN: Builder = (gp, r) => {
@@ -1453,49 +1970,116 @@ const WADER: Builder = (gp, r) => {
   ellip(gp, jnt, -0.035, 0.42, 0.02, 0.013, 0.014, 0.013);
 };
 
+/**
+ * Bald eagle perched on a weathered dead branch over a rocky outcrop, wings half-raised as if about to lift off:
+ * snow-white head and tail, dark chocolate body with scalloped coverts, massive hooked yellow beak, yellow feet
+ * gripping the branch with black talons, broad wings ending in splayed primary "fingers".
+ */
 const FLYER: Builder = (gp, r) => {
-  const c = r.color!, hd = (r.head as string) ?? '#ffffff', beak = '#f5b20b';
-  const bird = new THREE.Group(); bird.position.y = 0.5; bird.name = 'flap'; gp.add(bird);
-  const plumage = (x: number, y: number, z: number) => speck(c, x, y, z, 0.07);
-  // Streamlined body, white head and neck ruff blending into the dark mantle
-  sweep(bird, [
-    { p: [0, 0, -0.2], w: 0.035, h: 0.02 }, { p: [0, 0, -0.12], w: 0.07, h: 0.06 },
-    { p: [0, 0.01, 0.0], w: 0.085, h: 0.08 }, { p: [0, 0.03, 0.12], w: 0.065, h: 0.065 }, { p: [0, 0.05, 0.18], w: 0.05, h: 0.05 },
-  ], c, { radial: 18, sub: 6, paint: (x, y, z) => (z > 0.13 + hash3(x * 50, y * 50, 1) * 0.03 ? hd : plumage(x, y, z)) });
-  const h = grp(bird, [0, 0.06, 0.2], [0.05, -0.3, 0.08]);
-  pblob(h, hd, 0, 0, 0, 0.052, 0.048, 0.06, (x, y, z) => speck(hd, x, y, z, 0.03), [0, 0, 0], 16);
-  pblob(h, hd, 0, 0.018, 0.035, 0.045, 0.018, 0.03, undefined, [0.2, 0, 0], 12); // heavy brow
-  // Hooked yellow beak with cere
-  sweep(h, [{ p: [0, 0.0, 0.04], w: 0.02, h: 0.024 }, { p: [0, 0.002, 0.07], w: 0.015, h: 0.022 }, { p: [0, -0.008, 0.095], w: 0.01, h: 0.016 }, { p: [0, -0.03, 0.1], w: 0.004, h: 0.005 }],
-    beak, { radial: 10, sub: 5 });
-  ellip(h, sh(beak, 0.9), 0, -0.012, 0.06, 0.016, 0.006, 0.026);
-  for (const sx of [-1, 1]) {
-    aEye(h, sx * 0.034, 0.01, 0.038, 0.0095, sx * 0.85, '#f2c230', hd);
-    ellip(h, sh(beak, 0.75), sx * 0.012, 0.005, 0.075, 0.003, 0.002, 0.004);
+  const c = r.color!, hd = (r.head as string) ?? '#ffffff', beak = '#f2b818', foot = '#f0c030';
+  const dk = sh(c, 0.72), lt = mx(c, '#8a6a48', 0.45);
+  const plum: Paint = (x, y, z) => {
+    const w = vnoise(x * 30, y * 30, z * 30);
+    const row = Math.sin(y * 210 + x * 40 + w * 5);
+    return speck(row > 0.72 ? lt : row < -0.6 ? dk : c, x, y, z, 0.06);
+  };
+  const white: Paint = (x, y, z) => speck(hd, x, y, z, 0.035);
+  // Rocky outcrop with a fallen, sun-bleached snag resting across two boulders
+  habitat(gp, 'rock', 0.34, 0.28, { rocks: 2, tufts: 4, seed: 4 });
+  const rockC = '#7d7972';
+  const rockP: Paint = (x, y, z) => mx(mx(rockC, sh(rockC, 0.7), sst(0.4, 0.8, vnoise(x * 30, y * 30, z * 30)) * 0.7), '#a7a29a', sst(0.55, 0.8, vnoise(x * 70, y * 70, z * 70)) * 0.5);
+  vblob(gp, rockC, -0.19, 0.03, 0.06, 0.13, 0.11, 0.12, rockP, [0.1, 0.4, 0], 18);
+  vblob(gp, rockC, 0.2, 0.02, -0.04, 0.11, 0.09, 0.1, rockP, [0, -0.6, 0.15], 16);
+  const wood = '#9a8f80';
+  const branch: V3[] = [[-0.31, 0.12, 0.09], [-0.16, 0.15, 0.06], [0.0, 0.17, 0.035], [0.16, 0.18, 0.0], [0.3, 0.2, -0.05]];
+  vpaint(sweep(gp, branch.map((p, i) => ({ p, w: 0.034 - i * 0.004, h: 0.03 - i * 0.003 })), wood, { radial: 16, sub: 7 }), wood, barkP(wood, 1.4));
+  ellip(gp, sh(wood, 0.8), -0.31, 0.12, 0.09, 0.033, 0.029, 0.02, 0.4);
+  tube(gp, [[0.18, 0.18, -0.005], [0.24, 0.24, 0.03], [0.27, 0.3, 0.02]], 0.012, 0.005, wood, { paint: barkP(wood, 1.6) });
+  tube(gp, [[-0.12, 0.155, 0.05], [-0.16, 0.2, 0.1], [-0.15, 0.24, 0.14]], 0.01, 0.004, wood, { paint: barkP(wood, 1.6) });
+  // Torso: upright, deep-chested, tapering to the tail root
+  spine(gp, [
+    { p: [0, 0.255, -0.085], w: 0.04, h: 0.03 }, { p: [0, 0.285, -0.06], w: 0.075, h: 0.065 },
+    { p: [0, 0.35, -0.02], w: 0.098, h: 0.092 }, { p: [0, 0.42, 0.018], w: 0.092, h: 0.088 },
+    { p: [0, 0.475, 0.04], w: 0.064, h: 0.064 }, { p: [0, 0.515, 0.052], w: 0.056, h: 0.056 },
+  ], c, (x, y, z, nx, ny, nz) => (y > 0.468 + (hash3(Math.floor(x * 140), 1, Math.floor(z * 140)) - 0.5) * 0.02 ? white(x, y, z, nx, ny, nz) : plum(x, y, z, nx, ny, nz)), { nu: 40, nv: 26 });
+  // Ragged white ruff over the brown mantle
+  for (let i = 0; i < 30; i++) {
+    const a = (i / 30) * Math.PI * 2 + hash3(i, 2, 2) * 0.15, rr = 0.06, y0 = 0.482 + Math.sin(a * 3) * 0.004;
+    const b: V3 = [Math.cos(a) * rr, y0, 0.042 + Math.sin(a) * rr * 0.95], L = 0.018 + hash3(i, 3, 1) * 0.018;
+    blade(gp, i % 3 ? hd : sh(hd, 0.95), b, [b[0] * 1.1, y0 - L, b[2] + (b[2] - 0.042) * 0.1], 0.011, 0.003, [Math.cos(a), 0.15, Math.sin(a)]);
   }
-  // Broad wings: arm/hand loft with trailing secondaries and splayed primary "fingers"
+  // Feathered "trousers", short yellow tarsi and toes wrapped around the branch
   for (const sx of [-1, 1]) {
-    sweep(bird, [
-      { p: [sx * 0.04, 0.03, -0.01], w: 0.1, h: 0.028 }, { p: [sx * 0.2, 0.06, 0.0], w: 0.1, h: 0.018 },
-      { p: [sx * 0.34, 0.08, 0.0], w: 0.075, h: 0.012 }, { p: [sx * 0.42, 0.085, -0.01], w: 0.045, h: 0.008 },
-    ], c, { radial: 12, sub: 5, paint: (x, y, z) => (z < -0.05 && Math.sin(x * 140) > 0.5 ? sh(c, 0.78) : z > 0.06 ? sh(c, 1.18) : plumage(x, y, z)) });
-    for (let i = 0; i < 9; i++) {
-      const x = sx * (0.06 + i * 0.038);
-      drop(bird, sh(c, 0.8 + (i % 2) * 0.08), [x, 0.035 + i * 0.005, -0.06], [x + sx * 0.012, 0.03 + i * 0.005, -0.14 + i * 0.004], 0.024, 0.006);
+    vblob(gp, c, sx * 0.04, 0.29, 0.0, 0.034, 0.045, 0.038, plum, [0.2, 0, sx * 0.15], 14);
+    for (let k = 0; k < 3; k++) blade(gp, sh(c, 0.9 + k * 0.05), [sx * (0.04 + k * 0.006), 0.27, 0.02 - k * 0.01], [sx * (0.045 + k * 0.006), 0.225, 0.03 - k * 0.012], 0.02, 0.006, [sx, 0, 0.3]);
+    const ank: V3 = [sx * 0.044, 0.208, 0.04];
+    limb(gp, foot, [[[sx * 0.044, 0.245, 0.03], 0.012, 0.012], [ank, 0.011, 0.011]], (_x, y) => (Math.sin(y * 700) > 0.6 ? sh(foot, 0.85) : null), 10);
+    for (const t of [-1, 0, 1]) {
+      const x = ank[0] + t * 0.016, bz = 0.035;
+      const pts: V3[] = [[ank[0], 0.205, 0.045], [x, 0.205, 0.062], [x, 0.188, 0.075], [x, 0.168, 0.072]];
+      tube(gp, pts, 0.0085, 0.007, foot, { paint: (_x, y, z) => (Math.sin((y + z) * 600) > 0.5 ? sh(foot, 0.85) : null) });
+      drop(gp, '#1a1714', [x, 0.168, 0.072], [x, 0.152, 0.062 + bz * 0], 0.0055, 0.004);
     }
-    for (let i = 0; i < 6; i++) {
-      const a = -0.35 + i * 0.16;
-      const b0: V3 = [sx * 0.4, 0.085, -0.01 - i * 0.01];
-      drop(bird, sh(c, 0.62 + i * 0.03), b0, [b0[0] + sx * Math.cos(a) * 0.15, 0.1 + i * 0.006, b0[2] + Math.sin(a) * 0.15], 0.006, 0.017);
-    }
-    // Yellow feet tucked under the tail, black talons
-    limb(bird, beak, [[[sx * 0.035, -0.04, -0.06], 0.012, 0.012], [[sx * 0.035, -0.06, -0.1], 0.01, 0.01]], undefined, 8);
-    for (const a of [-0.4, 0, 0.4]) drop(bird, '#1c1917', [sx * 0.035, -0.062, -0.1], [sx * 0.035 + Math.sin(a) * 0.02, -0.075, -0.1 - Math.cos(a) * 0.015], 0.004);
+    tube(gp, [[ank[0], 0.205, 0.035], [ank[0], 0.2, 0.008], [ank[0], 0.185, -0.004]], 0.0085, 0.007, foot);
+    drop(gp, '#1a1714', [ank[0], 0.185, -0.004], [ank[0], 0.168, 0.004], 0.0055, 0.004);
   }
-  // White fanned tail
-  for (let i = 0; i < 7; i++) {
-    const a = (i - 3) * 0.13;
-    drop(bird, mx(hd, '#e5e7eb', (i % 2) * 0.5), [Math.sin(a) * 0.01, 0.0, -0.17], [Math.sin(a) * 0.1, -0.008, -0.17 - Math.cos(a) * 0.13], 0.024, 0.006);
+  // White wedge tail hanging behind the branch, white undertail coverts
+  for (let i = 0; i < 9; i++) {
+    const t = (i - 4) / 4, b: V3 = [t * 0.018, 0.27, -0.082];
+    blade(gp, i % 2 ? hd : sh(hd, 0.95), b, [t * 0.06, 0.07 + Math.abs(t) * 0.025, -0.15 - Math.abs(t) * 0.005], 0.022, 0.005, [0, 0.4, -0.92]);
+  }
+  vblob(gp, hd, 0, 0.255, -0.06, 0.04, 0.03, 0.03, white, [0.5, 0, 0], 12);
+  // Half-raised broad wings: lofted arm/hand panel, scalloped coverts, serrated secondaries and splayed primaries
+  for (const sx of [-1, 1]) {
+    const S: V3 = [sx * 0.07, 0.455, -0.01];
+    const A = nrm([sx * 1, 0.5, -0.3]);
+    let C = nrm([0, -0.82, -0.57]);
+    const dAC = A[0] * C[0] + A[1] * C[1] + A[2] * C[2];
+    C = nrm([C[0] - A[0] * dAC, C[1] - A[1] * dAC, C[2] - A[2] * dAC]);
+    const N: V3 = nrm([A[1] * C[2] - A[2] * C[1], A[2] * C[0] - A[0] * C[2], A[0] * C[1] - A[1] * C[0]]);
+    const W = (s: number, ch: number, n = 0): V3 => [S[0] + A[0] * s + C[0] * ch + N[0] * n, S[1] + A[1] * s + C[1] * ch + N[1] * n, S[2] + A[2] * s + C[2] * ch + N[2] * n];
+    const span = [0, 0.08, 0.17, 0.25, 0.3], chord = [0.17, 0.2, 0.19, 0.16, 0.12], lead = [0, -0.012, -0.018, -0.008, 0.01], bow = [0, 0.012, 0.016, 0.01, 0];
+    const wingP: Paint = (x, y, z) => {
+      const q = (x - S[0]) * C[0] + (y - S[1]) * C[1] + (z - S[2]) * C[2], s = (x - S[0]) * A[0] + (y - S[1]) * A[1] + (z - S[2]) * A[2];
+      const row = Math.sin(q * 120 + Math.sin(s * 60) * 1.4);
+      return speck(q > 0.11 ? mx(c, dk, 0.5) : row > 0.6 ? lt : row < -0.7 ? dk : c, x, y, z, 0.05);
+    };
+    foil(gp, c, span.map((s, i) => ({ le: W(s, lead[i], bow[i]), te: W(s, lead[i] + chord[i], bow[i] * 0.4), t: 0.022 - i * 0.003 })), N, wingP, 16, 14);
+    // Secondaries: rounded feather tips along the trailing edge
+    for (let i = 0; i < 10; i++) {
+      const s = 0.02 + i * 0.027, ch = 0.16 + Math.sin(i / 9 * Math.PI) * 0.035;
+      const b = W(s, ch - 0.06, 0.004), e = W(s + 0.006, ch + 0.035, 0.006);
+      blade(gp, i % 2 ? sh(c, 0.82) : sh(c, 0.74), b, e, 0.02, 0.0045, N);
+    }
+    // Primaries: seven long, separated "fingers" fanning from the wrist
+    for (let i = 0; i < 7; i++) {
+      const t = i / 6, ang = -0.12 + t * 0.95, L = 0.19 - Math.abs(t - 0.3) * 0.08;
+      const b = W(0.25 + 0.02 * (1 - t), 0.02 + t * 0.1, 0.004 + t * 0.002);
+      const d: V3 = nrm([A[0] * Math.cos(ang) + C[0] * Math.sin(ang), A[1] * Math.cos(ang) + C[1] * Math.sin(ang), A[2] * Math.cos(ang) + C[2] * Math.sin(ang)]);
+      const e: V3 = [b[0] + d[0] * L + N[0] * 0.012 * (1 - t), b[1] + d[1] * L + N[1] * 0.012 * (1 - t), b[2] + d[2] * L + N[2] * 0.012 * (1 - t)];
+      blade(gp, sh(c, 0.62 + (i % 2) * 0.06), b, e, 0.021, 0.0045, N);
+    }
+  }
+  // Head: flat crown, jutting brow shelf over a pale yellow eye, massive hooked beak
+  vblob(gp, hd, 0, 0.522, 0.054, 0.052, 0.04, 0.052, white, [0, 0, 0], 16);
+  const h = grp(gp, [0, 0.54, 0.062], [0.05, 0.55, 0.0]);
+  sculpt(h, hd, [0, 0, 0], [0.042, 0.04, 0.054], [
+    [[0, 1, 0.2], -0.1, 0.25], [[0.5, 0.5, 0.7], 0.1, 0.04], [[-0.5, 0.5, 0.7], 0.1, 0.04],
+    [[0, -0.6, -0.8], 0.25, 0.3], [[0, 0.2, -1], 0.15, 0.12], [[0, -0.3, 1], 0.2, 0.15],
+  ], white, 24);
+  const bk: Paint = (_x, y, z) => (z > 0.095 && y < -0.01 ? sh(beak, 0.92) : null);
+  sweep(h, [
+    { p: [0, -0.008, 0.036], w: 0.02, h: 0.03 }, { p: [0, -0.006, 0.064], w: 0.016, h: 0.027 }, { p: [0, -0.006, 0.084], w: 0.011, h: 0.021 },
+    { p: [0, -0.016, 0.099], w: 0.0075, h: 0.012 }, { p: [0, -0.031, 0.102], w: 0.0045, h: 0.006 }, { p: [0, -0.04, 0.096], w: 0.0015, h: 0.002 },
+  ], beak, { radial: 12, sub: 6, paint: bk });
+  sweep(h, [{ p: [0, -0.024, 0.04], w: 0.016, h: 0.008 }, { p: [0, -0.026, 0.07], w: 0.012, h: 0.007 }, { p: [0, -0.028, 0.088], w: 0.006, h: 0.004 }], sh(beak, 0.94), { radial: 10, sub: 4 });
+  ellip(h, mx(beak, '#fff3b0', 0.4), 0, 0.006, 0.05, 0.02, 0.012, 0.016);
+  for (const sx of [-1, 1]) {
+    ellip(h, '#5a4010', sx * 0.009, 0.004, 0.063, 0.0035, 0.0022, 0.004);
+    ellip(h, sh(beak, 0.7), sx * 0.0125, -0.021, 0.064, 0.0015, 0.0015, 0.024);
+    aEye(h, sx * 0.03, 0.006, 0.04, 0.0078, sx * 0.75, '#f3dd6a');
+    // Overhanging brow ridge that gives the eagle its fierce frown (lower toward the beak)
+    ellip(h, hd, sx * 0.03, 0.017, 0.044, 0.014, 0.0055, 0.017, sx * 0.4, 0.15, -sx * 0.35);
   }
 };
 
@@ -1724,36 +2308,75 @@ const WHALE: Builder = (gp, r) => {
   }
 };
 
+/**
+ * Great white shark cruising over a sandy reef floor: torpedo body with a blunt conical snout, sharp grey/white
+ * countershading, tall triangular dorsal, sickle pectorals, lunate tail on a keeled peduncle, toothy half-open jaw.
+ */
 const SHARK: Builder = (gp, r) => {
-  const c = r.color!, belly = '#f4f6f8', dk = sh(c, 0.62);
-  // Ragged countershading line, faint dorsal darkening, slight swimming S-curve
-  const paint: Paint = (x, y, z, _nx, ny) => {
-    const edge = -0.05 + Math.sin(z * 45) * 0.08 + Math.sin(z * 17 + 1) * 0.06;
+  const c = r.color!, belly = '#f2f4f5', top = sh(c, 0.82);
+  seabed(gp, 0.4, 0.3);
+  // Kelp fronds and a rocky outcrop on the reef floor
+  vblob(gp, '#7a7468', -0.22, 0.02, -0.1, 0.09, 0.07, 0.08, (x, y, z) => mx('#7a7468', '#5a554c', sst(0.4, 0.8, vnoise(x * 30, y * 30, z * 30)) * 0.7), [0, 0.6, 0], 16);
+  for (let k = 0; k < 5; k++) {
+    const x0 = -0.28 + hash3(k, 1, 7) * 0.12 + (k > 2 ? 0.48 : 0), z0 = -0.18 + hash3(k, 2, 7) * 0.3, hgt = 0.26 + hash3(k, 3, 7) * 0.18;
+    const pts: V3[] = [];
+    for (let j = 0; j <= 5; j++) { const t = j / 5; pts.push([x0 + Math.sin(t * 4 + k) * 0.03, t * hgt, z0 + Math.cos(t * 3 + k) * 0.02]); }
+    tube(gp, pts, 0.005, 0.003, '#6b5a2a');
+    for (let j = 1; j <= 6; j++) {
+      const t = j / 6.5, q = pts[Math.min(5, Math.round(t * 5))], sd = j % 2 ? 1 : -1;
+      blade(gp, j % 2 ? '#8a7a34' : '#6f6a2c', q, [q[0] + sd * 0.05, q[1] + 0.05, q[2] + 0.01], 0.014, 0.002, [0, 0, 1]);
+    }
+  }
+  const sg = grp(gp, [0, 0.33, 0], [-0.06, 0, -0.32], 'ZXY');
+  const cy = 0, S = (z: number) => Math.sin(z * 4.5 + 0.6) * 0.03;
+  const skin: Paint = (x, y, z, _nx, ny) => {
+    const edge = -0.15 + Math.sin(z * 38) * 0.06 + (vnoise(z * 30, x * 10, 1) - 0.5) * 0.25;
     if (ny < edge) return belly;
-    return speck(ny > 0.6 ? sh(c, 0.9) : c, x, y, z, 0.035);
+    return speck(mx(c, top, sst(0.2, 0.9, ny)), x, y, z, 0.03);
   };
-  const S = (z: number) => Math.sin(z * 5) * 0.025;
-  const st: [number, number, number, number][] = [[-0.47, 0.012, 0.022, 0.2], [-0.36, 0.03, 0.05, 0.2], [-0.12, 0.085, 0.105, 0.2], [0.1, 0.1, 0.12, 0.2], [0.27, 0.075, 0.085, 0.195], [0.38, 0.042, 0.05, 0.19], [0.44, 0.018, 0.022, 0.185]];
-  sweep(gp, st.map(([z, w, hh, y]) => ({ p: [S(z), y, z] as V3, w, h: hh })), c, { radial: 22, sub: 6, paint });
-  // Tall triangular dorsal fin, swept back; second dorsal; crescent tail with a long upper lobe
-  sweep(gp, [{ p: [S(0.04), 0.3, 0.04], w: 0.012, h: 0.08 }, { p: [S(0.0), 0.37, -0.02], w: 0.008, h: 0.04 }, { p: [S(-0.06), 0.43, -0.08], w: 0.003, h: 0.008 }], c, { radial: 10, sub: 4, up: [0, 0, 1] });
-  leaf(gp, c, S(-0.33), 0.27, -0.33, 0.02, 0.04, [0, Math.PI / 2, 0.5], 0.01, 0.05);
-  const tl = slab(gp, [[0, 0.03], [0.08, 0.2], [0.115, 0.215], [0.06, 0.02], [0.08, -0.11], [0.05, -0.12], [0, -0.02]], 0.014, c, 0.005);
-  tl.position.set(S(-0.44), 0.2, -0.44); tl.rotation.set(0, -Math.PI / 2 + 0.25, -0.45);
+  const st: [number, number, number, number][] = [
+    [0.47, 0.006, 0.006, -0.012], [0.44, 0.035, 0.034, -0.01], [0.38, 0.062, 0.066, -0.01], [0.28, 0.084, 0.092, -0.005], [0.14, 0.094, 0.104, 0],
+    [0.0, 0.088, 0.098, 0.002], [-0.14, 0.068, 0.076, 0.004], [-0.27, 0.042, 0.048, 0.006], [-0.38, 0.022, 0.026, 0.006], [-0.44, 0.016, 0.024, 0.006],
+  ];
+  spine(sg, st.map(([z, w, h, y]) => ({ p: [S(z), cy + y, z] as V3, w, h })), c, skin, {
+    nu: 60, nv: 28, side: [1, 0, 0],
+    // Lateral keel along the caudal peduncle
+    shape: (u, a) => 1 + sst(0.78, 0.95, u) * 0.35 * Math.pow(Math.abs(Math.cos(a)), 6),
+  });
+  const P = (x: number, y: number, z: number): V3 => [S(z) + x, cy + y, z];
+  // Tall triangular first dorsal, small second dorsal and anal fins
+  foil(sg, top, [{ le: P(0, 0.085, 0.13), te: P(0, 0.08, -0.04), t: 0.014 }, { le: P(0, 0.16, 0.05), te: P(0, 0.15, -0.035), t: 0.009 }, { le: P(0, 0.235, -0.04), te: P(0, 0.225, -0.06), t: 0.003 }], [1, 0, 0], undefined, 12, 12);
+  foil(sg, top, [{ le: P(0, 0.03, -0.3), te: P(0, 0.025, -0.35), t: 0.005 }, { le: P(0, 0.06, -0.335), te: P(0, 0.055, -0.355), t: 0.002 }], [1, 0, 0], undefined, 6, 8);
+  foil(sg, sh(c, 0.95), [{ le: P(0, -0.03, -0.29), te: P(0, -0.024, -0.34), t: 0.005 }, { le: P(0, -0.06, -0.33), te: P(0, -0.055, -0.35), t: 0.002 }], [1, 0, 0], undefined, 6, 8);
+  // Lunate tail: near-symmetric crescent lobes
+  foil(sg, top, [{ le: P(0, 0.012, -0.425), te: P(0, 0.0, -0.47), t: 0.012 }, { le: P(0, 0.11, -0.49), te: P(0, 0.08, -0.53), t: 0.006 }, { le: P(0, 0.21, -0.585), te: P(0, 0.2, -0.6), t: 0.002 }], [1, 0, 0], undefined, 12, 10);
+  foil(sg, top, [{ le: P(0, -0.006, -0.425), te: P(0, 0.0, -0.47), t: 0.011 }, { le: P(0, -0.09, -0.49), te: P(0, -0.07, -0.525), t: 0.006 }, { le: P(0, -0.165, -0.56), te: P(0, -0.158, -0.575), t: 0.002 }], [1, 0, 0], undefined, 12, 10);
   for (const sx of [-1, 1]) {
-    // Long pectoral fins angled down, small pelvic fins
-    leaf(gp, sh(c, 0.92), sx * 0.085, 0.14, 0.1, 0.04, 0.18, [-0.4, 0, sx * 2.05], 0.012, 0.12);
-    leaf(gp, sh(c, 0.92), sx * 0.04, 0.12, -0.24, 0.018, 0.05, [-0.6, 0, sx * 2.4], 0.008, 0.1);
-    // Five gill slits, black eyes, grinning mouth line with a hint of teeth
-    for (let i = 0; i < 5; i++) ellip(gp, dk, sx * (0.09 + i * 0.0015), 0.195, 0.21 - i * 0.022, 0.006, 0.036 - i * 0.002, 0.004);
-    bead(gp, sx * 0.05, 0.225, 0.33, 0.009, '#0a0a0a');
+    // Long sickle pectorals, dark-tipped beneath, and small pelvics
+    const up = nrm([-sx * 0.45, 1, 0]);
+    foil(sg, c, [
+      { le: P(sx * 0.06, -0.05, 0.2), te: P(sx * 0.06, -0.055, 0.09), t: 0.014 },
+      { le: P(sx * 0.16, -0.1, 0.12), te: P(sx * 0.15, -0.1, 0.05), t: 0.008 },
+      { le: P(sx * 0.26, -0.15, 0.0), te: P(sx * 0.25, -0.15, -0.025), t: 0.003 },
+    ], up, (x, y, z, nx, ny) => (ny < -0.2 ? (Math.abs(x - S(z)) > 0.22 ? '#3a3e44' : belly) : skin(x, y, z, nx, ny, 0)), 12, 12);
+    foil(sg, c, [{ le: P(sx * 0.03, -0.055, -0.2), te: P(sx * 0.03, -0.05, -0.25), t: 0.006 }, { le: P(sx * 0.07, -0.08, -0.25), te: P(sx * 0.065, -0.075, -0.27), t: 0.002 }], up, skin, 6, 8);
+    // Five long gill slits, black eye, nostril
+    for (let i = 0; i < 5; i++) {
+      const z = 0.24 - i * 0.022, w = 0.082 + i * 0.002;
+      ellip(sg, sh(c, 0.55), S(z) + sx * w, cy - 0.005, z, 0.004, 0.04 - Math.abs(i - 1) * 0.003, 0.0035, 0, 0, sx * 0.2);
+    }
+    bead(sg, S(0.36) + sx * 0.05, cy + 0.018, 0.36, 0.009, '#050505');
+    ellip(sg, '#2a2a2e', S(0.43) + sx * 0.018, cy - 0.022, 0.43, 0.006, 0.0025, 0.004);
   }
-  pblob(gp, '#5b3a3f', S(0.31), 0.13, 0.31, 0.04, 0.009, 0.03, undefined, [0, 0, 0], 14);
-  for (let i = 0; i < 9; i++) {
-    const a = (i - 4) * 0.32;
-    drop(gp, '#fffdf5', [S(0.31) + Math.sin(a) * 0.036, 0.137, 0.31 + Math.cos(a) * 0.026], [S(0.31) + Math.sin(a) * 0.036, 0.124, 0.31 + Math.cos(a) * 0.028], 0.005);
+  // Half-open jaw slung under the snout, with rows of serrated triangular teeth
+  const jz = 0.335, jy = cy - 0.05;
+  pblob(sg, '#5e2f36', S(jz), jy - 0.006, jz, 0.054, 0.022, 0.04, undefined, [0.3, 0, 0], 16);
+  pblob(sg, belly, S(jz - 0.01), jy - 0.032, jz - 0.016, 0.052, 0.012, 0.038, undefined, [0.45, 0, 0], 16);
+  for (let i = 0; i < 13; i++) {
+    const a = (i - 6) * 0.23, x = S(jz) + Math.sin(a) * 0.046, z = jz + Math.cos(a) * 0.032;
+    drop(sg, '#fffdf3', [x, jy + 0.008, z + 0.004], [x, jy - 0.012, z + 0.006], 0.0055, 0.002);
+    if (i % 2) drop(sg, '#f4efe0', [x * 0.96 + S(jz) * 0.04, jy - 0.03, z - 0.008], [x * 0.96 + S(jz) * 0.04, jy - 0.016, z - 0.006], 0.0045, 0.0018);
   }
-  ellip(gp, sh(c, 0.7), S(0.44), 0.19, 0.445, 0.006, 0.004, 0.003);
 };
 
 const TURTLE: Builder = (gp, r) => {
