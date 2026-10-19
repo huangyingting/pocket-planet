@@ -1,9 +1,10 @@
 // Dev-only visual QA harness: `npx vite` then open /tools/model-gallery.html
-// Query params: ?type=landmark|animal|discovery|vehicle  &keys=eiffel,lion  &cols=4  &size=320  &yaw=0.6  &pitch=0.35
+// Query params: ?type=landmark|animal|discovery|vehicle  &keys=eiffel,lion  &cols=4  &size=320  &yaw=0.6  &pitch=0.35  &lod=far
 import * as THREE from 'three';
 import { CATALOGUE } from '../src/shared/data/catalogue.ts';
 import { buildModel, whenModelReady } from '../src/client/models/kit.ts';
 import { setupStudio } from '../src/client/models/preview.ts';
+import { setModelDetail } from '../src/client/models/library.ts';
 
 const q = new URLSearchParams(location.search);
 const type = q.get('type');
@@ -11,6 +12,7 @@ const keys = q.get('keys')?.split(',');
 const size = Number(q.get('size') ?? 256);
 const yaw = Number(q.get('yaw') ?? 0.6);
 const pitch = Number(q.get('pitch') ?? 0.32);
+const far = q.get('lod') === 'far';
 document.documentElement.style.setProperty('--cols', q.get('cols') ?? '8');
 
 const items = CATALOGUE.filter(i => (!type || i.type === type) && (!keys || keys.includes(i.key)));
@@ -26,6 +28,7 @@ const timings: [string, number][] = [];
 for (const item of items) {
   const t0 = performance.now();
   const model = buildModel(item.model);
+  setModelDetail(model, far);
   timings.push([item.key, performance.now() - t0]);
   const box = new THREE.Box3().setFromObject(model);
   const s = new THREE.Vector3(), c = new THREE.Vector3();

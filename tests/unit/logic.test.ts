@@ -278,3 +278,70 @@ describe('wikipedia reader', () => {
     expect(graticuleStep(1)).toBeGreaterThanOrEqual(graticuleStep(0.2));
   });
 });
+
+describe('model pipeline (worker transfer + level of detail)', async () => {
+  const THREE = await import('three');
+  const { packModel, unpackModel } = await import('../../src/client/models/pack.ts');
+  const lib = await import('../../src/client/models/library.ts');
+  const eiffel = BY_KEY.get('eiffel')!.model, liberty = BY_KEY.get('liberty')!.model;
+  const meshes = (o: import('three').Object3D) => {
+    const out: import('three').Mesh[] = [];
+    o.traverse(x => { if ((x as import('three').Mesh).isMesh) out.push(x as import('three').Mesh); });
+    return out;
+  };
+
+  it('pack → unpack preserves the tree, geometry, draw ranges and LOD data', async () => {
+    await loadHeroesFor([eiffel.hero]);
+    const src = buildModel(eiffel);
+    const { model, transfer } = packModel(src);
+    expect(transfer.length).toBeGreaterThan(0);
+    const back = unpackModel(structuredClone(model));
+    const a = meshes(src), b = meshes(back);
+    expect(b.length).toBe(a.length);
+    a.forEach((m, i) => {
+      expect(b[i].geometry.getAttribute('position').count).toBe(m.geometry.getAttribute('position').count);
+      expect(b[i].geometry.drawRange.count).toBe(m.geometry.drawRange.count);
+      expect(b[i].geometry.userData.lod).toEqual(m.geometry.userData.lod);
+      expect(b[i].name).toBe(m.name);
+    });
+    expect(back.userData.radius).toBeCloseTo(src.userData.radius);
+  });
+
+  it('far detail draws a much smaller appended range, and switching back restores full detail', async () => {
+    await lib.whenModelReady(liberty); // no Worker in node: falls back to building on the main thread
+    expect(lib.modelReady(liberty)).toBe(true);
+    const obj = lib.buildModel(liberty);
+    const lodMeshes = meshes(obj).filter(m => m.geometry.userData.lod);
+    expect(lodMeshes.length).toBeGreaterThan(0);
+    const near = (m: import('three').Mesh) => Math.min(m.geometry.drawRange.count, m.geometry.getAttribute('position').count);
+    const full = lodMeshes.map(near);
+    lib.setModelDetail(obj, true);
+    lodMeshes.forEach((m, i) => {
+      const [start, count] = m.geometry.userData.lod as [number, number];
+      expect(m.geometry.drawRange.start).toBe(start);
+      expect(m.geometry.drawRange.count).toBe(count);
+      expect(start + count).toBeLessThanOrEqual(m.geometry.getAttribute('position').count);
+      expect(count).toBeLessThan(full[i]);
+    });
+    // instances own their draw range: a second instance is unaffected
+    const other = meshes(lib.buildModel(liberty)).filter(m => m.geometry.userData.lod);
+    expect(other.map(near)).toEqual(full);
+    lib.setModelDetail(obj, false);
+    expect(lodMeshes.map(near)).toEqual(full);
+    expect(lodMeshes.every(m => m.geometry.drawRange.start === 0)).toBe(true);
+  });
+
+  it('the far level keeps thin structures (no part vanishes from the silhouette)', async () => {
+    const obj = lib.buildModel(liberty);
+    lib.setModelDetail(obj, true);
+    obj.updateMatrixWorld(true);
+    const box = new THREE.Box3();
+    for (const m of meshes(obj)) {
+      if (!m.visible) continue;
+      const g = m.geometry, p = g.getAttribute('position'), v = new THREE.Vector3();
+      for (let i = g.drawRange.start; i < g.drawRange.start + Math.min(g.drawRange.count, p.count); i++) box.expandByPoint(v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld));
+    }
+    const full = new THREE.Box3().setFromObject(lib.buildModel(liberty));
+    expect(box.max.y).toBeGreaterThan(full.max.y * 0.8); // the raised torch survives
+  });
+});

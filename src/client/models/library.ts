@@ -1,0 +1,135 @@
+import * as THREE from 'three';
+import type { ModelRecipe } from '../../shared/data/types.ts';
+import { unpackModel, type PackedModel } from './pack.ts';
+
+/**
+ * Main-thread model library. Models are built and AO-baked in Web Workers (build.worker.ts) and cached here as
+ * prototypes; `buildModel` hands out cheap clones. Without Worker support (or if a model can't be serialised)
+ * the builder core (kit.ts) is loaded lazily and the model is built on the main thread instead.
+ */
+type Kit = typeof import('./kit.ts');
+
+const protos = new Map<string, THREE.Group>();
+const waits = new Map<string, Promise<void>>();
+const keyOf = (r: ModelRecipe) => JSON.stringify(r);
+
+let kit: Promise<Kit> | null = null;
+const loadKit = () => (kit ??= import('./kit.ts'));
+
+interface Job { id: number; recipe: ModelRecipe; resolve: (g: THREE.Group) => void; reject: (e: Error) => void }
+interface Slot { w: Worker; busy: Job | null }
+const queue: Job[] = [];
+let slots: Slot[] | null = null;
+let nextId = 1;
+let workersBroken = typeof Worker === 'undefined';
+
+function pool(): Slot[] {
+  if (slots) return slots;
+  const n = Math.max(1, Math.min(2, (navigator.hardwareConcurrency || 2) - 1));
+  slots = [];
+  for (let i = 0; i < n; i++) {
+    const w = new Worker(new URL('./build.worker.ts', import.meta.url), { type: 'module' });
+    const slot: Slot = { w, busy: null };
+    w.onmessage = (e: MessageEvent<{ id: number; ok: boolean; model?: PackedModel; err?: string }>) => {
+      const job = slot.busy;
+      slot.busy = null;
+      if (job && job.id === e.data.id) {
+        if (e.data.ok) {
+          try { job.resolve(unpackModel(e.data.model!)); } catch (err) { job.reject(err as Error); }
+        } else job.reject(new Error(e.data.err));
+      }
+      pump();
+    };
+    w.onerror = ev => {
+      // A worker that fails to start (e.g. blocked module workers) disables the pool; queued jobs go to the main thread.
+      ev.preventDefault();
+      workersBroken = true;
+      const jobs = [...(slot.busy ? [slot.busy] : []), ...queue.splice(0)];
+      slot.busy = null;
+      for (const j of jobs) j.reject(new Error('worker failed'));
+    };
+    slots.push(slot);
+  }
+  return slots;
+}
+
+function pump(): void {
+  for (const s of pool()) {
+    if (s.busy || !queue.length) continue;
+    const job = queue.shift()!;
+    s.busy = job;
+    s.w.postMessage({ id: job.id, recipe: job.recipe });
+  }
+}
+
+function buildInWorker(recipe: ModelRecipe): Promise<THREE.Group> {
+  return new Promise((resolve, reject) => { queue.push({ id: nextId++, recipe, resolve, reject }); pump(); });
+}
+
+async function buildOnMain(recipe: ModelRecipe): Promise<THREE.Group> {
+  const k = await loadKit();
+  await k.whenModelReady(recipe);
+  return k.buildModel(recipe);
+}
+
+/** True when `buildModel(recipe)` can return the final model immediately. */
+export const modelReady = (recipe: ModelRecipe): boolean => protos.has(keyOf(recipe));
+
+/** Builds (in a worker when possible) and caches the recipe's model; resolves once `modelReady` is true. */
+export function whenModelReady(recipe: ModelRecipe): Promise<void> {
+  const key = keyOf(recipe);
+  if (protos.has(key)) return Promise.resolve();
+  let p = waits.get(key);
+  if (!p) {
+    const viaWorker = workersBroken ? Promise.reject(new Error('no workers')) : buildInWorker(recipe);
+    p = viaWorker.catch(() => buildOnMain(recipe)).then(g => { protos.set(key, g); waits.delete(key); });
+    waits.set(key, p);
+  }
+  return p;
+}
+
+/** Number of models waiting for or being built in workers (for diagnostics). */
+export const buildBacklog = () => queue.length + (slots?.filter(s => s.busy).length ?? 0);
+
+/**
+ * Returns a fresh instance of a ready model (call `whenModelReady` first). Baked meshes that carry a level-of-detail
+ * split get their own geometry view (sharing the GPU buffers) so each instance can switch detail independently.
+ */
+export function buildModel(recipe: ModelRecipe): THREE.Group {
+  const proto = protos.get(keyOf(recipe));
+  if (!proto) throw new Error('model not ready: ' + recipe.kind);
+  const obj = proto.clone(true);
+  obj.traverse(o => {
+    const m = o as THREE.Mesh;
+    if (m.isMesh && m.geometry.userData.lod) m.geometry = geometryView(m.geometry);
+  });
+  return obj;
+}
+
+function geometryView(src: THREE.BufferGeometry): THREE.BufferGeometry {
+  const g = new THREE.BufferGeometry();
+  for (const [k, a] of Object.entries(src.attributes)) g.setAttribute(k, a);
+  if (src.index) g.setIndex(src.index);
+  g.drawRange = { ...src.drawRange };
+  g.boundingSphere = src.boundingSphere;
+  g.boundingBox = src.boundingBox;
+  g.userData = src.userData;
+  return g;
+}
+
+/**
+ * Switches an instance between full detail and its far level of detail (large parts only, small loose meshes hidden).
+ * Returns nothing; cheap enough to call only when the level changes.
+ */
+export function setModelDetail(obj: THREE.Object3D, far: boolean): void {
+  obj.traverse(o => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    const lod = m.geometry.userData.lod as [number, number] | undefined;
+    if (lod) {
+      if (far) m.geometry.setDrawRange(lod[0], lod[1]);
+      else m.geometry.setDrawRange(0, lod[0] || m.geometry.getAttribute('position').count);
+    }
+    if (m.userData.lodHide) m.visible = !far;
+  });
+}

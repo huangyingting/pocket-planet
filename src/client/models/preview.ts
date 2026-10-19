@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { CatalogueItem } from '../../shared/data/types.ts';
-import { buildModel, modelReady, whenModelReady } from './kit.ts';
+import { buildModel, modelReady, whenModelReady } from './library.ts';
 import { h } from '../ui/dom.ts';
 
 interface ActivePreview {
