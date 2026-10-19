@@ -9,6 +9,7 @@ import { sfx } from '../lib/sfx.ts';
 import { load, save } from '../lib/storage.ts';
 import { formatKm } from '../../shared/lib/geo.ts';
 import type { Globe } from '../globe/scene.ts';
+import { createModelPreview } from '../models/preview.ts';
 import { DIFFS, ROUNDS, effectiveKm, scoreFor, verdict, pickRounds, updateRecord, type Difficulty } from '../../shared/games/placeit.ts';
 import { generateQuiz, applyAnswer, ranking, QUIZ_SETS, type QuizSet, type QuizLevel, type PlayerScore } from '../../shared/games/quiz.ts';
 import { buildPool, dayIndex, puzzleFor, evaluate, applyGuess, finishStats, hintsUnlocked, shareText, MAX_GUESSES, BAND_EMOJI, type DailyState } from '../../shared/games/daily.ts';
@@ -65,7 +66,10 @@ async function runPlaceIt(host: GameHost, diff: Difficulty, rnd: () => number = 
     hud.replaceChildren(
       h('div', { class: 'hud-top' }, h('span', {}, t('round', { r: r + 1, n: ROUNDS })), h('span', { 'data-testid': 'placeit-total' }, `${t('total')}: ${fmtNum(total)}`),
         h('button', { class: 'pill danger', onclick: () => { g.ev.onGlobeTap = undefined; quit(); resolve(); r = ROUNDS + 1; } }, '✕')),
-      h('div', { class: 'hud-target' }, h('span', { class: 'big', 'aria-hidden': 'true' }, it.emoji), h('strong', { 'data-testid': 'placeit-target' }, tr(it.name, lang()))),
+      h('div', { class: 'hud-target' },
+        createModelPreview(it, { width: 84, height: 56, id: 'placeit-preview' }),
+        h('span', { class: 'big', 'aria-hidden': 'true' }, it.emoji),
+        h('strong', { 'data-testid': 'placeit-target' }, tr(it.name, lang()))),
       h('p', { class: 'muted' }, t('guessHere')), hintText, h('div', { class: 'row' }, hintBtn, confirmBtn));
     g.ev.onGlobeTap = (lat, lon) => {
       guess = [lat, lon];
@@ -261,6 +265,7 @@ export function openDaily(host: GameHost): void {
       const text = shareText(s);
       clue.querySelector('.big')!.textContent = target.emoji;
       endEl.replaceChildren(
+        h('div', { class: 'daily-preview-wrap' }, createModelPreview(target, { width: 150, height: 100 })),
         h('p', { class: 'result', 'data-testid': 'daily-result' }, s.won ? '🎉 ' + t('dailyWin', { n: s.guesses.length }) : t('dailyLose', { a: tr(target.name, lang()) })),
         h('pre', { class: 'share-text' }, text),
         h('button', { class: 'cta', 'data-testid': 'daily-share', onclick: async () => {

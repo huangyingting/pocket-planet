@@ -3,14 +3,31 @@ import type { CatalogueItem, Lang } from '../../shared/data/types.ts';
 import { tr } from '../../shared/data/types.ts';
 import { latLonToVec, vecToLatLon, slerpLatLon } from '../../shared/lib/geo.ts';
 import { buildModel, mat } from '../models/kit.ts';
-import type { CountryInfo } from './painter.ts';
+import { paintNightLights, type CountryInfo } from './painter.ts';
 import { CITIES } from '../../shared/data/cities.ts';
+
+export type AuraPreset = 'waves' | 'aurora' | 'ember' | 'dusk' | 'sculpture';
+export type SurfaceMode = 'realistic' | 'minimal' | 'political';
+
+export const AURA_PRESETS: Record<AuraPreset, { label: string; colors: [string, string, string] }> = {
+  waves: { label: 'Atmosphere', colors: ['#38bdf8', '#1d4ed8', '#7dd3fc'] },
+  aurora: { label: 'Aurora', colors: ['#2dd4bf', '#0284c7', '#34d399'] },
+  ember: { label: 'Solar', colors: ['#38bdf8', '#1e40af', '#fbbf24'] },
+  dusk: { label: 'Magneto', colors: ['#60a5fa', '#3730a3', '#818cf8'] },
+  sculpture: { label: 'Ionosphere', colors: ['#22d3ee', '#0369a1', '#67e8f9'] },
+};
 
 export interface Settings {
   terrain: boolean; names: boolean; borders: boolean; shadows: boolean;
   landmarks: boolean; animals: boolean; discoveries: boolean; vehicles: boolean; sfx: boolean; bgm: boolean;
+  auraPreset?: AuraPreset;
+  surfaceMode?: SurfaceMode;
 }
-export const DEFAULT_SETTINGS: Settings = { terrain: false, names: true, borders: true, shadows: true, landmarks: true, animals: true, discoveries: true, vehicles: true, sfx: true, bgm: false };
+export const DEFAULT_SETTINGS: Settings = {
+  terrain: true, names: true, borders: true, shadows: true,
+  landmarks: true, animals: true, discoveries: true, vehicles: true, sfx: true, bgm: false,
+  auraPreset: 'waves', surfaceMode: 'realistic',
+};
 
 export const DEFAULT_H = 2.2;
 export const MIN_H = 0.07;
@@ -31,10 +48,164 @@ const OCEANS: [string, Record<Lang, string>, number, number][] = [
   ['southern', { en: 'SOUTHERN OCEAN', ko: '남극해', ja: '南極海', zh: '南冰洋' }, -60, 60],
 ];
 
+// ---- AuraFM Custom GLSL Earth Surface Shaders ----
+const EARTH_VERT = `
+  varying vec2 vUv;
+  varying vec3 vNormalWorld;
+  varying vec3 vWorldPos;
+
+  void main() {
+    vUv = uv;
+    vNormalWorld = normalize(mat3(modelMatrix) * normal);
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    vWorldPos = wp.xyz;
+    gl_Position = projectionMatrix * viewMatrix * wp;
+  }
+`;
+
+const EARTH_FRAG = `
+  uniform sampler2D uLandTex;
+  uniform sampler2D uNightTex;
+  uniform vec3 uSunDir;
+  uniform float uLandMix;
+  uniform float uNightMix;
+  uniform vec3 uOceanDeep;
+  uniform vec3 uOceanMid;
+  uniform vec3 uRimColor;
+  uniform vec3 uAuraColor;
+  uniform vec3 uStationPos;
+  uniform float uTime;
+  uniform float uAudioBass;
+  uniform float uAudioMid;
+
+  varying vec2 vUv;
+  varying vec3 vNormalWorld;
+  varying vec3 vWorldPos;
+
+  void main() {
+    vec3 N = normalize(vNormalWorld);
+    vec3 V = normalize(cameraPosition - vWorldPos);
+    float facing = max(dot(N, V), 0.0);
+
+    vec4 landSample = texture2D(uLandTex, vUv);
+    float landMask = smoothstep(0.08, 0.55, landSample.a);
+
+    vec3 ocean = mix(uOceanDeep, uOceanMid, 0.55 + 0.45 * facing);
+    vec3 minimalLand = mix(vec3(0.09, 0.21, 0.36), vec3(0.15, 0.31, 0.50), facing);
+    vec3 realisticLand = landSample.rgb * 1.18 + vec3(0.02, 0.04, 0.07);
+    vec3 landColor = mix(minimalLand, realisticLand, uLandMix);
+
+    vec3 base = mix(ocean, landColor, landMask);
+
+    float sunDot = dot(N, normalize(uSunDir));
+    float day = mix(1.0, smoothstep(-0.12, 0.18, sunDot), uNightMix);
+    float diffuse = max(sunDot, 0.0);
+
+    float viewLight = 0.68 + 0.32 * facing;
+    float solarBoost = mix(1.0, 0.88 + 0.24 * day + 0.12 * diffuse, uNightMix);
+    vec3 lit = base * viewLight * solarBoost;
+
+    // Warm city lights on the night hemisphere (masked to landmasses)
+    float lights = texture2D(uNightTex, vUv).r;
+    float lightPulse = 1.0 + uAudioMid * 0.35;
+    vec3 nightGlow = vec3(1.0, 0.85, 0.63) * lights * landMask * lightPulse * (1.0 - day) * uNightMix * max(0.35, uLandMix) * 0.92;
+    lit += nightGlow;
+
+    // Concentric geodesic wave rings radiating from active landmark/object
+    if (length(uStationPos) > 0.5) {
+      vec3 stDir = normalize(uStationPos);
+      float geoDist = acos(clamp(dot(N, stDir), -1.0, 1.0));
+      float wave = sin(geoDist * 42.0 - uTime * 3.4) * 0.5 + 0.5;
+      float ring = smoothstep(0.84, 0.99, wave) * exp(-geoDist * 4.5);
+      float core = exp(-geoDist * 20.0) * 0.38;
+      float amp = 0.26 + uAudioBass * 0.48 + uAudioMid * 0.28;
+      lit += uAuraColor * (ring + core) * amp;
+    }
+
+    // Subtle atmospheric Fresnel rim + preset-tinted edge glow
+    float rim = pow(1.0 - facing, 2.6);
+    float edgeGlow = pow(1.0 - facing, 4.8);
+    lit += uRimColor * rim * (0.28 + 0.24 * day);
+    lit += uAuraColor * edgeGlow * (0.24 + uAudioBass * 0.22);
+
+    gl_FragColor = vec4(lit, 1.0);
+  }
+`;
+
+// ---- AuraFM Outer Planetary Aura / Multi-Layer Atmosphere Shaders ----
+const ATMOS_VERT = `
+  varying vec2 vUv;
+  void main() {
+    vUv = position.xy;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const ATMOS_FRAG = `
+  precision highp float;
+  varying vec2 vUv;
+  uniform float uTime;
+  uniform float uCameraDist;
+  uniform float uAudioBass;
+  uniform float uAudioMid;
+  uniform float uAudioHigh;
+  uniform vec3 uColorA;
+  uniform vec3 uColorB;
+  uniform vec3 uColorC;
+
+  void main() {
+    float r = length(vUv);
+    float angle = atan(vUv.y, vUv.x);
+
+    // Exact perspective silhouette radius of the unit sphere at camera distance
+    float c2 = max(0.18, uCameraDist * uCameraDist - 1.0);
+    float rLimb = uCameraDist / sqrt(c2);
+
+    // Smoothly attenuate outer billboard when zooming very close to the surface
+    float zoomFade = smoothstep(1.18, 1.55, uCameraDist);
+
+    // Distance outward from the Earth's 3D limb
+    float d = max(0.0, r - rLimb * 0.995);
+
+    // 1. Dense Rayleigh Horizon Rim
+    float rayleigh = exp(-d * 18.0) * (0.48 + uAudioBass * 0.22);
+
+    // 2. Stratosphere Swell
+    float breath = 1.0 + 0.04 * sin(uTime * 0.7) + uAudioBass * 0.14;
+    float strato = exp(-d * (6.2 / breath)) * (0.26 + uAudioBass * 0.18);
+
+    // 3. Silky Ionosphere Aurora Veil (low-order harmonic waves)
+    float w1 = sin(angle * 2.0 + uTime * 0.22);
+    float w2 = cos(angle * 3.0 - uTime * 0.17);
+    float w3 = sin(angle * 4.0 + uTime * 0.11);
+    float harmonic = (w1 * 0.45 + w2 * 0.35 + w3 * 0.20) * 0.5 + 0.5;
+    float veil = exp(-pow((d - 0.045 - harmonic * 0.055) / 0.13, 2.0))
+               * (0.14 + harmonic * 0.14)
+               * (0.75 + uAudioMid * 0.45);
+
+    // 4. Wide Exosphere Deep-Space Halo
+    float exo = exp(-d * 2.2) * (0.09 + uAudioHigh * 0.07);
+
+    vec3 col = uColorA * (rayleigh + strato * 0.75)
+             + mix(uColorB, uColorC, harmonic) * (veil + strato * 0.35)
+             + uColorB * exo;
+
+    float outerFade = 1.0 - smoothstep(1.35, 2.35, r);
+    col *= outerFade * zoomFade;
+
+    // Smooth filmic tone mapping
+    col = col / (1.0 + col * 0.65);
+
+    float alpha = clamp((rayleigh + strato + veil + exo) * outerFade * zoomFade, 0.0, 0.88);
+    gl_FragColor = vec4(col, alpha);
+  }
+`;
+
 interface Placed { item: CatalogueItem; obj: THREE.Group; seg: number; t: number; pts: [number, number][]; heading: THREE.Vector3 }
 
 export interface GlobeEvents {
   onPick?: (item: CatalogueItem | null) => void;
+  onHover?: (item: CatalogueItem | null, screen: { x: number; y: number } | null) => void;
   onGlobeTap?: (lat: number, lon: number) => void;
   onView?: (zoom: number, lat: number, lon: number) => void;
   onFirst?: (what: 'drag' | 'zoom') => void;
@@ -45,17 +216,52 @@ export class Globe {
   scene = new THREE.Scene();
   camera: THREE.PerspectiveCamera;
   earth!: THREE.Mesh;
-  private earthMat!: THREE.MeshStandardMaterial;
+  private earthMat!: THREE.ShaderMaterial;
+  private earthUniforms!: {
+    uLandTex: { value: THREE.Texture };
+    uNightTex: { value: THREE.Texture };
+    uSunDir: { value: THREE.Vector3 };
+    uLandMix: { value: number };
+    uNightMix: { value: number };
+    uOceanDeep: { value: THREE.Color };
+    uOceanMid: { value: THREE.Color };
+    uRimColor: { value: THREE.Color };
+    uAuraColor: { value: THREE.Color };
+    uStationPos: { value: THREE.Vector3 };
+    uTime: { value: number };
+    uAudioBass: { value: number };
+    uAudioMid: { value: number };
+  };
+  private atmosMesh!: THREE.Mesh;
+  private atmosUniforms!: {
+    uTime: { value: number };
+    uCameraDist: { value: number };
+    uAudioBass: { value: number };
+    uAudioMid: { value: number };
+    uAudioHigh: { value: number };
+    uColorA: { value: THREE.Color };
+    uColorB: { value: THREE.Color };
+    uColorC: { value: THREE.Color };
+  };
+  private borderLines: THREE.LineSegments | null = null;
+  private borderMat = new THREE.LineBasicMaterial({ color: '#5fa4e6', transparent: true, opacity: 0.32, depthWrite: false });
   private sun = new THREE.DirectionalLight(0xffffff, 2.2);
-  private ambient = new THREE.HemisphereLight(0xdfe8ff, 0x445566, 0.9);
+  private ambient = new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 1.05);
   private itemsRoot = new THREE.Group();
   private pinsRoot = new THREE.Group();
+  private flightArcGroup = new THREE.Group();
   private placed = new Map<string, Placed>();
   private labelsEl: HTMLDivElement;
   private labelPool: HTMLSpanElement[] = [];
   private countries: CountryInfo[] = [];
-  private selRing: THREE.Mesh;
+  private selRing: THREE.Group;
+  private selOuterMat: THREE.MeshBasicMaterial;
+  private selInnerMat: THREE.MeshBasicMaterial;
   private selected: string | null = null;
+  private hoveredKey: string | null = null;
+  private targetColorA = new THREE.Color('#38bdf8');
+  private targetColorB = new THREE.Color('#1d4ed8');
+  private targetColorC = new THREE.Color('#7dd3fc');
 
   lat = 25; lon = 40; h = DEFAULT_H;
   private vLat = 0; private vLon = 0;
@@ -73,12 +279,23 @@ export class Globe {
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.005, 100);
     this.labelsEl = document.createElement('div');
     this.labelsEl.className = 'labels';
-    this.selRing = new THREE.Mesh(new THREE.RingGeometry(0.75, 0.95, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffd24a, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }));
+
+    // AuraFM dual-layer glowing selection beacon
+    this.selRing = new THREE.Group();
+    this.selOuterMat = new THREE.MeshBasicMaterial({ color: '#22d3ee', transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false });
+    this.selInnerMat = new THREE.MeshBasicMaterial({ color: '#67e8f9', transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false });
+    const outer = new THREE.Mesh(new THREE.RingGeometry(0.78, 0.98, 40).rotateX(-Math.PI / 2), this.selOuterMat);
+    outer.name = 'outer';
+    const pulse = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.08, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#38bdf8', transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false }));
+    pulse.name = 'pulse';
+    const inner = new THREE.Mesh(new THREE.CircleGeometry(0.76, 32).rotateX(-Math.PI / 2), this.selInnerMat);
+    inner.position.y = -0.002;
+    this.selRing.add(inner, outer, pulse);
     this.selRing.visible = false;
   }
 
   /** Returns false if WebGL is unavailable. */
-  init(earthCanvas: HTMLCanvasElement, countries: CountryInfo[], items: CatalogueItem[]): boolean {
+  init(earthCanvas: HTMLCanvasElement, countries: CountryInfo[], items: CatalogueItem[], borderPositions?: Float32Array): boolean {
     try {
       this.renderer = new THREE.WebGLRenderer({ antialias: !this.lowfx, alpha: false, powerPreference: 'high-performance' });
     } catch { return false; }
@@ -90,16 +307,46 @@ export class Globe {
     r.domElement.setAttribute('aria-label', 'Interactive 3D globe');
     r.domElement.tabIndex = 0;
     this.container.append(r.domElement, this.labelsEl);
-    this.scene.background = new THREE.Color('#050b1a');
+    // AuraFM slate-950 deep orbital space background
+    this.scene.background = new THREE.Color('#020617');
 
-    const tex = new THREE.CanvasTexture(earthCanvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = r.capabilities.getMaxAnisotropy();
-    this.earthMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, metalness: 0 });
-    this.earth = new THREE.Mesh(new THREE.SphereGeometry(1, this.lowfx ? 64 : 128, this.lowfx ? 32 : 64), this.earthMat);
+    const landTex = new THREE.CanvasTexture(earthCanvas);
+    landTex.colorSpace = THREE.SRGBColorSpace;
+    landTex.anisotropy = r.capabilities.getMaxAnisotropy();
+
+    const nightCanvas = paintNightLights(countries, this.lowfx ? 256 : 2048);
+    const nightTex = new THREE.CanvasTexture(nightCanvas);
+    nightTex.anisotropy = r.capabilities.getMaxAnisotropy();
+
+    this.earthUniforms = {
+      uLandTex: { value: landTex },
+      uNightTex: { value: nightTex },
+      uSunDir: { value: new THREE.Vector3(1, 0.2, 0.5).normalize() },
+      uLandMix: { value: this.settings.surfaceMode === 'minimal' ? 0.0 : 1.0 },
+      uNightMix: { value: this.settings.shadows ? 1.0 : 0.0 },
+      uOceanDeep: { value: new THREE.Color('#0c2340') },
+      uOceanMid: { value: new THREE.Color('#163a63') },
+      uRimColor: { value: new THREE.Color('#3d6fae') },
+      uAuraColor: { value: new THREE.Color('#38bdf8') },
+      uStationPos: { value: new THREE.Vector3(0, 0, 0) },
+      uTime: { value: 0 },
+      uAudioBass: { value: 0.12 },
+      uAudioMid: { value: 0.1 },
+    };
+
+    this.earthMat = new THREE.ShaderMaterial({
+      vertexShader: EARTH_VERT,
+      fragmentShader: EARTH_FRAG,
+      uniforms: this.earthUniforms,
+    });
+
+    this.earth = new THREE.Mesh(new THREE.SphereGeometry(1, this.lowfx ? 64 : 96, this.lowfx ? 48 : 96), this.earthMat);
     // Our lat/lon convention puts lon=0 on +Z; SphereGeometry's u=0 seam is at -X, so rotate by -90°.
     this.earth.rotation.y = -Math.PI / 2;
-    this.scene.add(this.earth, this.itemsRoot, this.pinsRoot, this.sun, this.sun.target, this.ambient, this.selRing);
+
+    if (borderPositions) this.setBorderPositions(borderPositions);
+
+    this.scene.add(this.earth, this.itemsRoot, this.pinsRoot, this.flightArcGroup, this.sun, this.sun.target, this.ambient, this.selRing);
     this.addAtmosphere();
     this.addStars();
     for (const it of items) this.place(it);
@@ -112,32 +359,72 @@ export class Globe {
     return true;
   }
 
+  setBorderPositions(pos: Float32Array): void {
+    if (this.borderLines) {
+      this.scene.remove(this.borderLines);
+      this.borderLines.geometry.dispose();
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    this.borderLines = new THREE.LineSegments(geo, this.borderMat);
+    this.borderLines.visible = this.settings.borders;
+    this.scene.add(this.borderLines);
+    this.dirty = true;
+  }
+
   setEarthTexture(cv: HTMLCanvasElement): void {
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
-    this.earthMat.map?.dispose();
-    this.earthMat.map = tex;
-    this.earthMat.needsUpdate = true;
+    tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+    this.earthUniforms.uLandTex.value?.dispose();
+    this.earthUniforms.uLandTex.value = tex;
     this.dirty = true;
   }
 
   private addAtmosphere(): void {
+    this.atmosUniforms = {
+      uTime: { value: 0 },
+      uCameraDist: { value: 3.2 },
+      uAudioBass: { value: 0.12 },
+      uAudioMid: { value: 0.1 },
+      uAudioHigh: { value: 0.08 },
+      uColorA: { value: new THREE.Color('#38bdf8') },
+      uColorB: { value: new THREE.Color('#1d4ed8') },
+      uColorC: { value: new THREE.Color('#7dd3fc') },
+    };
     const m = new THREE.ShaderMaterial({
-      transparent: true, side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending,
-      vertexShader: 'varying vec3 vN; void main(){ vN = normalize(normalMatrix*normal); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
-      fragmentShader: 'varying vec3 vN; void main(){ float i = pow(0.75 - dot(vN, vec3(0,0,1.0)), 3.0); gl_FragColor = vec4(0.35,0.65,1.0,1.0)*i; }',
+      transparent: true,
+      depthWrite: false,
+      depthTest: true,
+      blending: THREE.AdditiveBlending,
+      vertexShader: ATMOS_VERT,
+      fragmentShader: ATMOS_FRAG,
+      uniforms: this.atmosUniforms,
     });
-    this.scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.12, 48, 24), m));
+    this.atmosMesh = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 4.8), m);
+    this.scene.add(this.atmosMesh);
   }
 
   private addStars(): void {
-    const n = this.lowfx ? 300 : 1500, pos = new Float32Array(n * 3);
+    const n = this.lowfx ? 400 : 1400;
+    const pos = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
-      const v = new THREE.Vector3().randomDirection().multiplyScalar(40 + Math.random() * 10);
-      pos.set([v.x, v.y, v.z], i * 3);
+      const r = 14 + Math.random() * 12;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      pos[i * 3 + 2] = r * Math.cos(phi);
     }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    this.scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 0.12, sizeAttenuation: true })));
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    this.scene.add(new THREE.Points(g, new THREE.PointsMaterial({
+      color: 0x94a3b8,
+      size: 1.5,
+      sizeAttenuation: false,
+      transparent: true,
+      opacity: 0.55,
+    })));
   }
 
   private orientAt(obj: THREE.Object3D, lat: number, lon: number, r: number, heading?: THREE.Vector3): void {
@@ -155,10 +442,35 @@ export class Globe {
     return new THREE.Vector3(-Math.sin(p) * Math.sin(l), Math.cos(p), -Math.sin(p) * Math.cos(l));
   }
 
+  /** Builds a miniature 3D scenic plinth pad under each landmark/discovery on the globe (like myearthtoy.com). */
+  private buildPlinth(item: CatalogueItem): THREE.Group | null {
+    if (item.type === 'vehicle') return null;
+    const g = new THREE.Group();
+    const isWater = ['waterfall', 'reef', 'bridge', 'wreck', 'deepsea'].includes(item.sub) || item.continent === 'ocean';
+    const isDesert = ['pyramid', 'carved', 'rock', 'canyon'].includes(item.model.kind);
+    const isSnow = Boolean(item.model.snow) || item.continent === 'antarctica';
+    const padColor = isWater ? '#1e4e79' : isSnow ? '#dbeafe' : isDesert ? '#c9a675' : item.type === 'discovery' ? '#312e81' : '#2d5a43';
+    const rimColor = item.type === 'landmark' ? '#38bdf8' : item.type === 'animal' ? '#34d399' : '#f59e0b';
+
+    const r = item.type === 'landmark' ? 0.56 : 0.44;
+    const disc = new THREE.Mesh(
+      new THREE.CylinderGeometry(r * 0.92, r, 0.045, 20).translate(0, 0.02, 0),
+      mat(padColor, { flat: false, rough: 0.85 })
+    );
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(r * 0.94, r * 1.05, 24).rotateX(-Math.PI / 2).translate(0, 0.042, 0),
+      new THREE.MeshBasicMaterial({ color: rimColor, transparent: true, opacity: 0.42, side: THREE.DoubleSide, depthWrite: false })
+    );
+    g.add(disc, ring);
+    return g;
+  }
+
   private place(item: CatalogueItem): void {
     const obj = buildModel(item.model);
     obj.userData.key = item.key;
     const wrap = new THREE.Group();
+    const plinth = this.buildPlinth(item);
+    if (plinth) wrap.add(plinth);
     wrap.add(obj);
     const p: Placed = { item, obj: wrap, seg: 0, t: 0, pts: item.route ? item.route.pts.map(x => [x[0], x[1]] as [number, number]) : [], heading: new THREE.Vector3() };
     if (item.route) {
@@ -173,10 +485,40 @@ export class Globe {
   }
 
   applySettings(s: Settings): void {
-    this.settings = { ...s };
-    this.sun.intensity = s.shadows ? 2.4 : 0;
-    this.ambient.intensity = s.shadows ? 0.55 : 2.2;
-    this.labelsEl.style.display = s.names ? '' : 'none';
+    this.settings = { ...DEFAULT_SETTINGS, ...s };
+    this.sun.intensity = this.settings.shadows ? 2.4 : 0.9;
+    this.ambient.intensity = this.settings.shadows ? 0.75 : 2.1;
+    this.labelsEl.style.display = this.settings.names ? '' : 'none';
+    if (this.borderLines) {
+      this.borderLines.visible = this.settings.borders;
+      const isMinimal = this.settings.surfaceMode === 'minimal';
+      this.borderMat.color.set(isMinimal ? '#38bdf8' : '#5fa4e6');
+      this.borderMat.opacity = isMinimal ? 0.52 : 0.32;
+    }
+    const preset = AURA_PRESETS[this.settings.auraPreset ?? 'waves'] ?? AURA_PRESETS.waves;
+    this.targetColorA.set(preset.colors[0]);
+    this.targetColorB.set(preset.colors[1]);
+    this.targetColorC.set(preset.colors[2]);
+    this.dirty = true;
+  }
+
+  /** Draws an AuraFM-style glowing orbital telemetry arc between two coordinates. */
+  showFlightArc(from: [number, number], to: [number, number]): void {
+    this.flightArcGroup.clear();
+    const dist = this.angDist(from, to);
+    if (dist < 0.03) return;
+    const pts: THREE.Vector3[] = [];
+    const n = 64;
+    const peak = Math.min(0.28, (dist / Math.PI) * 0.28);
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      const [la, lo] = slerpLatLon(from, to, t);
+      const r = 1.003 + Math.sin(Math.PI * t) * peak;
+      pts.push(new THREE.Vector3(...latLonToVec(la, lo, r)));
+    }
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: '#38bdf8', transparent: true, opacity: 0.65, depthWrite: false }));
+    this.flightArcGroup.add(line);
     this.dirty = true;
   }
 
@@ -196,7 +538,22 @@ export class Globe {
     });
     el.addEventListener('pointermove', e => {
       const prev = ptrs.get(e.pointerId);
-      if (!prev) return;
+      if (!prev) {
+        if (!this.gameMode && !this.ride) {
+          const rect = el.getBoundingClientRect();
+          const hit = this.pickAt(e.clientX - rect.left, e.clientY - rect.top);
+          const nextKey = hit?.key ?? null;
+          if (nextKey !== this.hoveredKey) {
+            this.hoveredKey = nextKey;
+            el.style.cursor = hit ? 'pointer' : 'grab';
+            this.ev.onHover?.(hit, hit ? this.itemScreen(hit.key) : null);
+            this.dirty = true;
+          } else if (hit) {
+            this.ev.onHover?.(hit, this.itemScreen(hit.key));
+          }
+        }
+        return;
+      }
       const cur = { x: e.clientX, y: e.clientY };
       ptrs.set(e.pointerId, cur);
       if (ptrs.size === 2) {
@@ -210,6 +567,10 @@ export class Globe {
       const dx = cur.x - prev.x, dy = cur.y - prev.y;
       if (down && Math.hypot(cur.x - down.x, cur.y - down.y) > 6) moved = true;
       if (!moved) return;
+      if (this.hoveredKey) {
+        this.hoveredKey = null;
+        this.ev.onHover?.(null, null);
+      }
       if (this.ride) { this.ride.yaw -= dx * 0.008; this.dirty = true; return; }
       const k = this.degPerPx();
       this.lon -= dx * k / Math.max(0.2, Math.cos((this.lat * Math.PI) / 180));
@@ -217,6 +578,13 @@ export class Globe {
       this.vLon = -dx * k; this.vLat = dy * k;
       this.dirty = true;
       this.ev.onFirst?.('drag');
+    });
+    el.addEventListener('pointerleave', () => {
+      if (this.hoveredKey) {
+        this.hoveredKey = null;
+        el.style.cursor = '';
+        this.ev.onHover?.(null, null);
+      }
     });
     const up = (e: PointerEvent) => {
       ptrs.delete(e.pointerId);
@@ -309,6 +677,13 @@ export class Globe {
   }
 
   select(key: string | null): void {
+    const prev = this.selected ? this.placed.get(this.selected) : null;
+    const next = key ? this.placed.get(key) : null;
+    if (prev && next && prev.item.key !== next.item.key) {
+      this.showFlightArc([prev.item.lat, prev.item.lon], [next.item.lat, next.item.lon]);
+    } else if (!key) {
+      this.flightArcGroup.clear();
+    }
     this.selected = key;
     this.dirty = true;
   }
@@ -476,8 +851,10 @@ export class Globe {
         const alt = r.kind === 'plane' ? 1 + Math.max(0.01, s * 1.4) : 1.0;
         this.orientAt(p.obj, la, lo, alt, p.heading);
       }
-      const inner = p.obj.children[0];
+      const inner = p.obj.children[p.obj.children.length - 1];
       if (it.type === 'animal' && !this.lowfx) inner.position.y = Math.abs(Math.sin(this.clock * 0.003 + it.lat)) * 0.06;
+      const isHovered = this.hoveredKey === it.key;
+      inner.scale.setScalar(isHovered ? 1.14 : 1.0);
       inner.traverse(o => {
         if (o.name === 'spin') o.rotation.z += dt * 0.002;
         if (o.name === 'flap') o.rotation.z = Math.sin(this.clock * 0.004) * 0.2;
@@ -486,23 +863,80 @@ export class Globe {
     const sel = this.selected ? this.placed.get(this.selected) : null;
     this.selRing.visible = !!sel?.obj.visible;
     if (sel) {
-      this.selRing.position.copy(sel.obj.position).multiplyScalar(1.0005);
+      this.selRing.position.copy(sel.obj.position).multiplyScalar(1.0008);
       this.selRing.quaternion.copy(sel.obj.quaternion);
-      const s = this.modelScale(sel.item) * (1 + Math.sin(this.clock * 0.005) * 0.08);
+      const s = this.modelScale(sel.item) * (1.05 + Math.sin(this.clock * 0.005) * 0.09);
       this.selRing.scale.setScalar(s);
+      this.selOuterMat.color.copy(this.targetColorA);
+      this.selInnerMat.color.copy(this.targetColorC);
+      this.earthUniforms.uStationPos.value.copy(sel.obj.position).normalize();
+    } else if (this.hoveredKey) {
+      const hov = this.placed.get(this.hoveredKey);
+      if (hov?.obj.visible) this.earthUniforms.uStationPos.value.copy(hov.obj.position).normalize();
+      else this.earthUniforms.uStationPos.value.set(0, 0, 0);
+    } else {
+      this.earthUniforms.uStationPos.value.set(0, 0, 0);
     }
   }
 
   private updateSun(): void {
-    // Sub-solar point from current UTC time (approximate, ignores equation of time).
+    // Sub-solar point from current UTC time with equation of time (AuraFM solar ephemeris)
     const now = new Date();
-    const doy = (Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - Date.UTC(now.getUTCFullYear(), 0, 0)) / 864e5;
-    const decl = -23.44 * Math.cos(((2 * Math.PI) / 365) * (doy + 10));
-    const lon = 180 - ((now.getUTCHours() + now.getUTCMinutes() / 60) / 24) * 360;
-    // Keep the camera side lit enough for kids: blend real sun with a camera-side key light.
-    const real = new THREE.Vector3(...latLonToVec(decl, lon));
+    const startOfYear = Date.UTC(now.getUTCFullYear(), 0, 0);
+    const doy = (now.getTime() - startOfYear) / 864e5;
+    const gamma = ((2 * Math.PI) / 365) * (doy - 1);
+    const decl =
+      0.006918 -
+      0.399912 * Math.cos(gamma) +
+      0.070257 * Math.sin(gamma) -
+      0.006758 * Math.cos(2 * gamma) +
+      0.000907 * Math.sin(2 * gamma);
+    const eqTime =
+      229.18 *
+      (0.000075 +
+        0.001868 * Math.cos(gamma) -
+        0.032077 * Math.sin(gamma) -
+        0.014615 * Math.cos(2 * gamma) -
+        0.040849 * Math.sin(2 * gamma));
+    const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes() + now.getUTCSeconds() / 60;
+    const subSolarLon = (720 - utcMins - eqTime) / 4;
+    const subSolarLat = (decl * 180) / Math.PI;
+    const real = new THREE.Vector3(...latLonToVec(subSolarLat, subSolarLon));
     const cam = this.camera.position.clone().normalize();
-    this.sun.position.copy(real.multiplyScalar(0.35).add(cam.multiplyScalar(0.65)).normalize().multiplyScalar(10));
+    // Blend real solar direction with a subtle camera offset so the day/night terminator sweeps across the visible limb
+    const sunDir = real.clone().multiplyScalar(0.55).add(cam.clone().multiplyScalar(0.45)).normalize();
+    this.sun.position.copy(sunDir.clone().multiplyScalar(10));
+    this.earthUniforms.uSunDir.value.copy(sunDir);
+
+    // Update AuraFM Earth & Atmosphere shader uniforms
+    const tSec = this.clock * 0.001;
+    const activeBoost = this.selected ? 0.16 : this.hoveredKey ? 0.08 : 0.0;
+    const bass = 0.14 + activeBoost + 0.07 * (Math.sin(tSec * 2.1) * 0.5 + 0.5);
+    const mid = 0.12 + activeBoost * 0.8 + 0.06 * (Math.sin(tSec * 3.3 + 1.2) * 0.5 + 0.5);
+    const high = 0.10 + activeBoost * 0.5 + 0.05 * (Math.cos(tSec * 4.5 + 0.7) * 0.5 + 0.5);
+
+    this.earthUniforms.uTime.value = tSec;
+    this.earthUniforms.uAudioBass.value = bass;
+    this.earthUniforms.uAudioMid.value = mid;
+
+    const targetLandMix = this.settings.surfaceMode === 'minimal' ? 0.0 : 1.0;
+    this.earthUniforms.uLandMix.value += (targetLandMix - this.earthUniforms.uLandMix.value) * 0.12;
+
+    const targetNightMix = this.settings.shadows ? 1.0 : 0.0;
+    this.earthUniforms.uNightMix.value += (targetNightMix - this.earthUniforms.uNightMix.value) * 0.12;
+    this.earthUniforms.uAuraColor.value.lerp(this.targetColorA, 0.08);
+
+    if (this.atmosMesh) {
+      this.atmosMesh.quaternion.copy(this.camera.quaternion);
+      this.atmosUniforms.uTime.value = tSec;
+      this.atmosUniforms.uCameraDist.value = this.camera.position.length();
+      this.atmosUniforms.uAudioBass.value = bass;
+      this.atmosUniforms.uAudioMid.value = mid;
+      this.atmosUniforms.uAudioHigh.value = high;
+      this.atmosUniforms.uColorA.value.lerp(this.targetColorA, 0.06);
+      this.atmosUniforms.uColorB.value.lerp(this.targetColorB, 0.06);
+      this.atmosUniforms.uColorC.value.lerp(this.targetColorC, 0.06);
+    }
   }
 
   private updateLabels(): void {

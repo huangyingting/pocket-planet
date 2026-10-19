@@ -1,11 +1,12 @@
-import { h, closeModal, toast, $ } from './dom.ts';
+import { h, closeModal, openModal, toast, $ } from './dom.ts';
 import { t, lang, setLang, countryName, fmtNum, onLang } from '../lib/i18n.ts';
 import { store, updateProgress, updateSettings, resetSettings, subscribe } from '../store.ts';
 import { tr, LANGS, type CatalogueItem, type Lang } from '../../shared/data/types.ts';
-import { LANDMARKS, ANIMALS, DISCOVERIES, VEHICLES } from '../../shared/data/catalogue.ts';
+import { CATALOGUE, LANDMARKS, ANIMALS, DISCOVERIES, VEHICLES } from '../../shared/data/catalogue.ts';
 import { CITIES } from '../../shared/data/cities.ts';
 import { CONTINENT_NAMES } from '../../shared/data/iso.ts';
-import type { Globe, Settings } from '../globe/scene.ts';
+import { AURA_PRESETS, type AuraPreset, type SurfaceMode, type Globe, type Settings } from '../globe/scene.ts';
+import { createModelPreview } from '../models/preview.ts';
 import { sfx, setMusic } from '../lib/sfx.ts';
 import { api } from '../lib/api.ts';
 import { HAS_API, url } from '../lib/env.ts';
@@ -14,6 +15,7 @@ export const DEX_ZOOM = 10;
 const LANG_LABEL: Record<Lang, string> = { en: 'English', ko: '한국어', ja: '日本語', zh: '中文' };
 const TYPE_KEY = { landmark: 'tLandmark', animal: 'tAnimal', discovery: 'tDiscovery', vehicle: 'tVehicle' } as const;
 const SECTION = { landmark: 'landmarks', animal: 'animals', discovery: 'discover', vehicle: '' } as const;
+const AURA_ORDER: AuraPreset[] = ['waves', 'aurora', 'ember', 'dusk', 'sculpture'];
 
 export interface ShellHooks {
   openPhoto: () => void; openCollection: () => void; openGames: () => void; openTutorial: () => void;
@@ -26,6 +28,7 @@ export class Shell {
   private menu = h('div', { id: 'menu', class: 'menu hidden', role: 'dialog', 'aria-label': 'Menu' });
   private hints = h('div', { class: 'hints hidden', id: 'hints' });
   private rideBar = h('div', { class: 'ride-bar hidden', 'data-testid': 'ride-bar' });
+  private tipEl = h('div', { id: 'tip', class: 'globe-tip hidden', 'aria-hidden': 'true' });
   private counts = h('p', { class: 'counts' });
   current: CatalogueItem | null = null;
 
@@ -35,8 +38,15 @@ export class Shell {
     const tool = (id: string, emoji: string, key: string, fn: () => void) =>
       h('button', { class: 'tool', id, 'data-testid': id, onclick: () => { sfx.tap(); fn(); } }, h('span', { 'aria-hidden': 'true' }, emoji + ' '), h('span', { 'data-i18n': key }, t(key)));
     const top = h('header', { class: 'topbar' },
-      h('div', { class: 'brand' }, h('h1', { 'data-i18n': 'title' }, t('title')), h('span', { class: 'badge', 'data-i18n': 'badge' }, t('badge')), h('div', { class: 'sub' }, this.zoomEl, this.counts)),
+      h('div', { class: 'brand' },
+        h('span', { class: 'live-dot', 'aria-hidden': 'true' }),
+        h('h1', { 'data-i18n': 'title' }, t('title')),
+        h('span', { class: 'badge', 'data-i18n': 'badge' }, t('badge')),
+        h('div', { class: 'sub' }, this.zoomEl, this.counts)),
       h('nav', { class: 'tools', 'aria-label': 'Tools' },
+        h('button', { class: 'tool tool-icon', id: 'btn-search', title: t('search'), 'aria-label': t('search'), onclick: () => { sfx.tap(); this.openSearch(); } }, '🔍'),
+        h('button', { class: 'tool tool-icon', id: 'btn-random', title: t('randomHop'), 'aria-label': t('randomHop'), onclick: () => { sfx.tap(); this.randomHop(); } }, '🎲'),
+        h('button', { class: 'tool tool-icon', id: 'btn-aura', title: t('auraPreset'), 'aria-label': t('auraPreset'), onclick: () => { sfx.tap(); this.cycleAura(); } }, '✨'),
         tool('btn-photo', '📷', 'photo', this.hooks.openPhoto),
         tool('btn-collection', '📚', 'collection', this.hooks.openCollection),
         tool('btn-game', '🎯', 'game', this.hooks.openGames),
@@ -47,7 +57,7 @@ export class Shell {
       h('button', { class: 'round-btn', 'aria-label': t('fullscreen'), onclick: () => this.fullscreen() }, '⛶'),
       h('button', { class: 'round-btn', id: 'btn-zoom-in', 'aria-label': t('zoomIn'), onclick: () => this.globe.zoomBy(1.6) }, '+'),
       h('button', { class: 'round-btn', id: 'btn-zoom-out', 'aria-label': t('zoomOut'), onclick: () => this.globe.zoomBy(1 / 1.6) }, '−'));
-    this.root.append(top, bottomLeft, bottomRight, this.info, this.menu, this.rideBar);
+    this.root.append(top, bottomLeft, bottomRight, this.info, this.menu, this.rideBar, this.tipEl);
     this.renderHints();
     this.renderMenu();
     this.renderCounts();
@@ -65,6 +75,89 @@ export class Shell {
       const tgt = e.target as Node;
       if (!this.menu.contains(tgt) && !$('#btn-menu').contains(tgt)) this.toggleMenu(false);
     });
+  }
+
+  showHover(item: CatalogueItem | null, screen: { x: number; y: number } | null): void {
+    if (!item || !screen || this.globe.gameMode || this.globe.ride) {
+      this.tipEl.classList.add('hidden');
+      return;
+    }
+    const l = lang();
+    const where = countryName(item.country, l) || (CONTINENT_NAMES[item.continent]?.[l] ?? '');
+    this.tipEl.replaceChildren(
+      h('span', { class: 'tip-emoji' }, item.emoji),
+      h('span', { class: 'tip-name' }, tr(item.name, l)),
+      ...(where ? [h('span', { class: 'tip-sub' }, where)] : []),
+    );
+    this.tipEl.style.transform = `translate(${screen.x.toFixed(1)}px, ${(screen.y - 26).toFixed(1)}px) translate(-50%, -100%)`;
+    this.tipEl.classList.remove('hidden');
+  }
+
+  private randomHop(): void {
+    const pool = CATALOGUE.filter(i => i.type !== 'vehicle' && i.key !== this.current?.key);
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    if (pick) this.showItem(pick, true);
+  }
+
+  private cycleAura(): void {
+    const cur = store.settings.auraPreset ?? 'waves';
+    const next = AURA_ORDER[(AURA_ORDER.indexOf(cur) + 1) % AURA_ORDER.length];
+    updateSettings({ auraPreset: next });
+    toast(`✨ ${AURA_PRESETS[next].label}`);
+  }
+
+  private openSearch(): void {
+    const l = lang();
+    let query = '';
+    let filter: 'all' | CatalogueItem['type'] = 'all';
+    const listEl = h('div', { class: 'dex-grid search-grid' });
+    const renderList = () => {
+      const q = query.trim().toLowerCase();
+      const matches = CATALOGUE.filter(it => {
+        if (filter !== 'all' && it.type !== filter) return false;
+        if (!q) return true;
+        return tr(it.name, l).toLowerCase().includes(q) ||
+          it.name.en.toLowerCase().includes(q) ||
+          countryName(it.country, l).toLowerCase().includes(q) ||
+          it.sub.toLowerCase().includes(q);
+      });
+      if (!matches.length) {
+        listEl.replaceChildren(h('p', { class: 'muted' }, t('notFound')));
+        return;
+      }
+      listEl.replaceChildren(...matches.map(it =>
+        h('button', {
+          class: 'dex-card unlocked',
+          onclick: () => { closeModal(); this.showItem(it, true); },
+        },
+          h('span', { class: 'dex-emoji' }, it.emoji),
+          h('strong', {}, tr(it.name, l)),
+          h('small', {}, countryName(it.country, l) || t(TYPE_KEY[it.type]))
+        )
+      ));
+    };
+    const input = h('input', {
+      type: 'search',
+      class: 'input',
+      placeholder: t('searchPlaceholder'),
+      oninput: () => { query = input.value; renderList(); },
+    });
+    const filterBar = h('div', { class: 'seg-row' },
+      ...(['all', 'landmark', 'animal', 'discovery', 'vehicle'] as const).map(f =>
+        h('button', {
+          class: 'pill' + (filter === f ? ' active' : ''),
+          onclick: e => {
+            filter = f;
+            (e.currentTarget as HTMLElement).parentElement?.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+            (e.currentTarget as HTMLElement).classList.add('active');
+            renderList();
+          },
+        }, f === 'all' ? t('filterAll') : t(TYPE_KEY[f]))
+      )
+    );
+    renderList();
+    openModal('search', '🔍 ' + t('search'), h('div', { class: 'search-modal' }, input, filterBar, listEl), { wide: true });
+    setTimeout(() => input.focus(), 40);
   }
 
   private relabel(): void {
@@ -104,14 +197,50 @@ export class Shell {
   private renderMenu(): void {
     const s = store.settings;
     const sw = (key: keyof Settings, emoji: string) => {
-      const input = h('input', { type: 'checkbox', role: 'switch', 'data-testid': 'set-' + key, checked: s[key] });
-      input.addEventListener('change', () => { sfx.tap(); updateSettings({ [key]: input.checked }); });
+      const input = h('input', { type: 'checkbox', role: 'switch', 'data-testid': 'set-' + key, checked: Boolean(s[key]) });
+      input.addEventListener('change', () => {
+        sfx.tap();
+        if (key === 'terrain') {
+          updateSettings({ terrain: input.checked, surfaceMode: input.checked ? 'realistic' : 'political' });
+        } else {
+          updateSettings({ [key]: input.checked });
+        }
+      });
       return h('label', { class: 'switch-card' }, h('span', { class: 'sw-emoji', 'aria-hidden': 'true' }, emoji), h('span', { class: 'sw-label' }, t(key)), input, h('span', { class: 'sw-track', 'aria-hidden': 'true' }));
     };
+    const curMode: SurfaceMode = s.surfaceMode ?? (s.terrain ? 'realistic' : 'political');
+    const modeRow = h('div', { class: 'seg-row' },
+      ...([
+        ['realistic', t('modeSat'), { terrain: true, surfaceMode: 'realistic' as SurfaceMode }],
+        ['minimal', t('modeVec'), { surfaceMode: 'minimal' as SurfaceMode }],
+        ['political', t('modePol'), { terrain: false, surfaceMode: 'political' as SurfaceMode }],
+      ] as const).map(([m, label, patch]) =>
+        h('button', {
+          class: 'pill' + (curMode === m ? ' active' : ''),
+          'data-testid': 'mode-' + m,
+          onclick: () => { sfx.tap(); updateSettings(patch); },
+        }, label)
+      )
+    );
+    const curAura: AuraPreset = s.auraPreset ?? 'waves';
+    const auraRow = h('div', { class: 'seg-row aura-row' },
+      ...AURA_ORDER.map(p =>
+        h('button', {
+          class: 'pill aura-pill' + (curAura === p ? ' active' : ''),
+          'data-testid': 'aura-' + p,
+          onclick: () => { sfx.tap(); updateSettings({ auraPreset: p }); },
+        },
+          h('span', { class: 'aura-dot', style: `background:${AURA_PRESETS[p].colors[0]}` }),
+          AURA_PRESETS[p].label,
+        )
+      )
+    );
     const sel = h('select', { id: 'lang-select', 'aria-label': t('language') }, ...LANGS.map(l => h('option', { value: l, selected: l === lang() }, LANG_LABEL[l])));
     sel.addEventListener('change', () => setLang(sel.value as Lang));
     const row = (emoji: string, label: string, ctl: Node) => h('div', { class: 'menu-row' }, h('span', { 'aria-hidden': 'true' }, emoji), h('span', { class: 'grow' }, label), ctl);
     this.menu.replaceChildren(
+      h('h3', {}, t('surfaceMode')), modeRow,
+      h('h3', {}, t('auraPreset')), auraRow,
       h('h3', {}, t('mMap')), h('div', { class: 'grid2' }, sw('terrain', '⛰️'), sw('names', '🏷️'), sw('borders', '🌐'), sw('shadows', '🌗')),
       h('h3', {}, t('mGlobe')), h('div', { class: 'grid2' }, sw('landmarks', '🏛️'), sw('animals', '🦁'), sw('discoveries', '🔍'), sw('vehicles', '🚢')),
       h('h3', {}, t('mSettings')), h('div', { class: 'grid2' }, sw('sfx', '🔊'), sw('bgm', '🎵')),
@@ -202,9 +331,14 @@ export class Shell {
     this.renderDexRow();
     this.info.replaceChildren(
       h('button', { class: 'icon-btn info-x', 'aria-label': t('close'), 'data-testid': 'info-close', onclick: () => this.showItem(null) }, '✕'),
-      h('div', { class: 'info-hero', 'data-type': it.type }, h('span', { class: 'hero-emoji', 'aria-hidden': 'true' }, it.emoji)),
+      h('div', { class: 'info-hero', 'data-type': it.type },
+        createModelPreview(it, { width: 256, height: 128, id: 'info-preview' }),
+      ),
       h('div', { class: 'info-body' },
-        h('span', { class: 'type-chip t-' + it.type }, t(TYPE_KEY[it.type])),
+        h('div', { class: 'info-head-row' },
+          h('span', { class: 'type-chip t-' + it.type }, t(TYPE_KEY[it.type])),
+          it.type !== 'animal' ? h('button', { class: 'pill pill-sm', onclick: () => this.globe.flyTo(it.lat, it.lon, 0.25) }, '🔍 ' + t('zoomClose')) : null,
+        ),
         h('h2', { 'data-testid': 'info-name' }, tr(it.name, l)),
         secondary ? h('p', { class: 'alt-name' }, secondary) : null,
         where ? h('p', { class: 'meta' }, '📍 ' + where) : null,

@@ -1,7 +1,7 @@
 import './styles.css';
 import type { Topology } from 'topojson-specification';
 import { Globe } from './globe/scene.ts';
-import { loadCountries, paintEarth } from './globe/painter.ts';
+import { loadCountries, paintEarth, buildBorderPositions } from './globe/painter.ts';
 import { CATALOGUE, BY_KEY } from '../shared/data/catalogue.ts';
 import { Shell } from './ui/shell.ts';
 import { h, toast, confetti, closeModal } from './ui/dom.ts';
@@ -28,11 +28,12 @@ const app = document.getElementById('app')!;
 const loader = document.getElementById('loader');
 
 async function boot(): Promise<void> {
+  if (lowfx) document.body.classList.add('lowfx');
   document.documentElement.lang = lang();
   document.title = t('title');
   const topo = (await (await fetch(url('data/countries-110m.json'))).json()) as Topology;
   const countries = loadCountries(topo);
-  const texWidth = lowfx ? 2048 : 4096;
+  const texWidth = lowfx ? 512 : 2048;
   const paint = () => paintEarth(topo, countries, { terrain: store.settings.terrain, borders: store.settings.borders, width: texWidth });
 
   const globeEl = h('div', { id: 'globe' });
@@ -40,11 +41,12 @@ async function boot(): Promise<void> {
   let shell!: Shell;
   const globe = new Globe(globeEl, {
     onPick: it => shell.showItem(it),
+    onHover: (it, scr) => shell?.showHover(it, scr),
     onView: z => shell.setZoom(z),
   }, lowfx);
   globe.lang = lang();
   globe.applySettings(store.settings);
-  if (!globe.init(paint(), countries, CATALOGUE)) {
+  if (!globe.init(paint(), countries, CATALOGUE, buildBorderPositions(topo))) {
     loader?.remove();
     app.replaceChildren(h('div', { class: 'fatal', role: 'alert' }, h('p', { class: 'big' }, '🌍'), h('p', {}, t('webglFail'))));
     return;

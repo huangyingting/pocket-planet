@@ -2,10 +2,13 @@ import { feature, mesh, neighbors } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import type { Feature, MultiPolygon, Polygon, Position } from 'geojson';
 import { ISO, type Continent } from '../../shared/data/iso.ts';
+import { CITIES } from '../../shared/data/cities.ts';
+import { latLonToVec } from '../../shared/lib/geo.ts';
 
 export interface CountryInfo { id: string; a2: string; continent: Continent; name: string; lat: number; lon: number; area: number; feature: Feature<Polygon | MultiPolygon> }
 
-const PALETTE = ['#f7c95c', '#f29a76', '#a8d672', '#86c5e8', '#d7a6e8', '#f5e17a', '#7fd6b8', '#f2b5c8'];
+// Harmonious orbital political atlas palette (rich jewel/cartographic tones that pair with AuraFM lighting)
+const PALETTE = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316'];
 
 export function loadCountries(topo: Topology): CountryInfo[] {
   const obj = topo.objects.countries as GeometryCollection;
@@ -50,7 +53,7 @@ function labelPoint(f: Feature<Polygon | MultiPolygon>): { lat: number; lon: num
 
 export interface PaintOpts { terrain: boolean; borders: boolean; width: number }
 
-// Simple deterministic value-noise for terrain colour variation.
+// Deterministic multi-octave value-noise for AuraFM satellite biome & elevation synthesis.
 function hash(x: number, y: number): number {
   const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
   return s - Math.floor(s);
@@ -61,16 +64,85 @@ function noise(x: number, y: number): number {
   const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
   return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
 }
+function fbm(x: number, y: number): number {
+  return noise(x, y) * 0.52 + noise(x * 2.13, y * 2.13) * 0.30 + noise(x * 4.47, y * 4.47) * 0.18;
+}
 
+function smoothstep(e0: number, e1: number, x: number): number {
+  const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+}
+function gauss(lat: number, lon: number, cLat: number, cLon: number, sLat: number, sLon: number): number {
+  const dLat = (lat - cLat) / sLat;
+  const dLon = (lon - cLon) / sLon;
+  return Math.exp(-(dLat * dLat + dLon * dLon));
+}
+function lerp3(a: [number, number, number], b: [number, number, number], t: number): [number, number, number] {
+  const u = Math.max(0, Math.min(1, t));
+  return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u];
+}
+
+/**
+ * Generates smooth, artifact-free satellite biome colours tuned for AuraFM's orbital shader (`Gp`),
+ * using continuous latitude & Gaussian regional weights (no hard bounding boxes).
+ */
 function terrainColour(lat: number, lon: number): [number, number, number] {
   const al = Math.abs(lat);
-  const n = noise(lon / 9, lat / 9) * 0.6 + noise(lon / 3, lat / 3) * 0.4;
-  if (al > 66 || lat < -58) return [240, 244, 248];
-  const desert = (al > 14 && al < 34 && n > 0.38) || (lat > 36 && lat < 50 && lon > 50 && lon < 110 && n > 0.45);
-  if (desert) return [226 - n * 30, 200 - n * 30, 140 - n * 20];
-  if (al > 55) return [150 + n * 40, 160 + n * 30, 120 + n * 20];
-  if (al < 12) return [60 + n * 40, 140 + n * 40, 60 + n * 20];
-  return [110 + n * 60, 160 + n * 40, 80 + n * 30];
+  const n = fbm(lon / 11, lat / 11);
+  const detail = fbm(lon / 3.2 + 7.1, lat / 3.2 + 3.4);
+  const v = 0.84 + n * 0.24 + (detail - 0.5) * 0.14;
+
+  // 1. Continuous latitude vegetation base: tropical -> temperate -> boreal
+  const tropic: [number, number, number] = [32 * v, 88 * v, 50 * v];
+  const tempForest: [number, number, number] = [48 * v, 102 * v, 58 * v];
+  const steppe: [number, number, number] = [94 * v, 108 * v, 66 * v];
+  const temperate = lerp3(tempForest, steppe, smoothstep(0.46, 0.72, n));
+  const boreal: [number, number, number] = [62 * v, 84 * v, 68 * v];
+
+  let col = lerp3(tropic, temperate, smoothstep(10, 23, al));
+  col = lerp3(col, boreal, smoothstep(50, 64, al));
+
+  // 2. Smooth desert / arid belts (Sahara, Arabia, Gobi/Central Asia, Outback, SW North America, Atacama)
+  const desertWeight = Math.min(
+    1,
+    gauss(lat, lon, 23, 12, 9, 26) * 1.15 +      // Sahara
+    gauss(lat, lon, 24, 46, 8, 16) * 1.10 +      // Arabian Peninsula
+    gauss(lat, lon, 41, 68, 7, 18) * 0.90 +      // Kyzylkum / Central Asia
+    gauss(lat, lon, 42, 96, 6, 16) * 0.88 +      // Taklamakan & Gobi
+    gauss(lat, lon, -25, 130, 7, 16) * 0.95 +    // Australian Outback
+    gauss(lat, lon, 30, -110, 7, 10) * 0.75 +    // Sonoran / Mojave
+    gauss(lat, lon, -23, -69, 8, 4) * 0.85       // Atacama
+  ) * smoothstep(0.24, 0.52, n);
+
+  const sand: [number, number, number] = [156 * v, 128 * v, 88 * v];
+  col = lerp3(col, sand, desertWeight);
+
+  // 3. Smooth mountain ranges (Himalayas/Tibet, Andes, Rockies, Alps/Caucasus, East African Rift)
+  const mtnWeight = Math.min(
+    1,
+    gauss(lat, lon, 33, 86, 5.5, 13) * 0.95 +    // Himalayas & Tibetan Plateau
+    gauss(lat, lon, -18, -68, 18, 4.5) * 0.82 +  // Andes
+    gauss(lat, lon, 45, -113, 12, 6.5) * 0.75 +  // Rockies
+    gauss(lat, lon, 46, 11, 2.5, 6) * 0.70 +     // Alps
+    gauss(lat, lon, 42, 44, 2.5, 6) * 0.70       // Caucasus
+  ) * smoothstep(0.35, 0.65, n);
+
+  const rock: [number, number, number] = [96 * v, 88 * v, 80 * v];
+  const alpineSnow: [number, number, number] = [172, 184, 198];
+  const mtnCol = lerp3(rock, alpineSnow, smoothstep(0.58, 0.78, detail) * mtnWeight);
+  col = lerp3(col, mtnCol, mtnWeight * 0.85);
+
+  // 4. Smooth polar ice caps (Antarctica, Greenland, high Arctic islands)
+  const greenland = gauss(lat, lon, 72, -40, 9, 14);
+  const polarWeight = Math.max(
+    smoothstep(67, 76, al + (n - 0.5) * 6),
+    smoothstep(-58, -66, -lat),
+    greenland * smoothstep(0.28, 0.5, n)
+  );
+  const ice: [number, number, number] = [196 + detail * 24, 208 + detail * 22, 224 + detail * 18];
+  col = lerp3(col, ice, polarWeight);
+
+  return col;
 }
 
 export function paintEarth(topo: Topology, countries: CountryInfo[], opts: PaintOpts): HTMLCanvasElement {
@@ -81,26 +153,46 @@ export function paintEarth(topo: Topology, countries: CountryInfo[], opts: Paint
   const X = (lon: number) => ((lon + 180) / 360) * W;
   const Y = (lat: number) => ((90 - lat) / 180) * H;
 
-  // Ocean: latitude gradient.
-  const grd = ctx.createLinearGradient(0, 0, 0, H);
-  grd.addColorStop(0, '#2b5a8f'); grd.addColorStop(0.5, '#1f4f8c'); grd.addColorStop(1, '#2b5a8f');
-  ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H);
+  // Clear canvas to transparent (alpha = 0 in ocean) so AuraFM's Earth shader
+  // can compute view-dependent deep ocean shading and landMask from landSample.a!
+  ctx.clearRect(0, 0, W, H);
 
-  const path = (f: Feature<Polygon | MultiPolygon>) => {
-    const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
-    ctx.beginPath();
-    for (const poly of polys) for (const ring of poly) {
-      ring.forEach(([lon, lat], i) => (i ? ctx.lineTo(X(lon), Y(lat)) : ctx.moveTo(X(lon), Y(lat))));
-      ctx.closePath();
-    }
+  const traceRing = (ring: Position[], targetCtx: CanvasRenderingContext2D, shift: number) => {
+    ring.forEach(([lon, lat], i) => {
+      const adjLon = shift > 0 && lon < 0 ? lon + 360 : shift < 0 && lon > 0 ? lon - 360 : lon;
+      if (i === 0) targetCtx.moveTo(X(adjLon), Y(lat));
+      else targetCtx.lineTo(X(adjLon), Y(lat));
+    });
+    targetCtx.closePath();
   };
 
-  // Shallow-water glow around coasts.
-  ctx.lineJoin = 'round';
-  for (const [w, c] of [[W / 160, 'rgba(90,170,220,0.35)'], [W / 400, 'rgba(120,200,235,0.55)']] as const) {
-    ctx.strokeStyle = c; ctx.lineWidth = w;
-    for (const c2 of countries) { path(c2.feature); ctx.stroke(); }
-  }
+  const path = (f: Feature<Polygon | MultiPolygon>, targetCtx: CanvasRenderingContext2D = ctx, isAntarctica = false) => {
+    const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+    targetCtx.beginPath();
+    for (const poly of polys) for (const ring of poly) {
+      let hasJump = false;
+      for (let i = 1; i < ring.length; i++) {
+        if (Math.abs(ring[i][0] - ring[i - 1][0]) > 180) { hasJump = true; break; }
+      }
+      if (!hasJump) {
+        traceRing(ring, targetCtx, 0);
+      } else if (isAntarctica) {
+        ring.forEach(([lon, lat], i) => {
+          if (i > 0 && Math.abs(lon - ring[i - 1][0]) > 180) {
+            const prevLon = ring[i - 1][0];
+            targetCtx.lineTo(X(prevLon > 0 ? 180 : -180), Y(-90));
+            targetCtx.lineTo(X(lon > 0 ? 180 : -180), Y(-90));
+          }
+          if (i === 0) targetCtx.moveTo(X(lon), Y(lat));
+          else targetCtx.lineTo(X(lon), Y(lat));
+        });
+        targetCtx.closePath();
+      } else {
+        traceRing(ring, targetCtx, 1);
+        traceRing(ring, targetCtx, -1);
+      }
+    }
+  };
 
   // Political fill with greedy colouring so neighbours differ.
   const obj = topo.objects.countries as GeometryCollection;
@@ -114,51 +206,42 @@ export function paintEarth(topo: Topology, countries: CountryInfo[], opts: Paint
   });
 
   if (opts.terrain) {
-    // Build land mask, then fill with procedural biome colours via pixel pass.
-    ctx.save();
-    ctx.fillStyle = '#000';
+    // Build anti-aliased land mask, then fill land pixels with procedural satellite biome colours.
     const mask = document.createElement('canvas'); mask.width = W; mask.height = H;
     const mctx = mask.getContext('2d')!;
     mctx.fillStyle = '#fff';
+    mctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    mctx.lineWidth = Math.max(0.8, W / 2048);
     for (const c of countries) {
-      const polys = c.feature.geometry.type === 'Polygon' ? [c.feature.geometry.coordinates] : c.feature.geometry.coordinates;
-      mctx.beginPath();
-      for (const poly of polys) for (const ring of poly) { ring.forEach(([lon, lat], i) => (i ? mctx.lineTo(X(lon), Y(lat)) : mctx.moveTo(X(lon), Y(lat)))); mctx.closePath(); }
+      path(c.feature, mctx, c.a2 === 'AQ');
       mctx.fill('evenodd');
     }
     const md = mctx.getImageData(0, 0, W, H).data;
-    const img = ctx.getImageData(0, 0, W, H);
+    const img = ctx.createImageData(W, H);
     const d = img.data;
     for (let y = 0; y < H; y++) {
       const lat = 90 - (y / H) * 180;
       for (let x = 0; x < W; x++) {
         const o = (y * W + x) * 4;
-        if (md[o] < 128) continue;
+        const alpha = md[o + 3];
+        if (alpha < 8) continue;
         const [r, g, b] = terrainColour(lat, (x / W) * 360 - 180);
-        d[o] = r; d[o + 1] = g; d[o + 2] = b;
+        d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = alpha;
       }
     }
     ctx.putImageData(img, 0, 0);
-    ctx.restore();
   } else {
     countries.forEach((c, i) => {
-      path(c.feature);
-      ctx.fillStyle = c.a2 === 'AQ' ? '#eef3f8' : PALETTE[colourIdx[i]];
+      path(c.feature, ctx, c.a2 === 'AQ');
+      ctx.fillStyle = c.a2 === 'AQ' ? '#cbd5e1' : PALETTE[colourIdx[i]];
       ctx.fill('evenodd');
     });
   }
 
   if (opts.borders) {
-    // Graticule every 15°, tropics/equator dashed gold.
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = Math.max(1, W / 2048);
-    for (let lon = -180; lon <= 180; lon += 15) { ctx.beginPath(); ctx.moveTo(X(lon), 0); ctx.lineTo(X(lon), H); ctx.stroke(); }
-    for (let lat = -75; lat <= 75; lat += 15) { ctx.beginPath(); ctx.moveTo(0, Y(lat)); ctx.lineTo(W, Y(lat)); ctx.stroke(); }
-    ctx.setLineDash([W / 300, W / 400]); ctx.strokeStyle = 'rgba(255,214,106,0.55)'; ctx.lineWidth = Math.max(1, W / 1500);
-    for (const lat of [0, 23.44, -23.44]) { ctx.beginPath(); ctx.moveTo(0, Y(lat)); ctx.lineTo(W, Y(lat)); ctx.stroke(); }
-    ctx.setLineDash([]);
     const m = mesh(topo, obj as never, (a, b) => a !== b);
-    ctx.strokeStyle = opts.terrain ? 'rgba(60,50,40,0.55)' : 'rgba(80,60,40,0.6)';
-    ctx.lineWidth = Math.max(1, W / 1800);
+    ctx.strokeStyle = opts.terrain ? 'rgba(125, 211, 252, 0.35)' : 'rgba(15, 23, 42, 0.65)';
+    ctx.lineWidth = Math.max(1, W / 1600);
     for (const line of m.coordinates) {
       ctx.beginPath();
       let prev: number | null = null;
@@ -172,3 +255,118 @@ export function paintEarth(topo: Topology, countries: CountryInfo[], opts: Paint
   }
   return cv;
 }
+
+/**
+ * Generates AuraFM's night-hemisphere city lights texture (`uNightTex`).
+ * Uses real global cities, metropolitan sprawl, and interconnected urban corridors.
+ */
+let cachedNightCanvas: HTMLCanvasElement | null = null;
+let cachedNightWidth = 0;
+
+export function paintNightLights(countries: CountryInfo[], width: number): HTMLCanvasElement {
+  if (cachedNightCanvas && cachedNightWidth === width) return cachedNightCanvas;
+  const W = width, H = W / 2;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d')!;
+  const X = (lon: number) => ((lon + 180) / 360) * W;
+  const Y = (lat: number) => ((90 - lat) / 180) * H;
+
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, W, H);
+
+  // 1. Inter-city highway/urban corridors between nearby cities
+  ctx.strokeStyle = 'rgba(255, 210, 140, 0.14)';
+  ctx.lineWidth = Math.max(1, W / 1024);
+  for (let i = 0; i < CITIES.length; i++) {
+    const [, , lat1, lon1, pop1] = CITIES[i];
+    for (let j = i + 1; j < CITIES.length; j++) {
+      const [, , lat2, lon2, pop2] = CITIES[j];
+      const dLat = lat1 - lat2, dLon = lon1 - lon2;
+      const dist = Math.hypot(dLat, dLon);
+      if (dist < 13 && Math.abs(dLon) < 20) {
+        const alpha = Math.min(0.28, (1 - dist / 13) * 0.18 * Math.min(2, (pop1 + pop2) / 15));
+        ctx.strokeStyle = `rgba(255, 215, 150, ${alpha.toFixed(3)})`;
+        ctx.beginPath();
+        ctx.moveTo(X(lon1), Y(lat1));
+        ctx.lineTo(X(lon2), Y(lat2));
+        ctx.stroke();
+      }
+    }
+  }
+
+  // 2. Metropolitan glow domes and satellite towns around each city
+  const scale = W / 1024;
+  for (let i = 0; i < CITIES.length; i++) {
+    const [, , lat, lon, pop, capital] = CITIES[i];
+    const cx = X(lon), cy = Y(lat);
+    const rOuter = (4.5 + Math.sqrt(pop) * 2.2 + (capital ? 1.5 : 0)) * scale;
+    const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, rOuter);
+    grd.addColorStop(0, 'rgba(255, 250, 220, 0.95)');
+    grd.addColorStop(0.25, 'rgba(255, 215, 145, 0.65)');
+    grd.addColorStop(0.6, 'rgba(255, 185, 100, 0.22)');
+    grd.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rOuter, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Deterministic satellite town sparkles around major hubs
+    const subCount = Math.min(18, Math.floor(3 + pop * 0.6));
+    for (let k = 0; k < subCount; k++) {
+      const ang = hash(i * 17 + k, k * 31) * Math.PI * 2;
+      const dist = (0.15 + hash(k * 23, i * 13) * 0.85) * rOuter * 1.15;
+      const sx = cx + Math.cos(ang) * dist;
+      const sy = cy + Math.sin(ang) * dist * 0.75;
+      const sr = (0.7 + hash(i + k, k) * 1.4) * scale;
+      ctx.fillStyle = `rgba(255, 230, 175, ${(0.35 + hash(k, i) * 0.5).toFixed(2)})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 3. Regional settlements around inhabited country centroids
+  for (let i = 0; i < countries.length; i++) {
+    const c = countries[i];
+    if (c.a2 === 'AQ' || Math.abs(c.lat) > 68) continue;
+    const cx = X(c.lon), cy = Y(c.lat);
+    const r = Math.min(10, 2.5 + Math.sqrt(Math.max(1, c.area)) * 0.4) * scale;
+    const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    grd.addColorStop(0, 'rgba(255, 225, 160, 0.55)');
+    grd.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+  cachedNightCanvas = cv;
+  cachedNightWidth = width;
+  return cv;
+}
+
+/**
+ * Extracts 3D line segments `[x1,y1,z1, x2,y2,z2, ...]` for AuraFM's glowing 3D country borders.
+ */
+let cachedBorders3D: Float32Array | null = null;
+export function buildBorderPositions(topo: Topology, radius = 1.0015): Float32Array {
+  if (cachedBorders3D) return cachedBorders3D;
+  const obj = topo.objects.countries as GeometryCollection;
+  const m = mesh(topo, obj as never);
+  const pts: number[] = [];
+  for (const line of m.coordinates) {
+    for (let i = 0; i < line.length - 1; i++) {
+      const [lon1, lat1] = line[i];
+      const [lon2, lat2] = line[i + 1];
+      if (Math.abs(lon1 - lon2) > 90) continue; // skip antimeridian wrap
+      const [x1, y1, z1] = latLonToVec(lat1, lon1, radius);
+      const [x2, y2, z2] = latLonToVec(lat2, lon2, radius);
+      pts.push(x1, y1, z1, x2, y2, z2);
+    }
+  }
+  cachedBorders3D = new Float32Array(pts);
+  return cachedBorders3D;
+}
+

@@ -9,6 +9,8 @@ import { newlyEarned } from '../../src/shared/lib/stickers.ts';
 import { CATALOGUE, BY_KEY, BY_SLUG, LANDMARKS } from '../../src/shared/data/catalogue.ts';
 import { EN_KEYS, hasKey, t } from '../../src/client/lib/i18n.ts';
 import { haversineKm as hk } from '../../src/shared/lib/geo.ts';
+import { buildModel } from '../../src/client/models/kit.ts';
+import { AURA_PRESETS } from '../../src/client/globe/scene.ts';
 
 describe('geo', () => {
   it('haversine: Paris→London ≈ 344 km, symmetric, zero on same point', () => {
@@ -194,5 +196,12 @@ describe('catalogue & i18n integrity', () => {
     expect(t('round', { r: 2, n: 10 }, 'en')).toBe('Round 2 / 10');
     expect(t('round', { r: 2, n: 10 }, 'ja')).toContain('2');
     expect(t('no_such_key', {}, 'en')).toBe('no_such_key');
+  });
+  it('builds a valid 3D mesh group for every catalogue item and defines 5 Aura presets', () => {
+    expect(Object.keys(AURA_PRESETS)).toHaveLength(5);
+    for (const item of CATALOGUE) {
+      const g = buildModel(item.model);
+      expect(g.children.length, item.key).toBeGreaterThan(0);
+    }
   });
 });

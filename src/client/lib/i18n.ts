@@ -38,9 +38,13 @@ const en: Dict = {
   of: 'of', tutStep: 'Step {i} of {n}',
   latitude: 'Latitude', north: 'N · Northern Hemisphere', south: 'S · Southern Hemisphere',
   notFound: 'Nothing found', search: 'Search', resetConfirm: 'Reset the camera and all settings?', sticker_unlocked: 'Sticker unlocked: {s}',
+  auraPreset: 'Planetary Aura', surfaceMode: 'Surface Mode', modeSat: 'SAT · Satellite', modeVec: 'VEC · Minimal', modePol: 'ATLAS · Political',
+  searchPlaceholder: 'Search 3D landmarks, animals, mysteries…', randomHop: 'Random Hop', filterAll: 'All', coords: 'Coordinates', zoomClose: 'Zoom 3D',
 };
 
 const ko: Dict = {
+  auraPreset: '행성 오로라', surfaceMode: '표면 모드', modeSat: 'SAT · 위성 지형', modeVec: 'VEC · 미니멀 벡터', modePol: 'ATLAS · 세계 지도',
+  searchPlaceholder: '3D 랜드마크, 동물, 미스터리 검색…', randomHop: '랜덤 이동', filterAll: '전체', coords: '좌표', zoomClose: '3D 클로즈업',
   latitude: '위도', north: 'N · 북반구', south: 'S · 남반구',
   deleteAccount: '계정 삭제', deleteConfirm: '계정과 서버에 저장된 진행 상황을 삭제할까요? 이 기기의 기록은 남아요.', saveBtn: '저장', signedOut: '로그아웃했어요', reported: '고마워요 — 어른이 확인할게요.',
   signInSub: '선택 사항이에요. 이메일 링크로 로그인하면 모든 기기에서 진행 상황이 이어져요. 비밀번호는 필요 없어요.', handleRule: '2–16자의 글자, 숫자 또는 _', creditsBody: '포켓 플래닛은 독창적인 오픈 소스 학습 장난감이에요. 3D 모델은 코드로 그렸어요. 국가 경계: Natural Earth(퍼블릭 도메인), world-atlas. three.js로 만들었어요.',

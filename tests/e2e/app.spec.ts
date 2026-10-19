@@ -47,6 +47,11 @@ test('menu: toggles layers & names, language persists', async ({ page }) => {
   await expect.poll(landmarkVisible).toBe(false);
   await page.locator('label.switch-card', { has: page.getByTestId('set-landmarks') }).click();
   await expect.poll(landmarkVisible).toBe(true);
+  await page.getByTestId('aura-aurora').click();
+  await expect.poll(() => page.evaluate(() => (window as any).__pp.globe.settings.auraPreset)).toBe('aurora');
+  await page.getByTestId('mode-minimal').click();
+  await expect.poll(() => page.evaluate(() => (window as any).__pp.globe.settings.surfaceMode)).toBe('minimal');
+  await page.getByTestId('mode-realistic').click();
   await page.locator('#lang-select').selectOption('ko');
   await expect(page.locator('h1')).toHaveText('포켓 플래닛');
   await page.reload();
@@ -63,6 +68,7 @@ test('tap a landmark opens info card; deep link; Esc closes', async ({ page }) =
   await flyTo(page, 48.858, 2.294, 1.6);
   await clickItem(page, 'eiffel');
   await expect(page.getByTestId('info-name')).toHaveText('Eiffel Tower');
+  await expect(page.locator('#info-preview')).toBeVisible();
   await expect(page).toHaveURL(/#eiffel$/);
   await shot(page, 'desktop_04_info_landmark');
   await page.getByTestId('react-like').click();
