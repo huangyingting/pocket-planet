@@ -5,7 +5,7 @@ export const LANGS: Lang[] = ['en', 'zh'];
 export type I18n = { en: string } & Partial<Record<Exclude<Lang, 'en'>, string>>;
 
 export type ItemType = 'landmark' | 'animal' | 'discovery' | 'vehicle'
-  | 'dino' | 'food' | 'festival' | 'space' | 'plant' | 'sport' | 'volcano' | 'migration' | 'voyage';
+  | 'dino' | 'food' | 'festival' | 'space' | 'plant' | 'sport' | 'volcano' | 'migration' | 'voyage' | 'person';
 
 export interface ModelRecipe {
   kind: string;
@@ -25,6 +25,9 @@ export interface Facts {
   year?: number;
   /** dinosaurs: millions of years ago */
   mya?: number;
+  /** people: birth / death year (negative = BCE) */
+  born?: number;
+  died?: number;
 }
 
 export interface Route {

@@ -64,5 +64,5 @@ export function icon(name: IconName, size = 18): string {
 
 export const TYPE_ICON: Record<ItemType, IconName> = {
   landmark: 'landmark', animal: 'paw', discovery: 'compass', vehicle: 'ship', dino: 'dino', food: 'food', festival: 'festival',
-  space: 'rocket', plant: 'leaf', sport: 'trophy', volcano: 'volcano', migration: 'bird', voyage: 'sail',
+  space: 'rocket', plant: 'leaf', sport: 'trophy', volcano: 'volcano', migration: 'bird', voyage: 'sail', person: 'user',
 };

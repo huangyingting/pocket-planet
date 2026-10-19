@@ -29,7 +29,7 @@ export type Settings = Record<LayerKey, boolean> & {
 export const DEFAULT_SETTINGS: Settings = {
   terrain: true, names: true, borders: true, shadows: true,
   landmarks: true, animals: true, discoveries: true, vehicles: true,
-  dinos: true, foods: true, festivals: true, space: true, plants: true, sports: true, volcanoes: true, migrations: true, voyages: true,
+  dinos: true, foods: true, festivals: true, space: true, plants: true, sports: true, volcanoes: true, migrations: true, voyages: true, people: true,
   tectonics: false, clouds: true, aurora: true, graticule: true,
   sfx: true, bgm: false,
   auraPreset: 'waves', surfaceMode: 'realistic',

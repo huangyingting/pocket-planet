@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { CATALOGUE, BY_KEY } from '../../src/shared/data/catalogue.ts';
 import { PASSPORTS, bookProgress, bookDone } from '../../src/shared/data/passports.ts';
-import { STOPS, visibleAt, appearingAt } from '../../src/shared/lib/timeline.ts';
+import { STOPS, visibleAt, appearingAt, dateOf } from '../../src/shared/lib/timeline.ts';
 import { GREETINGS } from '../../src/shared/data/greetings.ts';
 import { newlyEarned } from '../../src/shared/lib/stickers.ts';
 import { emptyProgress } from '../../src/shared/lib/progress.ts';
@@ -52,7 +52,7 @@ describe('time machine', () => {
     for (const x of [dino, old, modern, timeless]) expect(visibleAt(x, 'now')).toBe(true);
   });
   it('lists each dated item at exactly one stop', () => {
-    const dated = CATALOGUE.filter(i => i.facts?.mya === undefined && (i.facts?.built ?? i.facts?.year) !== undefined && (i.facts?.built ?? i.facts?.year)! <= 2000);
+    const dated = CATALOGUE.filter(i => i.facts?.mya === undefined && dateOf(i) !== undefined && dateOf(i)! <= 2000);
     const listed = STOPS.flatMap((_, i) => (STOPS[i] === 'dino' ? [] : appearingAt(CATALOGUE, i)));
     expect(listed.length).toBe(dated.length);
     expect(new Set(listed.map(i => i.key)).size).toBe(listed.length);

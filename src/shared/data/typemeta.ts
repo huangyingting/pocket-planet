@@ -2,7 +2,7 @@ import type { I18n, ItemType } from './types.ts';
 
 /** Settings key that toggles a catalogue type on the globe. */
 export type LayerKey = 'landmarks' | 'animals' | 'discoveries' | 'vehicles' | 'dinos' | 'foods' | 'festivals'
-  | 'space' | 'plants' | 'sports' | 'volcanoes' | 'migrations' | 'voyages';
+  | 'space' | 'plants' | 'sports' | 'volcanoes' | 'migrations' | 'voyages' | 'people';
 
 export interface TypeMeta {
   layer: LayerKey;
@@ -50,6 +50,8 @@ export const TYPE_META: Record<ItemType, TypeMeta> = {
     hint: { en: 'Follow animals on their great journeys', zh: '跟随动物踏上伟大的旅程' }, emoji: '🦋', color: '#2dd4bf', collect: 'found', scale: 0.05, plinth: 0 },
   voyage: { layer: 'voyages', section: 'voyages', one: { en: 'Voyage', zh: '历史航线' }, many: { en: 'Great voyages', zh: '伟大航程' },
     hint: { en: 'Sail along famous journeys from history', zh: '沿着历史上的著名航线航行' }, emoji: '⛵', color: '#e8b04a', collect: 'found', scale: 0.052, plinth: 0 },
+  person: { layer: 'people', section: 'people', one: { en: 'Famous person', zh: '名人' }, many: { en: 'Famous people', zh: '历史名人' },
+    hint: { en: 'Meet great thinkers, artists and explorers where they lived', zh: '在他们生活过的地方认识伟大的思想家、艺术家和探险家' }, emoji: '🧑‍🎨', color: '#c084fc', collect: 'found', scale: 0.062, plinth: 0.34 },
 };
 
-export const TYPE_ORDER: ItemType[] = ['landmark', 'animal', 'discovery', 'vehicle', 'dino', 'food', 'festival', 'space', 'plant', 'sport', 'volcano', 'migration', 'voyage'];
+export const TYPE_ORDER: ItemType[] = ['landmark', 'animal', 'discovery', 'vehicle', 'dino', 'food', 'festival', 'space', 'plant', 'sport', 'volcano', 'migration', 'voyage', 'person'];

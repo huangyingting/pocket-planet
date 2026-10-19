@@ -6,7 +6,7 @@ export const STOPS: Stop[] = ['dino', -3000, -500, 1, 1000, 1500, 1800, 1900, 19
 
 /** Year an item appeared (built / happened), if known. */
 export function dateOf(it: CatalogueItem): number | undefined {
-  return it.facts?.built ?? it.facts?.year;
+  return it.facts?.built ?? it.facts?.year ?? it.facts?.born;
 }
 
 /** Whether an item exists on the globe at a given time-machine stop. */

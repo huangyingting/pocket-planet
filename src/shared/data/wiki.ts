@@ -361,4 +361,5 @@ export const WIKI: Record<string, [en: string, zh?: string]> = {
   vy_polynesia: ["Polynesian navigation", "波利尼西亞人的航海"],
   vy_viking: ["Norse settlement of North America", "諾斯人殖民北美"],
   vy_columbus: ["Voyages of Christopher Columbus"],
+  pp_confucius: ["Confucius", "孔子"],
 };

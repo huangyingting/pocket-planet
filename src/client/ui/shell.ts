@@ -348,6 +348,8 @@ export class Shell {
     const chips: [string, string][] = [];
     if (f.built !== undefined) chips.push([t('built'), f.built < 0 ? t('bce', { n: -f.built }) : String(f.built)]);
     if (f.year !== undefined) chips.push([t('year'), f.year < 0 ? t('bce', { n: -f.year }) : String(f.year)]);
+    if (f.born !== undefined) chips.push([t('born'), f.born < 0 ? t('bce', { n: -f.born }) : String(f.born)]);
+    if (f.died !== undefined) chips.push([t('died'), f.died < 0 ? t('bce', { n: -f.died }) : String(f.died)]);
     if (f.mya !== undefined) chips.push([t('lived'), t('myaAgo', { n: fmtNum(f.mya), w: fmtNum(Math.round(f.mya * 100)) })]);
     if (it.season) chips.push([t('when'), new Intl.DateTimeFormat(l, { month: 'long', day: 'numeric' }).format(new Date(2024, it.season.month - 1, it.season.day))]);
     if (f.heightM) chips.push([t('height'), nf(f.heightM, ' m')]);

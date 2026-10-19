@@ -21,7 +21,7 @@ export const PASSPORTS: PassportBook[] = [
   book('americas', '🗽', { en: 'The Americas', zh: '美洲' }, landmarksIn('north-america', 'south-america')),
   book('oceania', '🦘', { en: 'Oceania & poles', zh: '大洋洲与极地' }, landmarksIn('oceania', 'antarctica', 'ocean')),
   book('animal', '🦁', { en: 'Animal safari', zh: '动物探险' }, it => it.type === 'animal'),
-  ...(['dino', 'food', 'festival', 'space', 'plant', 'sport', 'volcano', 'migration', 'voyage'] as const).map(ofType),
+  ...(['dino', 'food', 'festival', 'space', 'plant', 'sport', 'volcano', 'migration', 'voyage', 'person'] as const).map(ofType),
 ].filter(b => b.keys.length > 0);
 
 export const bookProgress = (b: PassportBook, seen: Record<string, number>) => b.keys.filter(k => k in seen).length;

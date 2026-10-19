@@ -130,6 +130,8 @@ function stats(it: CatalogueItem): string {
   const row: [Bi, Bi][] = [];
   if (f.built !== undefined) row.push([T('Built', '建成'), era(f.built)]);
   if (f.year !== undefined) row.push([T('Year', '年份'), era(f.year)]);
+  if (f.born !== undefined) row.push([T('Born', '出生'), era(f.born)]);
+  if (f.died !== undefined) row.push([T('Died', '逝世'), era(f.died)]);
   if (f.mya !== undefined) row.push([T('Lived', '生活年代'), T(`${num(f.mya)} million years ago`, `${num(f.mya * 100)} 万年前`)]);
   if (f.heightM) row.push([T('Height', '高度'), T(`${num(f.heightM)} m`, `${num(f.heightM)} 米`)]);
   if (f.lengthM) row.push([T('Length', '长度'), f.lengthM >= 10000 ? T(`${num(Math.round(f.lengthM / 1000))} km`, `${num(Math.round(f.lengthM / 1000))} 千米`) : T(`${num(f.lengthM)} m`, `${num(f.lengthM)} 米`)]);
