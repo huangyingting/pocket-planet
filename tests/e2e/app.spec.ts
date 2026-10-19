@@ -255,14 +255,65 @@ test('account: magic link sign-in, nickname, sync, guestbook', async ({ page }) 
 
 test('encyclopedia static pages link back to the globe', async ({ page }) => {
   await page.goto('/landmarks/');
-  await expect(page.locator('h1')).toContainText('Landmarks');
-  await page.getByRole('link', { name: /Eiffel Tower/ }).click();
-  await expect(page.locator('h1')).toHaveText('Eiffel Tower');
+  await expect(page.locator('h1 .en')).toHaveText('Landmarks');
+  await page.locator('#q').fill('eiffel');
+  await page.getByRole('link', { name: /Eiffel Tower/ }).first().click();
+  await expect(page.locator('h1 .en')).toHaveText('Eiffel Tower');
+  await page.locator('[data-set=zh]').click();
+  await expect(page.locator('h1 .zh')).toBeVisible();
+  await expect(page.locator('h1 .en')).toBeHidden();
+  await page.locator('[data-set=en]').click();
   await shot(page, 'desktop_19_encyclopedia');
-  await page.getByRole('link', { name: /See it on the globe/ }).click();
+  await page.getByRole('link', { name: /See it on the 3D globe/ }).click();
   await expect(page).toHaveURL(/\/#eiffel$/);
   const res = await page.request.get('/does-not-exist');
   expect(res.status()).toBe(404);
+});
+
+test('read more expands a Wikipedia reader in the chosen language', async ({ page }) => {
+  const seen: string[] = [];
+  await page.route('**/*.wikipedia.org/**', async route => {
+    const u = new URL(route.request().url());
+    seen.push(u.hostname);
+    const zh = u.hostname.startsWith('zh');
+    const extract = zh
+      ? '埃菲尔铁塔是一座铁塔。\n== 历史 ==\n它建于1889年。\n== 设计 ==\n高330米。\n== 参考文献 ==\n略'
+      : 'The Eiffel Tower is a wrought-iron tower.\n== History ==\nBuilt for the 1889 fair.\n== Design ==\nIt is 330 m tall.\n== Tourism ==\nMillions visit.\n== Height ==\nTall.\n== Lighting ==\nSparkles.\n== References ==\nx';
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ query: { pages: [{ title: zh ? '艾菲爾鐵塔' : 'Eiffel Tower', varianttitles: { 'zh-cn': '埃菲尔铁塔' }, extract, description: zh ? '巴黎的铁塔' : 'Tower in Paris' }] } }) });
+  });
+  await openApp(page, '/?lowfx=1&notut#eiffel');
+  await expect(page.getByTestId('info-name')).toHaveText('Eiffel Tower');
+  const before = (await page.getByTestId('info').boundingBox())!.width;
+  await page.getByTestId('read-more').click();
+  await expect(page.getByTestId('reader-title')).toHaveText('Eiffel Tower');
+  await expect.poll(async () => (await page.getByTestId('info').boundingBox())!.width).toBeGreaterThan(before * 1.8);
+  await expect(page.getByTestId('info-name')).toBeVisible();
+  await expect(page.getByTestId('reader-article')).toContainText('Built for the 1889 fair.');
+  await expect(page.getByTestId('reader-article')).not.toContainText('References');
+  await page.getByTestId('reader-continue').click();
+  await expect(page.getByTestId('reader-article')).toContainText('Sparkles.');
+  await expect(page.getByTestId('reader-near').first()).toBeVisible();
+  await shot(page, 'desktop_20_reader');
+  await page.getByTestId('reader-lang-zh').click();
+  await expect(page.getByTestId('reader-title')).toHaveText('埃菲尔铁塔');
+  await expect(page.getByTestId('reader-article')).toContainText('它建于1889年。');
+  expect(seen).toContain('zh.wikipedia.org');
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('reader')).toBeHidden();
+  await expect(page.getByTestId('info-name')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('info')).toBeHidden();
+});
+
+test('graticule toggles from the layers menu', async ({ page }) => {
+  await openApp(page);
+  const on = () => page.evaluate(() => (window as any).__pp.globe.settings.graticule);
+  expect(await on()).toBe(true);
+  await expect(page.locator('.lb-grid').first()).toBeVisible();
+  await page.getByTestId('btn-menu').click();
+  await page.locator('label.switch-card', { has: page.getByTestId('set-graticule') }).click();
+  await expect.poll(on).toBe(false);
+  await expect(page.locator('.lb-grid:visible')).toHaveCount(0);
 });
 
 test('mobile layout: info card as bottom sheet @mobile', async ({ page }, info) => {

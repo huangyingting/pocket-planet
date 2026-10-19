@@ -12,6 +12,9 @@ import { haversineKm as hk } from '../../src/shared/lib/geo.ts';
 import { buildModel } from '../../src/client/models/kit.ts';
 import { heroBuilder, loadHeroesFor, PACK_IDS } from '../../src/client/models/heroes/index.ts';
 import { AURA_PRESETS } from '../../src/client/globe/scene.ts';
+import { parseExtract, articleUrl } from '../../src/client/lib/wikipedia.ts';
+import { WIKI } from '../../src/shared/data/wiki.ts';
+import { graticuleStep } from '../../src/client/globe/layers.ts';
 
 describe('geo', () => {
   it('haversine: Paris→London ≈ 344 km, symmetric, zero on same point', () => {
@@ -253,5 +256,25 @@ describe('festival season', async () => {
     expect(isHappening({}, d(2026, 10, 19))).toBe(false);
     expect(daysUntil({}, d(2026, 10, 19))).toBeNull();
     expect(daysUntil({ season: { month: 10, day: 20 } }, d(2026, 10, 19))).toBe(1);
+  });
+});
+
+describe('wikipedia reader', () => {
+  it('splits extracts into lead and sections, dropping references and empty headings', () => {
+    const r = parseExtract('Lead one.\n\nLead two.\n== History ==\nOld.\n=== Early ===\nVery old.\n== Gallery ==\n== See also ==\nX\n=== Sub ===\nY\n== Design ==\nTall.');
+    expect(r.lead).toEqual(['Lead one.', 'Lead two.']);
+    expect(r.sections.map(s => s.title)).toEqual(['History', 'Early', 'Design']);
+    expect(r.sections[1].level).toBe(3);
+  });
+  it('builds language-specific article URLs', () => {
+    expect(articleUrl('en', 'Eiffel Tower')).toBe('https://en.wikipedia.org/wiki/Eiffel_Tower');
+    expect(articleUrl('zh', '埃菲尔铁塔')).toMatch(/^https:\/\/zh\.wikipedia\.org\/wiki\/.+\?variant=zh-cn$/);
+  });
+  it('maps every catalogue item to a Wikipedia title', () => {
+    for (const i of CATALOGUE) expect(WIKI[i.key]?.[0], i.key).toBeTruthy();
+  });
+  it('graticule step refines as the camera gets closer', () => {
+    expect(graticuleStep(3)).toBeGreaterThan(graticuleStep(1));
+    expect(graticuleStep(1)).toBeGreaterThanOrEqual(graticuleStep(0.2));
   });
 });
