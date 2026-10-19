@@ -708,6 +708,7 @@ body.time-travel .bl, body.riding .time-bar, body.gaming .time-bar { visibility:
   z-index: 50;
   padding: 12px;
   animation: fade .15s;
+  grid-template-columns: minmax(0, 1fr);
 }
 @keyframes fade { from { opacity: 0; } }
 .modal-panel {
@@ -722,6 +723,7 @@ body.time-travel .bl, body.riding .time-bar, body.gaming .time-bar { visibility:
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 .modal-panel.wide { width: min(820px, 100%); }
+.modal-body > * { min-width: 0; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 8px 22px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
 .modal-head h2 { margin: 0; font-size: 1.25rem; font-weight: 650; }
 .modal-body { padding: 14px 22px 22px; overflow: auto; }
@@ -909,6 +911,20 @@ body.gaming .topbar .tools, body.gaming .topbar .omnibar, body.gaming .info { di
 
 /* ---- account / guestbook ---- */
 .account form { margin: 10px 0; }
+.acct-who { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, 0.03); }
+.acct-who > div { display: flex; flex-direction: column; min-width: 0; }
+.acct-who strong { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-who small { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; font-family: var(--font-mono); }
+.acct-av { width: 38px; height: 38px; flex: none; border-radius: 50%; display: grid; place-items: center; color: var(--accent); background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); }
+.account .acct-field { display: flex; flex-direction: column; gap: 6px; margin: 16px 0; }
+.acct-field label { display: flex; flex-direction: column; gap: 6px; font-size: .84rem; color: var(--muted); }
+.acct-input { display: flex; gap: 8px; }
+.acct-input input { flex: 1; }
+.acct-actions { display: flex; gap: 8px; align-items: center; padding-top: 14px; border-top: 1px solid var(--line); }
+.acct-actions .cta { display: inline-flex; align-items: center; gap: 7px; }
+.acct-actions .cta span { display: inline-flex; }
+.acct-delete { margin-top: 14px; font-size: .82rem; text-decoration: none; opacity: .85; }
+.acct-delete:hover { text-decoration: underline; opacity: 1; }
 .gb-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .gb-list { list-style: none; padding: 0; display: grid; gap: 8px; }
 .gb-list li { background: var(--panel2); border-radius: 12px; padding: 8px 12px; }

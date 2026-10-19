@@ -1,5 +1,6 @@
 import { h, openModal, closeModal, toast } from './dom.ts';
 import { t } from '../lib/i18n.ts';
+import { icon } from './icons.ts';
 import { api } from '../lib/api.ts';
 import { store, setMe, replaceProgress, subscribe } from '../store.ts';
 import { mergeProgress } from '../../shared/lib/progress.ts';
@@ -29,23 +30,25 @@ export function openAccount(): void {
           e.preventDefault();
           try {
             const r = await api.requestLink(email.value.trim());
-            out.replaceChildren(...[h('p', {}, '✉️ ' + t('linkSent')),
-              r.devLink ? h('p', { class: 'small' }, t('devLink') + ': ', h('a', { href: r.devLink, 'data-testid': 'dev-link' }, '🔑 ' + t('signIn'))) : null].filter((x): x is HTMLParagraphElement => !!x));
+            out.replaceChildren(...[h('p', {}, t('linkSent')),
+              r.devLink ? h('p', { class: 'small' }, t('devLink') + ': ', h('a', { href: r.devLink, 'data-testid': 'dev-link' }, t('signIn'))) : null].filter((x): x is HTMLParagraphElement => !!x));
           } catch (err) { out.replaceChildren(h('p', { class: 'error' }, (err as Error).message || t('offline'))); }
         } }, email, h('button', { class: 'cta', type: 'submit', 'data-testid': 'send-link' }, t('sendLink'))), out);
       return;
     }
-    const handle = h('input', { value: me.handle ?? '', maxlength: 16, pattern: '[A-Za-z0-9_\\uAC00-\\uD7A3]{2,16}', 'aria-label': t('handle'), title: t('handleRule'), 'data-testid': 'handle' });
+    const handle = h('input', { value: me.handle ?? '', maxlength: 16, pattern: '[A-Za-z0-9_\\u4E00-\\u9FFF]{2,16}', 'aria-label': t('handle'), title: t('handleRule'), 'data-testid': 'handle' });
     body.replaceChildren(
-      h('p', {}, '👤 ' + t('signedInAs', { e: me.email })),
-      h('form', { class: 'row', onsubmit: async (e: Event) => {
+      h('div', { class: 'acct-who' }, h('span', { class: 'acct-av', html: icon('user', 18) }),
+        h('div', {}, h('small', { class: 'muted' }, t('account')), h('strong', {}, me.email))),
+      h('form', { class: 'acct-field', onsubmit: async (e: Event) => {
         e.preventDefault();
         try { const r = await api.setHandle(handle.value.trim()); setMe(r.user); toast('✓'); } catch (err) { toast((err as Error).message); }
-      } }, h('label', {}, t('handle') + ' ', handle), h('button', { class: 'pill', type: 'submit' }, t('saveBtn'))),
-      h('div', { class: 'row' },
-        h('button', { class: 'cta', 'data-testid': 'sync-now', onclick: () => void syncNow() }, '🔄 ' + t('syncNow')),
+      } }, h('label', {}, h('span', {}, t('handle')), h('div', { class: 'acct-input' }, handle, h('button', { class: 'pill', type: 'submit' }, t('saveBtn')))),
+        h('small', { class: 'muted' }, t('handleRule'))),
+      h('div', { class: 'acct-actions' },
+        h('button', { class: 'cta', 'data-testid': 'sync-now', onclick: () => void syncNow() }, h('span', { html: icon('reset', 15) }), t('syncNow')),
         h('button', { class: 'pill', 'data-testid': 'sign-out', onclick: async () => { try { await api.logout(); } catch { /* ignore */ } setMe(null); toast(t('signedOut')); render(); } }, t('signOut'))),
-      h('button', { class: 'link danger', 'data-testid': 'delete-account', onclick: async () => {
+      h('button', { class: 'link danger acct-delete', 'data-testid': 'delete-account', onclick: async () => {
         if (!confirm(t('deleteConfirm'))) return;
         try { await api.deleteAccount(); setMe(null); closeModal('account'); toast(t('signedOut')); } catch (err) { toast((err as Error).message); }
       } }, t('deleteAccount')));
@@ -63,7 +66,7 @@ export async function openGuestbook(): Promise<void> {
       const { entries } = await api.guestbook();
       list.replaceChildren(...(entries.length ? entries.map(e => h('li', {},
         h('div', { class: 'gb-head' }, h('strong', {}, e.handle), h('time', { datetime: e.created_at }, new Date(e.created_at + (e.created_at.endsWith('Z') ? '' : 'Z')).toLocaleDateString()),
-          h('button', { class: 'link small', 'aria-label': t('report'), onclick: async () => { try { await api.report(e.id); toast(t('reported')); } catch { toast(t('offline')); } } }, '🚩')),
+          h('button', { class: 'link small', 'aria-label': t('report'), onclick: async () => { try { await api.report(e.id); toast(t('reported')); } catch { toast(t('offline')); } }, html: icon('flag', 14) })),
         h('p', {}, e.body))) : [h('li', { class: 'muted' }, t('gbEmpty'))]));
     } catch { list.replaceChildren(h('li', { class: 'muted' }, t('offline'))); }
   };

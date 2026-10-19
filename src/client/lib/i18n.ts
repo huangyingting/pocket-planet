@@ -40,7 +40,7 @@ const en: Dict = {
   emailLabel: 'Email', sendLink: 'Send sign-in link', linkSent: 'Check your inbox for a sign-in link.', devLink: 'Dev mode: open this link to sign in', signedInAs: 'Signed in as {e}', syncNow: 'Sync now', synced: 'Progress synced', offline: 'Offline — progress is kept on this device',
   handle: 'Nickname', gbPlaceholder: 'Say hello (max 200 characters)', post: 'Post', report: 'Report', gbNeedLogin: 'Sign in to write in the guestbook', gbEmpty: 'Be the first to say hi!',
   deleteAccount: 'Delete account', deleteConfirm: 'Delete your account and server copy of your progress? Your device copy stays.', saveBtn: 'Save', signedOut: 'Signed out', reported: 'Thanks — a grown-up will check it.',
-  signInSub: 'Optional. Sign in with an email link to keep your progress on every device. No password needed.', handleRule: '2–16 letters, numbers or _', creditsBody: 'Pocket Planet is an original, open-source learning toy. 3D models are drawn in code. Country shapes: Natural Earth (public domain) via world-atlas. Made with three.js.',
+  signInSub: 'Optional. Sign in with an email link to keep your progress on every device. No password needed.', handleRule: '2–16 letters, numbers, Chinese characters or _', creditsBody: 'Pocket Planet is an original, open-source learning toy. 3D models are drawn in code. Country shapes: Natural Earth (public domain) via world-atlas. Made with three.js.',
   of: 'of', tutStep: 'Step {i} of {n}',
   latitude: 'Latitude', north: 'N · Northern Hemisphere', south: 'S · Southern Hemisphere',
   notFound: 'Nothing found', search: 'Search', resetConfirm: 'Reset the camera and all settings?', sticker_unlocked: 'Sticker unlocked: {s}',

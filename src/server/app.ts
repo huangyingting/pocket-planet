@@ -20,7 +20,7 @@ export interface AppOptions {
 const TOKEN_TTL = 15 * 60_000;
 const SESSION_TTL = 60 * 24 * 3600_000;
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
-export const HANDLE_RE = /^[A-Za-z0-9_\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]{2,16}$/;
+export const HANDLE_RE = /^[A-Za-z0-9_\u4E00-\u9FFF]{2,16}$/;
 const BLOCKED = ['stupid', 'idiot', 'hate', 'kill', 'dumb', 'shut up', '笨蛋', '白痴', '傻瓜', '滚开'];
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 
