@@ -51,7 +51,7 @@ export class TimeMachine {
         h('span', { class: 'muted' }, t('tmCount', { n: shown })),
         h('button', { class: 'icon-btn', 'aria-label': t('close'), 'data-testid': 'time-close', html: icon('close', 15), onclick: () => this.toggle(false) })),
       range,
-      h('div', { class: 'time-ticks', 'aria-hidden': 'true' }, ...STOPS.map((s, i) => h('span', { class: i === this.idx ? 'on' : '' }, i === 0 ? '🦖' : s === 'now' ? '•' : ''))),
+      h('div', { class: 'time-ticks', 'aria-hidden': 'true' }, ...STOPS.map((s, i) => h('span', { class: i === this.idx ? 'on' : '' }, i === 0 ? h('b', { html: icon('dino', 13) }) : s === 'now' ? '•' : ''))),
       fresh.length ? h('div', { class: 'time-new' }, h('span', { class: 'muted' }, t('tmAppear')),
         ...fresh.map(it => h('button', { class: 'chip', onclick: () => this.go(it) }, it.emoji + ' ' + tr(it.name, l)))) : null,
     ].filter((n): n is HTMLDivElement | HTMLInputElement => !!n));

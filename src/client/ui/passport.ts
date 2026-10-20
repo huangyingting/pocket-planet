@@ -39,14 +39,14 @@ export function openPassport(hooks: PassportHooks): void {
     tabs.replaceChildren(...PASSPORTS.map(x => {
       const done = bookProgress(x, seen);
       return h('button', { class: 'pill' + (x.id === cur ? ' active' : '') + (done === x.keys.length ? ' done' : ''), role: 'tab', 'aria-selected': String(x.id === cur), 'data-testid': 'book-' + x.id,
-        onclick: () => { cur = x.id; save('passportBook', cur); render(); } }, x.emoji + ' ' + tr(x.name, l), h('small', {}, ` ${done}/${x.keys.length}`));
+        onclick: () => { cur = x.id; save('passportBook', cur); render(); } }, h('span', { class: 'holo', 'aria-hidden': 'true' }, x.emoji), ' ' + tr(x.name, l), h('small', {}, ` ${done}/${x.keys.length}`));
     }));
     const got = bookProgress(b, seen);
     const next = nextStop(b, seen, hooks.here());
     page.replaceChildren(
       h('div', { class: 'passport-head' },
         h('div', {},
-          h('h3', {}, b.emoji + ' ' + tr(b.name, l)),
+          h('h3', {}, h('span', { class: 'holo', 'aria-hidden': 'true' }, b.emoji), ' ' + tr(b.name, l)),
           h('p', { class: 'muted' }, t('stamps', { n: got, t: b.keys.length }))),
         next ? h('button', { class: 'cta cta-sm', 'data-testid': 'next-stop', html: icon('arrow', 15),
           onclick: () => { closeModal('passport'); closeModal('collection'); hooks.travel(next, hooks.here()); } }, h('span', {}, t('nextStop', { p: tr(next.name, l) })))

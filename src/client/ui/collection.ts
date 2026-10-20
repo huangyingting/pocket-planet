@@ -18,15 +18,12 @@ export function openCollection(go: (it: CatalogueItem) => void, passport?: () =>
       h('span', { class: 'hub-foot' }, h('span', { class: 'hub-stat' }, stat), h('span', { class: 'hub-open', html: icon('arrow', 16) })));
   const albumStat = h('span', {}, t('photos', { n: '…' }));
   const pass = passport ? card('hub-passport', 'c-type', 'passport', t('passport'), t('passportSub'), t('stamps', { n: Object.keys(p.seen).length, t: CATALOGUE.length }), passport) : null;
-  pass?.style.setProperty('--c', '#f5b14c');
   const grid = h('div', { class: 'hub-grid' }, pass,
     card('hub-animals', 'c-green', 'paw', t('animalDex'), t('animalDexSub'), t('found', { n: Object.keys(p.dex).length, t: ANIMALS.length }), () => dex(t('animalDex'), ANIMALS, p.dex, go)),
     card('hub-discoveries', 'c-purple', 'compass', t('discoveryDex'), t('discoveryDexSub'), t('found', { n: Object.keys(p.logs).length, t: DISCOVERIES.length }), () => dex(t('discoveryDex'), DISCOVERIES, p.logs, go)),
     ...TYPE_ORDER.filter(ty => TYPE_META[ty].collect === 'found' && BY_TYPE[ty].length).map(ty => {
       const m = TYPE_META[ty], items = BY_TYPE[ty], l = lang();
-      const c = card('hub-' + ty, 'c-type', TYPE_ICON[ty], tr(m.many, l), tr(m.hint, l), t('found', { n: items.filter(i => i.key in p.found).length, t: items.length }), () => dex(tr(m.many, l), items, p.found, go));
-      c.style.setProperty('--c', m.color);
-      return c;
+      return card('hub-' + ty, 'c-type', TYPE_ICON[ty], tr(m.many, l), tr(m.hint, l), t('found', { n: items.filter(i => i.key in p.found).length, t: items.length }), () => dex(tr(m.many, l), items, p.found, go));
     }),
     card('hub-stickers', 'c-orange', 'sparkle', t('stickers'), t('stickersSub'), t('found', { n: Object.keys(p.stickers).length, t: STICKERS.length }), stickers),
     card('hub-album', 'c-violet', 'camera', t('album'), t('albumSub'), '', () => { closeModal('collection'); void openAlbum(); }));

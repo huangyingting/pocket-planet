@@ -10,10 +10,13 @@ import { galVec, NCP_GAL } from '../../shared/lib/sky.ts';
 import type { Vec3 } from '../../shared/lib/orbits.ts';
 import { tr } from '../../shared/data/types.ts';
 import { lang, t } from '../lib/i18n.ts';
+import { fmtLy } from './fmt.ts';
 import type { Quality } from '../globe/quality.ts';
 import { MILKY_WAY, genericSpiral, gauss, glowCanvas, hashStr, paintBlob, paintCMB, paintDisc, paintNebula, rng, sampleDisc, type DiscDef, type StarCloud } from './cosmos-paint.ts';
 
 const D2R = Math.PI / 180;
+/** Local Group: galaxies are drawn this many times their true size. */
+const GROUP_EX = 2.4;
 const ease = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
 
 export interface LevelDef {
@@ -144,6 +147,8 @@ interface LevelRT {
   angle: number;
   /** Objects spinning about their own local y (galaxy discs about their normals), rad/s. */
   spinners: [THREE.Object3D, number][];
+  /** Re-painters of in-scene text tags (run on language change). */
+  texts: (() => void)[];
   pulse?: THREE.Sprite;
 }
 
@@ -205,7 +210,7 @@ export class DeepStage {
     homeLabel.onclick = () => this.ev.onDown?.();
     labels.append(homeLabel);
     L = { id, def: LEVELS[id], scene: new THREE.Scene(), labels, objs: [], homeLabel, home: new THREE.Vector3(), defTarget: new THREE.Vector3(),
-      target: new THREE.Vector3(), dist: LEVELS[id].defLy / LEVELS[id].unit, tween: null, pts: [], fades: [], w: 0, root: new THREE.Group(), spin: 0, angle: 0, spinners: [] };
+      target: new THREE.Vector3(), dist: LEVELS[id].defLy / LEVELS[id].unit, tween: null, pts: [], fades: [], w: 0, root: new THREE.Group(), spin: 0, angle: 0, spinners: [], texts: [] };
     L.scene.add(L.root);
     this.levels.set(id, L);
     if (id === 'galaxy') this.buildGalaxy(L);
@@ -323,41 +328,291 @@ export class DeepStage {
   }
 
   private buildGroup(L: LevelRT): void {
-    const u = L.def.unit;
+    const u = L.def.unit, q = this.n, low = this.quality.tier === 'low';
     const { cloud, tex } = this.milkyWay();
-    const k = 1e3 / u;
-    const mw = this.disc(L, tex, MILKY_WAY.R * 2 * k, new THREE.Vector3(), new THREE.Vector3(0, 1, 0), 0.95);
-    const sub = Math.min(cloud.n, Math.round(14_000 * this.n));
-    const mwPts = this.points(L, DeepStage.discToThree(cloud, k), cloud.col, cloud.size.map(s => s * k * 2.2), sub);
+    // Galaxies are drawn GROUP_EX× their true size (true size they would be a few pixels across); positions are real.
+    const k = (1e3 / u) * GROUP_EX;
+    const glow = new THREE.CanvasTexture(glowCanvas());
+    const halo = new THREE.CanvasTexture(haloCanvas());
+    const origin = new THREE.Vector3();
+    const mw = this.disc(L, tex, MILKY_WAY.R * 2 * k, origin, new THREE.Vector3(0, 1, 0), 0.85);
+    const sub = Math.min(cloud.n, Math.round(14_000 * q));
+    const mwPts = maxPx(gain(this.points(L, DeepStage.discToThree(cloud, k), cloud.col, cloud.size.map(s => s * (1e3 / u) * 2.6), sub, { TWINKLE: '' }), 0.22), 5);
     L.spinners.push([mw, -0.03], [mwPts, -0.03]);
+    this.sprite(L, glow, 3.2, origin, '#ffd9a0', 0.5);
     L.home.set(0, 0, 0);
-    let m31: THREE.Vector3 | null = null;
+    const at = new Map<string, THREE.Vector3>();
     const r = rng(5);
     for (const o of DEEP_OBJECTS) {
       if (o.scale !== 'group' || HOME_KEY.group.test(o.key)) continue;
-      const at = scenePos(o.l, o.b, o.distLy, 'group');
-      if (/m31|andromeda_galaxy/.test(o.key) && !m31) m31 = at.clone();
+      const p = scenePos(o.l, o.b, o.distLy, 'group');
+      at.set(o.key, p);
       if (o.kind !== 'galaxy' && o.kind !== 'dwarf') {
-        if (o.kind === 'nebula') this.sprite(L, new THREE.CanvasTexture(glowCanvas()), 0.5, at, kindColor('nebula'), 0.6);
+        if (o.kind === 'nebula' && o.sizeLy) this.sprite(L, glow, 1.2, p, '#ff7ab8', 0.7);
         continue;
       }
-      const size = Math.max(0.5, (o.sizeLy ?? 3000) / u);
+      const size = Math.max(o.kind === 'dwarf' ? 1.3 : 2, ((o.sizeLy ?? 3000) / u) * GROUP_EX);
       const seed = hashStr(o.key);
       if (o.morph === 'spiral' || o.morph === 'barred') {
         const def = genericSpiral(2, 13 + (seed % 9), o.morph === 'barred', seed);
         const c = sampleDisc(def, 9000, seed, 0.02);
-        const tx = new THREE.CanvasTexture(paintDisc(def, c, 256, 1.3));
+        const tx = new THREE.CanvasTexture(paintDisc(def, c, 256, 1.1));
         tx.colorSpace = THREE.SRGBColorSpace;
-        L.spinners.push([this.disc(L, tx, size, at, this.discNormal(o, r), 1, r() * 6), (seed % 2 ? 1 : -1) * (0.02 + (seed % 7) * 0.004)]);
+        const d = this.disc(L, tx, size, p, this.discNormal(o, r), 0.85, r() * 6);
+        // A 3D swarm of its brightest stars over the painted disc
+        const nStar = Math.round((o.rank ?? 1) >= 3 && size > 5 ? 7000 * q : 2500 * q);
+        const pts = maxPx(gain(this.points(L, DeepStage.discToThree(c, size / 2), c.col, c.size.map(s => s * size * 0.4), Math.min(c.n, nStar), { TWINKLE: '' }), 0.16), 5);
+        pts.position.copy(p);
+        pts.quaternion.copy(d.quaternion);
+        const w = (seed % 2 ? 1 : -1) * (0.02 + (seed % 7) * 0.004);
+        L.spinners.push([d, w], [pts, w]);
+        this.sprite(L, glow, size * 0.2, p, '#ffe2b0', 0.45);
       } else {
         const tx = new THREE.CanvasTexture(paintBlob(o.morph ?? 'dwarf', 128, seed));
         tx.colorSpace = THREE.SRGBColorSpace;
-        if (o.morph === 'irregular') this.disc(L, tx, size, at, this.discNormal(o, r), 0.95, r() * 6);
-        else this.sprite(L, tx, size, at, '#ffffff', o.morph === 'dwarf' ? 0.7 : 1);
+        if (o.morph === 'irregular') this.disc(L, tx, size, p, this.discNormal(o, r), 0.95, r() * 6);
+        else this.sprite(L, tx, size, p, '#ffffff', o.morph === 'dwarf' ? 0.8 : 1);
       }
     }
-    L.defTarget.copy(m31 ?? new THREE.Vector3(60, -40, -90)).multiplyScalar(0.42);
-    this.backdrop(L, 2400, 1600, 0.9);
+    const m31 = at.get('dp_m31') ?? new THREE.Vector3(60, -40, -90);
+    const m33 = at.get('dp_m33') ?? m31.clone().add(new THREE.Vector3(20, -10, 20));
+    const lmc = at.get('dp_lmc') ?? new THREE.Vector3(0, -4, -6);
+    const smc = at.get('dp_smc') ?? lmc.clone().add(new THREE.Vector3(1, -2, 1));
+    // Hot gas coronae / dark-matter haloes: each big galaxy sits in a glow about a million light-years across.
+    this.sprite(L, halo, 2 * 1e6 / u, origin, '#5b7cff', 0.34);
+    this.sprite(L, halo, 2 * 1.15e6 / u, m31, '#7b6cff', 0.38);
+    this.sprite(L, halo, 2 * 0.45e6 / u, m33, '#5fb0ff', 0.26);
+    this.stellarHalo(L, origin, 34, 2600, 11);
+    this.stellarHalo(L, m31, 40, 3000, 12);
+    this.satellites(L, origin, 46, 50, 13, null);
+    this.satellites(L, m31, 50, 42, 14, new THREE.Vector3(0.35, 0.2, 0.92).normalize()); // the Great Plane of Andromeda
+    this.satellites(L, m33, 16, 6, 15, null);
+    this.satellites(L, m31.clone().multiplyScalar(0.5), 150, 26, 16, null);
+    this.magellanicStream(L, lmc, smc);
+    this.giantStream(L, m31);
+    this.bridge(L, m31, m33, 900, [0.35, 0.8, 0.75], 0.9, 17);
+    this.approach(L, m31);
+    if (!low) this.intragroupGas(L, m31);
+    this.distanceRings(L);
+    this.neighbourGroups(L);
+    L.defTarget.copy(m31).multiplyScalar(0.42);
+    this.backdrop(L, 4200, 1600, 1.1);
+  }
+
+  /** Old halo stars and globular clusters: a faint, slightly flattened cloud around a galaxy. */
+  private stellarHalo(L: LevelRT, c: THREE.Vector3, R: number, n: number, seed: number): void {
+    const r = rng(seed), N = Math.round(n * this.n);
+    const p = new Float32Array(N * 3), col = new Float32Array(N * 3), s = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      const v = new THREE.Vector3(gauss(r), gauss(r) * 0.8, gauss(r)).normalize().multiplyScalar(1.5 + R * r() ** 2.2);
+      p.set([c.x + v.x, c.y + v.y, c.z + v.z], i * 3);
+      const glob = i % 14 === 0, w = glob ? 0.9 : 0.32 + r() * 0.2;
+      col.set(glob ? [w, w * 0.86, w * 0.6] : [w * 0.85, w * 0.85, w], i * 3);
+      s[i] = glob ? 0.3 : 0.14;
+    }
+    maxPx(this.points(L, p, col, s, N, { TWINKLE: '' }), 4);
+  }
+
+  /**
+   * Faint dwarf satellites (most real ones are too dim to name): small fuzzy knots of stars. With `plane`, half of
+   * them crowd into a thin sheet, as Andromeda's do.
+   */
+  private satellites(L: LevelRT, c: THREE.Vector3, R: number, n: number, seed: number, plane: THREE.Vector3 | null): void {
+    const r = rng(seed), per = 7, N = Math.round(n * Math.max(0.5, this.n));
+    const p = new Float32Array(N * per * 3), col = new Float32Array(N * per * 3), s = new Float32Array(N * per);
+    const a = new THREE.Vector3(), b = new THREE.Vector3();
+    if (plane) { a.set(1, 0, 0).cross(plane).normalize(); b.copy(plane).cross(a); }
+    let j = 0;
+    for (let i = 0; i < N; i++) {
+      const d = 3 + R * Math.sqrt(r());
+      const v = plane && i % 2 === 0
+        ? a.clone().multiplyScalar(gauss(r)).addScaledVector(b, gauss(r)).normalize().multiplyScalar(d).addScaledVector(plane, gauss(r) * 0.8)
+        : new THREE.Vector3(gauss(r), gauss(r), gauss(r)).normalize().multiplyScalar(d);
+      v.add(c);
+      const tint = r(), w = 0.45 + r() * 0.35, big = 0.5 + r() * 0.6;
+      const cc = tint < 0.6 ? [1, 0.88, 0.7] : [0.75, 0.85, 1];
+      for (let k = 0; k < per; k++) {
+        const sp = k === 0 ? 0 : big * 0.45;
+        p.set([v.x + gauss(r) * sp, v.y + gauss(r) * sp, v.z + gauss(r) * sp], j * 3);
+        const f = k === 0 ? w : w * 0.45;
+        col.set([cc[0] * f, cc[1] * f, cc[2] * f], j * 3);
+        s[j++] = k === 0 ? big * 0.6 : big * 0.22;
+      }
+    }
+    maxPx(this.points(L, p, col, s, j), 6);
+  }
+
+  /** Points moving from `pos` to `end` over and over (gas streams, infall), built by `fill(i, pos, end) → colour`. */
+  private flow(L: LevelRT, n: number, size: number, seed: number, fill: (r: () => number, p: THREE.Vector3, e: THREE.Vector3) => [number, number, number]): void {
+    const r = rng(seed), N = Math.round(n * this.n);
+    const p = new Float32Array(N * 3), c = new Float32Array(N * 3), s = new Float32Array(N), e = new Float32Array(N * 3), ph = new Float32Array(N);
+    const a = new THREE.Vector3(), b = new THREE.Vector3();
+    for (let i = 0; i < N; i++) {
+      c.set(fill(r, a, b), i * 3);
+      p.set([a.x, a.y, a.z], i * 3);
+      e.set([b.x, b.y, b.z], i * 3);
+      s[i] = size * (0.6 + r() * 0.8);
+      ph[i] = r();
+    }
+    maxPx(this.points(L, p, c, s, N, { FLOW: '' }, g => {
+      g.setAttribute('aEnd', new THREE.BufferAttribute(e, 3));
+      g.setAttribute('aPhase', new THREE.BufferAttribute(ph, 1));
+    }), 8);
+  }
+
+  /**
+   * The Magellanic Stream: a river of hydrogen trailing the Clouds through the south galactic pole and more than
+   * halfway round the Milky Way, plus the shorter Leading Arm ahead of them and the Bridge between the two Clouds.
+   */
+  private magellanicStream(L: LevelRT, lmc: THREE.Vector3, smc: THREE.Vector3): void {
+    const R0 = lmc.length(), A = lmc.clone().normalize();
+    const B = new THREE.Vector3(0, -1, 0).addScaledVector(A, A.y).normalize(); // toward the south galactic pole
+    const N = A.clone().cross(B).normalize();
+    const at = (th: number, out: THREE.Vector3) => out.copy(A).multiplyScalar(Math.cos(th)).addScaledVector(B, Math.sin(th)).multiplyScalar(R0 * (1 + 0.55 * Math.max(0, th) / Math.PI));
+    const span = 3.3, lead = -1.0;
+    this.flow(L, 3600, 0.32, 21, (r, p, e) => {
+      const th = lead + (span - lead) * r() ** 0.8;
+      at(th, p);
+      at(th - 0.22, e);
+      const w = 0.35 + 0.9 * Math.abs(th) / span, off = new THREE.Vector3(gauss(r), gauss(r), gauss(r)).multiplyScalar(w * 0.6).addScaledVector(N, gauss(r) * w * 0.5);
+      p.add(off); e.add(off);
+      const f = (0.3 + r() * 0.25) * (1 - 0.5 * Math.max(0, th) / span);
+      return th < 0 ? [0.55 * f, 0.6 * f, 1 * f] : [1 * f, 0.42 * f, 0.78 * f];
+    });
+    this.bridge(L, lmc, smc, 500, [0.9, 0.5, 0.85], 0.5, 22);
+  }
+
+  /** A faint, wavy band of gas or stars between two galaxies. */
+  private bridge(L: LevelRT, a: THREE.Vector3, b: THREE.Vector3, n: number, col: [number, number, number], width: number, seed: number): void {
+    const r = rng(seed), N = Math.round(n * this.n), d = b.clone().sub(a), len = d.length();
+    const side = d.clone().cross(new THREE.Vector3(0, 1, 0)).normalize();
+    const p = new Float32Array(N * 3), c = new Float32Array(N * 3), s = new Float32Array(N), v = new THREE.Vector3();
+    for (let i = 0; i < N; i++) {
+      const t = r();
+      v.copy(a).addScaledVector(d, t).addScaledVector(side, Math.sin(t * Math.PI) * len * 0.12);
+      const w = width * (0.6 + Math.sin(t * Math.PI));
+      p.set([v.x + gauss(r) * w, v.y + gauss(r) * w, v.z + gauss(r) * w], i * 3);
+      const f = 0.25 + r() * 0.3;
+      c.set([col[0] * f, col[1] * f, col[2] * f], i * 3);
+      s[i] = 0.25 + r() * 0.3;
+    }
+    maxPx(this.points(L, p, c, s, N, { TWINKLE: '' }), 5);
+  }
+
+  /** Andromeda's Giant Stellar Stream: the long golden trail of a small galaxy it shredded. */
+  private giantStream(L: LevelRT, m31: THREE.Vector3): void {
+    const r = rng(23), N = Math.round(1800 * this.n);
+    const dir = new THREE.Vector3(0.2, -0.75, 0.6).normalize(), bend = new THREE.Vector3(1, 0, 0).cross(dir).normalize();
+    const p = new Float32Array(N * 3), c = new Float32Array(N * 3), s = new Float32Array(N), v = new THREE.Vector3();
+    for (let i = 0; i < N; i++) {
+      const t = r() ** 0.7, len = 22;
+      v.copy(m31).addScaledVector(dir, t * len).addScaledVector(bend, Math.sin(t * 2.2) * 5);
+      const w = 0.4 + t * 1.6;
+      p.set([v.x + gauss(r) * w, v.y + gauss(r) * w * 0.5, v.z + gauss(r) * w], i * 3);
+      const f = (0.35 + r() * 0.35) * (1 - t * 0.5);
+      c.set([f, f * 0.78, f * 0.5], i * 3);
+      s[i] = 0.2 + r() * 0.2;
+    }
+    maxPx(this.points(L, p, c, s, N, { TWINKLE: '' }), 4);
+  }
+
+  /** Andromeda is falling toward us at 110 km/s: a slow current of light along the line between the two. */
+  private approach(L: LevelRT, m31: THREE.Vector3): void {
+    const side = m31.clone().cross(new THREE.Vector3(0, 1, 0)).normalize(), up = side.clone().cross(m31).normalize();
+    this.flow(L, 420, 0.45, 24, (r, p, e) => {
+      const t = 0.1 + r() * 0.72, j = gauss(r) * 1.2, k = gauss(r) * 1.2;
+      p.copy(m31).multiplyScalar(1 - t).addScaledVector(side, j).addScaledVector(up, k);
+      e.copy(m31).multiplyScalar(1 - t - 0.1).addScaledVector(side, j).addScaledVector(up, k);
+      const f = 0.45 + r() * 0.3;
+      return [0.45 * f, 0.85 * f, 1 * f];
+    });
+  }
+
+  /** Very faint, lumpy warm gas filling the space between the galaxies. */
+  private intragroupGas(L: LevelRT, m31: THREE.Vector3): void {
+    const S = this.quality.tier === 'high' ? 256 : 128;
+    const mid = m31.clone().multiplyScalar(0.45);
+    const blobs: [THREE.Vector3, number, [string, string], number][] = [
+      [mid, 260, ['#3049b8', '#6a2fa0'], 0.22],
+      [m31.clone().multiplyScalar(0.9).add(new THREE.Vector3(20, 25, -10)), 160, ['#2a6fb0', '#7a3fb0'], 0.16],
+      [new THREE.Vector3(-30, -20, 25), 150, ['#2d4fb8', '#a0306e'], 0.14],
+    ];
+    blobs.forEach(([p, size, hues, op], i) => {
+      const tx = new THREE.CanvasTexture(paintNebula(S, 300 + i, hues, false, false));
+      tx.colorSpace = THREE.SRGBColorSpace;
+      this.sprite(L, tx, size, p, '#ffffff', op);
+    });
+  }
+
+  /** Rings 1–5 million light-years round the Milky Way in its plane, like a radar scope, with distance tags. */
+  private distanceRings(L: LevelRT): void {
+    const seg = 160, mat = this.fadeMat(L, new THREE.LineBasicMaterial({ color: '#7fd6ff', transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+    const tick = this.fadeMat(L, new THREE.LineBasicMaterial({ color: '#7fd6ff', transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+    const pts: number[] = [], rings: number[] = [];
+    for (let m = 1; m <= 5; m++) {
+      const R = (m * 1e6) / L.def.unit;
+      for (let i = 0; i < seg; i++) {
+        const a0 = (i / seg) * Math.PI * 2, a1 = ((i + 1) / seg) * Math.PI * 2;
+        rings.push(Math.cos(a0) * R, 0, Math.sin(a0) * R, Math.cos(a1) * R, 0, Math.sin(a1) * R);
+      }
+      for (let i = 0; i < 72; i++) {
+        const a = (i / 72) * Math.PI * 2, d = i % 6 === 0 ? 5 : 2;
+        pts.push(Math.cos(a) * (R - d), 0, Math.sin(a) * (R - d), Math.cos(a) * R, 0, Math.sin(a) * R);
+      }
+      const a = -Math.PI * 0.62;
+      this.text(L, () => fmtLy(m * 1e6, lang()), new THREE.Vector3(Math.cos(a) * R, 1.5, Math.sin(a) * R), 4.2);
+    }
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      pts.push(Math.cos(a) * 12, 0, Math.sin(a) * 12, Math.cos(a) * 250, 0, Math.sin(a) * 250);
+    }
+    for (const [arr, m] of [[rings, mat], [pts, tick]] as const) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+      L.root.add(new THREE.LineSegments(g, m));
+    }
+  }
+
+  /** A small text tag in the scene (re-painted on language change). */
+  private text(L: LevelRT, label: () => string, at: THREE.Vector3, h: number): void {
+    const cv = document.createElement('canvas'), tx = new THREE.CanvasTexture(cv);
+    const s = new THREE.Sprite(this.fadeMat(L, new THREE.SpriteMaterial({ map: tx, transparent: true, opacity: 0.55, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending })));
+    s.position.copy(at);
+    const paint = () => {
+      const txt = label(), ctx = cv.getContext('2d')!, font = '500 30px "Chakra Petch", "Noto Sans SC", system-ui, sans-serif';
+      ctx.font = font;
+      cv.width = Math.ceil(ctx.measureText(txt).width) + 24; cv.height = 44;
+      ctx.font = font; ctx.textBaseline = 'middle'; ctx.fillStyle = '#9ee3ff';
+      ctx.fillText(txt, 12, 23);
+      tx.dispose(); tx.needsUpdate = true;
+      s.scale.set((h * cv.width) / cv.height, h, 1);
+    };
+    paint();
+    L.texts.push(paint);
+    L.root.add(s);
+  }
+
+  /** The nearest galaxy groups just outside ours: a bright main galaxy and its companions, far out in the dark. */
+  private neighbourGroups(L: LevelRT): void {
+    const r = rng(31), N = 14, groups = DEEP_OBJECTS.filter(o => o.scale === 'laniakea' && /sculptor_group|m81_group|maffei_group|centaurus_a/.test(o.key));
+    const extra: [number, number, number][] = [[138.2, 10.6, 10.7e6], [234, 4, 13e6], [75, 60, 14e6]]; // IC 342 group, Antlia–Sextans & Canes Venatici clouds
+    const where = [...groups.map(o => [o.l, o.b, Math.min(o.distLy, 1.3e7)] as [number, number, number]), ...extra];
+    const n = where.length * (N + 1), p = new Float32Array(n * 3), c = new Float32Array(n * 3), s = new Float32Array(n);
+    let j = 0;
+    for (const [l, b, d] of where) {
+      const at = scenePos(l, b, d, 'group');
+      p.set([at.x, at.y, at.z], j * 3); // the group's soft glow
+      c.set([0.1, 0.13, 0.22], j * 3);
+      s[j++] = 40;
+      for (let i = 0; i < N; i++) {
+        const R = i === 0 ? 0 : 3 + 22 * r();
+        p.set([at.x + gauss(r) * R, at.y + gauss(r) * R * 0.6, at.z + gauss(r) * R], j * 3);
+        const f = i === 0 ? 1 : 0.4 + r() * 0.4, warm = r() < 0.5;
+        c.set(warm ? [f, f * 0.86, f * 0.66] : [f * 0.78, f * 0.86, f], j * 3);
+        s[j++] = i === 0 ? 6 : 1.6 + r() * 2.6;
+      }
+    }
+    this.points(L, p, c, s, j);
   }
 
   /** Disc normal from the sky position angle / inclination (or a seeded random one). */
@@ -520,7 +775,7 @@ export class DeepStage {
     const L = this.ensure(id);
     this.level = id;
     this.sel = null;
-    const def = L.def, toD = def.defLy / def.unit;
+    const def = L.def, toD = this.restDist(L);
     if (how === 'up') {
       L.target.copy(L.home);
       L.dist = Math.max(def.downLy * 1.5, Math.min(def.defLy * 0.5, fromLy ?? def.downLy * 2)) / def.unit;
@@ -540,6 +795,12 @@ export class DeepStage {
   }
   private tweenEl: { from: number; to: number; t: number } | null = null;
 
+  /** Resting camera distance (scene units). The Local Group (Milky Way and Andromeda side by side) backs off on tall screens. */
+  private restDist(L: LevelRT): number {
+    const d = L.def.defLy / L.def.unit, a = innerWidth / Math.max(1, innerHeight);
+    return L.id === 'group' && a < 1 ? d * Math.min(1.7, a ** -0.6) : d;
+  }
+
   private tweenTo(L: LevelRT, to: THREE.Vector3, toD: number, dur: number): void {
     L.tween = { t: 0, dur, fromT: L.target.clone(), toT: to.clone(), fromD: L.dist, toD };
   }
@@ -555,7 +816,7 @@ export class DeepStage {
     if (o) {
       const x = L.objs.find(v => v.o === o);
       if (!x) return;
-      const want = Math.max(L.def.downLy * 1.4, Math.min(L.def.defLy * 0.4, (o.sizeLy ?? L.def.defLy * 0.05) * 3.2)) / L.def.unit;
+      const want = Math.max(L.def.downLy * 1.4, Math.min(L.def.defLy * 0.4, (o.sizeLy ?? L.def.defLy * 0.05) * 3.2 * (L.id === 'group' ? GROUP_EX : 1))) / L.def.unit;
       this.tweenTo(L, x.pos, o.kind === 'cmb' ? L.def.defLy / L.def.unit : want, 1500);
     }
     if (emit) this.ev.onSelect?.(o);
@@ -565,7 +826,7 @@ export class DeepStage {
   overview(): void {
     const L = this.current;
     this.sel = null;
-    this.tweenTo(L, L.defTarget, L.def.defLy / L.def.unit, 1400);
+    this.tweenTo(L, L.defTarget, this.restDist(L), 1400);
   }
 
   /** Last user input (ms): after a while without any, the camera drifts round on its own. */
@@ -717,6 +978,7 @@ export class DeepStage {
     for (const L of this.levels.values()) {
       L.homeLabel.textContent = t(HOME[L.id]);
       for (const x of L.objs) x.label.querySelector('span')!.textContent = tr(x.o.name, l);
+      for (const paint of L.texts) paint();
     }
   }
 
@@ -726,7 +988,21 @@ export class DeepStage {
   milkyWayCanvas(): HTMLCanvasElement { return this.milkyWay().tex.image as HTMLCanvasElement; }
 }
 
+let haloCv: HTMLCanvasElement | null = null;
+/** A broad, soft glow with no bright core (gas haloes). */
+function haloCanvas(): HTMLCanvasElement {
+  if (haloCv) return haloCv;
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d')!, g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255,255,255,0.42)'); g.addColorStop(0.3, 'rgba(255,255,255,0.22)'); g.addColorStop(0.65, 'rgba(255,255,255,0.06)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 128, 128);
+  return (haloCv = c);
+}
+
 function gain(p: THREE.Points, g: number): THREE.Points { (p.material as THREE.ShaderMaterial).uniforms.uGain.value = g; return p; }
+/** Caps the on-screen size of a point layer (CSS px), so it stays crisp when the camera comes close. */
+function maxPx(p: THREE.Points, px: number): THREE.Points { (p.material as THREE.ShaderMaterial).uniforms.uMaxPx.value = px; return p; }
 
 // ---------- card pictures ----------
 const thumbCache = new Map<string, HTMLCanvasElement>();

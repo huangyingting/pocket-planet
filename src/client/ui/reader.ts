@@ -155,6 +155,6 @@ export class Reader {
         h('button', { class: 'near-card', 'data-testid': 'reader-near', onclick: () => this.hooks.pick(o) },
           h('span', { class: 'near-emoji', 'aria-hidden': 'true' }, o.emoji),
           h('span', { class: 'near-txt' }, h('b', {}, tr(o.name, l)),
-            h('small', { style: `color:${TYPE_META[o.type].color}` }, tr(TYPE_META[o.type].one, l), h('i', {}, ' · ' + fmtNum(Math.round(d)) + ' km')))))));
+            h('small', {}, tr(TYPE_META[o.type].one, l), h('i', {}, ' · ' + fmtNum(Math.round(d)) + ' km')))))));
   }
 }

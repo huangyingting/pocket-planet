@@ -1,4 +1,6 @@
 import './styles.css';
+import './hud.css';
+import './intro.css';
 import type { Topology } from 'topojson-specification';
 import { Globe } from './globe/scene.ts';
 import type { SolarUI } from './solar/ui.ts';
@@ -53,7 +55,7 @@ async function boot(): Promise<void> {
   const globe = new Globe(globeEl, {
     onPick: it => shell.showItem(it),
     onHover: (it, scr) => shell?.showHover(it, scr),
-    onView: z => shell.setZoom(z),
+    onView: (z, la, lo) => shell.setZoom(z, la, lo),
     onBeyond: () => void enterSolar(),
   }, lowfx, quality);
   globe.lang = lang();
@@ -173,7 +175,12 @@ async function boot(): Promise<void> {
   };
   window.addEventListener('hashchange', route);
 
-  loader?.remove();
+  // Opening: warp out of the star field while the globe flies in from deep space.
+  if (loader && !lowfx) {
+    if (!location.hash) { const lon = globe.lon; globe.h = MAX_H; globe.lon = lon - 70; globe.flyTo(globe.lat, lon, DEFAULT_H, 2600); }
+    loader.classList.add('go');
+    setTimeout(() => loader.remove(), 1300);
+  } else loader?.remove();
   window.__pp = { ready: true, globe, shell, itemScreen: k => globe.itemScreen(k), solar: () => solar };
 
   // ---- account (optional) ----

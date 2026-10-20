@@ -1,6 +1,7 @@
 import { h, openModal, closeModal, toast } from './dom.ts';
 import { t } from '../lib/i18n.ts';
 import { sfx } from '../lib/sfx.ts';
+import { icon } from './icons.ts';
 import type { Globe } from '../globe/scene.ts';
 
 export interface Photo { id: number; at: number; url: string; place: string }
@@ -30,7 +31,7 @@ export function openPhotoMode(globe: Globe, place: () => string): void {
   const exit = () => { document.body.classList.remove('photo-mode'); bar.remove(); frame.remove(); };
   const frame = h('div', { class: 'viewfinder', 'aria-hidden': 'true' }, h('i', { class: 'c tl' }), h('i', { class: 'c tr' }), h('i', { class: 'c bl' }), h('i', { class: 'c br' }));
   const bar = h('div', { class: 'photo-bar' },
-    h('button', { class: 'pill', 'data-testid': 'photo-album', onclick: () => { exit(); void openAlbum(); } }, '🖼️ ' + t('album')),
+    h('button', { class: 'pill', 'data-testid': 'photo-album', onclick: () => { exit(); void openAlbum(); }, html: icon('image', 16) }, ' ' + t('album')),
     h('button', { class: 'shutter', 'aria-label': t('shutter'), 'data-testid': 'shutter', onclick: async () => {
       sfx.shutter();
       frame.classList.add('flash');
@@ -52,13 +53,13 @@ export async function openAlbum(): Promise<void> {
   }
   openModal('album', t('album'), grid, { wide: true });
   function view(p: Photo) {
-    const dl = h('a', { class: 'pill', href: p.url, download: `pocket-planet-${p.id}.jpg` }, '⬇️ ' + t('save'));
+    const dl = h('a', { class: 'pill', href: p.url, download: `pocket-planet-${p.id}.jpg`, html: icon('download', 16) }, ' ' + t('save'));
     const share = navigator.share ? h('button', { class: 'pill', onclick: async () => {
       const blob = await (await fetch(p.url)).blob();
       await navigator.share({ files: [new File([blob], 'pocket-planet.jpg', { type: blob.type })], title: t('title') }).catch(() => {});
-    } }, '📤 ' + t('share')) : null;
+    }, html: icon('share', 16) }, ' ' + t('share')) : null;
     openModal('photo-view', p.place || t('album'), h('div', { class: 'photo-view' }, h('img', { src: p.url, alt: p.place || 'Globe photo' }),
       h('p', { class: 'muted' }, new Date(p.at).toLocaleString()),
-      h('div', { class: 'row' }, dl, share, h('button', { class: 'pill danger', onclick: async () => { await photos.del(p.id); closeModal('photo-view'); closeModal('album'); void openAlbum(); } }, '🗑️ ' + t('del')))), { wide: true });
+      h('div', { class: 'row' }, dl, share, h('button', { class: 'pill danger', onclick: async () => { await photos.del(p.id); closeModal('photo-view'); closeModal('album'); void openAlbum(); }, html: icon('trash', 16) }, ' ' + t('del')))), { wide: true });
   }
 }

@@ -302,3 +302,46 @@ universe level showed the CMB as a ball floating in black instead of a sky that 
 - \+ Effects cost about 10k points at the medium tier.
 - − Rotation and effects are exaggerated in speed and size, so that kids can see them.
 - − The constellation figures are simplified, with the main stick-figure lines only.
+
+## ADR-019: "Astrolabe" HUD identity, starfield intro and a richer Local Group
+
+**Context.** The interface used a generic cyan sci-fi look with coloured icons and emoji. Each view (globe,
+modals, space) looked slightly different, and the Local Group level felt empty.
+
+**Decision.**
+- **One skin (`client/hud.css`).** It loads after `styles.css` and is used by the globe, the modals and the space
+  views.
+  - **Shape.** Every surface has two opposite cut corners: top-left and bottom-right. The corners use
+    `clip-path`, and hairlines on the cut edges are drawn as background layers (`--pp-clip`, `--pp-cuts`, `--cut`).
+  - **Panel marks.** Panels carry an amber signal tab on the top edge and ruler ticks on the bottom edge.
+  - **Signal colour.** Everything is drawn in ice-cyan. One amber signal colour (`--sig`) marks only selected,
+    active, live or earned states: tabs, chips, lock-ons, progress, the crumb trail and the brand satellite.
+  - **Fonts.**
+    - Chakra Petch for display text.
+    - Geist Mono (`--font-data`) for data, labels and numbering.
+    - Geist for reading text.
+  - **Signature details.**
+    - Numbered cards (CSS counters) that lock on when hovered: the cut edges turn amber and a hatched band
+      appears.
+    - Amber slash marks on headings.
+    - A blueprint grid behind modals.
+    - A catalogue number on each info card.
+    - A live latitude/longitude readout under the globe (`Shell.setZoom(z, lat, lon)`).
+  - **Icons and targets.** Icons are monochrome line glyphs, and item emoji are shown as cyan holograms. Tap
+    targets are larger: about 46×42 px on desktop and at least 38 px on phones.
+- **Intro.** The intro (`index.html`, `intro.css`) paints a deep starfield before the bundle loads, using the same
+  marks: an orbiting satellite, the signal tick and cut corners. The globe then flies in.
+- **Local Group (`solar/deep.ts` `buildGroup`).** Galaxies are drawn 2.4× their true size and get:
+  - star swarms and halo glows;
+  - about 125 satellite and field dwarfs;
+  - the Magellanic Stream and Bridge, Andromeda's Giant Stream and the M31–M33 bridge;
+  - the M31 approach flow and intragroup gas;
+  - distance rings with labels and neighbouring groups.
+
+  All of these scale with the quality tier.
+
+**Consequences.**
+- \+ The app has a recognisable look, and every view shares one design language.
+- \+ Motion uses only transform and opacity, and it is switched off on the low tier and with reduced motion.
+- − Because `clip-path` clips outer shadows, panels rely on hairlines and inner glow instead.
+- − The Local Group costs about 70 draw calls and 20k points at the medium tier.

@@ -208,7 +208,7 @@ test('Daily Planet: guesses, hints, share, persisted state', async ({ page }) =>
   const vp = page.viewportSize()!;
   await page.mouse.click(vp.width / 2, vp.height / 2 + 40);
   await expect(page.getByTestId('daily-rows').locator('li:not(.empty)')).toHaveCount(1);
-  await expect(page.getByTestId('daily-rows')).toContainText('📍');
+  await expect(page.getByTestId('daily-rows')).toContainText('⌖');
   const guesses = ['Tokyo', 'Lima', 'Nairobi', 'Reykjavik', 'Sydney', 'Anchorage'];
   for (const g of guesses) {
     if (await page.getByTestId('daily-result').isVisible()) break;

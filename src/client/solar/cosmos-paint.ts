@@ -258,7 +258,7 @@ export function paintCMB(W: number): HTMLCanvasElement {
 }
 
 /** Colourful nebula / remnant picture for cards (and sprites): layered noise clouds with a few stars. */
-export function paintNebula(S: number, seed: number, hues: [string, string], ring = false): HTMLCanvasElement {
+export function paintNebula(S: number, seed: number, hues: [string, string], ring = false, stars = true): HTMLCanvasElement {
   const cv = canvas(S), ctx = cv.getContext('2d')!, img = ctx.createImageData(S, S), n = makeNoise(seed), r = rng(seed);
   const ca = hexRgb(hues[0]), cb = hexRgb(hues[1]);
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
@@ -270,6 +270,7 @@ export function paintNebula(S: number, seed: number, hues: [string, string], rin
     img.data[o + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
+  if (!stars) return cv;
   ctx.globalCompositeOperation = 'lighter';
   for (let i = 0; i < S / 6; i++) { ctx.fillStyle = `rgba(255,255,255,${0.2 + r() * 0.7})`; const s = r() < 0.08 ? 2 : 1; ctx.fillRect(r() * S, r() * S, s, s); }
   return cv;

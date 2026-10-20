@@ -35,7 +35,7 @@ function placeItSetup(host: GameHost): void {
   const recs = store.progress.placeit;
   const body = h('div', { class: 'diff-grid' }, ...(Object.keys(DIFFS) as Difficulty[]).map(d =>
     h('button', { class: 'diff', 'data-testid': 'diff-' + d, onclick: () => { closeModal('placeit-setup'); void runPlaceIt(host, d); } },
-      h('strong', {}, t(d)), h('small', {}, `${DIFFS[d].hints} × 💡`), recs[d] ? h('small', {}, `${t('best')}: ${fmtNum(recs[d].best)}`) : null)));
+      h('strong', {}, t(d)), h('small', { html: icon('bulb', 14) }, ` × ${DIFFS[d].hints}`), recs[d] ? h('small', {}, `${t('best')}: ${fmtNum(recs[d].best)}`) : null)));
   openModal('placeit-setup', t('placeit'), body);
 }
 
@@ -61,10 +61,10 @@ async function runPlaceIt(host: GameHost, diff: Difficulty, rnd: () => number = 
     const hintBtn = h('button', { class: 'pill', 'data-testid': 'placeit-hint', disabled: hints <= 0, onclick: () => {
       if (hints <= 0 || hintLevel >= 2) return;
       hints--; hintLevel++;
-      hintText.textContent = hintLevel === 1 ? '💡 ' + (CONTINENT_NAMES[it.continent]?.[lang()] ?? '') : '💡 ' + (countryName(it.country) || CONTINENT_NAMES[it.continent]?.[lang()]);
-      hintBtn.textContent = `💡 ${hints}`;
+      hintText.textContent = hintLevel === 1 ? (CONTINENT_NAMES[it.continent]?.[lang()] ?? '') : (countryName(it.country) || CONTINENT_NAMES[it.continent]?.[lang()]);
+      hintBtn.innerHTML = icon('bulb', 16) + ` ${hints}`;
       if (hints <= 0 || hintLevel >= 2) hintBtn.setAttribute('disabled', '');
-    } }, `💡 ${hints}`);
+    }, html: icon('bulb', 16) + ` ${hints}` });
     hud.replaceChildren(
       h('div', { class: 'hud-top' },
         h('span', { class: 'hud-pill' }, t('round', { r: r + 1, n: ROUNDS })),
@@ -222,7 +222,7 @@ export function openDaily(host: GameHost): void {
   const hintsEl = h('div', { class: 'daily-hints' });
   const input = h('input', { list: 'daily-list', placeholder: t('dailyGuess'), 'aria-label': t('dailyGuess'), 'data-testid': 'daily-input', autocomplete: 'off' });
   const dl = h('datalist', { id: 'daily-list' }, ...list.map(g => h('option', { value: g.label })));
-  const labelOf = (key: string) => key.startsWith('pin:') ? '📍 ' + key.slice(4) : list.find(x => x.key === key)?.label ?? key;
+  const labelOf = (key: string) => key.startsWith('pin:') ? '⌖ ' + key.slice(4) : list.find(x => x.key === key)?.label ?? key;
   const submitGuess = (g: { key: string; lat: number; lon: number }) => {
     if (state!.guesses.some(x => x.key === g.key)) return;
     const res = evaluate(target, g);
@@ -239,7 +239,7 @@ export function openDaily(host: GameHost): void {
     host.setGameMode(true, false);
     const g = host.globe;
     const hud = h('div', { class: 'game-hud', 'data-testid': 'daily-pick-hud' },
-      h('div', { class: 'row' }, h('strong', {}, '📅 ' + t('dailyTap')),
+      h('div', { class: 'row' }, h('strong', { html: icon('calendar', 16) }, ' ' + t('dailyTap')),
         h('button', { class: 'pill danger', onclick: () => { hud.remove(); host.setGameMode(false); openDaily(host); } }, '✕')));
     document.body.append(hud);
     g.ev.onGlobeTap = (lat, lon) => {
@@ -257,7 +257,7 @@ export function openDaily(host: GameHost): void {
     submitGuess(g);
     render();
   } }, input, dl, h('button', { class: 'cta', type: 'submit', 'data-testid': 'daily-submit' }, '➤'),
-    h('button', { class: 'pill', type: 'button', 'data-testid': 'daily-pick', title: t('dailyTap'), onclick: pickOnGlobe }, '📍 ' + t('dailyPick')));
+    h('button', { class: 'pill', type: 'button', 'data-testid': 'daily-pick', title: t('dailyTap'), onclick: pickOnGlobe, html: icon('pin', 16) }, ' ' + t('dailyPick')));
   const endEl = h('div', { class: 'daily-end' });
   const facts = target.facts ?? {};
   const clue = h('div', { class: 'daily-clue' }, h('span', { class: 'big', 'aria-hidden': 'true' }, state.done ? target.emoji : '❓'),
@@ -271,7 +271,7 @@ export function openDaily(host: GameHost): void {
     }), ...Array.from({ length: MAX_GUESSES - s.guesses.length }, () => h('li', { class: 'empty' }, '·')));
     const misses = s.guesses.filter(g => g.band !== 'hit').length;
     const hs = hintsUnlocked(misses);
-    hintsEl.replaceChildren(...hs.map(k => h('p', { class: 'hint', 'data-testid': 'daily-hint' }, '💡 ' + (k === 'continent' ? t('dHintCont', { c: CONTINENT_NAMES[target.continent][lang()] })
+    hintsEl.replaceChildren(...hs.map(k => h('p', { class: 'hint', 'data-testid': 'daily-hint', html: icon('bulb', 15) }, ' ' + (k === 'continent' ? t('dHintCont', { c: CONTINENT_NAMES[target.continent][lang()] })
       : k === 'country' ? t('dHintCountry', { c: countryName(target.country) }) : t('dHintName', { c: tr(target.name, lang()).slice(0, 2) })))));
     form.style.display = s.done ? 'none' : '';
     if (s.done) {
@@ -284,7 +284,7 @@ export function openDaily(host: GameHost): void {
         h('pre', { class: 'share-text' }, text),
         h('button', { class: 'cta', 'data-testid': 'daily-share', onclick: async () => {
           try { if (navigator.share) await navigator.share({ text }); else { await navigator.clipboard.writeText(text); toast(t('copied')); } } catch { /* cancelled */ }
-        } }, '📤 ' + t('share')),
+        }, html: icon('share', 16) }, ' ' + t('share')),
         h('div', { class: 'stats' }, h('span', {}, `${t('played')}: ${st.played}`), h('span', {}, `${t('streak')}: ${st.streak}`), h('span', {}, `${t('best')}: ${st.maxStreak}`)),
         h('p', { class: 'muted' }, t('nextPuzzle', { t: untilMidnight() })));
     } else endEl.replaceChildren();

@@ -17,6 +17,7 @@ import type { Reader, Readable } from '../ui/reader.ts';
 import { SolarView, SPEEDS, featuresOf, type SolarSelection } from './view.ts';
 import { sitesOf, helioAU } from './sites.ts';
 import { deepThumb } from './deep.ts';
+import { fmtLy } from './fmt.ts';
 import { drawConstellation, constellationText } from './constellations.ts';
 import { SOLAR_SITES } from '../../shared/data/solar-sites.ts';
 import { DEEP_OBJECTS, SCALE_INFO, SCALES, type DeepObject, type DeepKind, type DeepScale, type ScaleId } from '../../shared/data/cosmos.ts';
@@ -29,18 +30,7 @@ export const SCALE_HASH: Record<ScaleId, string> = { universe: 'universe', lania
 export const scaleFromHash = (h: string): ScaleId | undefined => (Object.keys(SCALE_HASH) as ScaleId[]).find(k => SCALE_HASH[k] === h);
 const SCALE_THUMB: Record<ScaleId, DeepKind> = { universe: 'deepfield', laniakea: 'supercluster', group: 'group', galaxy: 'arm', solar: 'star' };
 
-/** "4.2 light-years" / "250 万光年" / "13.8 billion light-years". */
-export function fmtLy(ly: number, l: Lang): string {
-  const n = (v: number, d: number) => fmtNum(+v.toFixed(d), l);
-  if (l === 'zh') {
-    if (ly < 1e4) return `${n(ly, ly < 10 ? 1 : 0)} 光年`;
-    if (ly < 1e8) return `${n(ly / 1e4, ly < 1e5 ? 1 : 0)} 万光年`;
-    return `${n(ly / 1e8, ly < 1e9 ? 1 : 0)} 亿光年`;
-  }
-  if (ly < 1e6) return `${n(ly, ly < 10 ? 1 : 0)} light-years`;
-  if (ly < 1e9) return `${n(ly / 1e6, ly < 1e7 ? 1 : 0)} million light-years`;
-  return `${n(ly / 1e9, 1)} billion light-years`;
-}
+export { fmtLy };
 
 export interface SolarHost {
   quality: Quality;
@@ -440,7 +430,7 @@ export class SolarUI {
     this.infoMain.replaceChildren(
       h('div', { class: 'info-hero solar-hero' },
         this.hero,
-        h('span', { class: 'type-chip', style: `color:${dotColor(body)}` }, body.emoji + ' ' + (s.kind === 'body' ? t('bk_' + body.kind) : t('fk_' + s.f.kind))),
+        h('span', { class: 'type-chip' }, (s.kind === 'body' ? t('bk_' + body.kind) : t('fk_' + s.f.kind))),
         h('button', { class: 'icon-btn info-x', 'aria-label': t('close'), 'data-testid': 'solar-info-close', html: icon('close', 16), onclick: () => this.showCard(null) })),
       h('div', { class: 'info-body' },
         h('p', { class: 'eyebrow', html: icon(s.kind === 'body' ? 'planet' : 'pin', 13) }, h('span', {}, eyebrow)),
@@ -455,11 +445,11 @@ export class SolarUI {
         feats.length ? h('div', { class: 'solar-list' },
           h('h3', {}, t('surface')),
           h('div', { class: 'solar-tags' }, ...feats.map(f => h('button', { class: 'tag-chip', 'data-testid': 'feat-' + f.key, onclick: () => { sfx.tap(); this.view.selectFeature(f); } },
-            h('span', { 'aria-hidden': 'true' }, f.emoji), h('span', {}, tr(f.name, l)))))) : null,
+            h('span', { class: 'chip-emoji', 'aria-hidden': 'true' }, f.emoji), h('span', {}, tr(f.name, l)))))) : null,
         sites.length ? h('div', { class: 'solar-list' },
           h('h3', {}, t('explorers')),
           h('div', { class: 'solar-tags' }, ...sites.map(x => h('button', { class: 'tag-chip', 'data-testid': 'site-' + x.key, onclick: () => { sfx.tap(); this.view.selectSite(x); } },
-            h('span', { 'aria-hidden': 'true' }, x.emoji), h('span', {}, tr(x.name, l)))))) : null,
+            h('span', { class: 'chip-emoji', 'aria-hidden': 'true' }, x.emoji), h('span', {}, tr(x.name, l)))))) : null,
         moons.length ? h('div', { class: 'solar-list' },
           h('h3', {}, t('moonsList')),
           h('div', { class: 'solar-tags' }, ...moons.map(m => h('button', { class: 'tag-chip', 'data-testid': 'moon-' + m.id, onclick: () => { sfx.tap(); this.view.select(m.id); } },
@@ -482,12 +472,11 @@ export class SolarUI {
     const alt = l === 'en' ? it.name.zh : it.name.en;
     const stat = (k: string, v: string) => h('div', {}, h('dt', {}, k), h('dd', {}, v));
     const key: [string, string][] = [], extra: [string, string][] = [];
-    let eyebrow = '', chip = '', color = '#7dd3fc', hero: HTMLElement = this.hero, footer: (HTMLElement | null)[] = [], list: HTMLElement | null = null;
+    let eyebrow = '', chip = '', hero: HTMLElement = this.hero, footer: (HTMLElement | null)[] = [], list: HTMLElement | null = null;
     if (s.kind === 'site') {
       const x = s.s, body = BODY[x.body];
       eyebrow = t('sk_' + x.kind) + (x.helio ? '' : ' · ' + tr(body.name, l));
-      chip = x.emoji + ' ' + t('sk_' + x.kind);
-      color = '#fbbf24';
+      chip = t('sk_' + x.kind);
       if (x.year) key.push([t(x.future ? 'planned' : 'arrived'), String(x.year)]);
       if (x.agency) key.push([t('agency'), x.agency]);
       if (x.helio) key.push([t('fromSun'), t('fromSunAU', { n: fmtNum(Math.round(helioAU(x, this.view.simMs))) })]);
@@ -503,14 +492,13 @@ export class SolarUI {
     } else if (s.kind === 'cst') {
       const b = constellationText(s.c).brightest;
       eyebrow = t('cst_kind');
-      chip = '✨ ' + t('cst_kind');
-      color = '#67e8f9';
+      chip = t('cst_kind');
       key.push([t('cst_stars'), fmtNum(s.c.stars.length)]);
       if (b) key.push([t('cst_brightest'), tr(b, l)]);
     } else if (s.kind === 'deep') {
       const o = s.o;
       eyebrow = t('dk_' + o.kind) + (o.morph && o.kind !== 'dwarf' ? ' · ' + t('mo_' + o.morph) : '');
-      chip = o.emoji + ' ' + t('dk_' + o.kind);
+      chip = t('dk_' + o.kind);
       key.push([t('lightYears'), fmtLy(o.distLy, l)]);
       if (o.sizeLy) key.push([t('across'), fmtLy(o.sizeLy, l)]);
       if (o.distLy >= 1 && o.distLy < 1e9) extra.push([t('lookback'), t('yearsAgo', { n: fmtLy(o.distLy, l).replace(/ ?(light-years|光年)$/, '') })]);
@@ -518,13 +506,13 @@ export class SolarUI {
     } else if (s.kind === 'scale') {
       const i = SCALE_INFO[s.id];
       eyebrow = t('scaleIs');
-      chip = i.emoji + ' ' + t('sc_' + s.id);
+      chip = t('sc_' + s.id);
       key.push([t('across'), fmtLy(i.sizeLy, l)]);
       if (s.id !== 'solar') {
         const objs = this.view.deep.objectsOf(s.id as DeepScale).filter(o => (o.rank ?? 1) >= 2).slice(0, 10);
         if (objs.length) list = h('div', { class: 'solar-list' }, h('h3', {}, t('highlights')),
           h('div', { class: 'solar-tags' }, ...objs.map(o => h('button', { class: 'tag-chip', 'data-testid': 'hl-' + o.key, onclick: () => { sfx.tap(); this.view.selectDeep(o.key); } },
-            h('span', { 'aria-hidden': 'true' }, o.emoji), h('span', {}, tr(o.name, l))))));
+            h('span', { class: 'chip-emoji', 'aria-hidden': 'true' }, o.emoji), h('span', {}, tr(o.name, l))))));
       }
     }
     if (hero === this.hero) this.drawHero();
@@ -532,7 +520,7 @@ export class SolarUI {
     this.infoMain.replaceChildren(
       h('div', { class: 'info-hero solar-hero' + (s.kind === 'site' ? ' is-model' : '') },
         hero,
-        h('span', { class: 'type-chip', style: `color:${color}` }, chip),
+        h('span', { class: 'type-chip' }, chip),
         h('button', { class: 'icon-btn info-x', 'aria-label': t('close'), 'data-testid': 'solar-info-close', html: icon('close', 16), onclick: () => this.showCard(null) })),
       h('div', { class: 'info-body' },
         h('p', { class: 'eyebrow', html: icon(s.kind === 'site' ? 'pin' : 'planet', 13) }, h('span', {}, eyebrow)),

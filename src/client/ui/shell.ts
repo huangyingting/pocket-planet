@@ -29,6 +29,9 @@ export interface ShellHooks {
 
 export class Shell {
   private zoomEl = h('span', { class: 'zoom-readout', 'data-testid': 'zoom' }, '×4.0');
+  private coordLat = h('b', {}, '');
+  private coordLon = h('b', {}, '');
+  private coordEl = h('div', { class: 'coord-readout', 'aria-hidden': 'true' }, h('i', { class: 'coord-reticle' }), this.coordLat, h('span', { class: 'coord-sep' }), this.coordLon);
   private infoMain = h('div', { class: 'info-main', 'aria-live': 'polite' });
   private info = h('aside', { id: 'info', class: 'info hidden', 'data-testid': 'info' }, this.infoMain);
   private reader: import('./reader.ts').Reader | null = null;
@@ -73,7 +76,7 @@ export class Shell {
         h('button', { id: 'btn-zoom-in', 'aria-label': t('zoomIn'), html: icon('plus', 17), onclick: () => this.globe.zoomBy(1.6) }),
         this.zoomEl,
         h('button', { id: 'btn-zoom-out', 'aria-label': t('zoomOut'), html: icon('minus', 17), onclick: () => this.globe.zoomBy(1 / 1.6) })));
-    this.root.append(top, bottomLeft, bottomRight, this.info, this.menu, this.rideBar, this.time.el, this.tipEl);
+    this.root.append(top, bottomLeft, bottomRight, this.coordEl, this.info, this.menu, this.rideBar, this.time.el, this.tipEl);
     this.renderHints();
     this.renderMenu();
     subscribe(() => { if (this.current) this.renderInfo(this.current); if (!this.menu.classList.contains('hidden')) this.renderMenu(); });
@@ -197,8 +200,11 @@ export class Shell {
   }
 
   private dexClose: boolean | null = null;
-  setZoom(z: number): void {
+  setZoom(z: number, lat = 0, lon = 0): void {
     this.zoomEl.textContent = '×' + z.toFixed(1);
+    const ln = ((lon + 540) % 360) - 180;
+    this.coordLat.textContent = `${Math.abs(lat).toFixed(2).padStart(5, '0')}°${lat >= 0 ? 'N' : 'S'}`;
+    this.coordLon.textContent = `${Math.abs(ln).toFixed(2).padStart(6, '0')}°${ln >= 0 ? 'E' : 'W'}`;
     // onView fires on every dirty frame; only rebuild the dex row when crossing the collect threshold
     const close = z >= DEX_ZOOM;
     if (this.current?.type === 'animal' && close !== this.dexClose) this.renderDexRow();
@@ -259,7 +265,7 @@ export class Shell {
           'data-testid': 'aura-' + p,
           onclick: () => { sfx.tap(); updateSettings({ auraPreset: p }); },
         },
-          h('span', { class: 'aura-dot', style: `background:${AURA_PRESETS[p].colors[0]}` }),
+          h('span', { class: 'aura-dot' }),
           t(AURA_PRESETS[p].label),
         )
       )
@@ -397,7 +403,8 @@ export class Shell {
     this.infoMain.replaceChildren(
       h('div', { class: 'info-hero', 'data-type': it.type },
         createModelPreview(it, { width: 360, height: 208, id: 'info-preview' }),
-        h('span', { class: 'type-chip t-' + it.type, style: `color:${TYPE_META[it.type].color}` }, typeName(it.type)),
+        h('span', { class: 'type-chip t-' + it.type }, typeName(it.type)),
+        h('span', { class: 'info-serial', 'aria-hidden': 'true' }, `#${String(CATALOGUE.indexOf(it) + 1).padStart(4, '0')}`, h('small', {}, ` / ${CATALOGUE.length}`)),
         h('button', { class: 'icon-btn info-x', 'aria-label': t('close'), 'data-testid': 'info-close', html: icon('close', 16), onclick: () => this.showItem(null) }),
         this.heroActions(it),
         it.type !== 'animal' && !it.route ? h('button', { class: 'hero-btn info-zoom-btn', title: t('zoomClose'), html: icon('zoom', 15), onclick: () => this.globe.flyTo(it.lat, it.lon, 0.25) }, h('span', {}, t('zoomClose'))) : null,
@@ -428,15 +435,15 @@ export class Shell {
     const g = it.country && it.type !== 'animal' && it.type !== 'dino' && it.type !== 'migration' ? GREETINGS[it.country] : undefined;
     const call = callFor(it);
     if (!g && !call) return null;
-    const btn = (id: string, emoji: string, label: string, fn: () => void) =>
-      h('button', { class: 'hero-btn', 'data-testid': id, title: label, onclick: fn }, h('span', { 'aria-hidden': 'true' }, emoji), h('span', {}, label));
+    const btn = (id: string, ic: IconName, label: string, fn: () => void) =>
+      h('button', { class: 'hero-btn', 'data-testid': id, title: label, onclick: fn, html: icon(ic, 16) }, h('span', {}, label));
     return h('div', { class: 'hero-acts' },
-      g ? btn('say-hello', '👋', t('sayHello'), () => {
+      g ? btn('say-hello', 'hand', t('sayHello'), () => {
         const langName = new Intl.DisplayNames([l], { type: 'language' }).of(g[1].split('-')[0]) ?? g[1];
         const ok = speak(g[0], g[1]);
         toast(t('helloIn', { lang: langName, say: g[2] }) + (ok ? '' : ' ' + t('noSpeech')), 4200);
       }) : null,
-      call ? btn('hear-it', '🔊', t('hearIt'), () => sfx.call(call)) : null);
+      call ? btn('hear-it', 'sound', t('hearIt'), () => sfx.call(call)) : null);
   }
 
   private setCounts(r: { like: number; visited: number }): void {
