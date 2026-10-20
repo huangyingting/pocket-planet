@@ -39,6 +39,8 @@ export interface SolarHost {
   exit: (lat: number, lon: number) => void;
   /** The scale on screen changed (keeps the global scale rail in sync). */
   onScale?: (s: ScaleId) => void;
+  /** Open the sky-events theatre. */
+  openSky?: () => void;
 }
 
 const DOCK: BodyId[] = ['sun', 'mercury', 'venus', 'earth', 'mars', 'ceres', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
@@ -111,7 +113,9 @@ export class SolarUI {
           h('button', { class: 'icon-btn', 'aria-label': '+', 'data-testid': 'solar-faster', html: icon('chevron', 15), onclick: () => this.setSpeed(Math.min(SPEEDS.length - 1, this.speedIdx + 1)) }),
           this.dateEl,
           h('button', { class: 'pill pill-sm', 'data-testid': 'solar-now', 'data-i18n': 'now', onclick: () => { this.view.resetTime(); this.renderDate(this.view.simMs); } }, t('now')),
-          this.cstBtn),
+          this.cstBtn,
+          host.openSky ? h('button', { class: 'pill pill-sm', 'data-testid': 'solar-sky', html: icon('eclipse', 14), onclick: () => { sfx.tap(); host.openSky!(); } },
+            h('span', { 'data-i18n': 'skyEvents' }, t('skyEvents'))) : null),
         this.dock),
       h('div', { class: 'solar-zoom zoom-ctl' },
         h('button', { 'aria-label': t('zoomIn'), 'data-testid': 'solar-zoom-in', html: icon('plus', 17), onclick: () => this.view.zoomBy(0.55) }),
@@ -207,6 +211,14 @@ export class SolarUI {
     else if (focus in BODY) v.select(focus as BodyId);
     else if (want === 'solar') this.overview();
     this.renderCrumbs();
+  }
+
+  /** Show the system at a given instant (sky-theatre hand-off), time paused so the alignment stays put. */
+  showAt(ms: number, focus?: string): void {
+    this.view.simMs = ms;
+    this.setSpeed(0);
+    if (focus && this.view.isActive) this.goTo(focus);
+    this.renderDate(ms);
   }
 
   leave(): void {

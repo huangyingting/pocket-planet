@@ -25,6 +25,7 @@ export interface ShellHooks {
   openPhoto: () => void; openCollection: () => void; openGames: () => void; openTutorial: () => void;
   openAccount: () => void; openGuestbook: () => void; openCredits: () => void;
   openSolar: () => void;
+  openSky: () => void;
 }
 
 export class Shell {
@@ -66,6 +67,7 @@ export class Shell {
         tool('btn-game', 'game', 'game', this.hooks.openGames),
         tool('btn-time', 'clock', 'timeMachine', () => this.time.toggle()),
         tool('btn-solar', 'planet', 'solarSystem', this.hooks.openSolar),
+        tool('btn-sky', 'eclipse', 'skyEvents', this.hooks.openSky),
         h('span', { class: 'tools-sep', 'aria-hidden': 'true' }),
         tool('btn-menu', 'menu', 'menu', () => this.toggleMenu())));
     const bottomLeft = h('div', { class: 'bl' }, this.hints,

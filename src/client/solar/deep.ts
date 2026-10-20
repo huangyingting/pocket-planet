@@ -12,11 +12,15 @@ import { tr } from '../../shared/data/types.ts';
 import { lang, t } from '../lib/i18n.ts';
 import { fmtLy } from './fmt.ts';
 import type { Quality } from '../globe/quality.ts';
+import { buildNebula, hasNebulaModel, paintNebulaArt, type NebulaModel } from './nebulae.ts';
 import { MILKY_WAY, genericSpiral, gauss, glowCanvas, hashStr, paintBlob, paintCMB, paintDisc, paintNebula, rng, sampleDisc, type DiscDef, type StarCloud } from './cosmos-paint.ts';
 
 const D2R = Math.PI / 180;
 /** Local Group: galaxies are drawn this many times their true size. */
 const GROUP_EX = 2.4;
+const TAU = Math.PI * 2;
+/** Nebula close-ups (galaxy level, 1 unit = 1000 ly): model radius and the camera distance it is shown from. */
+const NEB_R = 0.075, NEB_VIEW = 0.25;
 const ease = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
 
 export interface LevelDef {
@@ -178,6 +182,11 @@ export class DeepStage {
   private mwTex: THREE.CanvasTexture | null = null;
   private screen = { w: 1, h: 1, pr: 1 };
   private placed: { o: DeepObject | 'home'; x: number; y: number }[] = [];
+  /** The signature 3D model of the selected nebula (galaxy level), fading in as the camera arrives. */
+  private neb: { key: string; L: LevelRT; m: NebulaModel; a: number } | null = null;
+  /** Each nebula's soft marker glow (dimmed while its model shows). */
+  private nebGlow = new Map<string, THREE.Sprite>();
+  private tweenAz: { from: number; to: number; t: number } | null = null;
 
   constructor(root: HTMLElement, readonly quality: Quality, public ev: DeepEvents) {
     this.layer = document.createElement('div');
@@ -323,7 +332,7 @@ export class DeepStage {
     const glow = new THREE.CanvasTexture(glowCanvas());
     for (const o of DEEP_OBJECTS) {
       if (o.scale !== 'galaxy' || (o.kind !== 'nebula' && o.kind !== 'remnant' && o.kind !== 'starcluster')) continue;
-      this.sprite(L, glow, Math.max(0.35, Math.min(1.6, (o.sizeLy ?? 100) / 120)), scenePos(o.l, o.b, o.distLy, 'galaxy'), kindColor(o.kind), 0.5);
+      this.nebGlow.set(o.key, this.sprite(L, glow, Math.max(0.35, Math.min(1.6, (o.sizeLy ?? 100) / 120)), scenePos(o.l, o.b, o.distLy, 'galaxy'), kindColor(o.kind), 0.5));
     }
   }
 
@@ -740,7 +749,8 @@ export class DeepStage {
     }
     // a finer web close to home (where the named superclusters are) inside the coarse web of the whole bubble
     this.web(L, { R: 40, nodes: known, extra: 90, n: 16_000, width: 0.55, size: 0.5, seed: 21, maxLink: 14 });
-    this.web(L, { R: CMB_R * 0.97, nodes: [], extra: 520, n: 52_000, width: 3.2, size: 3.4, seed: 23, maxLink: 120 });
+    // galaxies only formed a few hundred million years after the CMB was released: a dark gap before that sphere
+    this.web(L, { R: CMB_R * 0.88, nodes: [], extra: 520, n: 52_000, width: 3.2, size: 3.4, seed: 23, maxLink: 120 });
     const tex = new THREE.CanvasTexture(paintCMB(this.quality.tier === 'low' ? 512 : 1024));
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.generateMipmaps = false; // no mip seam where the view-direction longitude wraps
@@ -819,10 +829,45 @@ export class DeepStage {
     if (o) {
       const x = L.objs.find(v => v.o === o);
       if (!x) return;
-      const want = Math.max(L.def.downLy * 1.4, Math.min(L.def.defLy * 0.4, (o.sizeLy ?? L.def.defLy * 0.05) * 3.2 * (L.id === 'group' ? GROUP_EX : 1))) / L.def.unit;
-      this.tweenTo(L, x.pos, o.kind === 'cmb' ? L.def.defLy / L.def.unit : want, 1500);
+      const model = L.id === 'galaxy' && hasNebulaModel(o.key);
+      const want = model ? NEB_VIEW
+        : Math.max(L.def.downLy * 1.4, Math.min(L.def.defLy * 0.4, (o.sizeLy ?? L.def.defLy * 0.05) * 3.2 * (L.id === 'group' ? GROUP_EX : 1))) / L.def.unit;
+      this.tweenTo(L, x.pos, o.kind === 'cmb' ? L.def.defLy / L.def.unit : want, model ? 2200 : 1500);
+      if (model) this.showNebula(L, o, x.pos);
     }
     if (emit) this.ev.onSelect?.(o);
+  }
+
+  /**
+   * Builds (once) the nebula's 3D model where its marker is, turned so its +Z (the face in the famous photos) points
+   * at the Sun, and swings the camera round to the Sun's side so it arrives on that view. Drawn NEB_R scene units
+   * across (much larger than life, like the markers) so it reads as a close-up.
+   */
+  private showNebula(L: LevelRT, o: DeepObject, at: THREE.Vector3): void {
+    if (this.neb?.key !== o.key) {
+      this.dropNebula();
+      const m = buildNebula(o.key, this.quality.tier);
+      if (!m) return;
+      m.group.scale.setScalar(NEB_R / m.radius);
+      m.group.position.copy(scenePos(o.l, o.b, o.distLy, 'galaxy'));
+      m.group.traverse(c => { c.renderOrder += 20; });
+      L.root.add(m.group);
+      L.root.updateMatrixWorld(true);
+      m.group.lookAt(L.home);
+      m.setOpacity(0);
+      this.neb = { key: o.key, L, m, a: 0 };
+    }
+    const d = L.home.clone().sub(at).normalize();
+    const az = Math.atan2(d.x, d.z);
+    this.tweenAz = { from: this.az, to: this.az + ((((az - this.az) % TAU) + TAU * 1.5) % TAU - Math.PI), t: 0 };
+    this.tweenEl = { from: this.el, to: Math.max(-1.2, Math.min(1.2, Math.asin(d.y))), t: 0 };
+  }
+
+  private dropNebula(): void {
+    if (!this.neb) return;
+    this.neb.m.group.removeFromParent();
+    this.neb.m.dispose();
+    this.neb = null;
   }
 
   /** Back to the level's resting view. */
@@ -840,7 +885,7 @@ export class DeepStage {
     this.current.tween = null;
     this.az -= dx * 0.005;
     this.el = Math.max(-1.45, Math.min(1.45, this.el + dy * 0.005));
-    this.tweenEl = null;
+    this.tweenEl = null; this.tweenAz = null;
   }
 
   zoomBy(f: number): void {
@@ -851,9 +896,10 @@ export class DeepStage {
     const nearHome = L.target.distanceTo(L.home) < L.dist * 0.25;
     L.dist *= f;
     const ly = L.dist * def.unit;
-    if (f < 1 && ly < def.downLy) {
+    const close = this.neb && this.sel?.key === this.neb.key ? NEB_VIEW * 0.45 * def.unit : def.downLy;
+    if (f < 1 && ly < close) {
       if (nearHome && !this.sel) { this.ev.onDown?.(); return; }
-      L.dist = def.downLy / def.unit;
+      L.dist = close / def.unit;
     }
     if (f > 1 && ly > def.upLy) {
       if (this.level !== 'universe') { this.ev.onUp?.(); return; }
@@ -886,6 +932,18 @@ export class DeepStage {
         if (L.tween) { L.tween.fromT.applyQuaternion(q); L.tween.toT.applyQuaternion(q); }
       }
       for (const [o, w] of L.spinners) o.rotateY(w * sec);
+    }
+    if (this.tweenAz) {
+      this.tweenAz.t = Math.min(1, this.tweenAz.t + dt / 2200);
+      this.az = this.tweenAz.from + (this.tweenAz.to - this.tweenAz.from) * ease(this.tweenAz.t);
+      if (this.tweenAz.t >= 1) this.tweenAz = null;
+    }
+    const nb = this.neb;
+    if (nb) {
+      // in while it is selected and the camera is close; out (and freed) otherwise
+      const on = this.sel?.key === nb.key && this.level === 'galaxy' ? THREE.MathUtils.smoothstep(NEB_VIEW * 8, NEB_VIEW * 2, nb.L.dist) : 0;
+      nb.a += (on - nb.a) * Math.min(1, sec * 3);
+      if (on === 0 && nb.a < 0.01 && this.sel?.key !== nb.key) this.dropNebula();
     }
     if (this.tweenEl) {
       this.tweenEl.t = Math.min(1, this.tweenEl.t + dt / 2200);
@@ -923,16 +981,28 @@ export class DeepStage {
     cam.far = L.dist * 6 + 4000;
     cam.updateProjectionMatrix();
     const scale = (this.screen.h * this.screen.pr) / (2 * Math.tan((fov * D2R) / 2));
+    const nb = this.neb?.L === L ? this.neb : null;
+    // at close range the galaxy's star field is a wall of oversized blobs; dim it behind the nebula model
+    const bg = nb ? 1 - 0.75 * nb.a : 1;
     for (const m of L.pts) {
       m.uniforms.uScale.value = scale;
-      m.uniforms.uFade.value = w;
+      m.uniforms.uFade.value = w * bg;
       m.uniforms.uPr.value = this.screen.pr;
       m.uniforms.uMinPx.value = 1.3 * this.screen.pr;
       m.uniforms.uTime.value = this.time;
     }
-    for (const [m, base] of L.fades) m.opacity = base * w;
+    for (const [m, base] of L.fades) m.opacity = base * w * bg;
     if (L.cmb) L.cmb.uniforms.uFade.value = w * 0.9;
     if (L.pulse) (L.pulse.material as THREE.SpriteMaterial).opacity = w * (0.45 + 0.25 * Math.sin(this.time * 1.7));
+    if (nb) {
+      nb.m.group.visible = nb.a > 0.003;
+      nb.m.setOpacity(nb.a * w);
+      nb.m.update(this.time, cam);
+      const g = this.nebGlow.get(nb.key);
+      if (g) (g.material as THREE.SpriteMaterial).opacity *= 1 - 0.9 * nb.a;
+      // the model's dust occludes with depth; nothing else in the deep scenes writes or tests it
+      if (nb.m.group.visible) renderer.clearDepth();
+    }
     renderer.render(L.scene, cam);
   }
 
@@ -1035,8 +1105,9 @@ export function deepThumb(o: DeepObject, mw: () => HTMLCanvasElement, W = 720, H
       break;
     }
     case 'arm': case 'bar': putDisc(mw(), H * 1.05, 0.55, -0.3); break;
-    case 'nebula': ctx.drawImage(paintNebula(256, seed, r() < 0.5 ? ['#ff5c8a', '#4fd1c5'] : ['#e05297', '#7aa2ff'], /ring|helix|cat|planetary/i.test(o.wiki)), cx - H / 2, 0, H, H); break;
-    case 'remnant': ctx.drawImage(paintNebula(256, seed, ['#ff8a3d', '#5cc8ff'], true), cx - H / 2, 0, H, H); break;
+    case 'nebula': case 'remnant': if (hasNebulaModel(o.key)) { const art = paintNebulaArt(o.key, H); if (art) { ctx.drawImage(art, cx - H / 2, 0, H, H); break; } }
+      if (o.kind === 'remnant') { ctx.drawImage(paintNebula(256, seed, ['#ff8a3d', '#5cc8ff'], true), cx - H / 2, 0, H, H); break; }
+      ctx.drawImage(paintNebula(256, seed, r() < 0.5 ? ['#ff5c8a', '#4fd1c5'] : ['#e05297', '#7aa2ff'], /ring|helix|cat|planetary/i.test(o.wiki)), cx - H / 2, 0, H, H); break;
     case 'starcluster': case 'globular': {
       const glob = o.kind === 'globular';
       for (let i = 0; i < (glob ? 1400 : 60); i++) {

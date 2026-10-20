@@ -82,7 +82,7 @@ async function boot(): Promise<void> {
   let solar: SolarUI | null = null;
   let solarLoad: Promise<SolarUI> | null = null;
   let inSolar = false;
-  const loadSolar = () => solarLoad ??= import('./solar/ui.ts').then(m => (solar = new m.SolarUI(app, { quality, earthCanvas: () => earthCv, exit: leaveSolar, onScale: s => rail.set(s) })));
+  const loadSolar = () => solarLoad ??= import('./solar/ui.ts').then(m => (solar = new m.SolarUI(app, { quality, earthCanvas: () => earthCv, exit: leaveSolar, onScale: s => rail.set(s), openSky: () => void openSky() })));
   const fade = (fn: () => void) => {
     document.body.classList.add('fading');
     setTimeout(() => { fn(); requestAnimationFrame(() => document.body.classList.remove('fading')); }, lowfx ? 0 : 230);
@@ -112,6 +112,30 @@ async function boot(): Promise<void> {
     });
   };
 
+  // ---- Sky theatre (lazy): eclipses, meteor showers, planets, played out over the globe or the Solar System ----
+  let skyLoad: Promise<typeof import('./sky/index.ts')> | null = null;
+  let inSky = false;
+  const openSky = async (id?: string) => {
+    if (gaming) return;
+    const m = await (skyLoad ??= import('./sky/index.ts'));
+    if (!inSky) { shell.toggleMenu(false); shell.time.toggle(false); }
+    inSky = true;
+    globe.paused = true;
+    solar?.view.suspend(true);
+    m.openSky(document.body, {
+      id, lowfx, dprMax: quality.dprMax, msaa: quality.msaa,
+      globe: { lat: globe.lat, lon: globe.lon },
+      onClose: () => {
+        inSky = false;
+        if (inSolar) solar?.view.suspend(false); else globe.paused = false;
+      },
+      onSolar: (focus, ms) => {
+        if (inSolar && solar) { solar.showAt(ms, focus); return; }
+        void loadSolar().then(ui => { ui.showAt(ms); void enterSolar({ focus }); });
+      },
+    });
+  };
+
   const passport = () => openPassport({
     here: () => shell.current ? [shell.current.lat, shell.current.lon] : [globe.lat, globe.lon],
     travel: (it, from) => { shell.showItem(it); if (Math.abs(from[0] - it.lat) + Math.abs(from[1] - it.lon) > 2) globe.showFlightArc(from, [it.lat, it.lon]); },
@@ -124,6 +148,7 @@ async function boot(): Promise<void> {
     openTutorial,
     openAccount, openGuestbook: () => void openGuestbook(), openCredits,
     openSolar: () => void enterSolar(),
+    openSky: () => void openSky(),
   });
   shell.mount();
   // One ladder for the whole system: universe → … → Solar System → Earth.
@@ -159,6 +184,7 @@ async function boot(): Promise<void> {
     const hsh = decodeURIComponent(location.hash.slice(1));
     if (!hsh) return;
     const [head, rest = ''] = hsh.split('/');
+    if (head === 'sky') { void openSky(rest || undefined); return; }
     const scale = SCALE_ROUTES[head];
     if (scale) {
       const focus = rest || (scale === 'solar' ? 'overview' : '');

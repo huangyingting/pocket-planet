@@ -424,3 +424,26 @@ test('scale ladder: rail climbs from Earth to the universe and back @mobile', as
   await expect(page.getByTestId('rail-earth')).toHaveClass(/on/);
   expect(errors).toEqual([]);
 });
+
+test('sky theatre: eclipse deep link, space view, calendar pick, close', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await openApp(page, '/?lowfx=1&notut#sky/solar-eclipse-2026-08-12');
+  const sky = page.getByTestId('sky');
+  await expect(sky).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('#sky-title')).toContainText(/eclipse/i);
+  await page.getByTestId('sky-view-space').click();
+  await expect(page.getByTestId('sky-view-space')).toHaveAttribute('aria-selected', 'true');
+  await page.waitForTimeout(1500);
+  await shot(page, 'desktop_40_sky_eclipse_space');
+  await page.getByTestId('sky-cal').click();
+  await expect(sky).toHaveClass(/cal-open/);
+  await page.locator('.skycal-list button[data-kind="lunar-eclipse"]').first().click();
+  await expect(page.locator('#sky-title')).toContainText(/lunar/i);
+  await page.getByTestId('sky-close').click();
+  await expect(sky).toHaveCount(0);
+  await page.getByTestId('btn-menu').click();
+  await page.getByTestId('btn-sky').click();
+  await expect(page.getByTestId('sky')).toBeVisible({ timeout: 30_000 });
+  expect(errors).toEqual([]);
+});

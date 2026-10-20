@@ -1,6 +1,6 @@
 # Pocket Planet
 
-An original 3D toy globe for curious kids. Spin the Earth and tap landmarks, animals, dinosaurs, foods, festivals, volcanoes, space sites and discoveries, then collect them in a dex. Every place you open gets a stamp in your **passport**. The **time machine** rewinds the globe to the age of dinosaurs or any century. Animals can play their calls, and places can say hello in the local language. Layers show clouds, aurora and tectonic plates, and migration and voyage routes can be ridden. You can also ride ships, planes and trains, take photos, and play three geography games: Place it!, Quiz and Daily Planet. Zoom out past the Earth (or press the planet button) to fly around the **Solar System**: the Sun, eight planets, dwarf planets and major moons sit at their real positions for any date, with painted surfaces, named craters, volcanoes and landing sites, and a Wikipedia reader for each. Real mission sites (rovers, landers, orbiters, plumes) have 3D models, and the **scale ladder** keeps going: the Milky Way, the Local Group, the Laniakea supercluster and the observable universe, each with real objects to tap. Space has weather: solar flares, prominences and coronal mass ejections, asteroid and Kuiper belts, swirling storms on the giant planets, aurorae and a comet. Constellations can be shown in the sky, the Milky Way slowly turns, and the universe level surrounds you with the cosmic microwave background, all inside one "Astrolabe" HUD: cut-corner panels, monochrome line icons, an amber signal for whatever is selected, numbered cards and a live coordinate readout.
+An original 3D toy globe for curious kids. Spin the Earth and tap landmarks, animals, dinosaurs, foods, festivals, volcanoes, space sites and discoveries, then collect them in a dex. Every place you open gets a stamp in your **passport**. The **time machine** rewinds the globe to the age of dinosaurs or any century. Animals can play their calls, and places can say hello in the local language. Layers show clouds, aurora and tectonic plates, and migration and voyage routes can be ridden. You can also ride ships, planes and trains, take photos, and play three geography games: Place it!, Quiz and Daily Planet. Zoom out past the Earth (or press the planet button) to fly around the **Solar System**: the Sun, eight planets, dwarf planets and major moons sit at their real positions for any date, with painted surfaces, named craters, volcanoes and landing sites, and a Wikipedia reader for each. Real mission sites (rovers, landers, orbiters, plumes) have 3D models, and the **scale ladder** keeps going: the Milky Way, the Local Group, the Laniakea supercluster and the observable universe, each with real objects to tap. Space has weather: solar flares, prominences and coronal mass ejections, asteroid and Kuiper belts, swirling storms on the giant planets, aurorae and a comet. Constellations can be shown in the sky, the Milky Way slowly turns, and the universe level surrounds you with the cosmic microwave background, famous nebulae (the Eagle's pillars, the Crab, the Ring, the Horsehead and more) can be flown into as 3D models, and the **sky theatre** replays solar and lunar eclipses, meteor showers, conjunctions, oppositions, transits, supermoons and solstices from the best place on Earth or from space, all inside one "Astrolabe" HUD: cut-corner panels, monochrome line icons, an amber signal for whatever is selected, numbered cards and a live coordinate readout.
 
 **▶ Play it: https://huangyingting.github.io/pocket-planet/** (static GitHub Pages edition: [see Deployment](#deployment))
 
@@ -38,6 +38,7 @@ The game works fully without an account; progress is stored in `localStorage` an
 | `#daily` | open Daily Planet |
 | `#solar`, `#solar/<body>`, `#solar/<feature>` | open the Solar System (overview, e.g. `#solar/mars`, or a feature such as `#solar/sf_mars_olympus_mons`) |
 | `#milkyway`, `#localgroup`, `#laniakea`, `#universe` (each with optional `/<key>`) | open a deep-space scale, e.g. `#milkyway/dp_orion_nebula` |
+| `#sky`, `#sky/<event-id>` | open the sky theatre, e.g. `#sky/solar-eclipse-2026-08-12` |
 
 ## Environment variables (server)
 Set these in `.env` (template: [`.env.example`](.env.example)) or export them.
@@ -69,7 +70,8 @@ The e2e config builds nothing. It starts `node src/server/index.ts` on port 8790
 │   │   ├── store.ts            progress + settings + session state, debounced sync
 │   │   ├── styles.css
 │   │   ├── globe/              scene.ts (three.js globe, controls, picking, LOD, rides), painter.ts (map texture)
-│   │   ├── solar/              Solar System and deep space (lazy chunk): view.ts (renderer, orbits, camera, labels), ui.ts (dock, time, cards), paint.ts + solar.worker.ts (procedural surfaces), sites.ts (mission sites), deep.ts + cosmos-paint.ts (galaxy → universe levels), fx.ts (belts, solar activity, planetary weather, comet), constellations.ts (sky overlay)
+│   │   ├── solar/              Solar System and deep space (lazy chunk): view.ts (renderer, orbits, camera, labels), ui.ts (dock, time, cards), paint.ts + solar.worker.ts (procedural surfaces), sites.ts (mission sites), deep.ts + cosmos-paint.ts (galaxy → universe levels), fx.ts (belts, solar activity, planetary weather, comet), constellations.ts (sky overlay), nebulae.ts + nebulae/ (3D nebula models)
+│   │   ├── sky/                sky theatre (lazy chunk): theatre.ts (dialog, timeline), ground.ts / space.ts (views), acts.ts (per-event staging), panel.ts (calendar)
 │   │   ├── models/             kit.ts primitives; heroes/ hand-built detailed models per content type
 │   │   ├── ui/                 shell (top bar, menu, info card), collection, passport, time machine, photo, games, account, tutorial, dom helpers
 │   │   └── lib/                api client, i18n (English + Simplified Chinese), storage, sfx (UI tones, procedural animal calls, speech)
@@ -77,7 +79,7 @@ The e2e config builds nothing. It starts `node src/server/index.ts` on port 8790
 │   └── shared/                 pure TS used by client, server and build script (no DOM)
 │       ├── data/               catalogue + more/ (dinos, foods, festivals, space, …), solar (bodies, text, features), typemeta, passports, greetings, cities, ISO names, types
 │       ├── games/              placeit.ts, quiz.ts, daily.ts
-│       └── lib/                geo, rng, progress (merge), stickers, timeline (time machine), season, orbits (planet/moon positions)
+│       └── lib/                geo, rng, progress (merge), stickers, timeline (time machine), season, orbits (planet/moon positions), astro/ (ephemerides, eclipses, sky events)
 ├── public/                     static assets copied as-is (favicon, Natural Earth TopoJSON)
 ├── scripts/build-pages.ts      static /landmarks, /animals, /discover pages + sitemap.xml, robots.txt, 404.html
 ├── tests/

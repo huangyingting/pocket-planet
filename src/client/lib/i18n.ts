@@ -6,7 +6,7 @@ type Dict = Record<string, string>;
 const en: Dict = {
   auraWaves: 'Atmosphere', auraAurora: 'Aurora', auraEmber: 'Solar wind', auraDusk: 'Magnetosphere', auraSculpture: 'Ionosphere',
   badgeNew: 'NEW', tools: 'Tools', globeLabel: 'Interactive 3D globe',
-  solarSystem: 'Solar System', solarLabel: 'Interactive 3D Solar System', backToEarth: 'Back to Earth', enterEarth: 'Land on Earth',
+  solarSystem: 'Solar System', skyEvents: 'Sky events', solarLabel: 'Interactive 3D Solar System', backToEarth: 'Back to Earth', enterEarth: 'Land on Earth',
   solarHint: 'Drag to look around · scroll to zoom · tap a world', overview: 'Whole system',
   spPause: 'Pause', spReal: 'Real time', spHour: '1 hour/s', spDay: '1 day/s', spMonth: '1 month/s', spYear: '1 year/s', now: 'Now', timeSpeed: 'Time speed',
   bk_star: 'Star', bk_planet: 'Planet', bk_dwarf: 'Dwarf planet', bk_moon: 'Moon', moonOf: 'Moon of {p}',
@@ -121,7 +121,7 @@ const zh: Dict = {
   notFound: '没有找到', search: '搜索', resetConfirm: '要重置镜头和所有设置吗？', sticker_unlocked: '获得贴纸：{s}',
   auraWaves: '大气层', auraAurora: '极光', auraEmber: '太阳风', auraDusk: '磁层', auraSculpture: '电离层',
   badgeNew: '新', tools: '工具', globeLabel: '可互动的 3D 地球',
-  solarSystem: '太阳系', solarLabel: '可互动的 3D 太阳系', backToEarth: '返回地球', enterEarth: '降落地球',
+  solarSystem: '太阳系', skyEvents: '天象', solarLabel: '可互动的 3D 太阳系', backToEarth: '返回地球', enterEarth: '降落地球',
   solarHint: '拖动环顾 · 滚轮缩放 · 点选星球', overview: '整个太阳系',
   spPause: '暂停', spReal: '真实速度', spHour: '1 小时/秒', spDay: '1 天/秒', spMonth: '1 个月/秒', spYear: '1 年/秒', now: '现在', timeSpeed: '时间速度',
   bk_star: '恒星', bk_planet: '行星', bk_dwarf: '矮行星', bk_moon: '卫星', moonOf: '{p}的卫星',

@@ -611,6 +611,13 @@ export class SolarView {
 
   get isActive(): boolean { return this.active; }
 
+  /** Stop / restart rendering while another full-screen stage (the sky theatre) covers the view. */
+  suspend(on: boolean): void {
+    if (!this.active) return;
+    cancelAnimationFrame(this.raf);
+    if (!on) { this.last = performance.now(); this.raf = requestAnimationFrame(() => this.loop()); }
+  }
+
   /** Flies to a body (and shows its card via onSelect). */
   select(id: BodyId, emit = true): void {
     this.selFeature = null;

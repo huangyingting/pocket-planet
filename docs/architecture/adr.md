@@ -379,3 +379,56 @@ It also found two close-up problems:
 **Consequences.**
 - \+ Planet tilts, spin directions, storms and the sky match what astronomers see.
 - − Distances and sizes are still compressed for play, so close planetary encounters look busier than in reality.
+
+## ADR-021: Sky theatre for astronomical events, 3D nebula models
+
+**Context.** Two requests came in:
+- show eclipses and other common sky events;
+- make the deep-space objects, nebulae above all, look like the real ones.
+
+At the time, nebulae were flat glow sprites, and nothing simulated the sky seen from the ground.
+
+**Decision.**
+- **Astronomy engine (`src/shared/lib/astro/`, pure TS, unit-tested).**
+  - `ephem.ts`: Meeus ephemerides: the Sun from truncated VSOP87 (about 1″), the Moon from the full ch. 47 tables (about 10″) and the planets from JPL Keplerian elements (about 1′), plus sidereal time and horizon coordinates.
+  - `eclipses.ts`:
+    - solar eclipses from Besselian fundamental-plane geometry on a flattened Earth (type, greatest point, path samples, local contacts);
+    - lunar eclipses with Danjon's shadow enlargement, as in NASA's canon.
+  - `events.ts` finds:
+    - meteor-shower peaks;
+    - conjunctions, oppositions, greatest elongations and Mercury/Venus transits;
+    - new, full and super moons;
+    - equinoxes and solstices.
+  - Every event has a stable id (`solar-eclipse-2026-08-12`), so the URL `#sky/<id>` deep-links to it.
+- **Sky theatre (`src/client/sky/`, lazy chunk).** A full-screen dialog with:
+  - a **ground view**: horizon, sky brightness, stars by limiting magnitude, eclipse geometry, telescope and naked-eye fields of view;
+  - a **space view**: Sun–Earth–Moon shadow cones or planet geometry;
+  - a **Moon view**.
+  - A timeline with marks (contacts, closest approach, mid-transit) and adjustable playback speed.
+  - A "best site" picker, which scans 36 h of altitudes for the event's bodies against twilight.
+  - A year calendar with filters.
+  - A hand-off into the Solar System view at the same instant.
+  - Rendering rules:
+    - The ground is `transparent` so it draws after (and hides) the stars, because three.js draws opaque objects before transparent ones.
+    - A telescope adds 2.5·log10(magnification) magnitudes for point sources, so planets show in twilight.
+- **Nebula models (`src/client/solar/nebulae.ts`, `nebulae/`).** 14 signature objects are built from layered particles (emission gas, dust that writes depth, and stars). Each follows its published 3D morphology:
+  - the Eagle's pillars;
+  - the Crab's filament cage around a pulsar-wind core;
+  - the Ring's prolate shell seen down its axis;
+  - the Horsehead's dust silhouette against IC 434;
+  - the Helix, Cat's Eye, Cygnus Loop, Cassiopeia A, Orion, Carina, Lagoon, Rosette and North America nebulae.
+
+  Selecting one in the Milky Way flies the camera in, fades in the model, and dims the galaxy star field and glow sprite behind it. The model is disposed when you leave.
+  - **Card thumbnails** reuse the same model, drawn offscreen.
+  - **Quality** follows the tier: `high`, `medium` or `low`.
+- **Deep-space data fixes.**
+  - The Hubble Ultra Deep Field distance is now comoving (about 30 billion ly).
+  - The LMC is described as a Magellanic spiral.
+  - A dark gap now separates the cosmic web from the CMB shell.
+
+**Consequences.**
+- \+ Every common phenomenon can be watched from a real site and date, and explained from space.
+- \+ The famous nebulae look recognisable from Earth's viewpoint, and they look plausible when you orbit them.
+- − The models are procedural approximations, not reconstructions. Some small features are exaggerated, and close-ups are shown larger than life. Real photographs remain in the Wikipedia reader.
+- − Accuracy is arcseconds for the Sun and Moon and about an arcminute for the planets. Treat contact times as approximate (within about a minute); it is not meant for planning observations.
+
