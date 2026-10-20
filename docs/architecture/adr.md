@@ -531,3 +531,23 @@ Picking a galaxy, cluster or quasar outside the Milky Way only flew the camera t
 **Consequences.**
 - \+ Each model now matches what the real thing looks like, and similar vehicles can be told apart at a glance.
 - − Some dinosaur builds exceed the 150 ms target (Triceratops about 350 ms, T. rex about 270 ms on this machine), once per selection.
+
+## ADR-025: The Sun's true colours
+
+**Context.** The Solar System's Sun was painted pale yellow, with a cream-orange corona, orange-red prominences and red-brown sunspots. A large orange glow also washed over the stars. That is the Sun as Earth's atmosphere colours it, not as it looks from space.
+
+**Decision.**
+- **Photosphere.** The 5772 K photosphere is a slightly warm white, `(262, 250, 238)`.
+- **Limb darkening.** It now varies by colour channel, `I(μ) = 1 − u(1−μ) − v(1−μ²)`, using Allen's coefficients at about 650, 550 and 450 nm. The edge falls to roughly 40%, 35% and 25% of the centre and so turns warm, while the centre stays white.
+- **Granulation.** The contrast is reduced. Real granules are far below the disc's resolution.
+- **Sunspots.** They are darker, not coloured: the penumbra is about 70% and the umbra about 20% of the photosphere's brightness.
+- **Corona.** Pearl white, as seen in a total eclipse.
+- **Prominences.** Hydrogen-alpha pink-red.
+- **Coronal mass ejections.** White, the way they appear in coronagraphs, with a young core that glows pinkish.
+- **Glare.** It is neutral, and the wide halo is dimmed.
+
+These now match the sky theatre's Sun.
+
+**Consequences.**
+- \+ The colours are physically right, and the space view and the eclipse view agree.
+- − The Sun no longer looks like the "yellow Sun" children draw. The info text can explain why.

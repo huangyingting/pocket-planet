@@ -140,7 +140,8 @@ void main() {
   float rays = s * pow(1.0 / r, 1.7) * smoothstep(uSpan, uSpan * 0.4, r);
   float inner = pow(1.0 / r, 6.0);
   float k = (0.55 * inner + 0.5 * rays) * smoothstep(0.98, 1.06, r) * (1.0 + uBoost);
-  gl_FragColor = vec4(vec3(1.0, 0.86, 0.62) * k * 0.9, 1.0);
+  // The K-corona is sunlight scattered by free electrons: pearl white, as seen in a total eclipse.
+  gl_FragColor = vec4(vec3(0.96, 0.96, 1.0) * k * 0.7, 1.0);
   #include <colorspace_fragment>
 }`;
 
@@ -165,7 +166,8 @@ varying float vS; varying float vI; varying vec3 vN; varying vec3 vV; varying fl
 void main() {
   float flow = 0.5 + 0.5 * sin(vS * 34.0 - uT * 2.4 + vId);
   float rim = pow(abs(dot(normalize(vN), normalize(vV))), 1.6);
-  vec3 c = mix(vec3(0.9, 0.16, 0.04), vec3(1.0, 0.55, 0.22), flow * 0.6);
+  // Hydrogen-alpha (656 nm) with a touch of H-beta: the pink-red prominences seen at the limb during eclipses.
+  vec3 c = mix(vec3(0.86, 0.1, 0.2), vec3(1.0, 0.42, 0.55), flow * 0.6);
   gl_FragColor = vec4(c * (0.6 + 0.6 * flow), vI * rim * 0.85);
   #include <colorspace_fragment>
 }`;
@@ -182,7 +184,8 @@ void main() {
   float px = uR * 0.035 * uScale / max(1e-4, -mv.z);
   gl_PointSize = clamp(px, 1.2 * uPr, 4.0 * uPr);
   float fade = (1.0 - f) * (1.0 - f) * smoothstep(0.0, 0.04, f);
-  vC = mix(vec3(1.0, 0.8, 0.55), vec3(1.0, 0.32, 0.1), clamp(f * 1.6, 0.0, 1.0)) * fade * (0.15 + 0.3 * aSeed.y);
+  // CMEs show up in white-light coronagraphs as scattered sunlight; the hot core glows pinkish while it is young.
+  vC = mix(vec3(1.0, 0.75, 0.82), vec3(0.92, 0.94, 1.0), clamp(f * 1.6, 0.0, 1.0)) * fade * (0.15 + 0.3 * aSeed.y);
 }`;
 
 /** Corona, prominences and flares, parented to the Sun's node (prominences turn with its surface). */
@@ -223,7 +226,7 @@ class SunFX {
     const cv = document.createElement('canvas');
     cv.width = cv.height = 64;
     const ctx = cv.getContext('2d')!, gr = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,240,200,0.7)'); gr.addColorStop(1, 'rgba(255,200,120,0)');
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(250,248,255,0.7)'); gr.addColorStop(1, 'rgba(235,240,255,0)');
     ctx.fillStyle = gr; ctx.fillRect(0, 0, 64, 64);
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;

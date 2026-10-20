@@ -141,7 +141,11 @@ void main() {
   float mu = clamp(dot(normalize(vN), normalize(cameraPosition - vW)), 0.0, 1.0);
   vec3 c = texture2D(uMap, vUv).rgb;
   float flick = 0.97 + 0.03 * sin(uTime * 1.7 + vUv.x * 40.0) * sin(uTime * 1.3 + vUv.y * 33.0);
-  c *= (0.42 + 0.58 * pow(mu, 0.5)) * 1.35 * flick;
+  // Limb darkening, I(mu) = 1 - u(1-mu) - v(1-mu^2) with Allen's coefficients at ~650/550/450 nm: the edge falls to
+  // ~40/35/25% and so turns orange-red, while the centre stays white.
+  float m1 = 1.0 - mu, m2 = 1.0 - mu * mu;
+  vec3 ld = vec3(1.0) - vec3(0.80, 0.88, 0.97) * m1 + vec3(0.20, 0.23, 0.22) * m2;
+  c *= ld * 1.32 * flick;
   gl_FragColor = vec4(c, 1.0);
   #include <colorspace_fragment>
 }`;
@@ -335,15 +339,15 @@ export class SolarView {
     cv.width = cv.height = 128;
     const ctx = cv.getContext('2d')!;
     const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-    g.addColorStop(0, 'rgba(255,236,190,1)');
-    g.addColorStop(0.2, 'rgba(255,200,110,0.55)');
-    g.addColorStop(0.45, 'rgba(255,150,60,0.16)');
-    g.addColorStop(1, 'rgba(255,120,40,0)');
+    g.addColorStop(0, 'rgba(255,250,240,1)');
+    g.addColorStop(0.2, 'rgba(255,242,224,0.5)');
+    g.addColorStop(0.45, 'rgba(250,236,220,0.13)');
+    g.addColorStop(1, 'rgba(240,232,225,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, 128, 128);
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
-    for (const [s, o] of [[R * 5.2, 0.9], [R * 14, 0.28]] as const) {
+    for (const [s, o] of [[R * 5.2, 0.8], [R * 14, 0.09]] as const) {
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: o }));
       sp.scale.setScalar(s);
       node.add(sp);
