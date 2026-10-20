@@ -23,10 +23,14 @@ import { openPhotoMode } from './ui/photo.ts';
 import { openGames, openDaily } from './ui/games.ts';
 import { openTutorial } from './ui/tutorial.ts';
 import { openAccount, openGuestbook, openCredits, syncNow } from './ui/account.ts';
+import { ScaleRail, type RailLevel } from './ui/scales.ts';
+import type { ScaleId } from '../shared/data/cosmos.ts';
 
 declare global { interface Window { __pp?: { ready: boolean; globe: Globe; shell: Shell; itemScreen: (k: string) => { x: number; y: number } | null; solar: () => SolarUI | null } } }
 
 const params = new URLSearchParams(location.search);
+/** `#solar/jupiter`, `#milkyway/dp_sgr_a`, `#universe` … */
+const SCALE_ROUTES: Record<string, ScaleId> = { solar: 'solar', milkyway: 'galaxy', localgroup: 'group', laniakea: 'laniakea', universe: 'universe' };
 const lowfx = params.has('lowfx') || matchMedia('(prefers-reduced-motion: reduce)').matches && params.get('lowfx') !== '0';
 const quality = detectQuality(params, lowfx);
 const app = document.getElementById('app')!;
@@ -76,12 +80,12 @@ async function boot(): Promise<void> {
   let solar: SolarUI | null = null;
   let solarLoad: Promise<SolarUI> | null = null;
   let inSolar = false;
-  const loadSolar = () => solarLoad ??= import('./solar/ui.ts').then(m => (solar = new m.SolarUI(app, { quality, earthCanvas: () => earthCv, exit: leaveSolar })));
+  const loadSolar = () => solarLoad ??= import('./solar/ui.ts').then(m => (solar = new m.SolarUI(app, { quality, earthCanvas: () => earthCv, exit: leaveSolar, onScale: s => rail.set(s) })));
   const fade = (fn: () => void) => {
     document.body.classList.add('fading');
     setTimeout(() => { fn(); requestAnimationFrame(() => document.body.classList.remove('fading')); }, lowfx ? 0 : 230);
   };
-  const enterSolar = async (opts: { focus?: string } = {}) => {
+  const enterSolar = async (opts: { focus?: string; scale?: ScaleId } = {}) => {
     if (inSolar || gaming) return;
     inSolar = true;
     shell.showItem(null); shell.toggleMenu(false); shell.time.toggle(false);
@@ -89,7 +93,7 @@ async function boot(): Promise<void> {
     fade(() => {
       globe.paused = true;
       document.body.classList.add('solar');
-      ui.enter(opts.focus ? { focus: opts.focus } : { from: { lat: globe.lat, lon: globe.lon } });
+      ui.enter(opts.focus || opts.scale ? opts : { from: { lat: globe.lat, lon: globe.lon } });
     });
   };
   const leaveSolar = (lat: number, lon: number) => {
@@ -97,6 +101,7 @@ async function boot(): Promise<void> {
     inSolar = false;
     fade(() => {
       solar?.leave();
+      rail.set('earth');
       document.body.classList.remove('solar');
       globe.paused = false;
       globe.lat = lat; globe.lon = lon; globe.h = MAX_H;
@@ -119,6 +124,13 @@ async function boot(): Promise<void> {
     openSolar: () => void enterSolar(),
   });
   shell.mount();
+  // One ladder for the whole system: universe → … → Solar System → Earth.
+  const rail = new ScaleRail((l: RailLevel) => {
+    if (l === 'earth') { if (inSolar) leaveSolar(20, 10); return; }
+    if (!inSolar) void enterSolar({ scale: l });
+    else solar?.goScale(l);
+  });
+  app.append(rail.el);
   shell.applySettings(store.settings);
 
   let painted = { terrain: store.settings.terrain, borders: store.settings.borders };
@@ -144,9 +156,11 @@ async function boot(): Promise<void> {
   const route = () => {
     const hsh = decodeURIComponent(location.hash.slice(1));
     if (!hsh) return;
-    if (hsh === 'solar' || hsh.startsWith('solar/')) {
-      const focus = hsh.slice(6) || 'overview';
-      if (!inSolar) void enterSolar({ focus }); else solar?.goTo(focus);
+    const [head, rest = ''] = hsh.split('/');
+    const scale = SCALE_ROUTES[head];
+    if (scale) {
+      const focus = rest || (scale === 'solar' ? 'overview' : '');
+      if (!inSolar) void enterSolar({ focus, scale }); else solar?.goTo(focus, scale);
       return;
     }
     if (hsh === 'daily') openDaily(host);

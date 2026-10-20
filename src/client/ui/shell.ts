@@ -14,6 +14,7 @@ import { GREETINGS } from '../../shared/data/greetings.ts';
 import { TimeMachine } from './timemachine.ts';
 import { api } from '../lib/api.ts';
 import { HAS_API, url } from '../lib/env.ts';
+import type { SpaceHit } from '../solar/space-index.ts';
 
 export const DEX_ZOOM = 10;
 const LANG_LABEL: Record<Lang, string> = { en: 'English', zh: '中文' };
@@ -123,10 +124,22 @@ export class Shell {
   private openSearch(): void {
     const l = lang();
     let query = '';
-    let filter: 'all' | CatalogueItem['type'] = 'all';
+    let filter: 'all' | 'space' | CatalogueItem['type'] = 'all';
     const listEl = h('div', { class: 'dex-grid search-grid' });
+    let space: SpaceHit[] | null = null;
+    void import('../solar/space-index.ts').then(m => { space = m.spaceIndex(); if (query.trim() || filter === 'space') renderList(); });
     const renderList = () => {
       const q = query.trim().toLowerCase();
+      // Planets, landers, galaxies…: listed under their own filter, and mixed into a typed search.
+      const spaceHits = (filter === 'space' || (filter === 'all' && q)) && space
+        ? space.filter(s => !q || tr(s.name, l).toLowerCase().includes(q) || s.name.en.toLowerCase().includes(q)).slice(0, filter === 'space' ? 400 : 40)
+        : [];
+      const spaceCards = spaceHits.map(s => h('button', { class: 'dex-card unlocked', onclick: () => { closeModal(); location.hash = '#' + s.hash; } },
+        h('span', { class: 'dex-emoji' }, s.emoji), h('strong', {}, tr(s.name, l)), h('small', {}, t(s.kind))));
+      if (filter === 'space') {
+        listEl.replaceChildren(...(spaceCards.length ? spaceCards : [h('p', { class: 'muted' }, t('notFound'))]));
+        return;
+      }
       const matches = CATALOGUE.filter(it => {
         if (filter !== 'all' && it.type !== filter) return false;
         if (!q) return true;
@@ -135,7 +148,7 @@ export class Shell {
           countryName(it.country, l).toLowerCase().includes(q) ||
           it.sub.toLowerCase().includes(q) || (SUB_ZH[it.sub] ?? '').includes(q);
       });
-      if (!matches.length) {
+      if (!matches.length && !spaceCards.length) {
         listEl.replaceChildren(h('p', { class: 'muted' }, t('notFound')));
         return;
       }
@@ -148,7 +161,7 @@ export class Shell {
           h('strong', {}, tr(it.name, l)),
           h('small', {}, countryName(it.country, l) || typeName(it.type))
         )
-      ));
+      ), ...spaceCards);
     };
     const input = h('input', {
       type: 'search',
@@ -157,7 +170,7 @@ export class Shell {
       oninput: () => { query = input.value; renderList(); },
     });
     const filterBar = h('div', { class: 'seg-row' },
-      ...(['all', ...TYPE_ORDER.filter(ty => BY_TYPE[ty].length)] as const).map(f =>
+      ...(['all', 'space', ...TYPE_ORDER.filter(ty => BY_TYPE[ty].length)] as const).map(f =>
         h('button', {
           class: 'pill' + (filter === f ? ' active' : ''),
           onclick: e => {
@@ -166,7 +179,7 @@ export class Shell {
             (e.currentTarget as HTMLElement).classList.add('active');
             renderList();
           },
-        }, f === 'all' ? t('filterAll') : typeName(f))
+        }, f === 'all' ? t('filterAll') : f === 'space' ? t('filterSpace') : typeName(f))
       )
     );
     renderList();

@@ -204,7 +204,7 @@ export function createModelPreview(item: CatalogueItem, opts: { width?: number; 
   canvas.addEventListener('pointercancel', stopDrag);
 
   renderOne(preview);
-  if (!modelReady(item.model)) void whenModelReady(item.model).then(() => { preview.group = buildPreviewScene(item); renderOne(preview); });
+  if (!modelReady(item.model)) void whenModelReady(item.model, true).then(() => { preview.group = buildPreviewScene(item); renderOne(preview); });
   if (!isLowFx()) {
     activePreviews.add(preview);
     if (!rafId) {

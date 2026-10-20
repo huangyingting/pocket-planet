@@ -382,3 +382,37 @@ test('solar system: zoom out from Earth, visit Mars and a feature, land back on 
   await expect(page.getByTestId('solar-name')).toHaveText('Saturn', { timeout: 30_000 });
   expect(errors).toEqual([]);
 });
+
+test('scale ladder: rail climbs from Earth to the universe and back @mobile', async ({ page }, info) => {
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await openApp(page);
+  await expect(page.getByTestId('rail-earth')).toHaveClass(/on/);
+
+  await page.getByTestId('rail-galaxy').click();
+  await expect(page).toHaveURL(/#milkyway$/, { timeout: 30_000 });
+  if (info.project.name === 'mobile') await page.getByTestId('crumb-scale').click();
+  await expect(page.getByTestId('solar-name')).toHaveText('Milky Way');
+  await expect(page.getByTestId('rail-galaxy')).toHaveClass(/on/);
+  await page.waitForTimeout(2000);
+  await shot(page, `${info.project.name}_34_milkyway`);
+  await page.getByTestId('solar-info-close').click();
+  await page.getByTestId('dc-dp_orion_nebula').click();
+  await expect(page.getByTestId('solar-name')).toHaveText('Orion Nebula');
+  await expect(page).toHaveURL(/#milkyway\/dp_orion_nebula$/);
+
+  await page.getByTestId('rail-universe').click();
+  await expect(page).toHaveURL(/#universe$/);
+  await page.waitForTimeout(2000);
+  await shot(page, `${info.project.name}_35_universe`);
+  await page.goto('/?lowfx=1&notut#localgroup/dp_m31');
+  await expect(page.getByTestId('solar-name')).toHaveText('Andromeda Galaxy', { timeout: 30_000 });
+
+  await page.getByTestId('rail-solar').click();
+  await expect(page).toHaveURL(/#solar/);
+  await expect(page.getByTestId('crumb-system')).toBeVisible();
+  await page.getByTestId('rail-earth').click();
+  await expect(page.locator('body')).not.toHaveClass(/solar/, { timeout: 20_000 });
+  await expect(page.getByTestId('rail-earth')).toHaveClass(/on/);
+  expect(errors).toEqual([]);
+});

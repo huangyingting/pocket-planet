@@ -62,8 +62,12 @@ function pump(): void {
   }
 }
 
-function buildInWorker(recipe: ModelRecipe): Promise<THREE.Group> {
-  return new Promise((resolve, reject) => { queue.push({ id: nextId++, recipe, resolve, reject }); pump(); });
+function buildInWorker(recipe: ModelRecipe, urgent: boolean): Promise<THREE.Group> {
+  return new Promise((resolve, reject) => {
+    const job = { id: nextId++, recipe, resolve, reject };
+    if (urgent) queue.unshift(job); else queue.push(job);
+    pump();
+  });
 }
 
 async function buildOnMain(recipe: ModelRecipe): Promise<THREE.Group> {
@@ -76,12 +80,17 @@ async function buildOnMain(recipe: ModelRecipe): Promise<THREE.Group> {
 export const modelReady = (recipe: ModelRecipe): boolean => protos.has(keyOf(recipe));
 
 /** Builds (in a worker when possible) and caches the recipe's model; resolves once `modelReady` is true. */
-export function whenModelReady(recipe: ModelRecipe): Promise<void> {
+export function whenModelReady(recipe: ModelRecipe, urgent = false): Promise<void> {
   const key = keyOf(recipe);
   if (protos.has(key)) return Promise.resolve();
   let p = waits.get(key);
+  if (p && urgent) {
+    // Jump an already-queued job to the front (e.g. something the user just opened).
+    const i = queue.findIndex(j => keyOf(j.recipe) === key);
+    if (i > 0) queue.unshift(...queue.splice(i, 1));
+  }
   if (!p) {
-    const viaWorker = workersBroken ? Promise.reject(new Error('no workers')) : buildInWorker(recipe);
+    const viaWorker = workersBroken ? Promise.reject(new Error('no workers')) : buildInWorker(recipe, urgent);
     p = viaWorker.catch(() => buildOnMain(recipe)).then(g => { protos.set(key, g); waits.delete(key); });
     waits.set(key, p);
   }

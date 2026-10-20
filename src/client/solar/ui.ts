@@ -1,5 +1,6 @@
 /**
- * Solar System UI: breadcrumb + back button, planet dock, time controls, and the body / feature card (same card
+ * UI for everything beyond the globe: breadcrumb + back button, the dock (planets, or a scale's key objects), time
+ * controls, and one card for bodies, surface features, explorer sites, deep-space objects and whole scales (same card
  * and Wikipedia reader as on the globe). Lazily loaded together with the view on first entry.
  */
 import { h } from '../ui/dom.ts';
@@ -14,12 +15,39 @@ import { AU_KM, daysJ2000, relativePosition } from '../../shared/lib/orbits.ts';
 import type { Quality } from '../globe/quality.ts';
 import type { Reader, Readable } from '../ui/reader.ts';
 import { SolarView, SPEEDS, featuresOf, type SolarSelection } from './view.ts';
+import { sitesOf, helioAU } from './sites.ts';
+import { deepThumb } from './deep.ts';
+import { SOLAR_SITES } from '../../shared/data/solar-sites.ts';
+import { DEEP_OBJECTS, SCALE_INFO, SCALES, type DeepObject, type DeepKind, type DeepScale, type ScaleId } from '../../shared/data/cosmos.ts';
+import type { CatalogueItem } from '../../shared/data/types.ts';
+
+type Sel = SolarSelection | { kind: 'deep'; o: DeepObject } | { kind: 'scale'; id: ScaleId };
+
+/** URL fragment per scale (`#milkyway/dp_sgr_a`). */
+export const SCALE_HASH: Record<ScaleId, string> = { universe: 'universe', laniakea: 'laniakea', group: 'localgroup', galaxy: 'milkyway', solar: 'solar' };
+export const scaleFromHash = (h: string): ScaleId | undefined => (Object.keys(SCALE_HASH) as ScaleId[]).find(k => SCALE_HASH[k] === h);
+const SCALE_THUMB: Record<ScaleId, DeepKind> = { universe: 'deepfield', laniakea: 'supercluster', group: 'group', galaxy: 'arm', solar: 'star' };
+
+/** "4.2 light-years" / "250 万光年" / "13.8 billion light-years". */
+export function fmtLy(ly: number, l: Lang): string {
+  const n = (v: number, d: number) => fmtNum(+v.toFixed(d), l);
+  if (l === 'zh') {
+    if (ly < 1e4) return `${n(ly, ly < 10 ? 1 : 0)} 光年`;
+    if (ly < 1e8) return `${n(ly / 1e4, ly < 1e5 ? 1 : 0)} 万光年`;
+    return `${n(ly / 1e8, ly < 1e9 ? 1 : 0)} 亿光年`;
+  }
+  if (ly < 1e6) return `${n(ly, ly < 10 ? 1 : 0)} light-years`;
+  if (ly < 1e9) return `${n(ly / 1e6, ly < 1e7 ? 1 : 0)} million light-years`;
+  return `${n(ly / 1e9, 1)} billion light-years`;
+}
 
 export interface SolarHost {
   quality: Quality;
   earthCanvas: () => HTMLCanvasElement;
   /** Leave for the globe, looking down at lat/lon. */
   exit: (lat: number, lon: number) => void;
+  /** The scale on screen changed (keeps the global scale rail in sync). */
+  onScale?: (s: ScaleId) => void;
 }
 
 const DOCK: BodyId[] = ['sun', 'mercury', 'venus', 'earth', 'mars', 'ceres', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
@@ -59,18 +87,20 @@ export class SolarUI {
   private speedEl = h('span', { class: 'solar-speed', 'data-testid': 'solar-speed' });
   private playBtn = h('button', { class: 'icon-btn', 'data-testid': 'solar-play' });
   private hint = h('p', { class: 'solar-hint' });
-  private sel: SolarSelection | null = null;
-  private speedIdx = 3;
+  private sel: Sel | null = null;
+  private speedIdx = 2;
   private reader: Reader | null = null;
   private readerOpen = false;
 
   constructor(root: HTMLElement, private host: SolarHost) {
     this.view = new SolarView(root, {
       onSelect: s => this.showCard(s),
+      onDeepSelect: o => this.showCard(o ? { kind: 'deep', o } : null),
+      onScale: s => this.scaleChanged(s),
       onView: () => this.renderCrumbs(),
       onEnterEarth: (lat, lon) => this.host.exit(lat, lon),
       onTime: ms => this.renderDate(ms),
-      onTexture: id => { if (this.sel && (this.sel.kind === 'body' ? this.sel.id : this.sel.f.body) === id) this.drawHero(); },
+      onTexture: id => { if (this.sel && this.bodyOf(this.sel) === id) this.drawHero(); },
     }, host.quality);
     this.view.root.querySelector('canvas')?.setAttribute('aria-label', t('solarLabel'));
     this.el = h('div', { class: 'solar-ui hidden', 'data-testid': 'solar-ui' },
@@ -90,13 +120,13 @@ export class SolarUI {
         this.dock),
       h('div', { class: 'solar-zoom zoom-ctl' },
         h('button', { 'aria-label': t('zoomIn'), 'data-testid': 'solar-zoom-in', html: icon('plus', 17), onclick: () => this.view.zoomBy(0.55) }),
-        h('button', { 'aria-label': t('overview'), title: t('overview'), 'data-testid': 'solar-overview', html: icon('sun', 17), onclick: () => this.overview() }),
+        h('button', { 'aria-label': t('overviewScale'), title: t('overviewScale'), 'data-testid': 'solar-overview', html: icon('sun', 17), onclick: () => this.overview() }),
         h('button', { 'aria-label': t('zoomOut'), 'data-testid': 'solar-zoom-out', html: icon('minus', 17), onclick: () => this.view.zoomBy(1.8) })),
       this.hint);
     root.append(this.el);
-    this.playBtn.onclick = () => this.setSpeed(this.speedIdx === 0 ? 3 : 0);
+    this.playBtn.onclick = () => this.setSpeed(this.speedIdx === 0 ? 2 : 0);
     this.renderDock();
-    this.setSpeed(3);
+    this.setSpeed(2);
     this.view.setEarthCanvas(host.earthCanvas());
     onLang(() => this.relabel());
     document.addEventListener('keydown', e => {
@@ -107,26 +137,65 @@ export class SolarUI {
     });
   }
 
-  enter(opts: { from?: { lat: number; lon: number }; focus?: BodyId | string } = {}): void {
-    this.el.classList.remove('hidden');
-    this.hint.textContent = t('solarHint');
-    this.hint.classList.remove('gone');
-    setTimeout(() => this.hint.classList.add('gone'), 6000);
-    const f = opts.focus ? SOLAR_FEATURES.find(x => x.key === opts.focus) : undefined;
-    if (f) { this.view.show(); this.view.selectFeature(f); }
-    else if (opts.focus && opts.focus in BODY) { this.view.show(); this.view.select(opts.focus as BodyId); }
-    else if (opts.from) { this.view.show({ from: opts.from }); this.showCard(null); }
-    else { this.view.show(); this.overview(); }
-    this.renderCrumbs();
-    this.renderDate(this.view.simMs);
+  private bodyOf(s: Sel): BodyId | null {
+    return s.kind === 'body' ? s.id : s.kind === 'feature' ? s.f.body : s.kind === 'site' ? s.s.body : null;
   }
 
-  /** Jump to a body, a feature key or 'overview' while the view is already open (e.g. a #solar/… link). */
-  goTo(focus: string): void {
-    const f = SOLAR_FEATURES.find(x => x.key === focus);
-    if (f) this.view.selectFeature(f);
-    else if (focus in BODY) this.view.select(focus as BodyId);
-    else this.overview();
+  private scaleChanged(s: ScaleId): void {
+    this.el.classList.toggle('deep', s !== 'solar');
+    this.el.dataset.scale = s;
+    this.showHint();
+    this.renderDock();
+    // Arriving at a scale shows what it is (unless something there is already picked).
+    // On phones the sheet would hide the view, so the card waits for a tap on the scale's name.
+    if (s !== 'solar' && !matchMedia('(max-width: 760px)').matches) this.showCard({ kind: 'scale', id: s });
+    else this.showCard(null);
+    this.host.onScale?.(s);
+  }
+
+  private showHint(): void {
+    this.hint.textContent = t(this.view.scale === 'solar' ? 'solarHint' : matchMedia('(pointer: coarse)').matches ? 'deepHintTouch' : 'deepHint');
+    this.hint.classList.remove('gone');
+    clearTimeout(this.hintT);
+    this.hintT = window.setTimeout(() => this.hint.classList.add('gone'), 6000);
+  }
+  private hintT = 0;
+
+  /** Switch scale from outside (the scale rail). */
+  goScale(s: ScaleId): void {
+    if (this.view.scale === s) { this.overview(); return; }
+    this.view.goScale(s, 'jump');
+  }
+
+  enter(opts: { from?: { lat: number; lon: number }; focus?: string; scale?: ScaleId } = {}): void {
+    this.el.classList.remove('hidden');
+    if (opts.from || !opts.scale || opts.scale === 'solar') this.view.resetScale();
+    this.el.classList.toggle('deep', this.view.scale !== 'solar');
+    this.showHint();
+    if (opts.from) { this.view.show({ from: opts.from }); this.showCard(null); }
+    else { this.view.show(); this.goTo(opts.focus ?? '', opts.scale); }
+    this.renderDock();
+    this.renderCrumbs();
+    this.renderDate(this.view.simMs);
+    this.host.onScale?.(this.view.scale);
+  }
+
+  /**
+   * Jump to a body, feature, explorer site (`ss_…`), deep object (`dp_…`) or a scale's overview while the view is
+   * open (e.g. a #solar/… or #milkyway/… link).
+   */
+  goTo(focus: string, scale?: ScaleId): void {
+    const v = this.view;
+    const site = focus.startsWith('ss_') ? SOLAR_SITES.find(x => x.key === focus) : undefined;
+    const feat = SOLAR_FEATURES.find(x => x.key === focus);
+    const deep = focus.startsWith('dp_') ? DEEP_OBJECTS.find(x => x.key === focus) : undefined;
+    const want: ScaleId = deep?.scale ?? (site || feat || focus in BODY ? 'solar' : scale ?? 'solar');
+    if (v.scale !== want) v.goScale(want, 'jump');
+    if (deep) { if (!v.selectDeep(deep.key)) this.showCard({ kind: 'scale', id: want }); }
+    else if (site) v.selectSite(site);
+    else if (feat) v.selectFeature(feat);
+    else if (focus in BODY) v.select(focus as BodyId);
+    else if (want === 'solar') this.overview();
     this.renderCrumbs();
   }
 
@@ -137,13 +206,13 @@ export class SolarUI {
   }
 
   private backToEarth(): void {
-    const [lat, lon] = this.view.focusId === 'earth' ? this.view.earthLatLon() : [20, 10];
+    const [lat, lon] = this.view.scale === 'solar' && this.view.focusId === 'earth' ? this.view.earthLatLon() : [20, 10];
     this.host.exit(lat, lon);
   }
 
   private overview(): void {
-    this.showCard(null);
-    this.view.overview();
+    if (this.view.scale === 'solar') { this.showCard(null); this.view.overview(); }
+    else { this.view.deep.select(null, false); this.view.home(); this.showCard({ kind: 'scale', id: this.view.scale }); }
   }
 
   private setSpeed(i: number): void {
@@ -165,6 +234,14 @@ export class SolarUI {
 
   private renderDock(): void {
     const l = lang();
+    const sc = this.view.scale;
+    if (sc !== 'solar') {
+      const objs = this.view.deep.objectsOf(sc).filter(o => (o.rank ?? 1) >= 2).sort((a, b) => (b.rank ?? 1) - (a.rank ?? 1)).slice(0, 12);
+      this.dock.replaceChildren(...objs.map(o => h('button', { class: 'solar-chip' + (this.sel?.kind === 'deep' && this.sel.o === o ? ' on' : ''), 'data-testid': 'dc-' + o.key, title: tr(o.name, l),
+        onclick: () => { sfx.tap(); this.view.selectDeep(o.key); } },
+        h('span', { class: 'chip-emoji', 'aria-hidden': 'true' }, o.emoji), h('span', {}, tr(o.name, l)))));
+      return;
+    }
     this.dock.replaceChildren(...DOCK.map(id => {
       const b = BODY[id];
       return h('button', { class: 'solar-chip' + (this.view.focusId === id ? ' on' : ''), 'data-testid': 'sp-' + id, title: tr(b.name, l),
@@ -175,11 +252,25 @@ export class SolarUI {
 
   private renderCrumbs(): void {
     const l = lang();
-    const v = this.view, fid = v.focusId;
-    const parts: HTMLElement[] = [h('button', { class: 'crumb', 'data-testid': 'crumb-system', onclick: () => this.overview() }, t('solarSystem'))];
-    const chain: BodyId[] = fid === 'sun' && !this.sel ? [] : BODY[fid].parent && BODY[fid].parent !== 'sun' ? [BODY[fid].parent!, fid] : [fid];
-    for (const id of chain) parts.push(h('span', { class: 'sep', 'aria-hidden': 'true' }, '›'), h('button', { class: 'crumb', onclick: () => this.view.select(id) }, tr(BODY[id].name, l)));
-    if (this.sel?.kind === 'feature') parts.push(h('span', { class: 'sep', 'aria-hidden': 'true' }, '›'), h('span', { class: 'crumb cur' }, tr(this.sel.f.name, l)));
+    const v = this.view, fid = v.focusId, sc = v.scale;
+    const sep = () => h('span', { class: 'sep', 'aria-hidden': 'true' }, '›');
+    const up = SCALES[SCALES.indexOf(sc) - 1];
+    const parts: HTMLElement[] = [];
+    if (up) parts.push(h('button', { class: 'crumb crumb-up', 'data-testid': 'crumb-up', onclick: () => { sfx.tap(); v.goScale(up, 'up'); } }, t('sc_' + up)), sep());
+    if (sc !== 'solar') {
+      parts.push(h('button', { class: 'crumb', 'data-testid': 'crumb-scale', onclick: () => this.overview() }, t('sc_' + sc)));
+      if (this.sel?.kind === 'deep') parts.push(sep(), h('span', { class: 'crumb' }, tr(this.sel.o.name, l)));
+      parts.at(-1)?.classList.add('cur');
+      this.crumbs.replaceChildren(...parts);
+      for (const c of this.dock.children) c.classList.toggle('on', this.sel?.kind === 'deep' && (c as HTMLElement).dataset.testid === 'dc-' + this.sel.o.key);
+      return;
+    }
+    parts.push(h('button', { class: 'crumb', 'data-testid': 'crumb-system', onclick: () => this.overview() }, t('solarSystem')));
+    const far = this.sel?.kind === 'site' && this.sel.s.helio;
+    const chain: BodyId[] = (fid === 'sun' && !this.sel) || far ? [] : BODY[fid].parent && BODY[fid].parent !== 'sun' ? [BODY[fid].parent!, fid] : [fid];
+    for (const id of chain) parts.push(sep(), h('button', { class: 'crumb', onclick: () => this.view.select(id) }, tr(BODY[id].name, l)));
+    if (this.sel?.kind === 'feature') parts.push(sep(), h('span', { class: 'crumb cur' }, tr(this.sel.f.name, l)));
+    if (this.sel?.kind === 'site') parts.push(sep(), h('span', { class: 'crumb cur' }, tr(this.sel.s.name, l)));
     parts.at(-1)?.classList.add('cur');
     this.crumbs.replaceChildren(...parts);
     for (const c of this.dock.children) c.classList.toggle('on', (c as HTMLElement).dataset.testid === 'sp-' + fid);
@@ -197,17 +288,19 @@ export class SolarUI {
   }
 
   // ---------- card ----------
-  private showCard(sel: SolarSelection | null): void {
+  private showCard(sel: Sel | null): void {
     this.sel = sel;
     this.renderCrumbs();
+    const base = '#' + SCALE_HASH[this.view.scale];
     if (!sel) {
       void this.toggleReader(false);
       this.info.classList.add('hidden');
-      history.replaceState(null, '', '#solar');
+      history.replaceState(null, '', base);
       return;
     }
-    sfx.pop();
-    history.replaceState(null, '', '#solar/' + (sel.kind === 'body' ? sel.id : sel.f.key));
+    if (sel.kind !== 'scale') sfx.pop();
+    const key = sel.kind === 'body' ? sel.id : sel.kind === 'feature' ? sel.f.key : sel.kind === 'site' ? sel.s.key : sel.kind === 'deep' ? sel.o.key : '';
+    history.replaceState(null, '', key ? base + '/' + key : base);
     this.renderCard();
     this.info.classList.remove('hidden');
     if (this.readerOpen) this.reader?.show(this.readable());
@@ -216,6 +309,9 @@ export class SolarUI {
   private readable(): Readable {
     const s = this.sel!;
     if (s.kind === 'feature') return { key: s.f.key, name: s.f.name, desc: s.f.desc, wiki: s.f.wiki, funFact: s.f.funFact };
+    if (s.kind === 'site') return { key: s.s.key, name: s.s.name, desc: s.s.desc, wiki: s.s.wiki, funFact: s.s.funFact };
+    if (s.kind === 'deep') return { key: s.o.key, name: s.o.name, desc: s.o.desc, wiki: s.o.wiki, funFact: s.o.funFact };
+    if (s.kind === 'scale') { const i = SCALE_INFO[s.id]; return { key: 'sc_' + s.id, name: i.name, desc: i.desc, wiki: i.wiki, funFact: i.funFact }; }
     const b = BODY[s.id], tx = BODY_TEXT[s.id];
     return { key: 'sb_' + s.id, name: b.name, desc: tx?.desc ?? EMPTY, wiki: b.wiki, funFact: tx?.funFact };
   }
@@ -225,7 +321,13 @@ export class SolarUI {
   /** The body's surface map as the card hero (with a marker for a feature). */
   private drawHero(): void {
     const s = this.sel;
-    if (!s) return;
+    if (!s || s.kind === 'site') return;
+    if (s.kind === 'deep' || s.kind === 'scale') {
+      const o = s.kind === 'deep' ? s.o : ({ key: 'sc_' + s.id, kind: SCALE_THUMB[s.id] } as DeepObject);
+      const src = deepThumb(o, () => this.view.deep.milkyWayCanvas());
+      this.hero.getContext('2d')!.drawImage(src, 0, 0, this.hero.width, this.hero.height);
+      return;
+    }
     const id = s.kind === 'body' ? s.id : s.f.body;
     const src = this.view.mapImage(id);
     const cv = this.hero, ctx = cv.getContext('2d')!;
@@ -244,7 +346,9 @@ export class SolarUI {
   }
 
   private renderCard(): void {
-    const s = this.sel!, l = lang();
+    const s = this.sel!;
+    if (s.kind === 'deep' || s.kind === 'scale' || s.kind === 'site') { this.renderOtherCard(); return; }
+    const l = lang();
     const body = BODY[s.kind === 'body' ? s.id : s.f.body];
     const it = this.readable();
     const alt = l === 'en' ? it.name.zh : it.name.en;
@@ -281,6 +385,7 @@ export class SolarUI {
     }
     const feats = s.kind === 'body' ? featuresOf(s.id) : [];
     const moons = s.kind === 'body' ? BODIES.filter(b => b.parent === s.id && b.kind === 'moon') : [];
+    const sites = s.kind === 'body' ? sitesOf(s.id) : [];
     const hasMore = extra.length > 0 || Boolean(it.funFact?.en);
     this.drawHero();
     this.infoMain.replaceChildren(
@@ -302,6 +407,10 @@ export class SolarUI {
           h('h3', {}, t('surface')),
           h('div', { class: 'solar-tags' }, ...feats.map(f => h('button', { class: 'tag-chip', 'data-testid': 'feat-' + f.key, onclick: () => { sfx.tap(); this.view.selectFeature(f); } },
             h('span', { 'aria-hidden': 'true' }, f.emoji), h('span', {}, tr(f.name, l)))))) : null,
+        sites.length ? h('div', { class: 'solar-list' },
+          h('h3', {}, t('explorers')),
+          h('div', { class: 'solar-tags' }, ...sites.map(x => h('button', { class: 'tag-chip', 'data-testid': 'site-' + x.key, onclick: () => { sfx.tap(); this.view.selectSite(x); } },
+            h('span', { 'aria-hidden': 'true' }, x.emoji), h('span', {}, tr(x.name, l)))))) : null,
         moons.length ? h('div', { class: 'solar-list' },
           h('h3', {}, t('moonsList')),
           h('div', { class: 'solar-tags' }, ...moons.map(m => h('button', { class: 'tag-chip', 'data-testid': 'moon-' + m.id, onclick: () => { sfx.tap(); this.view.select(m.id); } },
@@ -311,6 +420,76 @@ export class SolarUI {
           s.kind === 'body' && s.id === 'earth' ? h('button', { class: 'cta cta-sm', 'data-testid': 'solar-enter-earth', html: icon('globe', 16), onclick: () => this.backToEarth() }, h('span', {}, t('enterEarth'))) : null,
           h('button', { class: 'read-more', 'data-testid': 'solar-read-more', 'aria-expanded': String(this.readerOpen), onclick: () => { sfx.tap(); void this.toggleReader(); } },
             h('span', {}, this.readerOpen ? t('readerClose') : t('readMore')), h('span', { html: icon('book', 14) })))));
+  }
+
+  private readBtn(): HTMLElement {
+    return h('button', { class: 'read-more', 'data-testid': 'solar-read-more', 'aria-expanded': String(this.readerOpen), onclick: () => { sfx.tap(); void this.toggleReader(); } },
+      h('span', {}, this.readerOpen ? t('readerClose') : t('readMore')), h('span', { html: icon('book', 14) }));
+  }
+
+  /** Cards for explorer sites, deep-space objects and whole scales. */
+  private renderOtherCard(): void {
+    const s = this.sel!, l = lang(), it = this.readable();
+    const alt = l === 'en' ? it.name.zh : it.name.en;
+    const stat = (k: string, v: string) => h('div', {}, h('dt', {}, k), h('dd', {}, v));
+    const key: [string, string][] = [], extra: [string, string][] = [];
+    let eyebrow = '', chip = '', color = '#7dd3fc', hero: HTMLElement = this.hero, footer: (HTMLElement | null)[] = [], list: HTMLElement | null = null;
+    if (s.kind === 'site') {
+      const x = s.s, body = BODY[x.body];
+      eyebrow = t('sk_' + x.kind) + (x.helio ? '' : ' · ' + tr(body.name, l));
+      chip = x.emoji + ' ' + t('sk_' + x.kind);
+      color = '#fbbf24';
+      if (x.year) key.push([t(x.future ? 'planned' : 'arrived'), String(x.year)]);
+      if (x.agency) key.push([t('agency'), x.agency]);
+      if (x.helio) key.push([t('fromSun'), t('fromSunAU', { n: fmtNum(Math.round(helioAU(x, this.view.simMs))) })]);
+      else if (!x.orbit) key.push([t('where'), `${Math.abs(x.lat).toFixed(1)}°${x.lat >= 0 ? 'N' : 'S'} · ${Math.abs(x.lon).toFixed(1)}°${x.lon >= 0 ? 'E' : 'W'}`]);
+      hero = h('div', { class: 'site-hero' });
+      if (x.model) {
+        const recipe = x.model;
+        void import('../models/preview.ts').then(({ createModelPreview }) => {
+          if (this.sel === s) hero.replaceChildren(createModelPreview({ key: x.key, model: recipe, emoji: x.emoji } as unknown as CatalogueItem, { id: x.key }));
+        });
+      } else hero.append(h('span', { class: 'site-emoji' }, x.emoji));
+      if (!x.helio) footer.push(h('button', { class: 'pill pill-sm', 'data-testid': 'solar-back-body', onclick: () => this.view.select(x.body) }, t('backTo', { p: tr(body.name, l) })));
+    } else if (s.kind === 'deep') {
+      const o = s.o;
+      eyebrow = t('dk_' + o.kind) + (o.morph && o.kind !== 'dwarf' ? ' · ' + t('mo_' + o.morph) : '');
+      chip = o.emoji + ' ' + t('dk_' + o.kind);
+      key.push([t('lightYears'), fmtLy(o.distLy, l)]);
+      if (o.sizeLy) key.push([t('across'), fmtLy(o.sizeLy, l)]);
+      if (o.distLy >= 1 && o.distLy < 1e9) extra.push([t('lookback'), t('yearsAgo', { n: fmtLy(o.distLy, l).replace(/ ?(light-years|光年)$/, '') })]);
+      extra.push([t('scaleIs'), t('sc_' + o.scale)]);
+    } else if (s.kind === 'scale') {
+      const i = SCALE_INFO[s.id];
+      eyebrow = t('scaleIs');
+      chip = i.emoji + ' ' + t('sc_' + s.id);
+      key.push([t('across'), fmtLy(i.sizeLy, l)]);
+      if (s.id !== 'solar') {
+        const objs = this.view.deep.objectsOf(s.id as DeepScale).filter(o => (o.rank ?? 1) >= 2).slice(0, 10);
+        if (objs.length) list = h('div', { class: 'solar-list' }, h('h3', {}, t('highlights')),
+          h('div', { class: 'solar-tags' }, ...objs.map(o => h('button', { class: 'tag-chip', 'data-testid': 'hl-' + o.key, onclick: () => { sfx.tap(); this.view.selectDeep(o.key); } },
+            h('span', { 'aria-hidden': 'true' }, o.emoji), h('span', {}, tr(o.name, l))))));
+      }
+    }
+    if (hero === this.hero) this.drawHero();
+    const hasMore = extra.length > 0 || Boolean(it.funFact?.en);
+    this.infoMain.replaceChildren(
+      h('div', { class: 'info-hero solar-hero' + (s.kind === 'site' ? ' is-model' : '') },
+        hero,
+        h('span', { class: 'type-chip', style: `color:${color}` }, chip),
+        h('button', { class: 'icon-btn info-x', 'aria-label': t('close'), 'data-testid': 'solar-info-close', html: icon('close', 16), onclick: () => this.showCard(null) })),
+      h('div', { class: 'info-body' },
+        h('p', { class: 'eyebrow', html: icon(s.kind === 'site' ? 'pin' : 'planet', 13) }, h('span', {}, eyebrow)),
+        h('h2', { 'data-testid': 'solar-name' }, tr(it.name, l)),
+        alt ? h('p', { class: 'alt-name' }, alt) : null,
+        h('p', { class: 'desc' }, tr(it.desc, l)),
+        key.length ? h('dl', { class: 'stats-row' }, ...key.map(([k, v]) => stat(k, v))) : null,
+        hasMore ? h('details', { class: 'more' },
+          h('summary', { html: icon('chevron', 14) }, h('span', {}, t('moreDetails'))),
+          it.funFact?.en ? h('p', { class: 'fun' }, h('b', {}, t('funFact')), ' ', tr(it.funFact, l)) : null,
+          extra.length ? h('dl', { class: 'facts' }, ...extra.map(([k, v]) => stat(k, v))) : null) : null,
+        list,
+        h('div', { class: 'info-footer' }, ...footer, this.readBtn())));
   }
 
   private async toggleReader(open = !this.readerOpen): Promise<void> {

@@ -16,12 +16,21 @@ import { tr } from '../../shared/data/types.ts';
 import { lang } from '../lib/i18n.ts';
 import { AdaptiveResolution, type Quality } from '../globe/quality.ts';
 import type { PaintReply, PaintRequest } from './solar.worker.ts';
+import { SCALES, type DeepObject, type DeepScale, type ScaleId } from '../../shared/data/cosmos.ts';
+import { eclToGal, galToEcl } from '../../shared/lib/sky.ts';
+import { DeepStage } from './deep.ts';
+import { SiteLayer, helioAU } from './sites.ts';
+import type { SolarSite } from '../../shared/data/solar-sites.ts';
 
 const D2R = Math.PI / 180;
 /** Simulated seconds per real second for the time controls. */
 export const SPEEDS = [0, 1, 3600, 86400, 2_592_000, 31_557_600] as const;
-/** Spin is capped to this many simulated seconds per real second so fast time doesn't whirl the planets. */
-const SPIN_CAP = 7200;
+/** Visual spin is soft-capped at this many radians per real second (one turn a minute) so no world ever whirls. */
+const SPIN_MAX_W = (2 * Math.PI) / 60;
+/** Earth turns exactly with the clock (sun over the right longitude) up to this speed; faster it spins freely. */
+const EARTH_EXACT = 600;
+/** The camera turns with the focused world only this close (in radii) or while a surface spot is selected. */
+const CO_ROTATE_R = 3.2;
 /** Globe's widest view is 1 + MAX_H = 5.5 Earth radii; zooming in below this on Earth hands back to the globe. */
 const EARTH_EXIT_R = 4.6;
 const OVERVIEW_DIST = 112;
@@ -38,9 +47,10 @@ export const featuresOf = (id: BodyId): SolarFeature[] => FEATURES_BY_BODY.get(i
 
 const eclToThree = (v: Vec3, out = new THREE.Vector3()) => out.set(v[0], v[2], -v[1]);
 const wrapPi = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+const helioOrbit = (s: SolarSite, ms: number) => displayOrbit(helioAU(s, ms));
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
-export type SolarSelection = { kind: 'body'; id: BodyId } | { kind: 'feature'; f: SolarFeature };
+export type SolarSelection = { kind: 'body'; id: BodyId } | { kind: 'feature'; f: SolarFeature } | { kind: 'site'; s: SolarSite };
 
 export interface SolarEvents {
   /** A body or feature was picked (tap, label or chip). */
@@ -53,6 +63,10 @@ export interface SolarEvents {
   onTime?: (ms: number) => void;
   /** A body's surface map arrived or got sharper. */
   onTexture?: (id: BodyId) => void;
+  /** The scale changed (Solar System ↔ Milky Way ↔ Local Group ↔ Laniakea ↔ Universe). */
+  onScale?: (s: ScaleId) => void;
+  /** An object at a deep scale was picked (or the selection cleared). */
+  onDeepSelect?: (o: DeepObject | null) => void;
 }
 
 interface Tex { map: THREE.Texture; bump: THREE.Texture | null; w: number }
@@ -145,9 +159,10 @@ export class SolarView {
   private earthCanvas: HTMLCanvasElement | null = null;
   private featLabels = new Map<string, HTMLButtonElement>();
   private adapt: AdaptiveResolution;
+  private sites!: SiteLayer;
 
   simMs = Date.now();
-  speed: number = SPEEDS[3];
+  speed: number = SPEEDS[2];
   focusId: BodyId = 'sun';
   selFeature: SolarFeature | null = null;
   private az = 0.6; private el = 0.42; private dist = OVERVIEW_DIST;
@@ -161,6 +176,14 @@ export class SolarView {
   private exiting = false;
   private interacting = 0;
   private sized = { w: 0, h: 0 };
+  /** The scale on screen; the levels above the Solar System are drawn by `deep`. */
+  scale: ScaleId = 'solar';
+  readonly deep: DeepStage;
+  private xf: { from: ScaleId; to: ScaleId; t: number; dur: number } | null = null;
+  private over = { v: 0, t: 0 };
+  private veil = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, depthTest: false, depthWrite: false }));
+  private veilScene = new THREE.Scene();
+  private veilCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
   constructor(container: HTMLElement, public ev: SolarEvents, readonly quality: Quality) {
     this.root = document.createElement('div');
@@ -170,6 +193,8 @@ export class SolarView {
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, quality.dprMax));
     this.adapt = new AdaptiveResolution(quality.dprMin, Math.min(devicePixelRatio || 1, quality.dprMax));
     this.renderer.setClearColor(0x020306);
+    this.renderer.autoClear = false;
+    this.veilScene.add(this.veil);
     const cv = this.renderer.domElement;
     cv.className = 'solar-canvas';
     cv.tabIndex = 0;
@@ -184,6 +209,12 @@ export class SolarView {
     const hi = quality.tier === 'high' ? [160, 80] : [112, 56];
     this.geoLo = new THREE.SphereGeometry(1, lo[0], lo[1]);
     this.geoHi = new THREE.SphereGeometry(1, hi[0], hi[1]);
+    this.deep = new DeepStage(this.root, quality, {
+      onSelect: o => this.ev.onDeepSelect?.(o),
+      onDown: () => this.goScale(SCALES[SCALES.indexOf(this.scale) + 1], 'down'),
+      onUp: () => this.goScale(SCALES[SCALES.indexOf(this.scale) - 1], 'up'),
+    });
+    this.sites = new SiteLayer(this.scene, this.featEl, this.labelsEl, s => this.selectSite(s));
     this.build();
     this.bindInput(cv);
     addEventListener('resize', () => this.resize());
@@ -276,7 +307,7 @@ export class SolarView {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    this.stars = new THREE.Points(g, new THREE.PointsMaterial({ size: 1.7, sizeAttenuation: false, vertexColors: true, depthTest: false, depthWrite: false, transparent: true }));
+    this.stars = new THREE.Points(g, new THREE.PointsMaterial({ size: 1.7, sizeAttenuation: false, vertexColors: true, depthTest: false, depthWrite: false }));
     this.stars.renderOrder = -10;
     this.stars.frustumCulled = false;
     this.scene.add(this.stars);
@@ -445,7 +476,7 @@ export class SolarView {
   private updateBodies(dtReal: number): void {
     const d = daysJ2000(this.simMs);
     const tmp = new THREE.Vector3(), q = new THREE.Quaternion();
-    const spinRate = Math.min(Math.abs(this.speed), SPIN_CAP) / 3600; // simulated hours per real second
+    const simH = Math.abs(this.speed) / 3600; // simulated hours per real second
     for (const rt of this.rts.values()) {
       const b = rt.b;
       if (b.kepler) {
@@ -462,17 +493,20 @@ export class SolarView {
       if (b.locked && b.parent) {
         tmp.copy(this.rts.get(b.parent)!.pos).sub(rt.pos).normalize().applyQuaternion(q);
         target = Math.atan2(tmp.x, tmp.z);
-      } else if (b.id === 'earth' && Math.abs(this.speed) <= SPIN_CAP) {
+      } else if (b.id === 'earth' && Math.abs(this.speed) <= EARTH_EXACT) {
         tmp.copy(rt.pos).negate().normalize().applyQuaternion(q);
         target = Math.atan2(tmp.x, tmp.z) - subSolarLon(this.simMs) * D2R;
       }
       if (target !== null) rt.spinA = dtReal <= 0 ? target : rt.spinA + wrapPi(target - rt.spinA) * Math.min(1, dtReal / 0.25);
-      else if (b.rotationH) rt.spinA += (dtReal * spinRate * 2 * Math.PI) / b.rotationH;
+      else if (b.rotationH) {
+        const w = (simH * 2 * Math.PI) / b.rotationH;
+        rt.spinA += dtReal * SPIN_MAX_W * Math.tanh(w / SPIN_MAX_W);
+      }
       rt.spinA = wrapPi(rt.spinA);
       rt.spin.rotation.y = rt.spinA;
       if (rt.atmo) rt.atmo.u.uSun.value.copy(rt.pos).negate().normalize();
       // Keep the camera fixed over the surface of the focused body while it turns.
-      if (b.id === this.focusId && b.id !== 'sun' && !this.tween && this.dist < rt.R * 24 && dtReal > 0) {
+      if (b.id === this.focusId && b.id !== 'sun' && !this.tween && dtReal > 0 && (this.selFeature?.body === b.id || this.dist < rt.R * CO_ROTATE_R)) {
         const off = this.offset();
         off.applyAxisAngle(rt.pole, wrapPi(rt.spinA - prev));
         this.setAngles(off);
@@ -561,6 +595,7 @@ export class SolarView {
   /** Flies to a body (and shows its card via onSelect). */
   select(id: BodyId, emit = true): void {
     this.selFeature = null;
+    this.sites.sel = null;
     this.focus(id);
     if (emit) this.ev.onSelect?.({ kind: 'body', id });
   }
@@ -568,12 +603,76 @@ export class SolarView {
   /** The whole system from above. */
   overview(): void {
     this.selFeature = null;
+    this.sites.sel = null;
     this.focus('sun', OVERVIEW_DIST, 0.5);
+  }
+
+  /**
+   * Moves to another scale with a cross-fade. `how`: 'up' = zooming out from the scale below, 'down' = zooming in
+   * from the one above, 'jump' = straight there (scale rail, links).
+   */
+  goScale(to: ScaleId | undefined, how?: 'up' | 'down' | 'jump'): void {
+    const from = this.scale;
+    if (!to || to === from) return;
+    const iF = SCALES.indexOf(from), iT = SCALES.indexOf(to);
+    how ??= Math.abs(iF - iT) === 1 ? (iT < iF ? 'up' : 'down') : 'jump';
+    if (to === 'solar') {
+      if (from === 'galaxy' || how === 'down') this.setAngles(this.anglesVec(this.deep.az, this.deep.el, galToEcl, eclToGal, true));
+      this.selFeature = null;
+      this.focusId = 'sun';
+      const rt = this.rts.get('sun')!;
+      this.dist = how === 'down' ? MAX_DIST * 1.6 : OVERVIEW_DIST * 0.4;
+      this.tween = { t: 0, dur: 2000, fromPos: rt.pos.clone(), fromDist: this.dist, toDist: OVERVIEW_DIST, fromAz: this.az, fromEl: this.el, toLocal: null, toEl: 0.5 };
+      this.over.v = 0;
+    } else {
+      if (from === 'solar') {
+        const off = this.anglesVec(this.az, this.el, eclToGal, galToEcl, false);
+        this.deep.az = Math.atan2(off.x, off.z);
+        this.deep.el = Math.asin(Math.max(-1, Math.min(1, off.y)));
+      }
+      this.deep.enter(to as DeepScale, how, from === 'solar' ? 600 : this.deep.distLy);
+    }
+    this.xf = { from, to, t: 0, dur: this.quality.tier === 'low' ? 700 : 1100 };
+    this.scale = to;
+    this.interacting = performance.now();
+    this.ev.onScale?.(to);
+  }
+
+  /** The camera direction (az, el) re-expressed in the other frame (ecliptic ↔ galactic). */
+  private anglesVec(az: number, el: number, conv: (v: Vec3) => Vec3, _inv: (v: Vec3) => Vec3, toSolar: boolean): THREE.Vector3 {
+    const o = new THREE.Vector3(Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az));
+    const v = conv([o.x, -o.z, o.y]);
+    const out = new THREE.Vector3(v[0], v[2], -v[1]);
+    return toSolar ? out.multiplyScalar(this.dist || 1) : out;
+  }
+
+  selectDeep(key: string): boolean {
+    const o = this.deep.objectsOf(this.scale as DeepScale).find(x => x.key === key);
+    if (o) this.deep.select(o);
+    return Boolean(o);
+  }
+
+  /** Flies to a lander / rover / orbiter (or shows a far spacecraft in the overview). */
+  selectSite(s: SolarSite, emit = true): void {
+    this.selFeature = null;
+    this.sites.sel = s;
+    if (s.helio) this.focus('sun', Math.max(OVERVIEW_DIST, helioOrbit(s, this.simMs) * 1.25), 0.45);
+    else {
+      const rt = this.rts.get(s.body)!;
+      if (s.orbit) this.focus(s.body, rt.R * (3 + s.orbit.altR * 2.5), 0.35);
+      else {
+        // look from a little south of the site so the model is seen at an angle, not straight down
+        const lat = s.lat > 60 ? s.lat - 7 : s.lat + (s.lat < -60 ? 7 : -6);
+        this.focus(s.body, rt.R * 1.5, undefined, new THREE.Vector3(...latLonToVec(lat, s.lon)));
+      }
+    }
+    if (emit) this.ev.onSelect?.({ kind: 'site', s });
   }
 
   selectFeature(f: SolarFeature, emit = true): void {
     const rt = this.rts.get(f.body)!;
     this.selFeature = f;
+    this.sites.sel = null;
     this.focus(f.body, rt.R * 2.1, undefined, new THREE.Vector3(...latLonToVec(f.lat, f.lon)));
     if (emit) this.ev.onSelect?.({ kind: 'feature', f });
   }
@@ -600,6 +699,7 @@ export class SolarView {
   }
 
   setSpeed(s: number): void { this.speed = s; }
+  get selSite(): SolarSite | null { return this.sites.sel; }
   resetTime(): void { this.simMs = Date.now(); this.updateBodies(0); }
 
   relabel(): void {
@@ -609,13 +709,39 @@ export class SolarView {
       const f = SOLAR_FEATURES.find(x => x.key === key);
       if (f) el.querySelector('span')!.textContent = tr(f.name, l);
     }
+    this.sites.relabel();
   }
 
   zoomBy(f: number): void {
+    if (this.xf && this.xf.t < 0.7) return;
+    if (this.scale !== 'solar') { this.deep.zoomBy(f); return; }
     const rt = this.rts.get(this.focusId)!;
     this.tween = null;
+    const atMax = this.dist >= MAX_DIST - 1e-3;
     this.dist = Math.max(rt.R * 1.15, Math.min(MAX_DIST, rt.R + (this.dist - rt.R) * f));
     if (f < 1) this.checkEarthExit();
+    // Keeping on zooming out at the widest view leaves the Solar System for the Milky Way.
+    if (f > 1 && atMax) {
+      const now = performance.now();
+      this.over.v = (now - this.over.t < 800 ? this.over.v : 0) + Math.log(f);
+      this.over.t = now;
+      if (this.over.v > 0.4) { this.over.v = 0; this.goScale('galaxy', 'up'); }
+    }
+  }
+
+  /** Straight back to the Solar System with no transition (re-entering from the globe). */
+  resetScale(): void {
+    if (this.scale === 'solar' && !this.xf) return;
+    this.scale = 'solar';
+    this.xf = null;
+    this.deep.select(null, false);
+    this.deep.labels(null);
+  }
+
+  /** Back to the resting view of the current scale. */
+  home(): void {
+    if (this.scale === 'solar') this.overview();
+    else this.deep.overview();
   }
 
   private checkEarthExit(): void {
@@ -648,20 +774,20 @@ export class SolarView {
   // ---------- input ----------
   private bindInput(el: HTMLCanvasElement): void {
     const ptrs = new Map<number, { x: number; y: number }>();
-    let down: { x: number; y: number; t: number } | null = null, moved = false, pinch0 = 0, dist0 = 0;
+    let down: { x: number; y: number; t: number } | null = null, moved = false, pinch0 = 0;
     el.addEventListener('pointerdown', e => {
       el.setPointerCapture(e.pointerId);
       ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (ptrs.size === 1) { down = { x: e.clientX, y: e.clientY, t: performance.now() }; moved = false; }
-      if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); dist0 = this.dist; }
+      if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); }
       this.vAz = this.vEl = 0;
       this.interacting = performance.now();
     });
     el.addEventListener('pointermove', e => {
       const prev = ptrs.get(e.pointerId);
       if (!prev) {
-        const r = el.getBoundingClientRect();
-        el.style.cursor = this.pickAt(e.clientX - r.left, e.clientY - r.top) ? 'pointer' : 'grab';
+        const r = el.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+        el.style.cursor = (this.scale === 'solar' ? this.pickAt(x, y) : this.deep.pickAt(x, y)) ? 'pointer' : 'grab';
         return;
       }
       const cur = { x: e.clientX, y: e.clientY };
@@ -670,16 +796,13 @@ export class SolarView {
       if (ptrs.size === 2) {
         const [a, b] = [...ptrs.values()];
         const d = Math.hypot(a.x - b.x, a.y - b.y);
-        if (pinch0 > 0 && d > 0) {
-          const rt = this.rts.get(this.focusId)!;
-          const want = rt.R + (dist0 - rt.R) * (pinch0 / d);
-          this.zoomBy((want - rt.R) / Math.max(1e-6, this.dist - rt.R));
-        }
+        if (pinch0 > 0 && d > 0) { this.zoomBy(pinch0 / d); pinch0 = d; }
         moved = true;
         return;
       }
       if (down && Math.hypot(cur.x - down.x, cur.y - down.y) > 6) moved = true;
       if (!moved) return;
+      if (this.scale !== 'solar') { this.deep.rotate(cur.x - prev.x, cur.y - prev.y); return; }
       this.tween = null;
       const rt = this.rts.get(this.focusId)!;
       const k = 0.0055 * Math.max(0.06, Math.min(1, ((this.dist - rt.R) / this.dist) * 1.3));
@@ -691,21 +814,33 @@ export class SolarView {
     const up = (e: PointerEvent) => {
       ptrs.delete(e.pointerId);
       if (down && !moved && performance.now() - down.t < 600 && ptrs.size === 0) {
-        const r = el.getBoundingClientRect();
-        const id = this.pickAt(e.clientX - r.left, e.clientY - r.top);
-        if (id) this.select(id);
+        const r = el.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+        if (this.scale !== 'solar') {
+          const hit = this.deep.pickAt(x, y);
+          if (hit === 'home') this.goScale(SCALES[SCALES.indexOf(this.scale) + 1], 'down');
+          else if (hit) this.deep.select(hit);
+        } else {
+          const id = this.pickAt(x, y);
+          if (id) this.select(id);
+        }
       }
       if (ptrs.size === 0) down = null;
       if (ptrs.size < 2) pinch0 = 0;
     };
     el.addEventListener('pointerup', up);
     el.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); down = null; });
-    el.addEventListener('wheel', e => {
+    // on the stage, not just the canvas: wheeling over a label must zoom too
+    this.root.addEventListener('wheel', e => {
       e.preventDefault();
       this.interacting = performance.now();
       this.zoomBy(Math.exp(e.deltaY * 0.0015));
     }, { passive: false });
     el.addEventListener('keydown', e => {
+      if (this.scale !== 'solar' && e.key.startsWith('Arrow')) {
+        this.deep.rotate(e.key === 'ArrowLeft' ? 16 : e.key === 'ArrowRight' ? -16 : 0, e.key === 'ArrowUp' ? 16 : e.key === 'ArrowDown' ? -16 : 0);
+        e.preventDefault();
+        return;
+      }
       if (e.key === 'ArrowLeft') this.az -= 0.08; else if (e.key === 'ArrowRight') this.az += 0.08;
       else if (e.key === 'ArrowUp') this.el = Math.min(1.5, this.el + 0.08); else if (e.key === 'ArrowDown') this.el = Math.max(-1.5, this.el - 0.08);
       else if (e.key === '+' || e.key === '=') this.zoomBy(0.8); else if (e.key === '-') this.zoomBy(1.25);
@@ -729,22 +864,48 @@ export class SolarView {
     if (!this.active) return;
     this.raf = requestAnimationFrame(() => this.loop());
     const now = performance.now();
-    const busy = this.tween || now - this.interacting < 400 || Math.abs(this.vAz) + Math.abs(this.vEl) > 1e-5;
+    const busy = this.tween || this.xf || this.deep.busy || now - this.interacting < 400 || Math.abs(this.vAz) + Math.abs(this.vEl) > 1e-5;
     if (!busy && this.quality.idleFps && now - this.last < 1000 / this.quality.idleFps - 4) return;
     const dt = Math.min(100, now - this.last);
     const frameMs = now - this.last;
     this.last = now;
     this.simMs += dt * this.speed;
     this.resize();
-    this.updateBodies(dt / 1000);
-    this.updateCamera(dt);
-    this.sunU.uTime.value = now / 1000;
-    this.updateLOD();
-    this.renderer.render(this.scene, this.camera);
-    this.updateLabels();
+    const xf = this.xf;
+    let e = 1;
+    if (xf) {
+      xf.t = Math.min(1, xf.t + dt / xf.dur);
+      e = ease(xf.t);
+      // the level being left keeps moving the way you were zooming while it fades
+      const up = SCALES.indexOf(xf.to) < SCALES.indexOf(xf.from), f = 1 + (up ? 1 : -0.6) * dt * 0.0016;
+      if (xf.from === 'solar') this.dist *= f; else this.deep.drift(xf.from as DeepScale, f);
+      if (xf.t >= 1) this.xf = null;
+    }
+    const weight = (s: ScaleId) => (!xf ? (s === this.scale ? 1 : 0) : s === xf.to ? e : s === xf.from ? 1 - e : 0);
+    const primary: ScaleId = xf && e < 0.5 ? xf.from : this.scale;
+    this.renderer.clear();
+    const ws = weight('solar');
+    if (ws > 0) {
+      this.updateBodies(dt / 1000);
+      this.updateCamera(dt);
+      this.sunU.uTime.value = now / 1000;
+      this.updateLOD();
+      this.renderer.render(this.scene, this.camera);
+      if (ws < 1) {
+        (this.veil.material as THREE.MeshBasicMaterial).opacity = 1 - ws;
+        this.renderer.render(this.veilScene, this.veilCam);
+      }
+    }
+    this.deep.update(dt);
+    this.deep.setScreen(this.sized.w, this.sized.h, this.renderer.getPixelRatio());
+    for (const s of xf ? [xf.from, xf.to] : [this.scale]) if (s !== 'solar') this.deep.render(this.renderer, s, weight(s), this.camera.fov);
+    this.labelsEl.hidden = this.featEl.hidden = primary !== 'solar';
+    if (primary === 'solar') this.updateLabels();
+    this.deep.labels(primary === 'solar' ? null : primary as DeepScale);
     const pr = this.adapt.sample(frameMs);
     if (pr !== null) this.renderer.setPixelRatio(pr);
     if (now - this.lastTime > 250) { this.lastTime = now; this.ev.onTime?.(this.simMs); }
+    if (this.scale !== 'solar') return;
     const rt = this.rts.get(this.focusId)!;
     const view = this.focusId + (this.dist < rt.R * 30 ? ':near' : ':far');
     if (view !== this.lastView) { this.lastView = view; this.ev.onView?.(this.focusId, this.dist < rt.R * 30); }
@@ -799,10 +960,15 @@ export class SolarView {
       rt.label.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px) translateX(-50%)`;
       rt.label.classList.toggle('on', b.id === this.focusId);
     }
-    this.updateFeatureLabels(W, H);
+    const placed: [number, number][] = [];
+    const f = this.rts.get(this.focusId)!;
+    this.sites.sync(this.focusId !== 'sun' && this.dist < f.R * 9 ? { id: this.focusId, R: f.R, pos: f.pos, tilt: f.tilt, spin: f.spin } : null);
+    this.sites.update(performance.now(), this.simMs, this.camera, W, H, { id: this.focusId, R: f.R, pos: f.pos, tilt: f.tilt, spin: f.spin },
+      this.focusId === 'sun' && this.dist > 60 && !this.tween, placed);
+    this.updateFeatureLabels(W, H, placed);
   }
 
-  private updateFeatureLabels(W: number, H: number): void {
+  private updateFeatureLabels(W: number, H: number, placed: [number, number][]): void {
     const rt = this.rts.get(this.focusId)!;
     const list = featuresOf(this.focusId);
     const want = new Set<string>();
@@ -815,7 +981,6 @@ export class SolarView {
       toCam.divideScalar(dc);
       const horizon = rt.R / dc;
       const n = new THREE.Vector3(), p = new THREE.Vector3();
-      const placed: [number, number][] = [];
       for (const f of list) {
         if (want.size >= max && f !== this.selFeature) continue;
         n.set(...latLonToVec(f.lat, f.lon)).transformDirection(rt.spin.matrixWorld);

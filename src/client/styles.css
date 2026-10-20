@@ -998,6 +998,58 @@ body.solar .time-bar, body.solar .ride-bar, body.solar .globe-tip { display: non
 .solar-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .tag-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel2); color: var(--text-2); font-size: .8rem; }
 .tag-chip:hover { background: var(--hover); color: var(--text); border-color: var(--line-strong); }
+/* ---- explorer sites on other worlds ---- */
+.sf-label.site { --k: #fbbf24; gap: 5px; }
+.sf-label.site b { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: 11px; font-weight: 400; flex: none;
+  background: rgba(9, 9, 11, 0.78); box-shadow: 0 0 0 1.5px var(--k), 0 0 12px color-mix(in srgb, var(--k) 60%, transparent); text-shadow: none; }
+.sf-label.site { margin: -10px 0 0 -10px; }
+.sf-label.site span { color: #fde68a; }
+.sf-label.site.future { --k: #a78bfa; }
+.sf-label.site.future span { color: #ddd6fe; }
+.sf-label.site.on b { box-shadow: 0 0 0 2px #09090b, 0 0 0 4px var(--accent), 0 0 16px var(--accent); }
+.site-hero { display: grid; place-items: center; min-height: 180px; background: radial-gradient(ellipse at 50% 70%, #1b1d26, #0b0c10 70%); }
+.site-hero .model-stage { width: 100%; }
+.site-emoji { font-size: 64px; }
+.chip-emoji { font-size: 14px; line-height: 1; }
+
+/* ---- deep scales (Milky Way → universe) ---- */
+.deep-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 2; }
+.deep-level[hidden], .dl-label[hidden] { display: none; }
+.dl-label { --c: #e5e7eb; pointer-events: auto; position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 6px; margin: -7px 0 0 -5px;
+  background: none; border: 0; padding: 2px 6px 2px 0; white-space: nowrap; cursor: pointer; font-family: var(--font-display); font-size: 12px; font-weight: 500;
+  color: rgba(244, 244, 245, 0.86); text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 0 10px rgba(0, 0, 0, 0.8); }
+.dl-label i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6), 0 0 10px var(--c); flex: none; }
+.dl-label:hover { color: #fff; }
+.dl-label.on { color: #fff; font-weight: 600; }
+.dl-label.on i { box-shadow: 0 0 0 2px #09090b, 0 0 0 4px var(--accent), 0 0 14px var(--accent); }
+.dl-label.home { margin: 0; transform-origin: 0 0; padding: 4px 10px 4px 22px; border-radius: 999px; font-size: 11.5px; font-weight: 600; letter-spacing: .02em;
+  color: #fde68a; background: rgba(9, 9, 11, 0.55); border: 1px solid rgba(253, 230, 138, 0.35); translate: -11px -11px; }
+.dl-label.home::before { content: ""; position: absolute; left: 6px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%;
+  background: #fde68a; box-shadow: 0 0 0 0 rgba(253, 230, 138, 0.6); animation: here 2s ease-out infinite; }
+@keyframes here { to { box-shadow: 0 0 0 12px rgba(253, 230, 138, 0); } }
+.solar-ui.deep .solar-time { display: none; }
+.solar-ui.deep .solar-hint { bottom: 76px; }
+.solar-crumbs .crumb-up { color: var(--faint); }
+
+/* ---- scale rail: universe … Earth ---- */
+.scale-rail { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); z-index: 8; display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  padding: 6px 4px; }
+.scale-rail::before { content: ""; position: absolute; right: 17px; top: 18px; bottom: 18px; width: 1px; background: linear-gradient(var(--line-strong), var(--line)); }
+.sr-step { position: relative; display: flex; align-items: center; justify-content: flex-end; gap: 10px; height: 30px; padding: 0 6px 0 10px; border: 0; background: none;
+  color: var(--faint); font-family: var(--font-display); font-size: .78rem; font-weight: 500; cursor: pointer; border-radius: 9px; }
+.sr-step span { opacity: 0; transform: translateX(6px); transition: opacity .18s, transform .18s; white-space: nowrap; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9); }
+.sr-step i { position: relative; width: 14px; height: 14px; border-radius: 50%; flex: none; display: grid; place-items: center; background: #0b0c10;
+  box-shadow: 0 0 0 1px var(--line-strong); }
+.sr-step i::after { content: ""; width: var(--d, 6px); height: var(--d, 6px); border-radius: 50%; background: var(--sc, #a1a1aa); }
+.sr-universe { --sc: #f0abfc; --d: 9px; } .sr-laniakea { --sc: #c4b5fd; --d: 8px; } .sr-group { --sc: #a5b4fc; --d: 7px; }
+.sr-galaxy { --sc: #93c5fd; --d: 6px; } .sr-solar { --sc: #fcd34d; --d: 6px; } .sr-earth { --sc: #38bdf8; --d: 6px; }
+.scale-rail:hover .sr-step span, .sr-step:focus-visible span, .sr-step.on span { opacity: 1; transform: none; }
+.sr-step:hover { color: var(--text); }
+.sr-step.on { color: var(--text); font-weight: 600; }
+.sr-step.on i { box-shadow: 0 0 0 1.5px var(--sc), 0 0 12px color-mix(in srgb, var(--sc) 60%, transparent); }
+.sr-step.on i::after { width: 8px; height: 8px; }
+body.gaming .scale-rail, body.fading .scale-rail { opacity: 0; pointer-events: none; }
+body:has(.info.expanded:not(.hidden)) .scale-rail { display: none; }
 @media (max-width: 960px) {
   .omni-kbd { display: none; }
   .omnibar { width: min(320px, 36vw); }
@@ -1048,6 +1100,13 @@ body.solar .time-bar, body.solar .ride-bar, body.solar .globe-tip { display: non
   .solar-info.expanded { height: auto; }
   body:has(.solar-info:not(.hidden)) .solar-bottom, body:has(.solar-info:not(.hidden)) .solar-hint { display: none; }
   .sb-label { font-size: 11.5px; }
+  .scale-rail { right: 4px; top: 66px; transform: none; padding: 2px; }
+  body.solar .scale-rail { top: 52px; }
+  .scale-rail::before { right: 15px; }
+  .sr-step { height: 26px; }
+  .scale-rail:hover .sr-step span { opacity: 0; }
+  .sr-step.on span { opacity: 1; font-size: .72rem; }
+  .solar-ui.deep .solar-hint { bottom: 70px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0s !important; transition: none !important; } }
 body.lowfx *, body.lowfx *::before, body.lowfx *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; animation-duration: 0s !important; transition: none !important; }
