@@ -128,24 +128,65 @@ void main() {
   #include <colorspace_fragment>
 }`;
 const SUN_VS = /* glsl */ `
-varying vec2 vUv; varying vec3 vN; varying vec3 vW;
+varying vec2 vUv; varying vec3 vN; varying vec3 vW; varying vec3 vP;
 void main() {
-  vUv = uv; vN = normalize(mat3(modelMatrix) * normal);
+  vUv = uv; vP = position; vN = normalize(mat3(modelMatrix) * normal);
   vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz;
   gl_Position = projectionMatrix * viewMatrix * w;
 }`;
+/**
+ * The photosphere: the painted map (sunspots, faculae, mottling) under limb darkening, live convection on top, and
+ * the bright two-ribbon footprint of a flare. Granulation is cellular noise on the unit sphere whose cells drift and
+ * re-form, faded out where they would be smaller than a pixel.
+ */
 const SUN_FS = /* glsl */ `
-uniform sampler2D uMap; uniform float uTime;
-varying vec2 vUv; varying vec3 vN; varying vec3 vW;
+uniform sampler2D uMap; uniform float uTime; uniform vec4 uFlare;
+varying vec2 vUv; varying vec3 vN; varying vec3 vW; varying vec3 vP;
+float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+#ifdef GRAN
+float cells(vec3 p, float t) {
+  vec3 i = floor(p), f = fract(p);
+  float d1 = 8.0, d2 = 8.0;
+  for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+    vec3 g = vec3(float(x), float(y), float(z)), id = i + g;
+    vec3 o = 0.5 + 0.42 * sin(t + 6.2831 * vec3(h3(id), h3(id + 19.1), h3(id + 47.3)));
+    vec3 r = g + o - f;
+    float d = dot(r, r);
+    if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d;
+  }
+  return sqrt(d2) - sqrt(d1);   // ~0 on the dark intergranular lanes, larger in the bright cell centres
+}
+#endif
 void main() {
+  vec3 n = normalize(vP);
   float mu = clamp(dot(normalize(vN), normalize(cameraPosition - vW)), 0.0, 1.0);
   vec3 c = texture2D(uMap, vUv).rgb;
-  float flick = 0.97 + 0.03 * sin(uTime * 1.7 + vUv.x * 40.0) * sin(uTime * 1.3 + vUv.y * 33.0);
-  // Limb darkening, I(mu) = 1 - u(1-mu) - v(1-mu^2) with Allen's coefficients at ~650/550/450 nm: the edge falls to
-  // ~40/35/25% and so turns orange-red, while the centre stays white.
+  float gran = 1.0;
+#ifdef GRAN
+  float px = length(fwidth(vP)) * 70.0;
+  float vis = 1.0 - smoothstep(0.25, 0.7, px);
+  if (vis > 0.0) {
+    float g = cells(n * 70.0, uTime * 0.25);
+    float mg = cells(n * 22.0 + 3.1, uTime * 0.08);
+    gran = mix(1.0, 0.86 + 0.2 * smoothstep(0.0, 0.45, g) + 0.06 * smoothstep(0.0, 0.5, mg), vis);
+  }
+#endif
+  // Limb darkening, I(mu) = 1 - u(1-mu) - v(1-mu^2) with Allen's coefficients at ~650/550/450 nm: the golden centre
+  // deepens to orange at the edge.
   float m1 = 1.0 - mu, m2 = 1.0 - mu * mu;
   vec3 ld = vec3(1.0) - vec3(0.80, 0.88, 0.97) * m1 + vec3(0.20, 0.23, 0.22) * m2;
-  c *= ld * 1.32 * flick;
+  c *= ld * 1.3 * gran;
+  // Flare: two bright ribbons either side of the magnetic neutral line, flashing on and drifting apart as they fade.
+  float fa = uFlare.w;
+  if (fa > -0.4 && fa < 14.0) {
+    vec3 f0 = uFlare.xyz, tg = normalize(cross(f0, abs(f0.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0))), bt = cross(f0, tg);
+    vec3 q = n - f0;
+    float al = dot(q, tg), ac = dot(q, bt), sep = 0.008 + 0.0035 * max(fa, 0.0);
+    float rib = exp(-pow(al / 0.05, 2.0)) * (exp(-pow((ac - sep) / 0.005, 2.0)) + exp(-pow((ac + sep) / 0.005, 2.0)));
+    float kern = exp(-dot(q, q) / 0.0012);
+    float env = smoothstep(-0.4, 0.15, fa) * exp(-max(fa, 0.0) / 2.8);
+    c += vec3(1.0, 0.97, 0.9) * env * (rib * 1.6 + kern * 1.1);
+  }
   gl_FragColor = vec4(c, 1.0);
   #include <colorspace_fragment>
 }`;
@@ -160,7 +201,7 @@ export class SolarView {
   private rts = new Map<BodyId, BodyRT>();
   private tmpDisc = new THREE.Vector3();
   private stars!: THREE.Points;
-  private sunU = { uMap: { value: new THREE.Texture() as THREE.Texture }, uTime: { value: 0 } };
+  private sunU = { uMap: { value: new THREE.Texture() as THREE.Texture }, uTime: { value: 0 }, uFlare: { value: new THREE.Vector4(0, 1, 0, -99) } };
   private geoLo: THREE.SphereGeometry;
   private geoHi: THREE.SphereGeometry;
   private worker: Worker | null = null;
@@ -257,7 +298,7 @@ export class SolarView {
       tilt.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), pole);
       let mat: BodyRT['mat'];
       if (b.id === 'sun') {
-        mat = new THREE.ShaderMaterial({ uniforms: this.sunU, vertexShader: SUN_VS, fragmentShader: SUN_FS });
+        mat = new THREE.ShaderMaterial({ uniforms: this.sunU, vertexShader: SUN_VS, fragmentShader: SUN_FS, defines: this.quality.tier === 'low' ? {} : { GRAN: 1 } });
         this.addSunGlow(node, R);
       } else {
         mat = new THREE.MeshStandardMaterial({ color: 0x8a8a8a, roughness: 1, metalness: 0 });
@@ -339,15 +380,15 @@ export class SolarView {
     cv.width = cv.height = 128;
     const ctx = cv.getContext('2d')!;
     const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-    g.addColorStop(0, 'rgba(255,250,240,1)');
-    g.addColorStop(0.2, 'rgba(255,242,224,0.5)');
-    g.addColorStop(0.45, 'rgba(250,236,220,0.13)');
-    g.addColorStop(1, 'rgba(240,232,225,0)');
+    g.addColorStop(0, 'rgba(255,240,200,1)');
+    g.addColorStop(0.2, 'rgba(255,208,120,0.5)');
+    g.addColorStop(0.45, 'rgba(255,160,70,0.14)');
+    g.addColorStop(1, 'rgba(255,130,50,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, 128, 128);
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
-    for (const [s, o] of [[R * 5.2, 0.8], [R * 14, 0.09]] as const) {
+    for (const [s, o] of [[R * 5.2, 0.8], [R * 14, 0.1]] as const) {
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: o }));
       sp.scale.setScalar(s);
       node.add(sp);

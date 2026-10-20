@@ -1,7 +1,8 @@
 /**
  * Living-sky effects for the Solar System view, all GPU-driven and cheap (a handful of draw calls):
  * - the asteroid belt (with Kirkwood gaps), Jupiter's Trojans and the Kuiper belt, each rock on its own Kepler orbit;
- * - the Sun's corona streamers, prominence loops and the odd flare + coronal mass ejection;
+ * - the Sun's corona (equatorial streamers, polar plumes), prominence loops and eruptions: a rising prominence, a
+ *   two-ribbon flare and a three-part coronal mass ejection;
  * - weather: zonal jets and storm vortices flowing on the giant planets, Venus's super-rotating clouds, Earth's
  *   cloud cover with cyclones, Martian dust storms, and aurorae on Earth, Jupiter and Saturn;
  * - Comet Encke (3.3-year orbit) whose ion and dust tails grow as it nears the Sun.
@@ -127,37 +128,84 @@ class SmallBodies {
 // ---------------------------------------------------------------------------------------------------------------
 // The Sun
 // ---------------------------------------------------------------------------------------------------------------
+const NOISE2 = /* glsl */ `
+float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float vn(vec2 p) {
+  vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(h2(i), h2(i + vec2(1.0, 0.0)), f.x), mix(h2(i + vec2(0.0, 1.0)), h2(i + vec2(1.0, 1.0)), f.x), f.y);
+}`;
 const CORONA_VS = /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+/**
+ * The corona as a coronagraph sees it, drawn on a camera-facing plane (x = screen right, y = screen up):
+ * - helmet streamers bunched around the solar equator that narrow into long rays,
+ * - short fine plumes over the poles,
+ * - radial filaments that evolve slowly (noise sampled on the direction only, so every structure stays radial),
+ * - and the three-part coronal mass ejection: a bright leading loop, a dark cavity and a bright prominence core.
+ */
 const CORONA_FS = /* glsl */ `
-uniform float uT; uniform float uBoost; uniform float uSpan;
+uniform float uT; uniform float uBoost; uniform float uSpan; uniform vec2 uPole; uniform vec4 uCme;
 varying vec2 vUv;
+${NOISE2}
 void main() {
   vec2 p = (vUv - 0.5) * 2.0 * uSpan;          // in solar radii
-  float r = length(p), a = atan(p.y, p.x);
+  float r = length(p);
   if (r < 0.98) discard;
-  float s = 0.5 + 0.5 * sin(a * 5.0 + uT * 0.05) * sin(a * 11.0 - uT * 0.031 + 1.3);
-  s = 0.35 + 0.65 * s * (0.6 + 0.4 * sin(a * 23.0 + uT * 0.08 + 2.0 * sin(a * 3.0)));
-  float rays = s * pow(1.0 / r, 1.7) * smoothstep(uSpan, uSpan * 0.4, r);
+  vec2 d = p / r;
+  float eq = 1.0 - abs(dot(d, uPole));         // 1 over the solar equator, 0 over the poles
+  float t = uT * 0.015;
+  float fil = 0.6 * vn(d * 34.0 + vec2(t, -t)) + 0.4 * vn(d * 85.0 - t * 1.7);
+  float lobes = vn(d * 3.6 + vec2(1.7, t * 0.4));
+  float streamer = smoothstep(0.5, 0.85, lobes) * pow(eq, 3.0);
+  float narrow = mix(1.0, fil * fil * 1.8, smoothstep(1.3, 3.2, r)); // broad helmets near the limb, thin rays beyond
+  float plume = pow(1.0 - eq, 3.0) * pow(vn(d * 64.0 + t), 3.0) * smoothstep(2.6, 1.2, r);
+  float fall = smoothstep(uSpan, uSpan * 0.4, r);
+  float ray = (0.08 + 1.6 * streamer * narrow + 0.7 * plume) * (0.45 + 0.55 * fil) * pow(1.0 / r, 2.6) * fall;
   float inner = pow(1.0 / r, 6.0);
-  float k = (0.55 * inner + 0.5 * rays) * smoothstep(0.98, 1.06, r) * (1.0 + uBoost);
-  // The K-corona is sunlight scattered by free electrons: pearl white, as seen in a total eclipse.
-  gl_FragColor = vec4(vec3(0.96, 0.96, 1.0) * k * 0.7, 1.0);
+  float k = (0.55 * inner + 0.5 * ray) * smoothstep(0.98, 1.05, r) * (1.0 + uBoost);
+  vec3 col = vec3(1.0, 0.86, 0.6) * k;
+  if (uCme.w > 0.0) {
+    float age = uCme.y;
+    float da = acos(clamp(dot(d, vec2(cos(uCme.x), sin(uCme.x))), -1.0, 1.0));
+    float wid = uCme.z * (0.55 + 0.45 * smoothstep(0.0, 3.0, age));
+    float side = smoothstep(wid, wid * 0.75, da);
+    float rf = 1.1 + age * 0.38 + age * age * 0.025;                // slow lift-off, then it races out
+    float shape = rf * (1.0 - 0.3 * pow(da / max(wid, 1e-3), 2.0)); // a rounded bubble
+    float w = 0.07 + 0.02 * age;
+    float front = exp(-pow((r - shape) / w, 2.0)) * side;
+    float cavity = smoothstep(shape - w, shape * 0.6, r) * smoothstep(1.0, 1.25, r) * side;
+    float core = exp(-pow((r - shape * 0.55) / (0.1 + 0.03 * age), 2.0)) * exp(-pow(da / (wid * 0.35), 2.0));
+    float fade = smoothstep(0.0, 0.8, age) * (1.0 - smoothstep(6.0, 11.0, age));
+    float strands = 0.55 + 0.45 * vn(d * 55.0 + r * 4.0);
+    col *= 1.0 - 0.55 * cavity * fade;
+    col += (vec3(1.0, 0.92, 0.76) * front * 0.85 + vec3(1.0, 0.5, 0.22) * core * 0.75) * strands * fade / max(r * 0.6, 1.0);
+  }
+  gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>
 }`;
 
 const PROM_VS = /* glsl */ `
-attribute vec3 aBase; attribute vec3 aLoop; // s along loop, period, offset
-uniform float uT;
+attribute vec3 aBase; attribute vec3 aLoop; attribute float aIdx; // aLoop: s along loop, period, offset
+uniform float uT; uniform float uEid; uniform float uEage;
 varying float vS; varying float vI; varying vec3 vN; varying vec3 vV; varying float vId;
 void main() {
   float life = fract(uT / aLoop.y + aLoop.z);
+  bool mine = abs(aIdx - uEid) < 0.5;
+  bool erupting = mine && uEage < 10.0;
+  if (erupting) life = 0.55;
   float g = 0.45 + 0.55 * smoothstep(0.0, 0.6, life);
   vec3 p = aBase + (position - aBase) * g;
+  if (erupting) {
+    // Eruptive prominence: the legs stay rooted while the loop rises slowly, then accelerates and balloons outward
+    float e = uEage;
+    p = aBase + (p - aBase) * (1.0 + 0.1 * e + 0.07 * e * e);
+  }
   vec4 w = modelMatrix * vec4(p, 1.0);
   vN = normalize(mat3(modelMatrix) * normal);
   vV = normalize(cameraPosition - w.xyz);
   vS = aLoop.x; vId = aLoop.z * 31.0;
   vI = pow(sin(3.14159 * life), 1.4);
+  if (erupting) vI *= (1.0 + 0.6 * smoothstep(0.5, 2.0, uEage)) * (1.0 - smoothstep(4.0, 8.5, uEage));
+  else if (mine) vI *= smoothstep(10.0, 16.0, uEage);              // regrows quietly afterwards
   gl_Position = projectionMatrix * viewMatrix * w;
 }`;
 const PROM_FS = /* glsl */ `
@@ -165,10 +213,10 @@ uniform float uT;
 varying float vS; varying float vI; varying vec3 vN; varying vec3 vV; varying float vId;
 void main() {
   float flow = 0.5 + 0.5 * sin(vS * 34.0 - uT * 2.4 + vId);
+  float knots = 0.75 + 0.25 * sin(vS * 97.0 + uT * 1.1 + vId * 2.0);
   float rim = pow(abs(dot(normalize(vN), normalize(vV))), 1.6);
-  // Hydrogen-alpha (656 nm) with a touch of H-beta: the pink-red prominences seen at the limb during eclipses.
-  vec3 c = mix(vec3(0.86, 0.1, 0.2), vec3(1.0, 0.42, 0.55), flow * 0.6);
-  gl_FragColor = vec4(c * (0.6 + 0.6 * flow), vI * rim * 0.85);
+  vec3 c = mix(vec3(0.95, 0.22, 0.05), vec3(1.0, 0.62, 0.24), flow * 0.6);
+  gl_FragColor = vec4(c * (0.6 + 0.6 * flow) * knots, vI * rim * 0.85);
   #include <colorspace_fragment>
 }`;
 
@@ -177,39 +225,48 @@ attribute vec3 aDir; attribute vec2 aSeed;
 uniform float uT; uniform float uR; uniform float uPr; uniform float uScale;
 varying vec3 vC;
 void main() {
-  float f = uT / 7.0;
-  float d = uR * (1.02 + aSeed.x * f * 5.5 + aSeed.y * 0.15);
+  float f = clamp(uT / 9.0, 0.0, 1.0);
+  float d = uR * (1.03 + aSeed.x * (f * 2.0 + f * f * 4.0) + aSeed.y * 0.12);
   vec4 mv = modelViewMatrix * vec4(aDir * d, 1.0);
   gl_Position = projectionMatrix * mv;
-  float px = uR * 0.035 * uScale / max(1e-4, -mv.z);
-  gl_PointSize = clamp(px, 1.2 * uPr, 4.0 * uPr);
-  float fade = (1.0 - f) * (1.0 - f) * smoothstep(0.0, 0.04, f);
-  // CMEs show up in white-light coronagraphs as scattered sunlight; the hot core glows pinkish while it is young.
-  vC = mix(vec3(1.0, 0.75, 0.82), vec3(0.92, 0.94, 1.0), clamp(f * 1.6, 0.0, 1.0)) * fade * (0.15 + 0.3 * aSeed.y);
+  float px = uR * 0.03 * uScale / max(1e-4, -mv.z);
+  gl_PointSize = clamp(px, 1.0 * uPr, 3.5 * uPr);
+  float fade = (1.0 - f) * (1.0 - f) * smoothstep(0.0, 0.05, f);
+  vC = mix(vec3(1.0, 0.7, 0.35), vec3(1.0, 0.9, 0.75), clamp(f * 1.6, 0.0, 1.0)) * fade * (0.1 + 0.22 * aSeed.y);
 }`;
 
-/** Corona, prominences and flares, parented to the Sun's node (prominences turn with its surface). */
+/** The timeline of one eruption, in seconds after it starts (shared by every layer so they stay in step). */
+const ERUPT = { flare: 1.2, cme: 0.6, end: 18 };
+
+/** Corona, prominences and eruptions, parented to the Sun's node (prominences turn with its surface). */
 class SunFX {
   private corona: THREE.Mesh;
-  private cu = { uT: { value: 0 }, uBoost: { value: 0 }, uSpan: { value: 4.6 } };
-  private pu = { uT: { value: 0 } };
+  private cu = { uT: { value: 0 }, uBoost: { value: 0 }, uSpan: { value: 6 }, uPole: { value: new THREE.Vector2(0, 1) }, uCme: { value: new THREE.Vector4(0, 0, 0.5, 0) } };
+  private pu = { uT: { value: 0 }, uEid: { value: -1 }, uEage: { value: 99 } };
   private eu = { uT: { value: 99 }, uR: { value: 1 }, uPr: { value: 1 }, uScale: { value: 1 } };
   private cme: THREE.Points;
-  private flash: THREE.Sprite;
-  private next = 6;
-  private sinceFlare = 99;
+  private loops: THREE.Vector3[] = [];
+  private eDir = new THREE.Vector3(0, 1, 0);
+  private flareLocal = new THREE.Vector3(0, 1, 0);
+  private uFlare: { value: THREE.Vector4 } | null;
+  private next = 5;
+  private since = 99;
   private r = rng(7);
+  private v = new THREE.Vector3();
+  private q = new THREE.Quaternion();
 
-  constructor(node: THREE.Object3D, spin: THREE.Object3D, private R: number, q: Quality) {
-    this.corona = new THREE.Mesh(new THREE.PlaneGeometry(2 * R * 4.6, 2 * R * 4.6),
+  constructor(node: THREE.Object3D, private spin: THREE.Object3D, private R: number, q: Quality, mat: THREE.Material) {
+    const S = this.cu.uSpan.value;
+    this.corona = new THREE.Mesh(new THREE.PlaneGeometry(2 * R * S, 2 * R * S),
       additive({ uniforms: this.cu, vertexShader: CORONA_VS, fragmentShader: CORONA_FS }));
     node.add(this.corona);
-    spin.add(this.prominences(q.tier === 'high' ? 9 : q.tier === 'medium' ? 6 : 4));
-    // Coronal mass ejection: a cone of plasma blobs that flies out and fades.
-    const n = q.tier === 'high' ? 900 : q.tier === 'medium' ? 500 : 280;
+    spin.add(this.prominences(q.tier === 'high' ? 9 : q.tier === 'medium' ? 7 : 5));
+    this.uFlare = (mat as THREE.ShaderMaterial).uniforms?.uFlare ?? null;
+    // Flare-driven plasma blobs: a cone that leaves with the CME, adding depth to the coronagraph picture.
+    const n = q.tier === 'high' ? 700 : q.tier === 'medium' ? 400 : 220;
     const dir = new Float32Array(n * 3), seed = new Float32Array(n * 2), v = new THREE.Vector3();
     for (let i = 0; i < n; i++) {
-      const th = this.r() * TAU, sp = Math.pow(this.r(), 0.7) * 0.55;
+      const th = this.r() * TAU, sp = Math.pow(this.r(), 0.7) * 0.45;
       v.set(Math.sin(sp) * Math.cos(th), Math.cos(sp), Math.sin(sp) * Math.sin(th));
       dir.set([v.x, v.y, v.z], i * 3);
       seed.set([0.5 + this.r() * 0.7 * (1 - sp), this.r()], i * 2);
@@ -223,27 +280,19 @@ class SunFX {
     this.cme.frustumCulled = false;
     this.cme.visible = false;
     node.add(this.cme);
-    const cv = document.createElement('canvas');
-    cv.width = cv.height = 64;
-    const ctx = cv.getContext('2d')!, gr = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(250,248,255,0.7)'); gr.addColorStop(1, 'rgba(235,240,255,0)');
-    ctx.fillStyle = gr; ctx.fillRect(0, 0, 64, 64);
-    const tex = new THREE.CanvasTexture(cv);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    this.flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0 }));
-    this.flash.visible = false;
-    node.add(this.flash);
   }
 
   /** Magnetic loops of glowing plasma standing on the surface, each growing and fading on its own cycle. */
   private prominences(n: number): THREE.Mesh {
     const R = this.R, SEG = 40, RING = 6;
-    const pos: number[] = [], nor: number[] = [], base: number[] = [], loop: number[] = [], idx: number[] = [];
+    const pos: number[] = [], nor: number[] = [], base: number[] = [], loop: number[] = [], idx: number[] = [], ids: number[] = [];
     const c = new THREE.Vector3(), t = new THREE.Vector3(), ax = new THREE.Vector3(), d = new THREE.Vector3(), T = new THREE.Vector3();
     const N1 = new THREE.Vector3(), N2 = new THREE.Vector3(), P = new THREE.Vector3(), Pn = new THREE.Vector3(), o = new THREE.Vector3();
     for (let k = 0; k < n; k++) {
-      const lat = (this.r() * 2 - 1) * 35 * D2R, lon = this.r() * TAU;
+      // Active regions live in two belts either side of the equator.
+      const lat = (this.r() < 0.5 ? -1 : 1) * (8 + this.r() * 27) * D2R, lon = this.r() * TAU;
       c.set(Math.cos(lat) * Math.cos(lon), Math.sin(lat), Math.cos(lat) * Math.sin(lon));
+      this.loops.push(c.clone());
       t.set(this.r() - 0.5, this.r() - 0.5, this.r() - 0.5).cross(c).normalize();
       ax.crossVectors(c, t).normalize();
       const sep = (6 + this.r() * 10) * D2R, H = R * (0.14 + this.r() * 0.32), w0 = R * (0.006 + this.r() * 0.006);
@@ -268,6 +317,7 @@ class SunFX {
           nor.push(o.x, o.y, o.z);
           base.push(d.x * R, d.y * R, d.z * R);
           loop.push(s, period, off);
+          ids.push(k);
         }
       }
       for (let i = 0; i < SEG; i++) for (let j = 0; j < RING; j++) {
@@ -280,6 +330,7 @@ class SunFX {
     g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
     g.setAttribute('aBase', new THREE.Float32BufferAttribute(base, 3));
     g.setAttribute('aLoop', new THREE.Float32BufferAttribute(loop, 3));
+    g.setAttribute('aIdx', new THREE.Float32BufferAttribute(ids, 1));
     g.setIndex(idx);
     const m = new THREE.Mesh(g, additive({ uniforms: this.pu, vertexShader: PROM_VS, fragmentShader: PROM_FS, side: THREE.DoubleSide, blending: THREE.NormalBlending }));
     m.frustumCulled = false;
@@ -288,35 +339,49 @@ class SunFX {
 
   update(t: number, dt: number, camera: THREE.Camera, node: THREE.Object3D, scale: number, pr: number): void {
     this.corona.quaternion.copy(camera.quaternion);
-    if (node.parent) this.corona.quaternion.premultiply(node.parent.getWorldQuaternion(new THREE.Quaternion()).invert());
+    if (node.parent) this.corona.quaternion.premultiply(node.parent.getWorldQuaternion(this.q).invert());
     this.cu.uT.value = t;
     this.pu.uT.value = t;
     this.eu.uPr.value = pr;
     this.eu.uScale.value = scale;
     this.next -= dt;
-    this.sinceFlare += dt;
+    this.since += dt;
     if (this.next <= 0) this.erupt(camera, node);
-    const f = this.sinceFlare;
-    this.eu.uT.value = f;
-    this.cme.visible = f < 7;
-    this.flash.visible = f < 3;
-    if (this.flash.visible) {
-      const k = f < 0.25 ? f / 0.25 : Math.exp(-(f - 0.25) * 1.6);
-      (this.flash.material as THREE.SpriteMaterial).opacity = k;
-      this.flash.scale.setScalar(this.R * (0.6 + 1.4 * k));
-    }
-    this.cu.uBoost.value = f < 4 ? 0.6 * Math.exp(-f) : 0;
+    const f = this.since;
+    // Screen-space axes of the corona plane, for the solar pole and the eruption's direction.
+    const e = camera.matrixWorld.elements, rx = e[0], ry = e[1], rz = e[2], ux = e[4], uy = e[5], uz = e[6];
+    const pole = this.v.set(0, 1, 0).applyQuaternion(this.spin.getWorldQuaternion(this.q));
+    const px = pole.x * rx + pole.y * ry + pole.z * rz, py = pole.x * ux + pole.y * uy + pole.z * uz, pl = Math.hypot(px, py);
+    if (pl > 0.05) this.cu.uPole.value.set(px / pl, py / pl);
+    const d = this.eDir;
+    this.cu.uCme.value.set(Math.atan2(d.x * ux + d.y * uy + d.z * uz, d.x * rx + d.y * ry + d.z * rz), f - ERUPT.cme, 0.55, f < ERUPT.end ? 1 : 0);
+    this.pu.uEage.value = f;
+    this.eu.uT.value = f - ERUPT.flare;
+    this.cme.visible = f > ERUPT.flare && f < ERUPT.flare + 9;
+    if (this.uFlare) this.uFlare.value.set(this.flareLocal.x, this.flareLocal.y, this.flareLocal.z, f < ERUPT.end ? f - ERUPT.flare : -99);
+    const fl = f - ERUPT.flare;
+    this.cu.uBoost.value = fl > 0 && fl < 6 ? 0.45 * Math.exp(-fl * 0.8) * Math.min(1, fl * 4) : 0;
   }
 
-  /** A flare at a random spot, biased towards the limb so its ejection is seen against space. */
+  /** Start an eruption from the active-region loop nearest the limb, so it is seen side-on against space. */
   private erupt(camera: THREE.Camera, node: THREE.Object3D): void {
-    this.next = 14 + this.r() * 16;
-    this.sinceFlare = 0;
-    const view = node.getWorldPosition(new THREE.Vector3()).sub(camera.position).normalize();
-    const n = new THREE.Vector3(this.r() - 0.5, (this.r() - 0.5) * 0.6, this.r() - 0.5).normalize();
-    n.addScaledVector(view, -n.dot(view) * 0.85).normalize();
-    this.cme.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
-    this.flash.position.copy(n).multiplyScalar(this.R * 1.01);
+    this.next = 16 + this.r() * 16;
+    this.since = 0;
+    const view = node.getWorldPosition(new THREE.Vector3()).sub(camera.getWorldPosition(this.v)).normalize();
+    const sq = this.spin.getWorldQuaternion(new THREE.Quaternion());
+    let best = 0, bs = Infinity;
+    const w = new THREE.Vector3();
+    this.loops.forEach((c, k) => {
+      w.copy(c).applyQuaternion(sq);
+      const s = Math.abs(w.dot(view) + 0.12) + this.r() * 0.15; // on the limb, a touch towards us
+      if (s < bs) { bs = s; best = k; }
+    });
+    this.pu.uEid.value = best;
+    this.eDir.copy(this.loops[best]).applyQuaternion(sq);
+    const nq = node.getWorldQuaternion(new THREE.Quaternion()).invert();
+    this.cme.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), this.eDir.clone().applyQuaternion(nq));
+    // The Sun mesh is turned −90° about Y inside its spin group (texture seam), so undo that for the flare spot.
+    this.flareLocal.copy(this.loops[best]).applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
   }
 }
 
@@ -576,7 +641,7 @@ export class SolarFX {
     this.belts = new SmallBodies(scene, q);
     this.comet = new Comet(scene, q, now);
     for (const b of bodies) {
-      if (b.id === 'sun') { this.sun = new SunFX(b.node, b.spin, b.R, q); this.sunNode = b.node; continue; }
+      if (b.id === 'sun') { this.sun = new SunFX(b.node, b.spin, b.R, q, b.mat); this.sunNode = b.node; continue; }
       if (FLOW_BODIES.has(b.id)) {
         const u = { value: 0 };
         this.uFlow.set(b.id, u);

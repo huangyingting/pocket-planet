@@ -534,6 +534,8 @@ Picking a galaxy, cluster or quasar outside the Milky Way only flew the camera t
 
 ## ADR-025: The Sun's true colours
 
+*Colour choice superseded by ADR-026; limb darkening, sunspots and prominence colours still apply.*
+
 **Context.** The Solar System's Sun was painted pale yellow, with a cream-orange corona, orange-red prominences and red-brown sunspots. A large orange glow also washed over the stars. That is the Sun as Earth's atmosphere colours it, not as it looks from space.
 
 **Decision.**
@@ -551,3 +553,21 @@ These now match the sky theatre's Sun.
 **Consequences.**
 - \+ The colours are physically right, and the space view and the eclipse view agree.
 - − The Sun no longer looks like the "yellow Sun" children draw. The info text can explain why.
+
+## ADR-026: A golden Sun with realistic activity
+
+**Context.** The true-white Sun of ADR-025 was correct, but users found it unfamiliar. They asked for the golden Sun everyone recognises, and for eruptions and rays that look more real.
+
+**Decision.**
+- **Colour.** The photosphere is golden again, `(262, 218, 140)`. The chromatic limb darkening from ADR-025 stays, so the limb deepens to orange. The glow is golden but restrained, so stars stay visible.
+- **Granulation.** Animated Worley cells in the Sun shader. They fade out by `fwidth` when they are smaller than a pixel. They are off on the low quality tier.
+- **Eruption timeline.** It runs about every 16–32 s:
+  1. A limb prominence rises and fades out.
+  2. A two-ribbon flare brightens the surface beneath it.
+  3. A three-part coronal mass ejection (bright front, dark cavity, bright core) expands and accelerates outward in the corona shader, with a particle cone.
+  4. The prominence then regrows.
+- **Corona.** Helmet streamers are concentrated towards the solar equator, using the Sun's pole projected to the screen. It also has polar plumes and fine radial filaments, and falls off as about r^-2.6.
+
+**Consequences.**
+- \+ The Sun matches popular expectation, and the activity follows the real physical sequence.
+- − The disc colour is a convention, not the true colour. The eclipse view in the sky theatre keeps the physically white Sun.

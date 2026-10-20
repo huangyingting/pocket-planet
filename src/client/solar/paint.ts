@@ -1120,13 +1120,13 @@ function paintSun(w: number): BodyMaps {
   for (let y = 0; y < g.h; y++) {
     const row = y * w;
     for (let x = 0; x < w; x++) {
-      const i = row + x, k = 0.96 + (gran[i] - 0.4) * 0.12 - sup[i] * 0.04 + big[i] * 0.04 + Fc[i] * 0.08 * (0.5 + sup[i] * 2);
-      // 5772 K photosphere seen from space: white with a faint warm cast (the yellow Sun is Earth's sky at work)
-      let R = 262 * k, G = 250 * k, B = 238 * k;
+      const i = row + x, k = 0.96 + (gran[i] - 0.4) * 0.08 - sup[i] * 0.04 + big[i] * 0.04 + Fc[i] * 0.08 * (0.5 + sup[i] * 2);
+      // The familiar golden Sun (as through a solar filter); the shader's limb darkening turns the edge orange
+      let R = 262 * k, G = 218 * k, B = 140 * k;
       const p = P[i] * (0.85 + gran[i] * 0.3), u = U[i];
-      // Spots are cooler, not coloured: penumbra ~70% and umbra ~20% of the photosphere's brightness, slightly warmer
-      R = mix(R, 178, p * 0.85); G = mix(G, 150, p * 0.85); B = mix(B, 124, p * 0.85);
-      R = mix(R, 52, u * 0.95); G = mix(G, 38, u * 0.95); B = mix(B, 30, u * 0.95);
+      // Spots are cooler: penumbra ~65% and umbra ~20% of the photosphere's brightness
+      R = mix(R, 165, p * 0.85); G = mix(G, 104, p * 0.85); B = mix(B, 48, p * 0.85);
+      R = mix(R, 48, u * 0.95); G = mix(G, 24, u * 0.95); B = mix(B, 10, u * 0.95);
       c.R[i] = R; c.G[i] = G; c.B[i] = B;
     }
   }
