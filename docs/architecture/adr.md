@@ -233,3 +233,33 @@ picking and item pipeline are Earth-specific, and the extra code and textures mu
 + Correct sky for any date (planet positions, Moon phase, seasons via Earth's tilt). − Distances and sizes are not to
 scale (explained by the compressed display; facts in the card give real numbers). − Minor moons' positions along their
 orbits are approximate.
+
+## ADR-017: One connected scale ladder from the Earth to the observable universe
+**Status:** Accepted
+
+**Context.** Kids wanted to keep zooming out past the Solar System to see where it sits: the Milky Way, the Local
+Group, the Laniakea supercluster and the whole observable universe. They also wanted the Earth and the other worlds
+to feel like one system, with real mission sites to visit on the other worlds. Planets were also spinning too fast.
+
+**Decision.**
+- **Six levels, one rail.** Earth → Solar System → Milky Way → Local Group → Laniakea → Universe. A `ScaleRail`
+  (`ui/scales.ts`) is always on screen. Zooming past a level's widest view moves up one level, and zooming into its
+  "home" object (the Sun, the Milky Way, the Local Group, Laniakea) moves down one level. Routes are `#solar`,
+  `#milkyway`, `#localgroup`, `#laniakea` and `#universe`, each with an optional `/<key>`.
+- **Deep levels share the Solar System's renderer.** `solar/deep.ts` (`DeepStage`) gives each level its own scene,
+  camera and unit (ly per scene unit: 1e3, 2e4, 1e6, 1e8). Levels are built lazily on first visit, and switching
+  levels cross-fades through a veil. Objects sit at real galactic coordinates (`l`, `b`, distance) converted by
+  `shared/lib/sky.ts`; the camera's view direction carries across levels (ecliptic ↔ galactic) so "up" stays
+  consistent. Galaxies, the cosmic web and the CMB are procedural point clouds and painted canvases
+  (`cosmos-paint.ts`) drawn with one additive point shader. A per-cloud gain keeps dense clouds from saturating.
+- **Content.** `shared/data/cosmos.ts` holds ~110 bilingual deep objects plus a `SCALE_INFO` card for each level.
+  `shared/data/solar-sites.ts` holds real mission sites (landers, rovers, orbiters, plumes, far probes). `SiteLayer`
+  (`solar/sites.ts`) builds 3D models only for the focused body when the camera is close, one model per frame.
+  `gen-wiki` maps `ss_*`, `dp_*` and `sc_*` keys to Wikipedia, and search includes a lazily loaded space index.
+- **Calmer spin.** On-screen angular speed is soft-capped (`tanh`, at most one turn per minute). The Earth follows the
+  exact clock only at slow speeds, and the camera co-rotates only near a body or with a feature selected.
+
+**Consequences.** + One continuous zoom from a street-level landmark to the CMB. + Deep levels cost nothing until
+visited, and point counts scale with the quality tier. − Positions in the Laniakea and universe levels are
+illustrative beyond the catalogued objects (the procedural web is not a survey map). − Distances inside each level are
+real, but sizes of labels and galaxies are enlarged so they can be seen.
