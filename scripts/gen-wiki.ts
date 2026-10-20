@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { CATALOGUE } from '../src/shared/data/catalogue.ts';
 import { BODIES } from '../src/shared/data/solar.ts';
 import { SOLAR_FEATURES } from '../src/shared/data/solar-features.ts';
+import { SOLAR_SITES } from '../src/shared/data/solar-sites.ts';
+import { DEEP_OBJECTS, SCALE_INFO } from '../src/shared/data/cosmos.ts';
 
 /** English article titles for core items whose display name is not the article title. */
 const OVERRIDES: Record<string, string> = {
@@ -71,6 +73,10 @@ const want = [
   // Solar view: bodies are keyed `sb_<id>`, features by their own `sf_` keys.
   ...BODIES.map(b => ({ key: 'sb_' + b.id, title: b.wiki })),
   ...SOLAR_FEATURES.map(f => ({ key: f.key, title: f.wiki })),
+  // Explorer sites (`ss_`), deep-space objects (`dp_`) and whole scales (`sc_<scale>`).
+  ...SOLAR_SITES.map(s => ({ key: s.key, title: s.wiki })),
+  ...DEEP_OBJECTS.map(o => ({ key: o.key, title: o.wiki })),
+  ...Object.values(SCALE_INFO).map(i => ({ key: 'sc_' + i.id, title: i.wiki })),
 ];
 const result = new Map<string, { en: string; zh?: string; bad?: string }>();
 const titles = [...new Set(want.map(w => w.title))];
