@@ -18,6 +18,13 @@ import { ARCHAEOLOGY } from './archaeology.ts';
 import { PEOPLE_A } from './people-a.ts';
 import { PEOPLE_B } from './people-b.ts';
 import { PEOPLE_C } from './people-c.ts';
+import { ROUTES2 } from './routes2.ts';
+import { NATURE2 } from './nature2.ts';
+import { FUN2 } from './fun2.ts';
+import { SCIENCE2 } from './science2.ts';
+import { TASTES2 } from './tastes2.ts';
+import { LANDMARKS4 } from './landmarks4.ts';
+import { ANIMALS3 } from './animals3.ts';
 
 /**
  * Content packs. A pack is a data file in this folder (built with `many()` from make.ts) plus, usually, a hero
@@ -29,4 +36,5 @@ export const CONTENT_PACKS: Record<string, CatalogueItem[]> = {
   migrations: MIGRATIONS, voyages: VOYAGES, china: CHINA, 'countries-a': COUNTRIES_A, 'countries-b': COUNTRIES_B, deepsea: DEEPSEA,
   animals2: ANIMALS2, 'countries-c': COUNTRIES_C, archaeology: ARCHAEOLOGY,
   'people-a': PEOPLE_A, 'people-b': PEOPLE_B, 'people-c': PEOPLE_C,
+  routes2: ROUTES2, nature2: NATURE2, fun2: FUN2, science2: SCIENCE2, tastes2: TASTES2, landmarks4: LANDMARKS4, animals3: ANIMALS3,
 };
