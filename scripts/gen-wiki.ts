@@ -1,11 +1,13 @@
 /**
  * Resolves every catalogue item to its English Wikipedia article and the matching Chinese article (via langlinks)
- * and writes src/shared/data/wiki.ts, which the in-app reader uses. Re-run after adding content:
+ * (plus solar-system bodies and features) and writes src/shared/data/wiki.ts, which the in-app reader uses. Re-run after adding content:
  *   node scripts/gen-wiki.ts            (prints items that need a `wiki` title or an override below)
  */
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { CATALOGUE } from '../src/shared/data/catalogue.ts';
+import { BODIES } from '../src/shared/data/solar.ts';
+import { SOLAR_FEATURES } from '../src/shared/data/solar-features.ts';
 
 /** English article titles for core items whose display name is not the article title. */
 const OVERRIDES: Record<string, string> = {
@@ -64,7 +66,12 @@ async function lookup(titles: string[]): Promise<Map<string, { en: string; zh?: 
   return out;
 }
 
-const want = CATALOGUE.map(it => ({ key: it.key, title: OVERRIDES[it.key] ?? it.wiki ?? it.name.en }));
+const want = [
+  ...CATALOGUE.map(it => ({ key: it.key, title: OVERRIDES[it.key] ?? it.wiki ?? it.name.en })),
+  // Solar view: bodies are keyed `sb_<id>`, features by their own `sf_` keys.
+  ...BODIES.map(b => ({ key: 'sb_' + b.id, title: b.wiki })),
+  ...SOLAR_FEATURES.map(f => ({ key: f.key, title: f.wiki })),
+];
 const result = new Map<string, { en: string; zh?: string; bad?: string }>();
 const titles = [...new Set(want.map(w => w.title))];
 for (let i = 0; i < titles.length; i += 40) {
