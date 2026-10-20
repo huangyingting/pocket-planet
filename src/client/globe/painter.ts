@@ -219,14 +219,32 @@ export function paintEarth(topo: Topology, countries: CountryInfo[], opts: Paint
     const md = mctx.getImageData(0, 0, W, H).data;
     const img = ctx.createImageData(W, H);
     const d = img.data;
+    // The biome field is smooth (finest octave ≈ 0.7°), so it is evaluated on a lattice every S pixels, lazily and
+    // only next to land, and interpolated bilinearly in between: ~S² fewer evaluations, visually identical.
+    const S = W > 1024 ? 2 : 1, GW = W / S + 1, GH = H / S + 1;
+    const grid = new Float32Array(GW * GH * 3), done = new Uint8Array(GW * GH);
+    const node = (gx: number, gy: number): number => {
+      const k = gy * GW + gx;
+      if (!done[k]) {
+        done[k] = 1;
+        const c = terrainColour(90 - ((gy * S) / H) * 180, ((gx * S) / W) * 360 - 180);
+        grid[k * 3] = c[0]; grid[k * 3 + 1] = c[1]; grid[k * 3 + 2] = c[2];
+      }
+      return k * 3;
+    };
     for (let y = 0; y < H; y++) {
-      const lat = 90 - (y / H) * 180;
+      const gy = Math.floor(y / S), fy = (y - gy * S) / S;
       for (let x = 0; x < W; x++) {
         const o = (y * W + x) * 4;
         const alpha = md[o + 3];
         if (alpha < 8) continue;
-        const [r, g, b] = terrainColour(lat, (x / W) * 360 - 180);
-        d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = alpha;
+        const gx = Math.floor(x / S), fx = (x - gx * S) / S;
+        const a = node(gx, gy), b = node(gx + 1, gy), c = node(gx, gy + 1), e = node(gx + 1, gy + 1);
+        for (let ch = 0; ch < 3; ch++) {
+          const top = grid[a + ch] + (grid[b + ch] - grid[a + ch]) * fx, bot = grid[c + ch] + (grid[e + ch] - grid[c + ch]) * fx;
+          d[o + ch] = top + (bot - top) * fy;
+        }
+        d[o + 3] = alpha;
       }
     }
     ctx.putImageData(img, 0, 0);

@@ -1,6 +1,7 @@
 import './styles.css';
 import type { Topology } from 'topojson-specification';
 import { Globe } from './globe/scene.ts';
+import { detectQuality } from './globe/quality.ts';
 import { loadCountries, paintEarth, buildBorderPositions } from './globe/painter.ts';
 import { CATALOGUE, BY_KEY } from '../shared/data/catalogue.ts';
 import { Shell } from './ui/shell.ts';
@@ -25,17 +26,19 @@ declare global { interface Window { __pp?: { ready: boolean; globe: Globe; shell
 
 const params = new URLSearchParams(location.search);
 const lowfx = params.has('lowfx') || matchMedia('(prefers-reduced-motion: reduce)').matches && params.get('lowfx') !== '0';
+const quality = detectQuality(params, lowfx);
 const app = document.getElementById('app')!;
 const loader = document.getElementById('loader');
 
 async function boot(): Promise<void> {
   if (lowfx) document.body.classList.add('lowfx');
+  document.body.classList.add('q-' + quality.tier);
   document.documentElement.lang = lang();
   document.title = t('title');
   const topo = (await (await fetch(url('data/countries-110m.json'))).json()) as Topology;
   await Promise.race([document.fonts?.ready, new Promise(r => setTimeout(r, 150))]);
   const countries = loadCountries(topo);
-  const texWidth = lowfx ? 512 : 2048;
+  const texWidth = quality.mapW;
   const paint = () => paintEarth(topo, countries, { terrain: store.settings.terrain, borders: store.settings.borders, width: texWidth });
 
   const globeEl = h('div', { id: 'globe' });
@@ -45,7 +48,7 @@ async function boot(): Promise<void> {
     onPick: it => shell.showItem(it),
     onHover: (it, scr) => shell?.showHover(it, scr),
     onView: z => shell.setZoom(z),
-  }, lowfx);
+  }, lowfx, quality);
   globe.lang = lang();
   globe.applySettings(store.settings);
   if (!globe.init(paint(), countries, CATALOGUE, buildBorderPositions(topo))) {

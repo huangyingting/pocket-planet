@@ -47,6 +47,6 @@ Legend: **P0** must, **P1** should, **P2** could · Size S/M/L · ✅ done in th
 | B-12 | Production mail transport for magic links (SMTP / provider API) | P0 for prod | S | `sendMail` hook already injected |
 | B-13 | Content-Security-Policy header | P1 | S | No third-party origins are needed |
 | B-14 | CI pipeline (typecheck, unit, build, e2e under xvfb) | P1 | S | Partly done: `pages.yml` runs typecheck, unit tests and build. e2e under xvfb is still to add |
-| B-15 | Frame-time adaptive DPR | P2 | S | |
+| B-15 | Frame-time adaptive DPR | P2 | S | Done: ADR-015 (device tiers, adaptive DPR, model budget) |
 | B-16 | Deployment (container, TLS proxy, backups of SQLite, proxy rate limits) | P1 | M | |
 | B-17 | Code-split Three.js chunk / lazy-load games UI to cut initial JS | P2 | S | ~205 KB gz today |

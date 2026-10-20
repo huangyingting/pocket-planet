@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { currentQuality } from '../globe/quality.ts';
 import type { CatalogueItem } from '../../shared/data/types.ts';
 import { buildModel, modelReady, whenModelReady } from './library.ts';
 import { h } from '../ui/dom.ts';
@@ -39,8 +40,9 @@ function ensureRenderer(w: number, hPx: number): THREE.WebGLRenderer | null {
   if (sharedFailed) return null;
   if (!sharedRenderer) {
     try {
-      sharedRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-      sharedRenderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      const q = currentQuality();
+      sharedRenderer = new THREE.WebGLRenderer({ antialias: q.tier !== 'low', alpha: true, powerPreference: 'high-performance' });
+      sharedRenderer.setPixelRatio(Math.min(q.dprMax, window.devicePixelRatio || 1));
       sharedScene = new THREE.Scene();
       sharedCamera = new THREE.PerspectiveCamera(28, w / hPx, 0.05, 20);
       setupStudio(sharedRenderer, sharedScene);

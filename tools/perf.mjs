@@ -1,22 +1,32 @@
-// Usage: node tools/perf.mjs [label] [out.json]   — builds nothing; serves ./dist with `vite preview` and measures
+// Usage: node tools/perf.mjs [label] [out.json] [--mobile]   — builds nothing; serves ./dist with `vite preview` and measures
 // load time, JS bytes, long tasks, per-frame CPU time, frame intervals, draw calls and triangles over a scripted tour.
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 
-const [label = 'run', out] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const MOBILE = argv.includes('--mobile');
+const [label = 'run', out] = argv.filter(a => !a.startsWith('--'));
+// --mobile: phone-sized viewport, DPR 3, touch, and 4× CPU throttling (roughly a mid-range phone)
+const QUERY = argv.find(a => a.startsWith('--q='))?.slice(4) ?? '';
 const PORT = 5300 + Math.floor(Math.random() * 300);
 const srv = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' });
 const url = `http://localhost:${PORT}/`;
 for (let i = 0; i < 100; i++) { try { if ((await fetch(url)).ok) break; } catch { /* starting */ } await new Promise(r => setTimeout(r, 200)); }
 
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+const page = await browser.newPage(MOBILE
+  ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true,
+      userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36' }
+  : { viewport: { width: 1280, height: 800 } });
+const cdp = await page.context().newCDPSession(page);
+if (MOBILE) await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+await cdp.send('Performance.enable');
 await page.addInitScript(() => {
   window.__lt = [];
   new PerformanceObserver(l => { for (const e of l.getEntries()) window.__lt.push([e.startTime, e.duration]); }).observe({ type: 'longtask', buffered: true });
 });
-await page.goto(url + '?notut');
+await page.goto(url + '?notut' + (QUERY ? '&' + QUERY : ''));
 await page.waitForFunction(() => window.__pp?.ready, null, { timeout: 180000 });
 const load = await page.evaluate(() => {
   const res = performance.getEntriesByType('resource');
@@ -43,7 +53,7 @@ await page.waitForTimeout(5000); // let the first view settle (placement of visi
 const settleLong = await page.evaluate(() => window.__lt.slice());
 
 const STOPS = [['Europe', 48.5, 6], ['China', 33, 112], ['N. America', 39, -98], ['Africa', 3, 22], ['Australia', -26, 136], ['India', 22, 80], ['S. America', -15, -60], ['Japan', 36, 138]];
-const ZOOM = 6.5;
+const ZOOM = MOBILE ? 5 : 6.5;
 const stops = [];
 const tourStart = await page.evaluate(() => { window.__ft.length = 0; window.__raf.length = 0; return performance.now(); });
 for (const [name, lat, lon] of STOPS) {
@@ -70,12 +80,17 @@ const tour = await page.evaluate(t0 => {
     longTasks: lt.length, longTaskMs: Math.round(lt.reduce((s, [, d]) => s + d, 0)), longTaskMax: Math.round(Math.max(0, ...lt.map(([, d]) => d))),
   };
 }, tourStart);
+const gpu = await page.evaluate(() => {
+  const g = window.__pp.globe, c = g.renderer.domElement;
+  return { buffer: `${c.width}x${c.height}`, pixelRatio: g.renderer.getPixelRatio(), quality: g.quality?.tier ?? null };
+}).catch(() => ({}));
+const metrics = Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map(m => [m.name, m.value]));
 await browser.close();
 srv.kill();
 
 const avg = k => Math.round(stops.reduce((s, x) => s + x[k], 0) / stops.length);
 const result = {
-  label, ...load,
+  label, mobile: MOBILE, ...load, ...gpu, heapMB: Math.round(metrics.JSHeapUsedSize / 1048576),
   loadLongTasks: settleLong.length, loadLongTaskMs: Math.round(settleLong.reduce((s, [, d]) => s + d, 0)),
   ...tour, avgCalls: avg('calls'), avgTris: avg('tris'), avgMeshes: avg('meshes'), stops,
 };

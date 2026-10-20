@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { QUALITY, AdaptiveResolution, type Quality } from './quality.ts';
 import type { CatalogueItem, Lang } from '../../shared/data/types.ts';
 import { tr } from '../../shared/data/types.ts';
 import { latLonToVec, vecToLatLon, slerpLatLon } from '../../shared/lib/geo.ts';
@@ -229,10 +230,10 @@ interface Placed {
   far: boolean;
   /** slot in the instanced plinth batch (shadow + ring), -1 if the item has no plinth */
   slot: number;
+  /** hidden by the visible-model budget (too many models in view for this device) */
+  cull: boolean;
 }
 
-/** Projected model radius (px) below which items switch to their far level of detail (with 25% hysteresis). */
-const LOD_PX = 60;
 
 export interface GlobeEvents {
   onPick?: (item: CatalogueItem | null) => void;
@@ -321,8 +322,13 @@ export class Globe {
   private last = performance.now();
   private lastLabel = 0;
   private clock = 0;
+  private lastBudget = -1e9;
+  private lastRender = 0;
+  private adapt: AdaptiveResolution | null = null;
 
-  constructor(private container: HTMLElement, public ev: GlobeEvents, private lowfx = false) {
+  /** lowfx = reduced motion (frozen animations); quality = resolution / detail tier for this device. */
+  constructor(private container: HTMLElement, public ev: GlobeEvents, private lowfx = false,
+    readonly quality: Quality = QUALITY[lowfx ? 'low' : 'high']) {
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.005, 100);
     this.labelsEl = document.createElement('div');
     this.labelsEl.className = 'labels';
@@ -344,11 +350,14 @@ export class Globe {
   /** Returns false if WebGL is unavailable. */
   init(earthCanvas: HTMLCanvasElement, countries: CountryInfo[], items: CatalogueItem[], borderPositions?: Float32Array): boolean {
     try {
-      this.renderer = new THREE.WebGLRenderer({ antialias: !this.lowfx, alpha: false, powerPreference: 'high-performance' });
+      this.renderer = new THREE.WebGLRenderer({ antialias: this.quality.msaa, alpha: false, powerPreference: 'high-performance' });
     } catch { return false; }
     this.countries = countries;
-    const r = this.renderer;
-    r.setPixelRatio(this.lowfx ? 1 : Math.min(2, devicePixelRatio));
+    const r = this.renderer, q = this.quality;
+    const dpr = Math.min(q.dprMax, devicePixelRatio || 1);
+    r.setPixelRatio(dpr);
+    // Reduced motion renders on demand, so frame intervals say nothing about cost there.
+    if (!this.lowfx) this.adapt = new AdaptiveResolution(Math.min(q.dprMin, dpr), dpr);
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.domElement.className = 'globe-canvas';
     r.domElement.setAttribute('aria-label', 'Interactive 3D globe');
@@ -361,7 +370,7 @@ export class Globe {
     landTex.colorSpace = THREE.SRGBColorSpace;
     landTex.anisotropy = r.capabilities.getMaxAnisotropy();
 
-    const nightCanvas = paintNightLights(countries, this.lowfx ? 1024 : 2048);
+    const nightCanvas = paintNightLights(countries, q.nightW);
     const nightTex = new THREE.CanvasTexture(nightCanvas);
     nightTex.anisotropy = r.capabilities.getMaxAnisotropy();
 
@@ -387,7 +396,7 @@ export class Globe {
       uniforms: this.earthUniforms,
     });
 
-    this.earth = new THREE.Mesh(new THREE.SphereGeometry(1, this.lowfx ? 64 : 96, this.lowfx ? 48 : 96), this.earthMat);
+    this.earth = new THREE.Mesh(new THREE.SphereGeometry(1, q.earthSeg[0], q.earthSeg[1]), this.earthMat);
     // Our lat/lon convention puts lon=0 on +Z; SphereGeometry's u=0 seam is at -X, so rotate by -90°.
     this.earth.rotation.y = -Math.PI / 2;
     this.earth.renderOrder = RENDER_ORDER.earth;
@@ -397,7 +406,7 @@ export class Globe {
     this.scene.add(this.earth, this.itemsRoot, this.pinsRoot, this.flightArcGroup, this.sun, this.sun.target, this.fillLight, this.fillLight.target, this.ambient, this.selRing);
     this.addAtmosphere();
     this.addStars();
-    this.layers = new GlobeLayers(r, this.scene, items, this.earthUniforms.uSunDir.value, this.lowfx);
+    this.layers = new GlobeLayers(r, this.scene, items, this.earthUniforms.uSunDir.value, this.lowfx, q);
     this.queuePlacement(items);
     this.applySettings(this.settings);
     this.resize();
@@ -455,7 +464,7 @@ export class Globe {
   }
 
   private addStars(): void {
-    const n = this.lowfx ? 400 : 1400;
+    const n = this.quality.stars;
     const pos = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
       const r = 14 + Math.random() * 12;
@@ -628,7 +637,7 @@ export class Globe {
     const anim: THREE.Object3D[] = [];
     obj.traverse(o => { if (o.name === 'spin' || o.name === 'flap') anim.push(o); });
     const p: Placed = { item, obj: wrap, seg: 0, t: 0, pts: item.route ? item.route.pts.map(x => [x[0], x[1]] as [number, number]) : [], heading: new THREE.Vector3(),
-      n: new THREE.Vector3(...latLonToVec(item.lat, item.lon)), anim, radius: obj.userData.radius ?? 0.6, far: false, slot: this.plinthSlot(item) };
+      n: new THREE.Vector3(...latLonToVec(item.lat, item.lon)), anim, radius: obj.userData.radius ?? 0.6, far: false, slot: this.plinthSlot(item), cull: false };
     if (item.route) {
       // Spread vehicles along their routes deterministically.
       const h = [...item.key].reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -984,11 +993,14 @@ export class Globe {
     const cdir = this.camera.position.clone().normalize(), hz = this.horizonCos(0.12);
     // pixels per world unit at distance 1, for the level-of-detail test
     const pxK = (this.renderer.domElement.clientHeight || 800) / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
+    const lodPx = this.quality.lodPx, hzRoute = this.horizonCos(0.3);
+    if (this.dirty || this.clock - this.lastBudget > 400) { this.lastBudget = this.clock; this.applyBudget(cdir, hz); }
     for (const p of this.placed.values()) {
       const it = p.item;
       const focus = this.selected === it.key || this.ride?.key === it.key;
       // Static models fully behind the horizon are skipped entirely (no draw calls, no animation).
-      p.obj.visible = this.shown(it) && (focus || !!it.route || p.n.dot(cdir) >= hz);
+      // Moving ones keep travelling while hidden, so they are re-tested after their position update.
+      p.obj.visible = this.shown(it) && (focus || !!it.route || (!p.cull && p.n.dot(cdir) >= hz));
       if (!p.obj.visible) continue;
       const s = this.modelScale(it);
       p.obj.scale.setScalar(s);
@@ -1010,6 +1022,7 @@ export class Globe {
         if (hd.lengthSq() > 1e-14) p.heading.copy(hd);
         const alt = routeAltitude(r.kind, s);
         this.orientAt(p.obj, la, lo, alt, p.heading);
+        if (!focus && (p.cull || (r.kind !== 'orbit' && v1.normalize().dot(cdir) < hzRoute))) { p.obj.visible = false; continue; }
       }
       const inner = p.obj.children[p.obj.children.length - 1];
       if (it.type === 'animal' && !this.lowfx) inner.position.y = Math.abs(Math.sin(this.clock * 0.003 + it.lat)) * 0.06;
@@ -1017,7 +1030,7 @@ export class Globe {
       const isHovered = this.hoveredKey === it.key;
       inner.scale.setScalar(isHovered ? 1.14 : 1.0);
       const px = (pxK * s * p.radius) / Math.max(1e-4, this.camera.position.distanceTo(p.obj.position));
-      const far = !focus && !isHovered && px < (p.far ? LOD_PX * 1.25 : LOD_PX);
+      const far = !focus && !isHovered && px < (p.far ? lodPx * 1.25 : lodPx);
       if (far !== p.far) { p.far = far; setModelDetail(inner, far); }
       for (const o of p.anim) {
         if (o.name === 'spin') o.rotation.z += dt * 0.002;
@@ -1041,6 +1054,31 @@ export class Globe {
       else this.earthUniforms.uStationPos.value.set(0, 0, 0);
     } else {
       this.earthUniforms.uStationPos.value.set(0, 0, 0);
+    }
+  }
+
+  /**
+   * Visible-model budget: when more static models face the camera than the device tier allows, keep the ones
+   * nearest the view centre (tier-1 items get a small bonus) and hide the rest until the view changes.
+   * Moving (route) models have their own, smaller cap and are re-ranked from their current positions.
+   */
+  private applyBudget(cdir: THREE.Vector3, hz: number): void {
+    const cand: [Placed, number][] = [], moving: [Placed, number][] = [], v = new THREE.Vector3();
+    for (const p of this.placed.values()) {
+      p.cull = false;
+      if (this.selected === p.item.key || this.ride?.key === p.item.key || !this.shown(p.item)) continue;
+      if (p.item.route) {
+        const d = v.copy(p.obj.position).normalize().dot(cdir);
+        if (d >= hz) moving.push([p, d]);
+        continue;
+      }
+      const d = p.n.dot(cdir);
+      if (d >= hz) cand.push([p, d + (p.item.tier === 1 ? 0.02 : 0)]);
+    }
+    for (const [list, max] of [[cand, this.quality.maxShown], [moving, this.quality.maxMoving]] as const) {
+      if (list.length <= max) continue;
+      list.sort((a, b) => b[1] - a[1]);
+      for (let i = max; i < list.length; i++) list[i][0].cull = true;
     }
   }
 
@@ -1194,13 +1232,16 @@ export class Globe {
 
   private frame(): void {
     const now = performance.now();
+    // Phones: when the view is still, ambient animation (clouds, ships, bobbing) runs at a capped rate.
+    const idle = !this.dirty && !this.fly && !this.ride && Math.abs(this.vLat) + Math.abs(this.vLon) <= 1e-4;
+    if (idle && this.quality.idleFps && now - this.last < 1000 / this.quality.idleFps - 4) return;
     const dt = Math.min(100, now - this.last);
     this.last = now;
     this.clock += dt;
     const animate = !this.lowfx || now - this.lastLabel > 1000;
     this.updateCamera(dt);
     // Re-scan the queue when the view changed (or every ¼ s for moving vehicles / freshly loaded packs).
-    if (this.pending.size && (this.dirty || now - this.lastDrain > 250)) { this.lastDrain = now; this.drainPlacement(this.lowfx ? 6 : 10); }
+    if (this.pending.size && (this.dirty || now - this.lastDrain > 250)) { this.lastDrain = now; this.drainPlacement(this.quality.drainMs); }
     if (!animate && !this.dirty) return;
     this.updateItems(dt);
     this.updateSun();
@@ -1209,6 +1250,11 @@ export class Globe {
       this.layers.update(this.clock, dt, this.camera.position.length() - 1, this.routeState, this.orbitAlt, this.placedObj);
     }
     this.renderer.render(this.scene, this.camera);
+    if (this.adapt && !(idle && this.quality.idleFps)) {
+      const pr = this.adapt.sample(now - this.lastRender);
+      if (pr !== null) this.renderer.setPixelRatio(pr);
+    }
+    this.lastRender = now;
     if (this.dirty || now - this.lastLabel > (this.lowfx ? 1000 : 120)) { this.updateLabels(); this.lastLabel = now; }
     if (this.dirty) this.ev.onView?.(this.zoom, this.lat, this.lon);
     this.dirty = false;

@@ -70,3 +70,27 @@ describe('greetings', () => {
     expect(covered / countries.length).toBeGreaterThan(0.9);
   });
 });
+
+describe('render quality tiers', async () => {
+  const { pickTier, AdaptiveResolution } = await import('../../src/client/globe/quality.ts');
+  it('treats phones and small-memory devices as medium, very weak ones as low, and honours ?q / ?lowfx', () => {
+    expect(pickTier({ coarse: false, screenMin: 1080, memoryGB: 8, cores: 8 })).toBe('high');
+    expect(pickTier({ coarse: true, screenMin: 390, memoryGB: 8, cores: 8 })).toBe('medium');
+    expect(pickTier({ mobileUA: true, cores: 8 })).toBe('medium');
+    expect(pickTier({ coarse: false, screenMin: 1080, memoryGB: 4, cores: 8 })).toBe('medium');
+    expect(pickTier({ coarse: true, screenMin: 390, memoryGB: 2, cores: 8 })).toBe('low');
+    expect(pickTier({ lowfx: true })).toBe('low');
+    expect(pickTier({ query: 'high', mobileUA: true })).toBe('high');
+  });
+  it('lowers the pixel ratio under sustained slow frames, ignores stalls, and recovers with headroom', () => {
+    const a = new AdaptiveResolution(1, 2);
+    for (let i = 0; i < 200; i++) expect(a.sample(1000)).toBeNull();
+    let r: number | null = null;
+    for (let i = 0; i < 200 && r === null; i++) r = a.sample(50);
+    expect(r).toBe(1.75);
+    for (let i = 0; i < 2000; i++) a.sample(50);
+    expect(a.ratio).toBe(1);
+    for (let i = 0; i < 4000; i++) a.sample(10);
+    expect(a.ratio).toBe(2);
+  });
+});

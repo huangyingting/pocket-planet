@@ -31,7 +31,8 @@ The game works fully without an account; progress is stored in `localStorage` an
 ## URL flags
 | Flag | Effect |
 |---|---|
-| `?lowfx=1` | low-power rendering (DPR 1, no antialiasing, 2048 px map texture); also on when `prefers-reduced-motion` is set (`lowfx=0` overrides) |
+| `?q=high\|medium\|low` | force a render quality tier (default: detected; phones and tablets get `medium`, see ADR-015) |
+| `?lowfx=1` | reduced motion + the `low` tier (DPR 1, no antialiasing, 512 px map texture); also on when `prefers-reduced-motion` is set (`lowfx=0` overrides) |
 | `?notut` | skip the first-visit tutorial |
 | `#<key>` | deep link to an item, e.g. `/#eiffel`, `/#an_lion` |
 | `#daily` | open Daily Planet |

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { Quality } from './quality.ts';
 import type { CatalogueItem } from '../../shared/data/types.ts';
 import { TYPE_META } from '../../shared/data/typemeta.ts';
 import { PLATE_BOUNDARIES, BOUNDARY_COLORS } from '../../shared/data/plates.ts';
@@ -335,8 +336,8 @@ export class Clouds {
   private ready = 0;
   private on = false;
 
-  constructor(private renderer: THREE.WebGLRenderer, sunDir: THREE.Vector3, lowfx: boolean) {
-    const W = lowfx ? 512 : 2048, H = W / 2;
+  constructor(private renderer: THREE.WebGLRenderer, sunDir: THREE.Vector3, q: Quality) {
+    const W = q.cloudW, H = W / 2;
     this.rt = new THREE.WebGLRenderTarget(W, H, {
       generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false,
       wrapS: THREE.RepeatWrapping,
@@ -346,7 +347,7 @@ export class Clouds {
     const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({ vertexShader: BAKE_VERT, fragmentShader: BAKE_FRAG, depthTest: false, depthWrite: false }));
     quad.frustumCulled = false;
     scene.add(quad);
-    this.bake = { scene, cam: new THREE.Camera(), row: 0, strip: lowfx ? H : H / 8 };
+    this.bake = { scene, cam: new THREE.Camera(), row: 0, strip: W <= 512 ? H : H / 8 };
 
     this.mat = new THREE.ShaderMaterial({
       vertexShader: CLOUD_VERT,
@@ -360,7 +361,7 @@ export class Clouds {
       blendDstAlpha: THREE.OneMinusSrcAlphaFactor,
       depthWrite: false,
     });
-    this.root = new THREE.Mesh(new THREE.SphereGeometry(1.012, lowfx ? 64 : 128, lowfx ? 32 : 64), this.mat);
+    this.root = new THREE.Mesh(new THREE.SphereGeometry(1.012, q.cloudSeg, q.cloudSeg / 2), this.mat);
     this.root.name = 'clouds';
     this.root.renderOrder = RENDER_ORDER.clouds;
     this.root.raycast = noRaycast;
@@ -463,8 +464,8 @@ export class Aurora {
   readonly root: THREE.Mesh;
   private mat: THREE.ShaderMaterial;
 
-  constructor(sunDir: THREE.Vector3, lowfx: boolean) {
-    const N = lowfx ? 160 : 384, R0 = 1.013, R1 = 1.058, OVAL = 23 * D2R, BAND = 3.6 * D2R;
+  constructor(sunDir: THREE.Vector3, q: Quality) {
+    const N = q.auroraN, R0 = 1.013, R1 = 1.058, OVAL = 23 * D2R, BAND = 3.6 * D2R;
     const pos: number[] = [], out: number[] = [], us: number[] = [], vs: number[] = [], kinds: number[] = [], idx: number[] = [];
     const P = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), d = new THREE.Vector3(), o = new THREE.Vector3(), radial = new THREE.Vector3();
     const push = (v: THREE.Vector3, r: number, u: number, vv: number, kind: number) => {
@@ -767,10 +768,10 @@ export class GlobeLayers {
   readonly beacons: OrbitBeacons;
   private lastRefresh = 0;
 
-  constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, items: CatalogueItem[], sunDir: THREE.Vector3, private lowfx: boolean) {
+  constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, items: CatalogueItem[], sunDir: THREE.Vector3, private lowfx: boolean, q: Quality) {
     this.routes = new RoutePaths(items);
-    this.clouds = new Clouds(renderer, sunDir, lowfx);
-    this.aurora = new Aurora(sunDir, lowfx);
+    this.clouds = new Clouds(renderer, sunDir, q);
+    this.aurora = new Aurora(sunDir, q);
     this.festivals = new FestivalGlow(items);
     this.beacons = new OrbitBeacons(items);
     scene.add(this.graticule.root, this.clouds.root, this.aurora.root, this.tectonics.root, this.routes.root, this.festivals.root, this.beacons.root);

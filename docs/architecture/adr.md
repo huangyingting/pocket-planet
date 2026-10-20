@@ -118,8 +118,8 @@ the production build under Xvfb + SwiftShader, with `?lowfx=1` to reduce GPU cos
 
 **Decision.** Initial JS ≤ 300 KB gz (Three.js dominates). Render on demand: a frame is drawn only when the
 camera/scene is dirty or something animates. DPR is capped at 2. Labels refresh at ~8 Hz. `?lowfx=1` (also the default
-under `prefers-reduced-motion`) uses DPR 1, no MSAA, a 2048 px map texture, fewer stars and 1 Hz labels.
-Shadows and every item layer can be toggled. *Deferred:* frame-time-adaptive DPR (backlog B-15).
+under `prefers-reduced-motion`) uses DPR 1, no MSAA, a 512 px map texture, fewer stars and 1 Hz labels.
+Shadows and every item layer can be toggled. Device tiers and frame-time-adaptive DPR: see ADR-015.
 
 ## ADR-012: Daily puzzle is computed client-side and deterministically
 **Status:** Accepted
@@ -165,3 +165,32 @@ even when an item was only a few pixels tall.
 **Consequences.** + No model building on the main thread. Per visible item, ~3.5 draw calls and ~6.5k triangles
 instead of ~6 and ~20k. + The main bundle no longer contains the builders. − Models must stay serialisable:
 untextured MeshStandard/MeshBasic materials and plain BufferGeometry, otherwise they fall back to the main thread.
+
+## ADR-015: Device quality tiers for phones, adaptive resolution and a visible-model budget
+**Status:** Accepted (extends ADR-011 and ADR-014; closes backlog B-15)
+
+**Context.** On an emulated mid-range phone (390×844 at DPR 3, 4× CPU throttling, `tools/perf.mjs --mobile`) the app
+rendered a 780×1688 MSAA buffer, drew ~290 draw calls / ~510k triangles per frame and spent ~5.5 s of start-up
+painting the 2048 px biome map on the main thread. Profiling `frame()` showed the JS work is ~1 ms; the cost is GPU
+fill (pixels × MSAA × translucent layers) plus geometry.
+
+**Decision.**
+- `globe/quality.ts` picks a tier once at start-up: `high` (desktop), `medium` (phones/tablets: mobile UA or coarse
+  pointer on a ≤1024 px screen, or ≤4 GB memory) and `low` (≤2 GB or ≤2 cores, or `?lowfx`). `?q=high|medium|low`
+  overrides. Every resolution/detail knob lives in the tier table: DPR cap, MSAA, map / night / cloud texture sizes,
+  sphere segments, aurora and star counts, far-LOD threshold, placement budget, visible-model budget and idle frame cap.
+  `body.q-<tier>` lets CSS drop `backdrop-filter` (panels are ~90% opaque anyway) on phones.
+- **Adaptive resolution.** `AdaptiveResolution` smooths the interval between rendered frames and steps the pixel ratio
+  down by 0.25 after ~45 slow frames (> 36 ms) to the tier floor, and back up after ~300 fast ones; stalls > 250 ms and
+  idle-capped frames are ignored. Off under reduced motion (frames are drawn on demand there).
+- **Visible-model budget.** Every ~400 ms (or when the view changes) static models facing the camera are ranked by
+  closeness to the view centre (+ a small tier-1 bonus); beyond the tier's budget (48 on phones) they are hidden.
+  Moving items are hidden once they pass behind the horizon (they keep travelling), except orbiters.
+  Moving items have their own cap (16 on phones), ranked from their current positions.
+- **Idle frame cap.** On `medium`/`low`, when nothing is dragged, flown or ridden, ambient animation runs at 30 fps.
+- **Faster map painting.** The procedural biome colour field is evaluated on a 2-px lattice (lazily, only next to land)
+  and interpolated bilinearly: 3× faster, mean difference 0.08/255.
+
+**Consequences.** Phone emulation: ready 8.7 s → 4.4 s, draw calls 287 → 170, triangles 512k → 303k, render buffer
+1.3 M → 0.74 M pixels without MSAA. − Phones show fewer models at once when zoomed out (the nearest win; zooming in
+reveals the rest). − Phone edges are slightly softer (no MSAA, DPR ≤ 1.5).
