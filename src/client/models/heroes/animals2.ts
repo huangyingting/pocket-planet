@@ -1068,13 +1068,14 @@ const moose: Builder = (gp, r) => {
   for (const sx of [-1, 1]) {
     tube(A, [[sx * 0.015, -0.01, 0], [sx * 0.045, 0.01, -0.005], [sx * 0.08, 0.022, -0.01]], 0.013, 0.011, antB);
     drop(A, ant, [sx * 0.05, 0.012, -0.002], [sx * 0.07, 0.02, 0.055], 0.008, 0.006); // brow tine
-    const P = grp(A, [sx * 0.078, 0.022, -0.01], [0, 0, sx * 0.3]);
+    // Broad cupped palm raised ~35° and tipped back so it reads as a wide shovel from the side
+    const P = grp(A, [sx * 0.078, 0.022, -0.01], [-0.35, 0, sx * 0.62], 'XYZ');
     const pp: Paint = (x, y, z) => speck(mx(ant, '#a89070', sst(0.06, 0.0, Math.abs(x)) * 0.5), x, y, z, 0.06);
-    blob(P, ant, sx * 0.06, 0.0, -0.02, 0.07, 0.011, 0.045, pp, [0, 0, 0], 16);
-    blob(P, ant, sx * 0.105, 0.002, -0.025, 0.05, 0.01, 0.06, pp, [0, sx * 0.3, 0], 16);
-    for (let k = 0; k < 7; k++) {
-      const t = -1.25 + k * 0.42, base: V3 = [sx * (0.1 + Math.cos(t) * 0.05), 0.002, -0.025 + Math.sin(t) * 0.058];
-      drop(P, ant, base, [base[0] + sx * Math.cos(t) * 0.035, 0.022, base[2] + Math.sin(t) * 0.028], 0.009, 0.006);
+    blob(P, ant, sx * 0.065, 0.0, -0.02, 0.08, 0.012, 0.06, pp, [0, 0, 0], 18);
+    blob(P, ant, sx * 0.12, 0.006, -0.03, 0.06, 0.011, 0.085, pp, [0, sx * 0.25, sx * 0.15], 18);
+    for (let k = 0; k < 9; k++) {
+      const t = -1.45 + k * 0.36, base: V3 = [sx * (0.12 + Math.cos(t) * 0.06), 0.006 + Math.max(0, Math.cos(t)) * 0.008, -0.03 + Math.sin(t) * 0.085];
+      drop(P, ant, base, [base[0] + sx * Math.cos(t) * 0.04, 0.03, base[2] + Math.sin(t) * 0.034], 0.009, 0.005);
     }
   }
 };

@@ -660,13 +660,13 @@ const fd_hummus: Builder = (gp) => {
 
 // ───────────────────────────── Lamingtons (Brisbane) ─────────────────────────────
 const lamG = (cut: boolean) => g('t2:lam' + (cut ? 'c' : ''), () => {
-  const b = new THREE.BoxGeometry(1, 1, 1, 8, 8, 8);
+  const b = new THREE.BoxGeometry(1, 1, 1, 12, 12, 12);
   const pp = b.getAttribute('position');
   for (let i = 0; i < pp.count; i++) {
     let x = pp.getX(i), y = pp.getY(i), z = pp.getZ(i);
-    // rounded cube: push towards a superellipsoid
-    const k = 0.5 / Math.max(1e-4, Math.pow(Math.pow(Math.abs(x * 2), 6) + Math.pow(Math.abs(y * 2), 6) + Math.pow(Math.abs(z * 2), 6), 1 / 6));
-    const n = 1 + (fbm(x * 9, y * 9, z * 9, 2) - 0.5) * 0.06;
+    // soft-edged sponge cube: push towards a superellipsoid, with a shaggy coconut surface
+    const k = 0.5 / Math.max(1e-4, Math.pow(Math.pow(Math.abs(x * 2), 4) + Math.pow(Math.abs(y * 2), 4) + Math.pow(Math.abs(z * 2), 4), 1 / 4));
+    const n = 1 + (fbm(x * 14, y * 14, z * 14, 2) - 0.5) * 0.08;
     x *= k * 2 * n; y *= k * 2 * n; z *= k * 2 * n;
     if (cut && z > 0.42) z = 0.42;
     pp.setXYZ(i, x, y, z);
@@ -678,8 +678,11 @@ const lamG = (cut: boolean) => g('t2:lam' + (cut ? 'c' : ''), () => {
       if (Math.abs(y - 0.06) < 0.03) return '#fbf6ee';
       return hash3(x * 40, y * 40, 1) > 0.8 ? '#f2d488' : '#f6dc96';
     }
-    const h = hash3(x * 53, y * 53, z * 53);
-    return h > 0.5 ? '#f8f2e8' : h > 0.25 ? '#dccbb8' : h > 0.12 ? '#8a5a42' : null;
+    // chocolate-soaked sponge rolled in desiccated coconut: fine cream shreds over brown, chocolate peeking through
+    const h = hash3(x * 97, y * 97, z * 97), m = fbm(x * 6, y * 6, z * 6, 2);
+    if (h + m * 0.5 > 1.02) return '#f3ebdc';
+    if (h + m * 0.5 > 0.86) return '#d6c0a2';
+    return h > 0.4 ? '#6b3a22' : null;
   });
 });
 const fd_lamington: Builder = (gp) => {

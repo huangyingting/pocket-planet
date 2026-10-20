@@ -498,3 +498,36 @@ Picking a galaxy, cluster or quasar outside the Milky Way only flew the camera t
 **Consequences.**
 - \+ The site reads as one product, and there is one fewer page to maintain.
 - − The static pages copy the HUD tokens into their own inline CSS, so the two must be kept in step by hand.
+
+## ADR-024: Earth model realism pass
+
+**Context.** An audit of all 24 contact sheets turned up models that were wrong or hard to tell apart:
+- The airliners, trains and ships shared generic builders, so a 747, a 787 and an A380 looked almost the same.
+- Some dinosaurs used outdated reconstructions, such as theropods with palm-down hands, a quadrupedal Muttaburrasaurus drawn as a theropod, and a scaly Velociraptor.
+- A few animals, camels and foods had the wrong proportions.
+
+**Decision.**
+- **Vehicles.** Catalogue recipes now carry a `variant` flag, and `vehicles.ts` uses it to pick a dedicated builder:
+  - 747-400 with the upper-deck hump;
+  - 787 with serrated engines and raked wingtips;
+  - A380 as a full double-decker;
+  - QM2 with a black hull, red boot-topping and a single funnel;
+  - a ro-ro ferry with a bow visor and a stern ramp;
+  - N700 with a duck-bill nose;
+  - KTX with power cars at both ends and shared bogies.
+
+  The 50 Let Pobedy icebreaker now has its real white superstructure.
+- **Dinosaurs.**
+  - Four models rebuilt from current science: a surface-swimming Plesiosaurus; a Quetzalcoatlus walking on all fours on folded wings; a turkey-sized, feathered Velociraptor; and an iguanodontian Muttaburrasaurus.
+  - Theropod hands now face palms-inward.
+  - Spinosaurus follows the 2020 reconstruction with a paddle tail.
+  - Smaller fixes to Carnotaurus, Cryolophosaurus, Mosasaurus, Iguanodon, Mamenchisaurus, Therizinosaurus and Massospondylus.
+- **Others.**
+  - Moose: palmate antlers.
+  - Wildebeest: slate body, Roman-nosed head, hooked horns, and beard.
+  - Silk Road camels: two distinct humps and a realistic load.
+  - Lamington: sponge cube in chocolate and coconut.
+
+**Consequences.**
+- \+ Each model now matches what the real thing looks like, and similar vehicles can be told apart at a glance.
+- − Some dinosaur builds exceed the 150 ms target (Triceratops about 350 ms, T. rex about 270 ms on this machine), once per selection.

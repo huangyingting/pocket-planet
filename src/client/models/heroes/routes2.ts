@@ -1594,8 +1594,8 @@ export const H_ROUTES2: Record<string, Builder> = {
   },
   vh_icebreaker: gp => {
     // 50 Let Pobedy, the biggest nuclear icebreaker: black hull with a red boot-top, ROSATOMFLOT in white, a shark mouth
-    // on the ice-breaking bow, tall red superstructure, helideck aft — crunching through Arctic floes towards the Pole
-    const blk = '#1b1d21', red = '#c22b26', sp = new Soup(), glass = '#20272f';
+    // on the ice-breaking bow, tall white superstructure, red funnel, helideck aft — crunching through Arctic floes towards the Pole
+    const blk = '#1b1d21', red = '#c22b26', wht = '#eeeeea', sp = new Soup(), glass = '#20272f';
     const H = hull(gp, {
       L: 0.94, B: 0.1, z0: -0.02, full: 0.22, nu: 40, nv: 12, bands: [0.15],
       sheer: u => 0.13 + 0.035 * Math.pow(u, 2.5) + 0.012 * Math.pow(1 - u, 3),
@@ -1616,10 +1616,10 @@ export const H_ROUTES2: Record<string, Builder> = {
         return e < 0.2 * (1 - Math.abs(2 * f - 1)) + 0.02 ? '#f6f6f4' : '#a3161d';
       });
     }
-    // Stepped red superstructure with window rows, bridge with wings
+    // Stepped white superstructure with window rows, bridge with wings
     const dk = H.top(0.5), tiers: [number, number, number, number, number][] = [[0, 0.042, 0.18, -0.17, 0.13], [0.042, 0.04, 0.16, -0.15, 0.11], [0.082, 0.036, 0.14, -0.08, 0.1], [0.118, 0.034, 0.19, 0.035, 0.1]];
     for (const [y0, h, w, z0, z1] of tiers) {
-      sbox(sp, red, 0, dk + y0, (z0 + z1) / 2, w, h, z1 - z0, [red, red, '#e9e9e6', red, red, red]);
+      sbox(sp, wht, 0, dk + y0, (z0 + z1) / 2, w, h, z1 - z0, [wht, wht, '#dcdcd8', wht, wht, wht]);
       const yy = dk + y0 + h * 0.45, n = Math.floor((z1 - z0) / 0.02);
       for (const sd of [-1, 1]) for (let k = 0; k < n; k++) {
         const x = sd * (w / 2 + 0.0008), z = z0 + 0.012 + k * ((z1 - z0 - 0.024) / Math.max(1, n - 1));

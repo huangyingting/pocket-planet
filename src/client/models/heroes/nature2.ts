@@ -1267,7 +1267,9 @@ function hindLeg(p: THREE.Object3D, hip: V3, knee: V3, ankle: V3, foot: V3, r: n
 /** Fore limb: shoulder → elbow → wrist, with `n` claws of length cl along `cd`. */
 function foreLimb(p: THREE.Object3D, sh: V3, el: V3, wr: V3, r: number, paint: HP, n: number, cl: number, cd: V3, claw = '#3a3028'): void {
   hide(p, [{ p: sh, w: r * 1.2 }, { p: el, w: r * 0.75 }, { p: wr, w: r * 0.55 }], paint, 7, 3, { up: [1, 0, 0] });
-  for (let k = 0; k < n; k++) spike(p, claw, [wr[0] + (k - (n - 1) / 2) * r * 0.6, wr[1], wr[2]], [cd[0] + (k - (n - 1) / 2) * 0.15, cd[1], cd[2]], cl, r * 0.28);
+  // Fingers stacked vertically: dinosaur wrists could not pronate, so palms face inward (each other)
+  const sx = Math.sign(wr[0]) || 1;
+  for (let k = 0; k < n; k++) spike(p, claw, [wr[0] - sx * r * 0.15, wr[1] + ((n - 1) / 2 - k) * r * 0.6, wr[2]], [cd[0] - sx * 0.12, cd[1] - k * 0.12, cd[2]], cl * (k === 0 ? 1.15 : 1), r * 0.28);
 }
 /** Prehistoric flora. */
 const FROND = () => leafGeo('n2-frond', 5, t => 0.42 * Math.min(1, t * 3.5) * (1 - t * 0.85), -0.15, 0.35, '#2f5a22', '#6a9a3a');
@@ -1312,7 +1314,7 @@ const carnotaurus: Builder = gp => {
   sph(d, '#7a2a24', 0, 0.284, 0.27, 0.014, 0.004, 0.03, 6);
   // the famous brow horns
   for (const sx of [-1, 1]) {
-    spike(d, '#7a3a26', [sx * 0.016, 0.326, 0.226], [sx * 0.75, 0.75, -0.25], 0.04, 0.015);
+    spike(d, '#6e3222', [sx * 0.016, 0.324, 0.228], [sx * 0.8, 0.7, -0.15], 0.045, 0.017);
     eye(d, [sx * 0.026, 0.318, 0.252], 0.0065, sx, '#e0b020');
   }
   // osteoderm rows along the back
@@ -1345,7 +1347,7 @@ const cryolophosaurus: Builder = gp => {
   const sk = skin({ top: '#4a5a6a', belly: '#d8d4c4', stripe: '#2a3442', sf: 55, spot: '#a8603a', spf: 60 });
   const d = new THREE.Group(); d.position.set(0.03, gy(0, 0), 0.04); d.rotation.y = 1.35; gp.add(d);
   const spine: St2[] = [
-    { p: [0, 0.16, -0.42], w: 0.004 }, { p: [0, 0.2, -0.32], w: 0.013, h: 0.016 }, { p: [0, 0.235, -0.2], w: 0.026, h: 0.034 },
+    { p: [0, 0.205, -0.42], w: 0.004 }, { p: [0, 0.225, -0.32], w: 0.013, h: 0.016 }, { p: [0, 0.243, -0.2], w: 0.026, h: 0.034 },
     { p: [0, 0.25, -0.08], w: 0.04, h: 0.052 }, { p: [0, 0.245, 0.02], w: 0.043, h: 0.058 }, { p: [0, 0.25, 0.09], w: 0.034, h: 0.044 },
     { p: [0, 0.285, 0.15], w: 0.022, h: 0.028 }, { p: [0, 0.31, 0.19], w: 0.024, h: 0.032 }, { p: [0, 0.306, 0.235], w: 0.019, h: 0.026 },
     { p: [0, 0.297, 0.275], w: 0.013, h: 0.019 }, { p: [0, 0.293, 0.29], w: 0.005, h: 0.008 },
@@ -1354,12 +1356,12 @@ const cryolophosaurus: Builder = gp => {
   hide(d, [{ p: [0, 0.293, 0.185], w: 0.018, h: 0.012 }, { p: [0, 0.272, 0.24], w: 0.014, h: 0.009 }, { p: [0, 0.262, 0.275], w: 0.007, h: 0.005 }], skin({ top: '#3e4c5a', belly: '#d0ccbc' }), 10, 3);
   teeth(d, [0.011, 0.287, 0.215], [0.008, 0.284, 0.28], 5, 0.008); teeth(d, [-0.011, 0.287, 0.215], [-0.008, 0.284, 0.28], 5, 0.008);
   sph(d, '#8a2a2a', 0, 0.282, 0.235, 0.01, 0.004, 0.03, 6);
-  // the transverse, furrowed crest above the eyes (sideways fan)
-  for (let k = 0; k < 7; k++) {
-    const t = (k - 3) / 3, h = 0.03 - Math.abs(t) * 0.012 + (k % 2) * 0.006;
-    spike(d, k % 2 ? '#d86a2a' : '#e88a3a', [t * 0.022, 0.33, 0.215], [t * 0.6, 1, 0.1], h * 1.5, 0.011);
-  }
-  box(d, '#c8602a', 0, 0.342, 0.215, 0.046, 0.026, 0.007);
+  // the single transverse crest above the eyes: a thin, furrowed plate running side-to-side (a "pompadour")
+  const co: [number, number][] = [[0.014, 0], [0.026, 0.016]];
+  for (let k = 0; k <= 8; k++) { const t = 1 - k / 4; co.push([t * 0.03, 0.03 - 0.01 * t * t + (k % 2 ? -0.006 : 0.004)]); }
+  co.push([-0.026, 0.016], [-0.014, 0]);
+  const crest = slab(d, co, 0.006, '#d86a2a', 0.0015, true); crest.position.set(0, 0.318, 0.212); crest.rotation.x = 0.22;
+  for (let k = 0; k < 5; k++) { const t = (k - 2) / 2; strut(d, [t * 0.02, 0.322, 0.216], [t * 0.026, 0.344 - 0.006 * t * t, 0.222], 0.0012, 0.001, '#a8481e', 3); }
   for (const sx of [-1, 1]) eye(d, [sx * 0.018, 0.316, 0.215], 0.0055, sx, '#f0c040');
   hindLeg(d, [0.035, 0.235, -0.07], [0.04, 0.14, 0.0], [0.04, 0.06, -0.06], [0.04, 0.008, -0.01], 0.026, sk);
   hindLeg(d, [-0.035, 0.235, -0.07], [-0.04, 0.15, 0.02], [-0.04, 0.07, 0.0], [-0.04, 0.008, 0.06], 0.026, sk);
@@ -1390,7 +1392,7 @@ const massospondylus: Builder = gp => {
   const sk = skin({ top: '#6a6a3a', belly: '#e0d4a8', stripe: '#3a3a1e', sf: 80 });
   const d = new THREE.Group(); d.position.set(-0.04, gy(0, 0.08), 0.08); d.rotation.y = 1.25; gp.add(d);
   const spine: St2[] = [
-    { p: [0, 0.08, -0.42], w: 0.004 }, { p: [0, 0.13, -0.32], w: 0.014, h: 0.018 }, { p: [0, 0.175, -0.2], w: 0.03, h: 0.036 },
+    { p: [0, 0.16, -0.42], w: 0.004 }, { p: [0, 0.178, -0.32], w: 0.014, h: 0.018 }, { p: [0, 0.192, -0.2], w: 0.03, h: 0.036 },
     { p: [0, 0.2, -0.08], w: 0.048, h: 0.055 }, { p: [0, 0.195, 0.02], w: 0.05, h: 0.058 }, { p: [0, 0.2, 0.09], w: 0.036, h: 0.04 },
     { p: [0, 0.23, 0.14], w: 0.022, h: 0.024 }, { p: [0, 0.27, 0.18], w: 0.016, h: 0.018 }, { p: [0, 0.29, 0.22], w: 0.014, h: 0.016 },
     { p: [0, 0.285, 0.25], w: 0.016, h: 0.019 }, { p: [0, 0.275, 0.28], w: 0.01, h: 0.012 }, { p: [0, 0.27, 0.292], w: 0.004, h: 0.005 },
@@ -1473,7 +1475,7 @@ const therizinosaurus: Builder = gp => {
   const fe: HP = (x, y, z, _nx, ny) => B('#6a4a30').lerp(K('#c8a070'), sst(0.0, -0.7, ny)).lerp(K('#3a2818'), sst(0.55, 0.75, f2(x * 70 + y * 50, z * 70 - y * 40, 2, 5)) * 0.6).lerp(K('#e8d8b0'), sst(0.7, 0.85, f2(x * 90 - y * 30, z * 90 + y * 60, 2, 9)) * 0.4);
   const d = new THREE.Group(); d.position.set(-0.06, gy(0, 0), -0.02); d.rotation.y = 0.7; gp.add(d);
   const spine: St2[] = [
-    { p: [0, 0.12, -0.3], w: 0.006 }, { p: [0, 0.16, -0.22], w: 0.022, h: 0.024 }, { p: [0, 0.21, -0.12], w: 0.048, h: 0.05 },
+    { p: [0, 0.16, -0.3], w: 0.006 }, { p: [0, 0.185, -0.22], w: 0.022, h: 0.024 }, { p: [0, 0.22, -0.12], w: 0.048, h: 0.05 },
     { p: [0, 0.26, -0.03], w: 0.072, h: 0.072 }, { p: [0, 0.31, 0.03], w: 0.066, h: 0.07 }, { p: [0, 0.37, 0.06], w: 0.042, h: 0.045 },
     { p: [0, 0.42, 0.075], w: 0.024, h: 0.026 }, { p: [0, 0.47, 0.095], w: 0.018, h: 0.02 }, { p: [0, 0.5, 0.125], w: 0.016, h: 0.018 },
     { p: [0, 0.505, 0.15], w: 0.016, h: 0.017 }, { p: [0, 0.495, 0.175], w: 0.009, h: 0.009 }, { p: [0, 0.488, 0.188], w: 0.003, h: 0.003 },
@@ -1483,7 +1485,19 @@ const therizinosaurus: Builder = gp => {
   for (const sx of [-1, 1]) eye(d, [sx * 0.013, 0.508, 0.155], 0.004, sx, '#e0a020');
   // feathery fluff along the back of the neck and a tail fan
   for (let i = 0; i < 10; i++) { const t = i / 9, pt = lerp3([0, 0.36, 0.04], [0, 0.5, 0.11], t); spike(d, i % 2 ? '#4a3220' : '#7a5636', [pt[0], pt[1], pt[2] - 0.01], [0, 0.3, -1], 0.02, 0.006); }
-  for (let k = 0; k < 7; k++) { const a = (k - 3) * 0.25; spike(d, k % 2 ? '#5a3e26' : '#8a6a44', [0, 0.13, -0.29], [Math.sin(a), 0.1, -Math.cos(a)], 0.06, 0.012); }
+  for (let k = 0; k < 7; k++) { const a = (k - 3) * 0.25; spike(d, k % 2 ? '#5a3e26' : '#8a6a44', [0, 0.165, -0.29], [Math.sin(a), 0.15, -Math.cos(a)], 0.06, 0.012); }
+  // shaggy coat of filament feathers over the body and tail (therizinosaurs were feathered, e.g. Beipiaosaurus)
+  for (let i = 0; i < 14; i++) {
+    const f = 0.6 + i * 0.3, j = Math.min(spine.length - 2, Math.floor(f)), t = f - j, A = spine[j], Bs = spine[j + 1];
+    const C = lerp3(A.p, Bs.p, t), w = A.w + (Bs.w - A.w) * t, h = (A.h ?? A.w) + ((Bs.h ?? Bs.w) - (A.h ?? A.w)) * t;
+    const T = new THREE.Vector3(Bs.p[0] - A.p[0], Bs.p[1] - A.p[1], Bs.p[2] - A.p[2]).normalize(), N = new THREE.Vector3().crossVectors(T, new THREE.Vector3(1, 0, 0));
+    for (let k = 0; k < 9; k++) {
+      const a = -0.35 + (k + (i % 2) * 0.5) * 0.48, ca = Math.cos(a), sa = Math.sin(a);
+      const out = new THREE.Vector3(ca, 0, 0).addScaledVector(N, sa), at: V3 = [C[0] + ca * w * 0.92, C[1] + N.y * sa * h * 0.92, C[2] + N.z * sa * h * 0.92];
+      const dir = out.clone().multiplyScalar(0.55).addScaledVector(T, -0.85).add(new THREE.Vector3(0, -0.25, 0)).normalize();
+      spike(d, (i + k) % 3 ? '#5e4028' : '#8a6a44', at, [dir.x, dir.y, dir.z], 0.022 + 0.008 * Math.sin(i * 1.7 + k), 0.007);
+    }
+  }
   // stout legs with four-toed feet
   hindLeg(d, [0.05, 0.22, -0.06], [0.06, 0.13, 0.0], [0.06, 0.05, -0.05], [0.06, 0.008, 0.0], 0.032, fe, [0.2, 0, 1], '#2a2018', 4, 0.03);
   hindLeg(d, [-0.05, 0.22, -0.06], [-0.06, 0.13, 0.0], [-0.06, 0.05, -0.05], [-0.06, 0.008, 0.0], 0.032, fe, [-0.2, 0, 1], '#2a2018', 4, 0.03);
@@ -1526,28 +1540,35 @@ const quetzalcoatlus: Builder = gp => {
   water(gp, 0.5, WL, '#5a8a9a', { rings: 6, segs: 40 });
   const sk: HP = (x, y, z, _nx, ny) => B('#e8e4dc').lerp(K('#b8b4ac'), sst(0.2, 0.9, ny) * 0.5).lerp(K('#8a8680'), sst(0.6, 0.75, f2(x * 60 + y * 40, z * 60, 2, 1)) * 0.25);
   const wingC: HP = (_x, _y, _z, _nx, ny) => B('#5a5a62').lerp(K('#8a7a6a'), sst(0.0, -0.8, ny) * 0.6);
-  const d = new THREE.Group(); d.position.set(-0.04, gy(0, 0.04), 0.04); d.rotation.y = 1.25; gp.add(d);
-  // body + very long stiff neck + huge head
-  hide(d, [{ p: [0, 0.17, -0.12], w: 0.004 }, { p: [0, 0.18, -0.08], w: 0.022, h: 0.024 }, { p: [0, 0.2, -0.02], w: 0.034, h: 0.036 }, { p: [0, 0.22, 0.04], w: 0.03, h: 0.034 }, { p: [0, 0.25, 0.08], w: 0.016, h: 0.018 }], sk, 12, 4);
-  hide(d, [{ p: [0, 0.24, 0.07], w: 0.014 }, { p: [0, 0.31, 0.13], w: 0.0105 }, { p: [0, 0.38, 0.18], w: 0.01 }, { p: [0, 0.42, 0.21], w: 0.012 }], sk, 8, 3);
-  hide(d, [{ p: [0, 0.43, 0.19], w: 0.012, h: 0.016 }, { p: [0, 0.432, 0.215], w: 0.016, h: 0.022 }, { p: [0, 0.415, 0.25], w: 0.011, h: 0.016 }, { p: [0, 0.39, 0.29], w: 0.007, h: 0.01 }, { p: [0, 0.365, 0.33], w: 0.004, h: 0.005 }, { p: [0, 0.35, 0.355], w: 0.001, h: 0.001 }], (x, y, z, nx, ny, nz, u) => (u > 0.3 ? B('#d8c8a0').lerp(K('#2a2420'), sst(0.85, 1, u)) : sk(x, y, z, nx, ny, nz, u)), 10, 3);
-  // crest
-  slab(d, [[0, 0], [0.03, 0.01], [-0.005, 0.045], [-0.02, 0.02]], 0.002, '#c83a2a', 0, true).position.set(-0.001, 0.438, 0.205);
-  for (const sx of [-1, 1]) eye(d, [sx * 0.014, 0.437, 0.222], 0.0045, sx, '#d8a020');
-  // folded wings: long forelimbs as front legs, wing finger folded up and back, membrane tucked to the side
+  const d = new THREE.Group(); d.position.set(0.0, gy(0, -0.02), -0.03); d.rotation.y = -0.35; gp.add(d);
+  // small body sloping up to the shoulders (forelimbs far longer than hind legs) + long stiff neck + giant head
+  hide(d, [{ p: [0, 0.183, -0.11], w: 0.004 }, { p: [0, 0.19, -0.088], w: 0.02, h: 0.022 }, { p: [0, 0.21, -0.035], w: 0.032, h: 0.035 }, { p: [0, 0.238, 0.025], w: 0.034, h: 0.037 }, { p: [0, 0.26, 0.068], w: 0.025, h: 0.027 }, { p: [0, 0.272, 0.088], w: 0.016 }], sk, 12, 4);
+  hide(d, [{ p: [0, 0.262, 0.075], w: 0.022 }, { p: [0, 0.335, 0.135], w: 0.015 }, { p: [0, 0.415, 0.196], w: 0.0125 }, { p: [0, 0.478, 0.243], w: 0.013 }], sk, 8, 3);
+  // skull nearly as long as the neck, ending in a stiff, toothless, pointed beak angled down
+  hide(d, [{ p: [0, 0.492, 0.232], w: 0.012, h: 0.016 }, { p: [0, 0.5, 0.258], w: 0.016, h: 0.023 }, { p: [0, 0.484, 0.305], w: 0.012, h: 0.018 }, { p: [0, 0.455, 0.355], w: 0.008, h: 0.012 }, { p: [0, 0.425, 0.4], w: 0.0045, h: 0.007 }, { p: [0, 0.404, 0.432], w: 0.001, h: 0.0012 }],
+    (x, y, z, nx, ny, nz, u) => (u > 0.32 ? B('#d8c8a0').lerp(K('#3a3028'), sst(0.86, 1, u)) : sk(x, y, z, nx, ny, nz, u)), 10, 4);
+  for (let i = 0; i < 2; i++) { const z = 0.3 + i * 0.05, y = 0.474 - i * 0.034; hide(d, [{ p: [0, y - 0.012, z - 0.02], w: 0.0012 }, { p: [0, y - 0.018 + 0.003 * i, z + 0.03], w: 0.0012 }], () => K('#4a3c30'), 4, 1); }
+  // sagittal crest along the skull roof (slab in the YZ plane)
+  const cr = slab(d, [[-0.045, 0], [0.03, -0.004], [0.042, 0.026], [0.02, 0.046], [-0.012, 0.03]], 0.0025, '#c83a2a', 0, true);
+  cr.position.set(0, 0.5, 0.262); cr.rotation.y = Math.PI / 2;
+  for (const sx of [-1, 1]) eye(d, [sx * 0.0135, 0.505, 0.252], 0.0042, sx, '#d8a020');
+  // forelimbs as walking legs: near-vertical long hand (metacarpal), knuckle of the folded wing finger on the ground
   for (const sx of [-1, 1]) {
-    const sh: V3 = [sx * 0.03, 0.21, 0.04], el: V3 = [sx * 0.07, 0.16, -0.01], wr: V3 = [sx * 0.07, 0.07, 0.07], hand: V3 = [sx * 0.072, 0.008, 0.09], tip: V3 = [sx * 0.07, 0.26, -0.13];
-    hide(d, [{ p: sh, w: 0.014 }, { p: el, w: 0.011 }, { p: lerp3(el, wr, 0.5), w: 0.008 }, { p: wr, w: 0.007 }, { p: hand, w: 0.006 }], sk, 7, 3, { up: [1, 0, 0] });
-    hide(d, [{ p: wr, w: 0.006 }, { p: lerp3(wr, tip, 0.5), w: 0.005 }, { p: tip, w: 0.002 }], wingC, 6, 2, { up: [1, 0, 0] });
-    // membrane (two-sided thin fan between body, elbow, wrist and folded finger)
-    const fan: V3[] = [[sx * 0.025, 0.2, -0.06], el, wr, lerp3(wr, tip, 0.5), tip, [sx * 0.03, 0.2, -0.1]], mp: number[] = [];
-    for (let k = 1; k < fan.length - 1; k++) for (const q of [fan[0], fan[k], fan[k + 1], fan[0], fan[k + 1], fan[k]]) mp.push(q[0] + sx * 0.004, q[1], q[2]);
+    const sh: V3 = [sx * 0.03, 0.252, 0.068], el: V3 = [sx * 0.056, 0.205, 0.025], wr: V3 = [sx * 0.058, 0.13, 0.082], kn: V3 = [sx * 0.062, 0.016, 0.092];
+    const f1: V3 = [sx * 0.07, 0.15, 0.06], fq: V3 = [sx * 0.068, 0.225, -0.03], tip: V3 = [sx * 0.058, 0.25, -0.13];
+    hide(d, [{ p: sh, w: 0.015 }, { p: lerp3(sh, el, 0.5), w: 0.013 }, { p: el, w: 0.01 }, { p: lerp3(el, wr, 0.5), w: 0.0085 }, { p: wr, w: 0.0075 }, { p: lerp3(wr, kn, 0.5), w: 0.006 }, { p: kn, w: 0.0065 }], sk, 7, 3, { up: [1, 0, 0] });
+    // folded wing finger running from the knuckle up and back past the hips
+    hide(d, [{ p: kn, w: 0.0055 }, { p: f1, w: 0.005 }, { p: fq, w: 0.0038 }, { p: tip, w: 0.0015 }], wingC, 6, 3, { up: [1, 0, 0] });
+    // tucked membrane between flank, arm and folded finger
+    const fan: V3[] = [[sx * 0.03, 0.2, -0.07], [sx * 0.035, 0.24, 0.05], el, lerp3(el, wr, 0.6), lerp3(kn, f1, 0.5), f1, fq, tip], mp: number[] = [];
+    for (let k = 1; k < fan.length - 1; k++) for (const q of [fan[0], fan[k], fan[k + 1], fan[0], fan[k + 1], fan[k]]) mp.push(q[0] + sx * 0.003, q[1], q[2]);
     const mg = new THREE.BufferGeometry(); mg.setAttribute('position', new THREE.Float32BufferAttribute(mp, 3)); mg.computeVertexNormals();
-    add(d, mg, mat('#6a5a5e', { rough: 0.8 }), 0, 0, 0, 1, 1, 1);
-    for (let k = 0; k < 3; k++) spike(d, '#2a2420', [hand[0] + sx * 0.004, 0.012, hand[2] + (k - 1) * 0.006], [sx * 0.3, -0.4, 1], 0.012, 0.0025);
+    add(d, mg, mat('#5e5054', { rough: 0.8 }), 0, 0, 0, 1, 1, 1);
+    // three small clawed fingers splayed forward-outward on the ground
+    for (let k = 0; k < 3; k++) { const a = sx * (0.5 + k * 0.35), q: V3 = [kn[0] + Math.sin(a) * 0.006, 0.006, kn[2] + Math.cos(a) * 0.006 + 0.004]; spike(d, '#2a2420', q, [Math.sin(a), -0.15, Math.cos(a)], 0.011, 0.0022); }
   }
-  // short hind legs
-  for (const sx of [-1, 1]) hindLeg(d, [sx * 0.022, 0.17, -0.07], [sx * 0.03, 0.1, -0.04], [sx * 0.03, 0.04, -0.09], [sx * 0.03, 0.006, -0.06], 0.014, sk, [0, 0, 1], '#2a2420', 3, 0.018);
+  // short hind legs, plantigrade feet
+  for (const sx of [-1, 1]) hindLeg(d, [sx * 0.024, 0.188, -0.075], [sx * 0.034, 0.122, -0.035], [sx * 0.034, 0.038, -0.088], [sx * 0.034, 0.006, -0.058], 0.0135, sk, [0, 0, 1], '#2a2420', 3, 0.018);
   // a tiny juvenile Alamosaurus... no — a small lizard dinner! and palms, cycads
   const lx = 0.28, lz = 0.0, ly = gy(lx, lz), lz2 = new THREE.Group(); lz2.position.set(lx, ly, lz); lz2.rotation.y = -0.6; gp.add(lz2);
   hide(lz2, [{ p: [0, 0.004, -0.04], w: 0.002 }, { p: [0, 0.006, -0.01], w: 0.006, h: 0.005 }, { p: [0, 0.007, 0.01], w: 0.007, h: 0.005 }, { p: [0, 0.007, 0.025], w: 0.004, h: 0.004 }], skin({ top: '#5a7a3a', belly: '#c8c890' }), 6, 2);
@@ -1599,7 +1620,7 @@ const mosasaurus: Builder = gp => {
   const sk = skin({ top: '#2e3a4a', belly: '#e8e4d8', spot: '#24303e', spf: 55 });
   const d = new THREE.Group(); d.position.set(0.04, 0, 0.06); d.rotation.y = 1.1; gp.add(d);
   hide(d, [
-    { p: [0, WL - 0.03, -0.4], w: 0.006, h: 0.012 }, { p: [0, WL - 0.02, -0.3], w: 0.016, h: 0.026 }, { p: [0, WL + 0.0, -0.18], w: 0.034, h: 0.042 },
+    { p: [0, WL - 0.055, -0.405], w: 0.004, h: 0.007 }, { p: [0, WL - 0.03, -0.375], w: 0.008, h: 0.013 }, { p: [0, WL - 0.012, -0.34], w: 0.012, h: 0.02 }, { p: [0, WL - 0.004, -0.28], w: 0.017, h: 0.027 }, { p: [0, WL + 0.0, -0.18], w: 0.034, h: 0.042 },
     { p: [0, WL + 0.05, -0.07], w: 0.05, h: 0.056 }, { p: [0, WL + 0.11, 0.02], w: 0.052, h: 0.058 }, { p: [0, WL + 0.17, 0.1], w: 0.04, h: 0.044 },
     { p: [0, WL + 0.22, 0.17], w: 0.032, h: 0.034 }, { p: [0, WL + 0.25, 0.24], w: 0.028, h: 0.028 }, { p: [0, WL + 0.26, 0.3], w: 0.018, h: 0.016 },
     { p: [0, WL + 0.26, 0.335], w: 0.009, h: 0.008 },
@@ -1618,8 +1639,9 @@ const mosasaurus: Builder = gp => {
     aim(d, PAD, '#2a3442', [sx * 0.045, WL + 0.12, 0.05], [sx, -0.6, 0.3], 0.07, 0.04, [0, 1, 0]);
     aim(d, PAD, '#2a3442', [sx * 0.035, WL + 0.02, -0.12], [sx, -0.5, -0.2], 0.05, 0.03, [0, 1, 0]);
   }
-  slab(d, [[0, 0], [0.04, -0.06], [0.07, -0.08], [0.05, -0.02], [0.04, 0.025], [0.0, 0.01]], 0.006, '#2a3442', 0, true).rotation.y = Math.PI / 2;
-  d.children[d.children.length - 1].position.set(0, WL - 0.026, -0.39);
+  // crescent fluke at the downturned tail tip: lower lobe carried by the vertebrae, upper lobe of soft tissue (Lindgren et al. 2013)
+  const fl = slab(d, [[0, 0.01], [0.025, 0.03], [0.065, 0.062], [0.042, 0.016], [0.04, -0.01], [0.06, -0.06], [0.03, -0.038], [0, -0.01]], 0.005, '#2a3442', 0.001, true);
+  fl.rotation.y = Math.PI / 2; fl.position.set(0, WL - 0.022, -0.36);
   // splash ring and spray where it breaches
   for (let k = 0; k < 12; k++) { const a = k * 0.52, r = 0.05 + H(k, 1) * 0.02; blob(d, '#f4fbff', Math.cos(a) * r, WL + 0.008 + H(k, 2) * 0.01, -0.12 + Math.sin(a) * r * 1.6, 0.014, 0.01 + H(k, 3) * 0.012, 0.014, k, 0).material = mat('#f0f8ff', { transparent: 0.85 }); }
   for (let k = 0; k < 8; k++) blob(d, '#f4fbff', (H(k, 4) - 0.5) * 0.06, WL + 0.02 + H(k, 5) * 0.06, 0.0 + (H(k, 6) - 0.5) * 0.1, 0.007, 0.007, 0.007, k, 0).material = mat('#f0f8ff', { transparent: 0.8 });

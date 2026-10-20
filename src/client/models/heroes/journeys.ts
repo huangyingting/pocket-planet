@@ -521,10 +521,10 @@ function quadBody(b: THREE.Object3D, o: QuadOpts): void {
 function gnu(p: THREE.Object3D, at: V3, yaw: number, s: number, phase: number, headDown = 0): void {
   const b = grp(p, at, [0, yaw, 0], s);
   // Blue wildebeest: slate grey with dark brindle bands down the neck and shoulders, black face, mane and beard
-  const c = '#7a756d', dk = '#25211e', tan = '#8a7a66';
+  const c = '#6f6b64', dk = '#1f1b18', tan = '#8a7c68';
   const paint: Paint = (x, y, z, _nx, ny) => {
     let col = ny < -0.5 ? mx(c, tan, 0.35) : c;
-    if (z > -0.12 && y > 0.3) col = mx(col, '#2f2b27', sst(0.2, 0.6, Math.sin(z * 52 + y * 10 + vnoise(x * 8, y * 8, z * 8) * 1.5)) * sst(-0.12, 0.06, z) * 0.9);
+    if (z > -0.1 && y > 0.28) col = mx(col, '#26221e', sst(0.1, 0.5, Math.sin(z * 46 + y * 8 + vnoise(x * 8, y * 8, z * 8) * 1.5)) * sst(-0.1, 0.1, z) * 0.6);
     if (y > 0.5 && z > 0.05) col = mx(col, '#4a4540', sst(0.05, 0.25, z) * 0.4);
     return speck(col, x, y, z, 0.06);
   };
@@ -532,11 +532,14 @@ function gnu(p: THREE.Object3D, at: V3, yaw: number, s: number, phase: number, h
   vblob(b, c, 0, 0.55, 0.15, 0.085, 0.09, 0.13, paint, [0, 0, 0], 12); // humped shoulders
   const hd = headDown;
   spine(b, [{ p: [0, 0.5, 0.22], w: 0.075, h: 0.11 }, { p: [0, 0.56, 0.31], w: 0.058, h: 0.085 }, { p: [0, 0.59 - hd * 0.5, 0.38], w: 0.048, h: 0.065 }], c, paint, { nu: 8, nv: 12 });
-  const H = grp(b, [0, 0.6 - hd * 0.5, 0.39], [0.6 + hd, 0, 0]);
-  spine(H, [{ p: [0, 0.0, -0.02], w: 0.05, h: 0.055 }, { p: [0, 0, 0.05], w: 0.046, h: 0.05 }, { p: [0, -0.005, 0.12], w: 0.04, h: 0.04 }, { p: [0, -0.01, 0.17], w: 0.046, h: 0.036 }, { p: [0, -0.012, 0.19], w: 0.036, h: 0.026 }],
-    dk, (x, y, z) => speck(dk, x, y, z, 0.08), { nu: 12, nv: 10 });
+  // Big, long 'Roman-nosed' head — the wildebeest's signature front-heavy look
+  const H = grp(b, [0, 0.6 - hd * 0.5, 0.39], [0.6 + hd, 0, 0], 1.15);
+  spine(H, [{ p: [0, 0.005, -0.025], w: 0.04, h: 0.05 }, { p: [0, 0.008, 0.03], w: 0.044, h: 0.058 }, { p: [0, 0.0, 0.09], w: 0.032, h: 0.044 }, { p: [0, -0.008, 0.14], w: 0.028, h: 0.036 },
+    { p: [0, -0.014, 0.175], w: 0.038, h: 0.032 }, { p: [0, -0.016, 0.2], w: 0.03, h: 0.022 }],
+    dk, (x, y, z, nx) => speck(Math.abs(nx) > 0.6 && z < 0.08 ? mx(dk, '#4a443e', 0.5) : dk, x, y, z, 0.08), { nu: 14, nv: 10 });
   for (const sx of [-1, 1]) {
-    tube(H, [[sx * 0.025, 0.045, 0.0], [sx * 0.085, 0.05, -0.01], [sx * 0.12, 0.08, 0.015], [sx * 0.095, 0.115, 0.035]], 0.02, 0.006, '#24201c', 6);
+    // Cow-like horns: thick boss, out sideways, then hooking up and in (dark grey, paler tips for readability)
+    tube(H, [[sx * 0.02, 0.045, 0.0], [sx * 0.09, 0.045, -0.015], [sx * 0.13, 0.085, 0.0], [sx * 0.11, 0.13, 0.03]], 0.024, 0.007, '#57514a', 7, (_x, y) => (y > 0.1 ? '#8a847a' : '#4a453f'));
     blade(H, '#3a332d', [sx * 0.035, 0.03, -0.02], [sx * 0.085, 0.01, -0.05], 0.018, 0.005, [0, 0, 1]);
     bead(H, sx * 0.043, 0.02, 0.04, 0.007, '#0a0806');
     ellip(H, '#121010', sx * 0.022, -0.01, 0.19, 0.008, 0.007, 0.006);
@@ -544,8 +547,8 @@ function gnu(p: THREE.Object3D, at: V3, yaw: number, s: number, phase: number, h
   // Black mane along the neck and long beard under the throat
   for (let i = 0; i < 5; i++) {
     const t = i / 4, z = 0.16 + t * 0.22, y = 0.63 + t * 0.0 - hd * 0.4 * t;
-    blade(b, '#1c1917', [0, y - 0.012, z], [0, y + 0.03, z - 0.025], 0.02, 0.007, [1, 0, 0]);
-    drop(b, '#1c1917', [0, 0.47 + t * 0.06 - hd * 0.3 * t, 0.26 + t * 0.14], [0, 0.38 + t * 0.03 - hd * 0.3 * t, 0.27 + t * 0.13], 0.016, 0.009);
+    blade(b, '#1c1917', [0, y - 0.012, z], [0, y + 0.045, z - 0.03], 0.026, 0.008, [1, 0, 0]);
+    drop(b, '#1c1917', [0, 0.47 + t * 0.06 - hd * 0.3 * t, 0.26 + t * 0.14], [0, 0.33 + t * 0.03 - hd * 0.3 * t, 0.27 + t * 0.13], 0.022, 0.01);
   }
   tube(b, [[0, 0.47, -0.3], [0, 0.38, -0.34], [0, 0.26, -0.33]], 0.008, 0.005, '#3a3530', 5);
   for (let i = 0; i < 3; i++) drop(b, '#151311', [0, 0.32, -0.335], [(i - 1) * 0.014, 0.17, -0.33 - (i % 2) * 0.01], 0.014, 0.008);
@@ -626,11 +629,11 @@ function camel(p: THREE.Object3D, at: V3, yaw: number, s: number, phase: number,
   const paint: Paint = (x, y, z, _nx, ny) => speck(ny < -0.5 ? mx(c, '#c49a6a', 0.4) : c, x, y, z, 0.07);
   quadBody(b, { yw: 0.66, yh: 0.62, L: 0.52, dep: 0.25, wd: 0.11, leg: 0.02, phase, paint, c, hoof: '#5e4630', stride: 0.06,
     legPaint: (x, y, z) => speck(y > 0.5 ? sg : c, x, y, z, 0.06) });
-  // Humps with dark shaggy caps
-  for (const z of [0.12, -0.1]) {
-    vblob(b, c, 0, 0.66, z, 0.07, 0.11, 0.075, (x, y, zz) => (y > 0.71 ? speck(sg, x, y, zz, 0.15) : speck(c, x, y, zz, 0.07)), [0, 0, 0], 11);
+  // Two tall, well-separated Bactrian humps with dark shaggy caps (the riders/loads sit in the saddle between them)
+  for (const z of [0.15, -0.13]) {
+    vblob(b, c, 0, 0.67, z, 0.068, 0.135, 0.07, (x, y, zz) => (y > 0.74 ? speck(sg, x, y, zz, 0.15) : speck(c, x, y, zz, 0.07)), [0, 0, 0], 11);
     // Shaggy winter tuft flopping over the top of each hump
-    for (let i = 0; i < 3; i++) { const sx = i - 1; drop(b, sg, [sx * 0.025, 0.76, z + 0.01], [sx * 0.05, 0.73, z - 0.04], 0.03, 0.014); }
+    for (let i = 0; i < 3; i++) { const sx = i - 1; drop(b, sg, [sx * 0.025, 0.79, z + 0.01], [sx * 0.05, 0.76, z - 0.04], 0.03, 0.014); }
   }
   // Neck dips forward and down from the shoulder, then swings up in a U to carry the head level
   spine(b, [{ p: [0, 0.56, 0.2], w: 0.065, h: 0.09 }, { p: [0, 0.5, 0.32], w: 0.05, h: 0.068 }, { p: [0, 0.51, 0.42], w: 0.042, h: 0.054 }, { p: [0, 0.6, 0.49], w: 0.037, h: 0.044 }, { p: [0, 0.7, 0.51], w: 0.036, h: 0.04 }],
@@ -648,13 +651,14 @@ function camel(p: THREE.Object3D, at: V3, yaw: number, s: number, phase: number,
   tube(b, [[0, 0.56, -0.28], [0, 0.46, -0.31], [0, 0.36, -0.3]], 0.01, 0.006, c, 5);
   drop(b, sg, [0, 0.38, -0.3], [0, 0.3, -0.3], 0.012, 0.008);
   if (load) {
-    // Saddle blanket and slung bales between the humps
-    vblob(b, blanket, 0, 0.6, 0.01, 0.13, 0.06, 0.1, (x, y, z) => (Math.sin(z * 120) > 0.5 ? '#e7c55a' : Math.abs(x) > 0.11 ? sh(blanket, 0.7) : blanket), [0, 0, 0], 11);
+    // Saddle blanket in the dip between the humps; bales slung low on the flanks so both humps stay visible
+    vblob(b, blanket, 0, 0.6, 0.01, 0.13, 0.055, 0.075, (x, y, z) => (Math.sin(z * 120) > 0.5 ? '#e7c55a' : Math.abs(x) > 0.11 ? sh(blanket, 0.7) : blanket), [0, 0, 0], 11);
     for (const sx of [-1, 1]) {
-      rbox(b, sx > 0 ? '#c9b18a' : '#8f6a45', sx * 0.15, 0.5, 0.01, 0.07, 0.12, 0.13, 0.025);
-      for (const dz of [-0.04, 0.05]) box(b, '#5b4330', sx * 0.15, 0.5, 0.01 + dz, 0.074, 0.124, 0.008);
+      rbox(b, sx > 0 ? '#c9b18a' : '#8f6a45', sx * 0.15, 0.47, 0.01, 0.07, 0.11, 0.12, 0.025);
+      for (const dz of [-0.035, 0.045]) box(b, '#5b4330', sx * 0.15, 0.47, 0.01 + dz, 0.074, 0.114, 0.008);
+      rod(b, [sx * 0.05, 0.66, 0.01], [sx * 0.15, 0.53, 0.01], 0.006, '#5b4330', 4);
     }
-    rbox(b, '#6e7f9a', 0, 0.7, 0.01, 0.12, 0.05, 0.08, 0.02);
+    rbox(b, '#6e7f9a', 0, 0.665, 0.01, 0.12, 0.035, 0.05, 0.015);
   }
   return b;
 }

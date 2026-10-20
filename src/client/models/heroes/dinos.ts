@@ -401,7 +401,7 @@ function foot_(gp: THREE.Object3D, L: Leg, fp: V3, sx: number, paint: BP, lifted
       // raised killing claw on the second toe (dromaeosaurs)
       const th = yaw0 - sx * 0.5, base: V3 = [fp[0] + Math.sin(th) * toe * 0.25, y + L.w[3] * 1.3, fp[2] + Math.cos(th) * toe * 0.25];
       el(gp, skin, base[0], base[1], base[2], L.w[3] * 0.5);
-      claw(gp, nail, base, [base[0] + Math.sin(th) * toe * 0.25, base[1] + toe * 0.45, base[2] + Math.cos(th) * toe * 0.45], L.w[3] * 0.42, [0, 0, -1]);
+      claw(gp, nail, base, [base[0] + Math.sin(th) * toe * 0.3, base[1] + toe * 0.55, base[2] + Math.cos(th) * toe * 0.55], L.w[3] * 0.55, [0, 0, -1]);
     }
   } else if (L.type === 'pad') {
     el(gp, sh(skin, 0.92), fp[0], y + L.w[3] * 0.55, fp[2] + L.w[3] * 0.15, L.w[3] * 1.15, L.w[3] * 0.62, L.w[3] * 1.2);
@@ -512,7 +512,7 @@ const trex: Builder = gp => {
   for (const sx of [-1, 1]) {
     const sh0: V3 = [sx * 0.055, 0.24, 0.165], elb: V3 = [sx * 0.07, 0.205, 0.175], wr: V3 = [sx * 0.064, 0.2, 0.215];
     loft(d, [{ p: sh0, w: 0.016 }, { p: elb, w: 0.011 }, { p: wr, w: 0.009 }], limbHide(H), { nu: 10, nv: 10 });
-    for (const k of [-1, 1]) claw(d, '#2c241d', [wr[0] + k * 0.004, wr[1], wr[2] + 0.004], [wr[0] + k * 0.006, wr[1] - 0.01, wr[2] + 0.016], 0.0035, [0, 1, 0]);
+    for (const k of [0, 1]) claw(d, '#2c241d', [wr[0], wr[1] + 0.003 - k * 0.006, wr[2] + 0.004], [wr[0] - sx * 0.002, wr[1] - 0.004 - k * 0.006, wr[2] + 0.018], 0.0035, [sx, 0, 0]);
   }
   // Powerful legs mid-stride
   legPair(d, { hip: [0.045, 0.29, -0.03], foot: [0.075, 0, 0.0], L: [0.14, 0.13], bend: 1, meta: 0.08, tilt: 0.42, w: [0.056, 0.028, 0.018, 0.016],
@@ -732,13 +732,13 @@ const brachiosaurus: Builder = gp => {
 };
 
 /** Flat water surface with ripple rings around given points; slightly glossy. */
-function water(gp: THREE.Object3D, y: number, rings: [number, number][] = [], R = 0.479, deep = '#2b6a84', shallow = '#5fa6b4'): void {
+function water(gp: THREE.Object3D, y: number, rings: [number, number][] = [], R = 0.479, deep = '#2b6a84', shallow = '#5fa6b4', opacity?: number): void {
   const m = surf(gp, 10, 56, (u, v) => { const a = v * Math.PI * 2, r = R * Math.pow(u, 0.8); return [Math.cos(a) * r, y, Math.sin(a) * r]; }, (x, _y, z) => {
     let c = mx(deep, shallow, 0.35 + 0.5 * fbm(x * 7, 2, z * 7, 2) - 0.2);
     for (const [rx, rz] of rings) { const d = Math.hypot(x - rx, z - rz); c = mx(c, '#d9eef0', sst(0.55, 0.95, Math.cos(d * 90)) * sst(0.1, 0.02, d) * 0.6); }
     return c;
   }, false, [0, 1, 0]);
-  m.material = mat('#ffffff', { flat: false, vc: true, rough: 0.12, metal: 0.15 });
+  m.material = mat('#ffffff', { flat: false, vc: true, rough: 0.12, metal: 0.15, ...(opacity !== undefined ? { transparent: opacity } : {}) });
 }
 /** Mesh water ring: a few rings of ripples rising slightly around a point (splash collar). */
 function ripples(gp: THREE.Object3D, x: number, y: number, z: number, r: number): void {
@@ -811,37 +811,81 @@ const velociraptor: Builder = gp => {
   el(gp, '#e8dcc0', sk[0] - 0.02, sk[1] + 0.012, sk[2] - 0.02, 0.028, 0.022, 0.006, 0.6);
   el(gp, '#3a2c20', sk[0] + 0.008, sk[1] + 0.012, sk[2] + 0.01, 0.006);
   const d = new THREE.Group(); d.position.y = S.H(0, 0) - 0.002; gp.add(d); d.rotation.y = 0.15; d.scale.setScalar(1.3); d.position.z = 0.03;
-  const H: Hide = {
-    top: '#5a3b24', side: '#9b6a3a', belly: '#e6d6b2', patC: '#3a2618', grain: 0.22,
-    pat: (_x, _y, z, u, s) => (u < 0.85 ? sst(0.4, 0.9, Math.sin(z * 150)) * sst(-0.1, 0.6, s) * 0.6 : 0),
-  };
+  // Skin under the plumage (visible between feathers and on the face/feet)
+  const H: Hide = { top: '#4a3020', side: '#8a5e36', belly: '#ddcba6', grain: 0.2 };
   const P = hide(H);
   const st: St[] = [
-    { p: [0, 0.25, -0.44], w: 0.006, h: 0.006 }, { p: [0, 0.232, -0.32], w: 0.012, h: 0.014 }, { p: [0, 0.22, -0.2], w: 0.02, h: 0.024 },
-    { p: [0, 0.212, -0.1], w: 0.034, h: 0.042 }, { p: [0, 0.205, -0.02], w: 0.043, h: 0.052 }, { p: [0, 0.195, 0.06], w: 0.036, h: 0.048 },
-    { p: [0, 0.21, 0.1], w: 0.022, h: 0.026 }, { p: [0, 0.245, 0.125], w: 0.016, h: 0.018 }, { p: [0, 0.266, 0.148], w: 0.021, h: 0.023 },
-    { p: [0, 0.263, 0.185], w: 0.016, h: 0.018 }, { p: [0, 0.257, 0.222], w: 0.01, h: 0.011 }, { p: [0, 0.255, 0.236], w: 0.004, h: 0.004 },
+    { p: [0, 0.25, -0.44], w: 0.005 }, { p: [0, 0.238, -0.33], w: 0.011, h: 0.012 }, { p: [0, 0.226, -0.21], w: 0.018, h: 0.021 },
+    { p: [0, 0.214, -0.1], w: 0.032, h: 0.04 }, { p: [0, 0.206, -0.02], w: 0.042, h: 0.052 }, { p: [0, 0.196, 0.06], w: 0.036, h: 0.048 },
+    { p: [0, 0.21, 0.1], w: 0.022, h: 0.026 }, { p: [0, 0.243, 0.122], w: 0.016, h: 0.018 }, { p: [0, 0.268, 0.15], w: 0.02, h: 0.022 },
+    { p: [0, 0.262, 0.18], w: 0.013, h: 0.016 }, { p: [0, 0.256, 0.21], w: 0.0085, h: 0.011 }, { p: [0, 0.257, 0.235], w: 0.0055, h: 0.0065 },
+    { p: [0, 0.26, 0.25], w: 0.002, h: 0.0025 },
   ];
-  const B = loft(d, st, (x, y, z, nx, ny, nz, u, a) => (u > 0.8 && Math.abs(Math.sin(a) + 0.35) < 0.08 ? '#2a1a14' : P(x, y, z, nx, ny, nz, u, a)), { nu: 80, nv: 20 });
+  // Long, low, narrow snout with a concave (upturned) top line
+  const B = loft(d, st, (x, y, z, nx, ny, nz, u, a) => (u > 0.68 && Math.abs(Math.sin(a) + 0.35) < 0.08 ? '#2a1a14' : P(x, y, z, nx, ny, nz, u, a)), { nu: 72, nv: 16 });
   for (const sx of [-1, 1]) {
-    eye(d, B.at(0.76, sx > 0 ? 0.45 : Math.PI - 0.45, 0.92), [sx, 0.15, 0.4], 0.0055, '#d4a020');
-    for (let i = 0; i < 5; i++) { const b = B.at(0.82 + i * 0.03, sx > 0 ? -0.45 : Math.PI + 0.45, 0.98); tooth(d, b, [b[0], b[1] - 0.006, b[2]], 0.0017); }
+    eye(d, B.at(0.69, sx > 0 ? 0.5 : Math.PI - 0.5, 0.92), [sx, 0.15, 0.35], 0.005, '#d4a020');
+    for (let i = 0; i < 6; i++) { const b = B.at(0.73 + i * 0.035, sx > 0 ? -0.45 : Math.PI + 0.45, 0.98); tooth(d, b, [b[0], b[1] - 0.005, b[2] - 0.001], 0.0015); }
+    const n = B.at(0.94, sx > 0 ? 0.8 : Math.PI - 0.8, 0.96); el(d, '#21160f', n[0], n[1], n[2], 0.0018, 0.0012, 0.003);
   }
   const F = new Leaves();
-  // Fan tail
-  for (const sx of [-1, 1]) feathers(F, B.at(0.0, 0, 0), B.at(0.32, 0, 0), t => nrm([sx, 0.04, -0.6 + t * 0.4]), 9, t => 0.045 - t * 0.022, 0.022, i => (i % 4 === 0 ? '#2e1d13' : i % 2 ? '#4a3020' : '#6b4429'));
-  // Neck / head crest of fluffy feathers
-  feathers(F, B.at(0.62, Math.PI / 2, 0.9), B.at(0.75, Math.PI / 2, 0.9), t => nrm([0, 0.6, -1 + t * 0.4]), 6, () => 0.018, 0.012, i => (i % 2 ? '#3d2818' : '#5a3a22'));
-  // Arms with folded wing feathers and three clawed fingers
+  /** One vaned feather: two-tone quad + pointed tip, rooted at p, lying along dir, width across wv. */
+  const plume = (p: V3, dir: V3, wv: V3, len: number, wd: number, c1: string, c2: string) => {
+    const at = (k: number, s: number): V3 => [p[0] + dir[0] * len * k + wv[0] * wd * s, p[1] + dir[1] * len * k + wv[1] * wd * s, p[2] + dir[2] * len * k + wv[2] * wd * s];
+    const b0 = at(0, -0.5), b1 = at(0, 0.5), m0 = at(0.68, -0.5), m1 = at(0.68, 0.5);
+    F.tri(b0, b1, m1, c1); F.tri(b0, m1, m0, c1); F.tri(m0, m1, at(1, 0), c2);
+  };
+  // Contour-feather coat: overlapping plumes over trunk, neck and back of the head, lying back along the body
+  const coat = (u: number, s: number): [string, string] => {
+    if (u > 0.5 && s < 0.1) return ['#efe4cc', '#d8c8a8'];                       // pale throat and neck
+    if (s < -0.45) return ['#e2d0aa', '#cdb88e'];                                   // cream belly
+    if (u < 0.3) return Math.sin(u * 70) > 0.2 ? ['#3a2618', '#2a1a12'] : ['#b5743a', '#8a5226']; // banded tail
+    if (s > 0.35) return Math.sin(u * 120) > 0.5 ? ['#3c2717', '#2c1c12'] : ['#5a3b24', '#3e2818']; // dark barred back
+    return ['#9b6a3a', '#7a5230'];                                                   // tan flanks
+  };
+  for (let i = 0; i <= 50; i++) {
+    const u = 0.035 + i * 0.0127, R = B.F(u), na = u > 0.6 ? 9 : 12;
+    for (let j = 0; j < na; j++) {
+      const a = (j + (i % 2) * 0.5 + (hash3(i, j, 5) - 0.5) * 0.4) / na * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+      if (u < 0.3 && sa < -0.5) continue;
+      const rad = R.S.clone().multiplyScalar(ca).addScaledVector(R.N, sa).normalize(), tan = R.S.clone().multiplyScalar(-sa).addScaledVector(R.N, ca).normalize();
+      const fl = 0.3 + hash3(i, j, 7) * 0.15, p = B.at(u, a, 0.95), dir = nrm([-R.T.x + rad.x * fl, -R.T.y + rad.y * fl - 0.08, -R.T.z + rad.z * fl]);
+      const sz = Math.min(R.w, R.h), [c1, c2] = coat(u, sa), k = 0.86 + hash3(i, j, 9) * 0.28;
+      plume(p, dir, [tan.x, tan.y, tan.z], (0.014 + sz * 0.5) * (0.85 + hash3(j, i, 3) * 0.3), 0.004 + sz * 0.2, sh(c1, k), sh(c2, k));
+    }
+  }
+  // Feathered tail fan: rectrices spreading sideways along the distal half of the stiff tail
+  for (const sx of [-1, 1]) for (let i = 0; i < 11; i++) {
+    const t = i / 10, u = 0.005 + t * 0.26, p = B.at(u, sx > 0 ? 0 : Math.PI, 0.7), dir = nrm([sx * (0.7 - t * 0.15), 0.03, -0.75 + t * 0.15]);
+    plume(p, dir, [0, 0, 1], 0.05 - Math.abs(t - 0.45) * 0.03, 0.013, i % 3 === 0 ? '#3a2618' : '#b0703a', '#2a1a12');
+  }
+  for (let k = -1; k <= 1; k++) plume(B.at(0.01, Math.PI / 2, 0.5), nrm([k * 0.25, 0.02, -1]), [1, 0, 0], 0.045, 0.012, '#8a5226', '#2a1a12');
+  // Feathered thighs ("trousers") over the upper legs
+  for (const sx of [-1, 1]) for (let i = 0; i < 10; i++) {
+    const a = (i / 9 - 0.5) * 2.4, p: V3 = [sx * (0.03 + 0.04 * Math.cos(a)), 0.2 + 0.03 * Math.sin(a) * 0.3, -0.02 + 0.042 * Math.sin(a)];
+    plume(p, nrm([sx * 0.3 * Math.cos(a), -1, -0.3 + Math.sin(a) * 0.3]), [-Math.sin(a) * sx, 0, Math.cos(a)], 0.07, 0.022, i % 2 ? '#8a5e36' : '#7a5230', '#4a3020');
+  }
+  // Wings: arm folded at the side, secondaries on the forearm, long primaries on the hand; palms face inward
   const LP = limbHide(H);
   for (const sx of [-1, 1]) {
-    const sh0: V3 = [sx * 0.028, 0.195, 0.08], elb: V3 = [sx * 0.045, 0.165, 0.045], wr: V3 = [sx * 0.05, 0.17, 0.1];
-    loft(d, [{ p: sh0, w: 0.014 }, { p: elb, w: 0.009 }, { p: wr, w: 0.006 }], LP, { nu: 10, nv: 8 });
-    for (let k = 0; k < 3; k++) claw(d, '#2a1d16', [wr[0], wr[1] - k * 0.003, wr[2] + 0.004], [wr[0] + sx * 0.003, wr[1] - 0.008 - k * 0.003, wr[2] + 0.018], 0.0022, [0, 1, 0]);
-    feathers(F, elb, wr, t => nrm([sx * 0.35, -0.45, -0.8 + t * 0.3]), 8, t => 0.04 + t * 0.012, 0.018, (i, t) => (t > 0.6 && i % 2 ? '#7a5434' : i % 3 === 0 ? '#2e1d13' : '#4a3020'));
+    const sh0: V3 = [sx * 0.03, 0.2, 0.075], elb: V3 = [sx * 0.07, 0.186, 0.035], wr: V3 = [sx * 0.098, 0.196, 0.078], hd: V3 = [sx * 0.112, 0.19, 0.106];
+    loft(d, [{ p: sh0, w: 0.013 }, { p: elb, w: 0.008 }, { p: wr, w: 0.006 }, { p: hd, w: 0.0045 }], LP, { nu: 12, nv: 8 });
+    // three clawed fingers stacked vertically, claws curling toward the midline
+    for (let k = 0; k < 3; k++) {
+      const f0: V3 = [hd[0], hd[1] + 0.004 - k * 0.004, hd[2]], f1: V3 = [hd[0], f0[1] - 0.003, hd[2] + 0.012 - k * 0.002];
+      loft(d, [{ p: f0, w: 0.0022 }, { p: f1, w: 0.0016 }], () => '#4a3a2c', { nu: 2, nv: 6, caps: false });
+      claw(d, '#1e140e', f1, [f1[0] - sx * 0.002, f1[1] - 0.004, f1[2] + 0.009], 0.0019, [sx, 0, 0]);
+    }
+    for (let i = 0; i < 8; i++) { const t = i / 7, p = lerp3(elb, wr, t); plume([p[0], p[1] - 0.002, p[2]], nrm([sx * (0.15 + t * 0.2), -0.35, -1]), [sx * 0.3, 0.2, 1], 0.05 + t * 0.008, 0.013, sh('#7a6450', 0.9 + (i % 3) * 0.08), '#2e221a'); }
+    for (let i = 0; i < 9; i++) { const t = i / 8, p = lerp3(wr, hd, t); plume([p[0], p[1] - 0.002, p[2]], nrm([sx * (0.35 + t * 0.35), -0.3, -1 + t * 0.25]), [sx * 0.3, 0.2, 1], 0.064 + t * 0.022, 0.013, sh('#6d6a63', 0.92 + (i % 2) * 0.1), '#1e1c1a'); }
+    for (let i = 0; i < 9; i++) { const t = i / 8, p = lerp3(sh0, hd, t); plume([p[0], p[1] + 0.003, p[2]], nrm([sx * (0.2 + t * 0.3), -0.2, -1]), [sx * 0.3, 0.2, 1], 0.026, 0.014, i % 2 ? '#9a5a2e' : '#a8683a', '#6a3a1e'); }
   }
+  // Short crest of fluffy feathers on the head and nape
+  for (let i = 0; i < 5; i++) plume(B.at(0.6 + i * 0.016, Math.PI / 2, 0.95), nrm([0, 0.5, -1]), [1, 0, 0], 0.018, 0.008, '#3c2717', '#2c1c12');
   F.done(d);
-  legPair(d, { hip: [0.03, 0.2, -0.02], foot: [0.05, 0, 0.0], L: [0.09, 0.085], bend: 1, meta: 0.06, tilt: 0.45, w: [0.034, 0.018, 0.011, 0.01], type: 'bird', toe: 0.035, sickle: true, stride: 0.05, lift: 0.012, muscle: 1.3, nails: '#241812' }, LP);
+  // Scaly lower legs, feathered upper legs, raised sickle claw on toe II
+  const LPf: BP = (x, y, z, nx, ny, nz) => (y > 0.12 ? sh(mx('#8a5e36', '#5a3b24', sst(0.0, 1, ny)), 0.95 + vnoise(x * 90, y * 90, z * 90) * 0.1) : y > 0.1 ? '#6a4a30' : sh('#4a3a2c', 0.9 + vnoise(x * 200, y * 200, z * 200) * 0.2));
+  legPair(d, { hip: [0.03, 0.2, -0.02], foot: [0.05, 0, 0.0], L: [0.09, 0.085], bend: 1, meta: 0.06, tilt: 0.45, w: [0.034, 0.018, 0.011, 0.01], type: 'bird', toe: 0.035, sickle: true, stride: 0.05, lift: 0.012, muscle: 1.3, nails: '#1e140e' }, LPf);
   S.L.done(gp);
 };
 
@@ -860,22 +904,22 @@ const spinosaurus: Builder = gp => {
   };
   const P = hide(H);
   const st: St[] = [
-    { p: [0.12, 0.05, -0.47], w: 0.004, h: 0.018 }, { p: [0.09, 0.08, -0.39], w: 0.009, h: 0.032 }, { p: [0.05, 0.12, -0.29], w: 0.017, h: 0.038 },
-    { p: [0.02, 0.165, -0.18], w: 0.034, h: 0.05 }, { p: [0, 0.195, -0.07], w: 0.05, h: 0.06 }, { p: [0, 0.2, 0.03], w: 0.054, h: 0.062 },
-    { p: [0, 0.205, 0.11], w: 0.045, h: 0.055 }, { p: [0, 0.23, 0.17], w: 0.028, h: 0.032 }, { p: [0, 0.255, 0.2], w: 0.024, h: 0.028 },
-    { p: [0, 0.263, 0.226], w: 0.022, h: 0.027 }, { p: [0, 0.254, 0.27], w: 0.014, h: 0.019 }, { p: [0, 0.246, 0.32], w: 0.01, h: 0.012 },
-    { p: [0, 0.244, 0.348], w: 0.012, h: 0.011 }, { p: [0, 0.241, 0.362], w: 0.004, h: 0.004 },
+    { p: [0.07, 0.1, -0.48], w: 0.003, h: 0.01 }, { p: [0.055, 0.105, -0.4], w: 0.006, h: 0.018 }, { p: [0.035, 0.115, -0.3], w: 0.011, h: 0.026 },
+    { p: [0.015, 0.132, -0.19], w: 0.028, h: 0.042 }, { p: [0, 0.148, -0.08], w: 0.048, h: 0.056 }, { p: [0, 0.155, 0.02], w: 0.054, h: 0.062 },
+    { p: [0, 0.162, 0.11], w: 0.045, h: 0.055 }, { p: [0, 0.19, 0.17], w: 0.028, h: 0.032 }, { p: [0, 0.215, 0.2], w: 0.024, h: 0.028 },
+    { p: [0, 0.223, 0.226], w: 0.022, h: 0.027 }, { p: [0, 0.214, 0.27], w: 0.014, h: 0.019 }, { p: [0, 0.206, 0.32], w: 0.01, h: 0.012 },
+    { p: [0, 0.204, 0.348], w: 0.012, h: 0.011 }, { p: [0, 0.201, 0.362], w: 0.004, h: 0.004 },
   ];
   const B = loft(d, st, (x, y, z, nx, ny, nz, u, a) => (u > 0.72 && Math.abs(Math.sin(a) + 0.3) < 0.07 ? '#3a1e1a' : P(x, y, z, nx, ny, nz, u, a)), { nu: 100, nv: 20 });
   // Sail along the back
   const o: [number, number][] = [], top: [number, number][] = [];
   for (let i = 0; i <= 10; i++) {
-    const u = 0.3 + i * 0.042, b = B.at(u, Math.PI / 2, 0.6), t = i / 10, hg = 0.012 + 0.15 * Math.pow(Math.sin(Math.PI * t), 0.75) * (1 - 0.15 * t);
+    const u = 0.27 + i * 0.044, b = B.at(u, Math.PI / 2, 0.6), t = i / 10, hg = 0.012 + 0.15 * Math.pow(Math.sin(Math.PI * t), 0.75) * (1 - 0.15 * t);
     o.push([-b[2], b[1]]); top.unshift([-b[2] + 0.01 * Math.sin(t * 3), b[1] + hg]);
   }
   vslab(d, [...o, ...top], 0.008, (_x, y, _z, lx) => {
-    let c = mx(H.side, '#c75a2e', sst(0.29, 0.38, y));
-    c = mx(c, '#3a2a22', sst(0.395, 0.42, y) * 0.7);
+    let c = mx(H.side, '#c75a2e', sst(0.24, 0.33, y));
+    c = mx(c, '#3a2a22', sst(0.345, 0.37, y) * 0.7);
     c = mx(c, sh(c, 0.7), sst(0.8, 1, Math.cos(lx * 240)) * 0.6);
     return sh(c, 0.95 + vnoise(lx * 90, y * 90, 4) * 0.1);
   }, [0, 0, 0], [0, Math.PI / 2, 0], 0.002);
@@ -883,20 +927,25 @@ const spinosaurus: Builder = gp => {
     eye(d, B.at(0.69, sx > 0 ? 0.55 : Math.PI - 0.55, 0.92), [sx, 0.3, 0.3], 0.005, '#c88a20');
     for (let i = 0; i < 6; i++) { const b = B.at(0.74 + i * 0.035, sx > 0 ? -0.4 : Math.PI + 0.4, 0.98); tooth(d, b, [b[0], b[1] - 0.008, b[2] + 0.001], 0.0019); }
   }
+  // Paddle tail: tall, flat fin of skin over long neural spines and chevrons (Ibrahim et al. 2020)
+  const fin = (u: number) => { const t = u / 0.33; return [0.012 + 0.085 * Math.sin(Math.PI * Math.min(1, t * 0.9 + 0.1)) * (0.6 + 0.4 * (1 - t)), 0.01 + 0.04 * Math.sin(Math.PI * Math.min(1, t * 0.95 + 0.05)) * (1 - t * 0.5)]; };
+  sheet(d, 30, 5, (u, v) => { const uu = 0.005 + u * 0.33, R = B.F(uu), [up, dn] = fin(uu); return [R.P.x, R.P.y - dn + (up + dn) * v, R.P.z]; },
+    (x, y, z, u, v) => { let c = mx(sh(H.side, 0.8), '#3c443d', sst(0.45, 0.85, v)); c = mx(c, '#a8482a', sst(0.75, 0.97, v) * 0.45); return sh(c, 0.9 + 0.12 * sst(0.6, 1, Math.cos(u * 140)) + (vnoise(x * 90, y * 90, z * 90) - 0.5) * 0.1); });
   // A fish caught in the jaws
-  drop(d, '#b9c3c4', [-0.035, 0.238, 0.338], [0.04, 0.24, 0.345], 0.009, 0.006, [0, 1, 0]);
+  drop(d, '#b9c3c4', [-0.035, 0.198, 0.338], [0.04, 0.2, 0.345], 0.009, 0.006, [0, 1, 0]);
   const F = new Leaves();
-  F.tri([-0.034, 0.238, 0.338], [-0.05, 0.25, 0.336], [-0.05, 0.226, 0.338], '#8a9698');
-  F.tri([0.0, 0.248, 0.342], [0.012, 0.248, 0.342], [-0.004, 0.258, 0.341], '#7c8a8c');
+  F.tri([-0.034, 0.198, 0.338], [-0.05, 0.21, 0.336], [-0.05, 0.186, 0.338], '#8a9698');
+  F.tri([0.0, 0.208, 0.342], [0.012, 0.208, 0.342], [-0.004, 0.218, 0.341], '#7c8a8c');
   F.done(d);
   // Robust clawed arms
   const LP = limbHide(H);
   for (const sx of [-1, 1]) {
-    const s0: V3 = [sx * 0.04, 0.19, 0.12], e0: V3 = [sx * 0.058, 0.15, 0.1], w0: V3 = [sx * 0.055, 0.13, 0.145];
+    const s0: V3 = [sx * 0.04, 0.15, 0.12], e0: V3 = [sx * 0.058, 0.115, 0.1], w0: V3 = [sx * 0.055, 0.095, 0.145];
     loft(d, [{ p: s0, w: 0.018 }, { p: e0, w: 0.012 }, { p: w0, w: 0.009 }], LP, { nu: 10, nv: 9 });
-    for (let k = -1; k <= 1; k++) claw(d, '#2a221b', [w0[0] + k * 0.004, w0[1], w0[2] + 0.004], [w0[0] + k * 0.006, w0[1] - 0.014, w0[2] + 0.018], 0.0034 + (k === -sx ? 0.0012 : 0), [0, 1, 0]);
+    for (let k = 0; k < 3; k++) claw(d, '#2a221b', [w0[0], w0[1] + 0.005 - k * 0.005, w0[2] + 0.004], [w0[0] - sx * 0.003, w0[1] - 0.004 - k * 0.006, w0[2] + 0.02], 0.0034 + (k === 0 ? 0.0012 : 0), [sx, 0, 0]);
   }
-  legPair(d, { hip: [0.04, 0.2, -0.06], foot: [0.07, 0, -0.04], L: [0.11, 0.1], bend: 1, meta: 0.04, tilt: 0.35, w: [0.046, 0.025, 0.016, 0.015], type: 'bird', toe: 0.045, spread: 0.5, stride: 0.045, muscle: 1.3, nails: '#2a221b' }, LP);
+  // Short hind legs (2020 reconstruction): the body rides low
+  legPair(d, { hip: [0.04, 0.15, -0.07], foot: [0.068, 0, -0.05], L: [0.082, 0.072], bend: 1, meta: 0.032, tilt: 0.35, w: [0.044, 0.023, 0.015, 0.014], type: 'bird', toe: 0.045, spread: 0.5, stride: 0.04, muscle: 1.3, nails: '#2a221b' }, LP);
   water(gp, wl, [[-0.03, -0.38], [0.06, -0.05], [-0.07, 0.0]]);
   S.L.done(gp);
 };
@@ -940,18 +989,19 @@ const mamenchisaurus: Builder = gp => {
     top: '#64793a', moss: '#4f6c2c', ferns: [[-0.32, 0.22, 0.1], [0.3, -0.3, 0.1], [-0.05, -0.4, 0.09]], tree: [[-0.32, -0.18, 0.22]],
     rocks: [[0.4, -0.05, 0.035], [-0.42, 0.04, 0.03]], horse: [[0.36, 0.22, 0.13], [0.42, 0.12, 0.11], [-0.2, 0.36, 0.12]],
   });
-  const d = new THREE.Group(); d.position.y = S.H(0, 0) - 0.002; gp.add(d); d.rotation.y = -0.45;
+  const d = new THREE.Group(); d.position.set(0.017, S.H(0, 0) - 0.002, -0.036); gp.add(d); d.rotation.y = -0.45;
   const H: Hide = {
     top: '#6b5a3a', side: '#b08a55', belly: '#e6d4ac', patC: '#3a2c1e', scales: 110, grain: 0.14,
     pat: (_x, _y, _z, u, s) => sst(0.35, 0.8, Math.sin(u * 95)) * sst(-0.4, 0.3, s) * 0.85,
   };
   const P = hide(H);
   const st: St[] = [
-    { p: [-0.16, 0.14, -0.43], w: 0.004 }, { p: [-0.12, 0.17, -0.36], w: 0.011, h: 0.012 }, { p: [-0.06, 0.21, -0.27], w: 0.024, h: 0.028 },
+    { p: [-0.15, 0.15, -0.4], w: 0.004 }, { p: [-0.11, 0.175, -0.34], w: 0.011, h: 0.012 }, { p: [-0.055, 0.21, -0.26], w: 0.024, h: 0.028 },
     { p: [-0.015, 0.245, -0.17], w: 0.05, h: 0.058 }, { p: [0, 0.26, -0.07], w: 0.064, h: 0.072 }, { p: [0, 0.255, 0.02], w: 0.062, h: 0.07 },
-    { p: [0.005, 0.255, 0.08], w: 0.042, h: 0.046 }, { p: [0.02, 0.285, 0.14], w: 0.026, h: 0.027 }, { p: [0.05, 0.33, 0.2], w: 0.02, h: 0.021 },
-    { p: [0.09, 0.37, 0.25], w: 0.017, h: 0.018 }, { p: [0.135, 0.4, 0.29], w: 0.015, h: 0.016 }, { p: [0.18, 0.415, 0.32], w: 0.014, h: 0.016 },
-    { p: [0.205, 0.41, 0.34], w: 0.012, h: 0.013 }, { p: [0.218, 0.405, 0.352], w: 0.005, h: 0.005 },
+    // Extremely long neck: about half the animal's total length
+    { p: [0.005, 0.255, 0.08], w: 0.042, h: 0.046 }, { p: [0.02, 0.29, 0.14], w: 0.027, h: 0.028 }, { p: [0.045, 0.345, 0.2], w: 0.022, h: 0.023 },
+    { p: [0.08, 0.4, 0.25], w: 0.019, h: 0.02 }, { p: [0.12, 0.445, 0.29], w: 0.017, h: 0.018 }, { p: [0.165, 0.478, 0.322], w: 0.015, h: 0.016 },
+    { p: [0.21, 0.495, 0.35], w: 0.014, h: 0.016 }, { p: [0.238, 0.49, 0.37], w: 0.012, h: 0.013 }, { p: [0.252, 0.485, 0.382], w: 0.005, h: 0.005 },
   ];
   const B = loft(d, st, P, { nu: 110, nv: 20, shape: (u, a) => (Math.sin(a) < 0 && u < 0.5 ? 1 - 0.1 * -Math.sin(a) : 1) });
   for (const sx of [-1, 1]) eye(d, B.at(0.94, sx > 0 ? 0.4 : Math.PI - 0.4, 0.95), [sx * 0.8, 0.2, 0.5], 0.0042, '#3a2614');
@@ -1044,7 +1094,7 @@ const iguanodon: Builder = gp => {
   legPair(d, { hip: [0.045, 0.19, 0.07], foot: [0.065, 0, 0.12], L: [0.105, 0.09], bend: -1, w: [0.03, 0.021, 0.016, 0.015], type: 'hoof', fingers: 3, spread: 0.3, toe: 0.018, stride: -0.03, nails: '#3a3026' }, LP);
   // Thumb spikes pointing up and in from each wrist
   for (const sx of [-1, 1]) {
-    const s = -0.03 * sx * -1, w0: V3 = [sx * 0.065 - sx * 0.012, 0.035, 0.12 + s];
+    const s = -0.03 * sx, w0: V3 = [sx * 0.065 - sx * 0.012, 0.035, 0.12 + s];
     horn(d, w0, [w0[0] - sx * 0.012, w0[1] + 0.03, w0[2] + 0.01], 0.006, H.side, '#efe3c4');
   }
   S.L.done(gp);
@@ -1165,80 +1215,99 @@ function ammonite(p: THREE.Object3D, x: number, y: number, z: number, r: number,
   loft(g0, st, (xx, yy, zz) => mx('#b89a6c', '#7a5a3a', sst(0.6, 1, Math.cos(Math.atan2(zz, xx) * 14 + yy * 300))), { nu: 54, nv: 8, side: [0, 1, 0] });
 }
 
-/** Plesiosaurus: long neck arched out of a calm sea, four paddle flippers, splash rings; Lyme Regis cliff ledge with an ammonite. */
+/** Plesiosaurus: swimming at the surface with its long neck stretched out level ahead, four hydrofoil flippers, short tail; Lyme Regis sea. */
 const plesiosaurus: Builder = gp => {
   const wl = 0.06;
   ground(gp, { top: '#5e6a6e', moss: '#4e5a5c', soil: '#6a6458', wl, y0: 0.035, strata: ['#5b6166', '#6f757a', '#4d5358', '#80868a'] });
-  water(gp, wl, [[0.0, 0.1], [-0.05, -0.16], [0.17, 0.06]]);
+  water(gp, wl, [[0.02, 0.0], [0.1, 0.33], [-0.04, -0.2]], 0.479, '#2b6a84', '#5fa6b4', 0.5);
   // Blue lias ledge with ammonites at the back
-  for (let k = 0; k < 4; k++) el(gp, ['#5b6166', '#7d8387', '#4d5358', '#8a8a7c'][k], -0.27 + k * 0.01, wl - 0.005 + k * 0.016, -0.28 + k * 0.008, 0.16 - k * 0.025, 0.012, 0.1 - k * 0.014, 0.6 + k * 0.08);
-  ammonite(gp, -0.22, wl + 0.06, -0.26, 0.026, [0.1, 0.4, 0.15]);
-  ammonite(gp, -0.33, wl + 0.03, -0.2, 0.016, [0.2, 1.2, 0.1]);
-  const d = new THREE.Group(); gp.add(d); d.position.set(0.04, wl + 0.012, 0.0); d.rotation.y = 0.5;
+  for (let k = 0; k < 4; k++) el(gp, ['#5b6166', '#7d8387', '#4d5358', '#8a8a7c'][k], -0.29 + k * 0.01, wl - 0.005 + k * 0.016, -0.24 + k * 0.008, 0.13 - k * 0.02, 0.012, 0.09 - k * 0.012, 0.6 + k * 0.08);
+  ammonite(gp, -0.26, wl + 0.06, -0.22, 0.026, [0.1, 0.4, 0.15]);
+  ammonite(gp, -0.36, wl + 0.03, -0.16, 0.016, [0.2, 1.2, 0.1]);
+  const d = new THREE.Group(); gp.add(d); d.position.set(0.04, wl, 0.0); d.rotation.y = 0.3;
   const H: Hide = {
     top: '#34485a', side: '#6d8796', belly: '#dfe0d2', patC: '#22303c', scales: 0, grain: 0.12,
     pat: (x, y, z, _u, s) => { const [f1] = worley(x * 30, y * 30, z * 30); return sst(0.25, 0.12, f1) * sst(-0.1, 0.5, s) * 0.6; },
   };
   const P = hide(H);
+  // Broad flat turtle-like trunk riding at the surface, short tail, and a long neck held level just above the water
   const st: St[] = [
-    { p: [0, -0.01, -0.33], w: 0.004 }, { p: [0, -0.005, -0.26], w: 0.012, h: 0.011 }, { p: [0, 0.0, -0.17], w: 0.03, h: 0.022 },
-    { p: [0, 0.004, -0.07], w: 0.06, h: 0.036 }, { p: [0, 0.006, 0.03], w: 0.062, h: 0.038 }, { p: [0, 0.008, 0.1], w: 0.04, h: 0.03 },
-    { p: [0, 0.03, 0.15], w: 0.026, h: 0.026 }, { p: [0, 0.09, 0.19], w: 0.02, h: 0.02 }, { p: [0, 0.16, 0.2], w: 0.017, h: 0.017 },
-    { p: [0, 0.22, 0.2], w: 0.014, h: 0.014 }, { p: [0, 0.26, 0.215], w: 0.012, h: 0.013 }, { p: [0, 0.272, 0.24], w: 0.013, h: 0.013 },
-    { p: [0, 0.268, 0.268], w: 0.009, h: 0.008 }, { p: [0, 0.264, 0.283], w: 0.004, h: 0.004 },
+    { p: [0, -0.012, -0.3], w: 0.003 }, { p: [0, -0.008, -0.255], w: 0.01, h: 0.009 }, { p: [0, -0.004, -0.19], w: 0.024, h: 0.019 },
+    { p: [0, -0.001, -0.115], w: 0.05, h: 0.03 }, { p: [0, 0.0, -0.03], w: 0.064, h: 0.036 }, { p: [0, 0.0, 0.05], w: 0.058, h: 0.034 },
+    { p: [0, 0.004, 0.11], w: 0.032, h: 0.024 }, { p: [0.012, 0.011, 0.17], w: 0.019, h: 0.018 }, { p: [-0.01, 0.016, 0.23], w: 0.015, h: 0.015 },
+    { p: [0.006, 0.02, 0.29], w: 0.012, h: 0.012 }, { p: [0, 0.023, 0.335], w: 0.011, h: 0.011 }, { p: [0, 0.025, 0.355], w: 0.013, h: 0.011 },
+    { p: [0, 0.022, 0.38], w: 0.009, h: 0.007 }, { p: [0, 0.019, 0.402], w: 0.005, h: 0.004 }, { p: [0, 0.018, 0.41], w: 0.0015, h: 0.0015 },
   ];
-  const B = loft(d, st, (x, y, z, nx, ny, nz, u, a) => (u > 0.86 && Math.abs(Math.sin(a) + 0.3) < 0.08 ? '#2a1e1e' : P(x, y, z, nx, ny, nz, u, a)), { nu: 100, nv: 18, shape: (u, a) => (u < 0.5 && Math.abs(Math.cos(a)) > 0.8 ? 1.05 : 1) });
+  const B = loft(d, st, (x, y, z, nx, ny, nz, u, a) => (u > 0.8 && Math.abs(Math.sin(a) + 0.3) < 0.08 ? '#2a1e1e' : P(x, y, z, nx, ny, nz, u, a)),
+    { nu: 112, nv: 18, shape: (u, a) => (u < 0.45 && Math.sin(a) < 0 ? 1 - 0.12 * -Math.sin(a) : 1) });
   for (const sx of [-1, 1]) {
-    eye(d, B.at(0.9, sx > 0 ? 0.45 : Math.PI - 0.45, 0.92), [sx, 0.2, 0.3], 0.0045, '#2a2a20');
-    for (let i = 0; i < 4; i++) { const b = B.at(0.89 + i * 0.022, sx > 0 ? -0.4 : Math.PI + 0.4, 0.98); tooth(d, b, [b[0] + sx * 0.001, b[1] - 0.005, b[2] + 0.002], 0.0012); }
+    eye(d, B.at(0.8, sx > 0 ? 0.55 : Math.PI - 0.55, 0.92), [sx, 0.35, 0.3], 0.0034, '#2a2a20');
+    const n = B.at(0.88, sx > 0 ? 1.0 : Math.PI - 1.0, 0.95); el(d, '#1e2226', n[0], n[1], n[2], 0.0016, 0.001, 0.0022);
+    // Interlocking needle teeth jutting out of the slim jaws (fish-trap)
+    for (let i = 0; i < 5; i++) { const b = B.at(0.82 + i * 0.03, sx > 0 ? -0.3 : Math.PI + 0.3, 0.95); tooth(d, b, [b[0] + sx * 0.003, b[1] - 0.004, b[2] + 0.003], 0.0009); }
   }
-  // Four paddle flippers: front pair sweeping, one breaking the surface
-  const flip = (root: V3, sx: number, len: number, yaw: number, pitch: number) => {
-    const o: [number, number][] = [[0, -0.18], [0.3, -0.26], [0.7, -0.2], [1, 0], [0.65, 0.12], [0.25, 0.14], [0, 0.18]].map(([a, b]) => [a * len, b * len * 0.9]);
-    vslab(d, o, 0.007, (_x, _y, _z, lx) => mx(H.side, H.top, sst(0.2, 0.9, lx / len) * 0.6), root, [Math.PI / 2 + pitch * sx, 0, (sx > 0 ? 0 : Math.PI) + yaw * sx], 0.002, 'YXZ');
+  // Four long, narrow hydrofoil flippers (chord along z, thin along y) swept back, just under the surface
+  const FP: BP = (x, y, z, _nx, ny) => sh(mx(mx(H.belly, H.side, 0.4), mx(H.top, H.side, 0.5), sst(-0.2, 0.6, ny) * 0.8), 0.95 + vnoise(x * 90, y * 90, z * 90) * 0.1);
+  const flipper = (root: V3, tip: V3, chord: number, lift: number) => {
+    const st2: St[] = [0, 0.18, 0.4, 0.62, 0.82, 1].map(t => {
+      const q = lerp3(root, tip, t), bow = Math.sin(t * Math.PI) * 0.18 * Math.hypot(tip[0] - root[0], tip[2] - root[2]);
+      const ch = chord * (t < 0.3 ? 0.75 + t : 1.05 - Math.pow((t - 0.3) / 0.7, 1.6) * 0.95);
+      return { p: [q[0], q[1] + lift * Math.sin(t * Math.PI), q[2] + bow] as V3, w: ch, h: Math.max(0.0012, 0.0045 * (1 - t * 0.8)) };
+    });
+    loft(d, st2, FP, { nu: 24, nv: 10, side: [0, 0, 1] });
   };
   for (const sx of [-1, 1]) {
-    flip([sx * 0.045, 0.003, 0.06], sx, 0.11, -0.45, sx > 0 ? -0.35 : 0.1);
-    flip([sx * 0.04, 0.0, -0.1], sx, 0.085, -0.8, 0.05);
+    flipper([sx * 0.05, -0.008, 0.055], [sx * 0.2, sx > 0 ? 0.012 : -0.016, -0.045], 0.024, sx > 0 ? 0.004 : -0.002);
+    flipper([sx * 0.044, -0.01, -0.12], [sx * 0.165, -0.012, -0.215], 0.021, -0.002);
   }
-  ripples(gp, 0.1, wl, 0.07, 0.03);
-  ripples(gp, 0.06, wl, -0.02, 0.07);
+  // Small fish scattering ahead of the jaws
+  for (const [x, y, z, yw] of [[-0.05, -0.014, 0.4, 0.6], [-0.075, -0.02, 0.37, 0.9], [-0.04, -0.024, 0.44, 0.4], [0.07, -0.018, 0.42, -0.5]] as const)
+    drop(d, '#b9c6c8', [x, y, z], [x + Math.sin(yw) * 0.018, y, z + Math.cos(yw) * 0.018], 0.0035, 0.0022, [0, 1, 0]);
+  // Wake rings around the neck base and trailing behind the body
+  d.updateMatrix();
+  const w = (x: number, z: number) => new THREE.Vector3(x, 0, z).applyMatrix4(d.matrix);
+  for (const [x, z, r] of [[0, 0.11, 0.022], [0, -0.06, 0.075], [0, 0.3, 0.012]] as const) { const v = w(x, z); ripples(gp, v.x, wl, v.z, r); }
 };
 
-/** Muttaburrasaurus: Australian ornithopod striding on two legs, with a big hollow nasal bump; Queensland red soil and cycads. */
+/** Muttaburrasaurus: bulky Australian iguanodontian walking on all fours, toothless beak and big hollow nasal bulge; Queensland red soil and cycads. */
 const muttaburrasaurus: Builder = gp => {
   const S = forestFloor(gp, 59, {
     top: '#a8784a', moss: '#7d7d3a', soil: '#9a5a38', strata: ['#a85e3a', '#c27a4c', '#8f4f32', '#d39663', '#7a4630'],
-    cycads: [[-0.32, -0.18, 0.2], [0.34, 0.2, 0.17]], ferns: [[-0.3, 0.26, 0.1], [0.32, -0.26, 0.1]], rocks: [[0.4, -0.02, 0.04], [-0.1, 0.4, 0.03], [-0.4, 0.06, 0.03]],
+    cycads: [[-0.32, -0.18, 0.2], [0.36, -0.1, 0.16]], ferns: [[-0.3, 0.26, 0.1], [0.32, -0.3, 0.1]], rocks: [[0.4, 0.12, 0.04], [-0.1, 0.4, 0.03], [-0.4, 0.06, 0.03]],
   });
   const d = new THREE.Group(); d.position.y = S.H(0, 0) - 0.002; gp.add(d); d.rotation.y = -0.15;
   const H: Hide = {
-    top: '#4a2c20', side: '#b0603a', belly: '#e6cfa6', patC: '#6a3424', scales: 120, grain: 0.14,
-    pat: (x, y, z, _u, s) => sst(0.55, 0.8, fbm(x * 22, y * 22, z * 22, 2)) * sst(-0.4, 0.2, s) * 0.6,
+    top: '#4e5a3a', side: '#7a7a52', belly: '#d0c8a2', patC: '#3a4230', scales: 120, grain: 0.14,
+    pat: (x, y, z, _u, s) => sst(0.55, 0.8, fbm(x * 22, y * 22, z * 22, 2)) * sst(-0.4, 0.2, s) * 0.7,
   };
   const P = hide(H);
+  // Deep heavy trunk, hips above the shoulders, tail held straight out (stiffened by ossified tendons)
   const st: St[] = [
-    { p: [0.1, 0.2, -0.48], w: 0.005 }, { p: [0.07, 0.22, -0.38], w: 0.013, h: 0.02 }, { p: [0.035, 0.245, -0.27], w: 0.026, h: 0.04 },
-    { p: [0.01, 0.27, -0.15], w: 0.046, h: 0.062 }, { p: [0, 0.285, -0.04], w: 0.056, h: 0.075 }, { p: [0, 0.28, 0.05], w: 0.055, h: 0.07 },
-    { p: [0, 0.29, 0.12], w: 0.042, h: 0.052 }, { p: [0, 0.32, 0.17], w: 0.028, h: 0.032 }, { p: [0, 0.36, 0.2], w: 0.022, h: 0.026 },
-    { p: [0, 0.378, 0.222], w: 0.022, h: 0.028 }, { p: [0, 0.375, 0.255], w: 0.019, h: 0.028 }, { p: [0, 0.36, 0.29], w: 0.015, h: 0.019 },
-    { p: [0, 0.352, 0.305], w: 0.008, h: 0.008 },
+    { p: [0.04, 0.225, -0.47], w: 0.005 }, { p: [0.028, 0.237, -0.37], w: 0.014, h: 0.026 }, { p: [0.012, 0.25, -0.26], w: 0.032, h: 0.048 },
+    { p: [0, 0.262, -0.13], w: 0.062, h: 0.08 }, { p: [0, 0.25, -0.02], w: 0.072, h: 0.086 }, { p: [0, 0.228, 0.07], w: 0.06, h: 0.072 },
+    { p: [0, 0.216, 0.13], w: 0.036, h: 0.044 }, { p: [0, 0.222, 0.17], w: 0.027, h: 0.033 }, { p: [0, 0.226, 0.2], w: 0.025, h: 0.033 },
+    { p: [0, 0.214, 0.235], w: 0.02, h: 0.028 }, { p: [0, 0.2, 0.268], w: 0.016, h: 0.022 }, { p: [0, 0.188, 0.293], w: 0.012, h: 0.014 },
+    { p: [0, 0.183, 0.304], w: 0.005, h: 0.005 },
   ];
-  const B = loft(d, st, (x, y, z, nx, ny, nz, u, a) => (u > 0.95 ? '#3a2c24' : P(x, y, z, nx, ny, nz, u, a)), { nu: 96, nv: 20, shape: (u, a) => (Math.sin(a) < 0 && u < 0.6 ? 1 - 0.1 * -Math.sin(a) : 1) });
-  const nb = B.at(0.87, Math.PI / 2, 0.85);
-  vblob(d, nb[0], nb[1] + 0.006, nb[2] + 0.004, 0.014, 0.014, 0.026, (x, y, z) => sh(mx(H.top, '#8a3a26', 0.4), 0.95 + vnoise(x * 80, y * 80, z * 80) * 0.1), { seg: 10, bump: 0.05 });
+  // Broad rounded nasal bulge swelling up from the snout in front of the eyes
+  const bulge = (u: number) => Math.exp(-Math.pow((u - 0.8) / 0.06, 2));
+  const B = loft(d, st, (x, y, z, nx, ny, nz, u, a) => (u > 0.915 ? '#3a3026' : u > 0.7 && Math.abs(Math.sin(a) + 0.3) < 0.06 ? '#3a2c22' : P(x, y, z, nx, ny, nz, u, a)), {
+    nu: 104, nv: 22,
+    shape: (u, a) => { const s = Math.sin(a); return (s < 0 && u < 0.6 ? 1 - 0.1 * -s : 1) + 1.9 * bulge(u) * Math.pow(Math.max(0, s), 1.2); },
+  });
   for (const sx of [-1, 1]) {
-    eye(d, B.at(0.83, sx > 0 ? 0.5 : Math.PI - 0.5, 0.93), [sx, 0.2, 0.3], 0.0055, '#6a3a12');
-    const n = B.at(0.94, sx > 0 ? 0.7 : Math.PI - 0.7, 0.96); el(d, '#2a2018', n[0], n[1], n[2], 0.003, 0.002, 0.005);
+    eye(d, B.at(0.71, sx > 0 ? 0.5 : Math.PI - 0.5, 0.93), [sx, 0.2, 0.3], 0.0055, '#6a3a12');
+    const n = B.at(0.86, sx > 0 ? 0.9 : Math.PI - 0.9, 0.97); el(d, '#2a2018', n[0], n[1], n[2], 0.0035, 0.0025, 0.007);
   }
-  const LP = limbHide(H);
+  const LP = limbHide(H, '#3a3024');
+  legPair(d, { hip: [0.048, 0.262, -0.12], foot: [0.072, 0, -0.1], L: [0.135, 0.115], bend: 1, meta: 0.045, tilt: 0.3, w: [0.056, 0.031, 0.021, 0.019], type: 'hoof', fingers: 3, toe: 0.032, stride: 0.04, lift: 0.01, muscle: 1.35, nails: '#3a3026' }, LP);
+  // Long sturdy forelimbs carrying weight on hoof-like fingers
+  legPair(d, { hip: [0.047, 0.205, 0.075], foot: [0.068, 0, 0.12], L: [0.112, 0.096], bend: -1, w: [0.032, 0.022, 0.017, 0.016], type: 'hoof', fingers: 3, spread: 0.3, toe: 0.019, stride: -0.03, nails: '#3a3026' }, LP);
+  // Conical thumb spikes on the inner side of each wrist
   for (const sx of [-1, 1]) {
-    const s0: V3 = [sx * 0.035, 0.27, 0.12], e0: V3 = [sx * 0.05, 0.235, 0.11], w0: V3 = [sx * 0.05, 0.215, 0.15];
-    loft(d, [{ p: s0, w: 0.016 }, { p: e0, w: 0.011 }, { p: w0, w: 0.008 }], LP, { nu: 10, nv: 9 });
-    for (let k = -1; k <= 1; k++) claw(d, '#2c241d', [w0[0] + k * 0.004, w0[1], w0[2] + 0.004], [w0[0] + k * 0.005, w0[1] - 0.012, w0[2] + 0.012], 0.003, [0, 1, 0]);
-    horn(d, [w0[0] - sx * 0.006, w0[1] + 0.003, w0[2]], [w0[0] - sx * 0.016, w0[1] + 0.016, w0[2] + 0.008], 0.004, H.side, '#efe3c4');
+    const w0: V3 = [sx * 0.056, 0.036, 0.12 - 0.03 * sx + 0.004];
+    horn(d, w0, [w0[0] - sx * 0.01, w0[1] + 0.022, w0[2] + 0.012], 0.0055, H.side, '#e6dcc0');
   }
-  legPair(d, { hip: [0.045, 0.29, -0.03], foot: [0.07, 0, 0.0], L: [0.14, 0.13], bend: 1, meta: 0.07, tilt: 0.4, w: [0.054, 0.03, 0.018, 0.016], type: 'hoof', fingers: 3, toe: 0.032, stride: 0.07, lift: 0.012, muscle: 1.4, nails: '#2c241d' }, LP);
   S.L.done(gp);
 };
 
