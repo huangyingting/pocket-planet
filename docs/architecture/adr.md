@@ -432,3 +432,46 @@ At the time, nebulae were flat glow sprites, and nothing simulated the sky seen 
 - − The models are procedural approximations, not reconstructions. Some small features are exaggerated, and close-ups are shown larger than life. Real photographs remain in the Wikipedia reader.
 - − Accuracy is arcseconds for the Sun and Moon and about an arcminute for the planets. Treat contact times as approximate (within about a minute); it is not meant for planning observations.
 
+
+## ADR-022: One deep-space look, and 3D models for every galaxy
+
+**Context.** The four levels beyond the Solar System had drifted apart in style:
+- The Local Group has a dark navy and violet atmosphere with cyan radar rings, fine twinkling points and faint far galaxies.
+- The Milky Way was an overexposed white disc.
+- Laniakea was a field of coarse, grainy blobs.
+- The universe sat inside a saturated blue and orange CMB.
+
+Picking a galaxy, cluster or quasar outside the Milky Way only flew the camera to blurry stand-ins with no recognisable shape, and some dwarfs showed nothing at all.
+
+**Decision.**
+- **One look for every level.** The Local Group's style is now shared through these helpers:
+  - `gas()`: soft blue and violet gas clouds;
+  - `distanceRings(L, ly[], spokes, textH)`: radar rings, ticks and distance tags (10–50 thousand ly, 1–5 million, 100–400 million, 10–40 billion);
+  - a dark-matter halo glow;
+  - `backdrop()`: faint far galaxies;
+  - crisp, capped point sizes (`maxPx`).
+- **Per-level adjustments.**
+  - The Milky Way's disc and star field are toned down.
+  - Laniakea's cosmic web is drawn as fine twinkling points.
+  - The CMB, seen from inside, is dimmed and washed toward the same blue-violet.
+- **3D models for galaxies, clusters and quasars.** `galaxies.ts` and `galaxies/` add 49 signature models on the nebula model framework:
+  - 25 Local Group galaxies;
+  - 16 nearby galaxies, groups and clusters;
+  - 8 far objects.
+  - Seeded generic models by kind and shape cover the rest.
+
+  Each model has real shape and orientation: +Z faces Earth, +Y points to celestial north and −X to east.
+- **One model mechanism on every level.** `deep.ts` now shows a model on every level, not just the Milky Way:
+  - The display radius comes from `galaxyExtentLy`. On the Local Group level it matches the drawn size, which is exaggerated `GROUP_EX`×, so the stand-in hands over smoothly.
+  - The camera flies to 3.33 radii on Earth's side.
+  - The object's own stand-in fades out. Its neighbours' stand-ins, the level's points and the CMB dim behind it.
+  - The camera rolls so celestial north is up, matching the familiar photographs. This also applies to the nebulae.
+- **Card pictures** for these objects are painted from the same models.
+
+**Consequences.**
+- \+ Every level reads as one instrument, and every galaxy, cluster or quasar you tap has a recognisable 3D shape seen the right way round.
+- − The models are procedural approximations:
+  - galaxies inside groups and clusters are drawn larger than life;
+  - some arm winding directions and cluster-member positions are guesses;
+  - real photographs remain in the Wikipedia reader.
+- − The largest models build in about 100–190 ms (measured under software rendering), once per selection.

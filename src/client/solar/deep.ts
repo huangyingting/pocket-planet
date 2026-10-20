@@ -13,6 +13,7 @@ import { lang, t } from '../lib/i18n.ts';
 import { fmtLy } from './fmt.ts';
 import type { Quality } from '../globe/quality.ts';
 import { buildNebula, hasNebulaModel, paintNebulaArt, type NebulaModel } from './nebulae.ts';
+import { buildGalaxyModel, galaxyExtentLy, hasGalaxyModel, paintGalaxyArt } from './galaxies.ts';
 import { MILKY_WAY, genericSpiral, gauss, glowCanvas, hashStr, paintBlob, paintCMB, paintDisc, paintNebula, rng, sampleDisc, type DiscDef, type StarCloud } from './cosmos-paint.ts';
 
 const D2R = Math.PI / 180;
@@ -20,7 +21,11 @@ const D2R = Math.PI / 180;
 const GROUP_EX = 2.4;
 const TAU = Math.PI * 2;
 /** Nebula close-ups (galaxy level, 1 unit = 1000 ly): model radius and the camera distance it is shown from. */
-const NEB_R = 0.075, NEB_VIEW = 0.25;
+const NEB_R = 0.075;
+/** Close-up camera distance, in model display radii. */
+const MODEL_VIEW = 3.33;
+/** Kinds that get a 3D galaxy / cluster / quasar model when picked (outside the Milky Way level). */
+const GAL_KINDS: DeepKind[] = ['galaxy', 'dwarf', 'cluster', 'group', 'quasar', 'blackhole'];
 const ease = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
 
 export interface LevelDef {
@@ -120,8 +125,11 @@ void main() {
   // From inside (where we really are) the CMB is the infinitely distant sky: sample by view direction, not by the shell.
   vec3 d = normalize(vW - cameraPosition);
   vec2 uv = inside > 0.5 ? vec2(atan(d.z, d.x) * 0.1591549 + 0.5, asin(clamp(d.y, -1.0, 1.0)) * 0.3183099 + 0.5) : vUv;
-  float a = mix(0.02 + 0.3 * pow(1.0 - mu, 3.0), 0.11, inside);
-  gl_FragColor = vec4(texture2D(uMap, uv).rgb * a * uFade, 1.0);
+  float a = mix(0.02 + 0.3 * pow(1.0 - mu, 3.0), 0.045, inside);
+  vec3 t = texture2D(uMap, uv).rgb;
+  // seen from inside, wash the false-colour map toward the deep-space blue-violet so it reads as a sky, not a poster
+  t = mix(t, dot(t, vec3(0.3, 0.59, 0.11)) * vec3(0.55, 0.6, 1.3), 0.85 * inside);
+  gl_FragColor = vec4(t * a * uFade, 1.0);
   #include <colorspace_fragment>
 }`;
 
@@ -183,9 +191,11 @@ export class DeepStage {
   private screen = { w: 1, h: 1, pr: 1 };
   private placed: { o: DeepObject | 'home'; x: number; y: number }[] = [];
   /** The signature 3D model of the selected nebula (galaxy level), fading in as the camera arrives. */
-  private neb: { key: string; L: LevelRT; m: NebulaModel; a: number } | null = null;
+  /** The 3D close-up model of the picked object (a nebula in the Milky Way; a galaxy, cluster or quasar further out). */
+  private model: { key: string; L: LevelRT; m: NebulaModel; a: number; R: number } | null = null;
+  /** The stand-in visuals of an object (painted disc, star swarm, blob) that give way to its model. */
+  private stand = new Map<string, THREE.Material[]>();
   /** Each nebula's soft marker glow (dimmed while its model shows). */
-  private nebGlow = new Map<string, THREE.Sprite>();
   private tweenAz: { from: number; to: number; t: number } | null = null;
 
   constructor(root: HTMLElement, readonly quality: Quality, public ev: DeepEvents) {
@@ -305,8 +315,8 @@ export class DeepStage {
 
   private buildGalaxy(L: LevelRT): void {
     const { cloud, tex } = this.milkyWay();
-    this.disc(L, tex, MILKY_WAY.R * 2, new THREE.Vector3(), new THREE.Vector3(0, 1, 0), 0.45);
-    gain(this.points(L, DeepStage.discToThree(cloud, 1), cloud.col, cloud.size, cloud.n, { TWINKLE: '' }), 0.3);
+    this.disc(L, tex, MILKY_WAY.R * 2, new THREE.Vector3(), new THREE.Vector3(0, 1, 0), 0.27);
+    maxPx(gain(this.points(L, DeepStage.discToThree(cloud, 1), cloud.col, cloud.size, cloud.n, { TWINKLE: '' }), 0.18), 10);
     // The whole Galaxy turns about its centre (clockwise seen from the north, the Sun heading for l = 90°);
     // sped up enormously: one turn every ~9 minutes instead of 230 million years.
     L.spin = -0.012;
@@ -320,7 +330,15 @@ export class DeepStage {
       hc.set(glob ? [1, 0.85, 0.55] : [0.5, 0.48, 0.45], i * 3);
       hs[i] = glob ? 0.9 : 0.35;
     }
-    this.points(L, hp, hc, hs, nh, { TWINKLE: '' });
+    maxPx(this.points(L, hp, hc, hs, nh, { TWINKLE: '' }), 5);
+    // the same deep-space dress as the Local Group: dark-matter halo glow, faint gas, radar rings, far galaxies
+    this.sprite(L, new THREE.CanvasTexture(haloCanvas()), 2 * 1.3e5 / L.def.unit, new THREE.Vector3(), '#5b7cff', 0.32);
+    this.gas(L, [
+      [new THREE.Vector3(-70, -45, 60), 260, ['#3049b8', '#6a2fa0'], 0.16],
+      [new THREE.Vector3(80, 50, -70), 220, ['#2a6fb0', '#7a3fb0'], 0.12],
+    ], 400);
+    this.distanceRings(L, [1e4, 2e4, 3e4, 4e4, 5e4], [3, 62], 2.6);
+    this.backdrop(L, 1800, 900, 0.9);
     const sun = scenePos(0, 0, 0, 'galaxy');
     L.home.copy(sun);
     L.defTarget.set(0, 0, 0);
@@ -332,7 +350,7 @@ export class DeepStage {
     const glow = new THREE.CanvasTexture(glowCanvas());
     for (const o of DEEP_OBJECTS) {
       if (o.scale !== 'galaxy' || (o.kind !== 'nebula' && o.kind !== 'remnant' && o.kind !== 'starcluster')) continue;
-      this.nebGlow.set(o.key, this.sprite(L, glow, Math.max(0.35, Math.min(1.6, (o.sizeLy ?? 100) / 120)), scenePos(o.l, o.b, o.distLy, 'galaxy'), kindColor(o.kind), 0.5));
+      this.stand.set(o.key, [this.sprite(L, glow, Math.max(0.35, Math.min(1.6, (o.sizeLy ?? 100) / 120)), scenePos(o.l, o.b, o.distLy, 'galaxy'), kindColor(o.kind), 0.5).material]);
     }
   }
 
@@ -368,6 +386,7 @@ export class DeepStage {
         const tx = new THREE.CanvasTexture(paintDisc(def, c, 256, 1.1));
         tx.colorSpace = THREE.SRGBColorSpace;
         const d = this.disc(L, tx, size, p, this.discNormal(o, r), 0.85, r() * 6);
+        const mats: THREE.Material[] = [d.material as THREE.Material];
         // A 3D swarm of its brightest stars over the painted disc
         const nStar = Math.round((o.rank ?? 1) >= 3 && size > 5 ? 7000 * q : 2500 * q);
         const pts = maxPx(gain(this.points(L, DeepStage.discToThree(c, size / 2), c.col, c.size.map(s => s * size * 0.4), Math.min(c.n, nStar), { TWINKLE: '' }), 0.16), 5);
@@ -375,12 +394,13 @@ export class DeepStage {
         pts.quaternion.copy(d.quaternion);
         const w = -(0.02 + (seed % 7) * 0.004); // same sense as the Milky Way's, so the arms trail
         L.spinners.push([d, w], [pts, w]);
-        this.sprite(L, glow, size * 0.2, p, '#ffe2b0', 0.45);
+        mats.push(pts.material as THREE.Material, this.sprite(L, glow, size * 0.2, p, '#ffe2b0', 0.45).material);
+        this.stand.set(o.key, mats);
       } else {
         const tx = new THREE.CanvasTexture(paintBlob(o.morph ?? 'dwarf', 128, seed));
         tx.colorSpace = THREE.SRGBColorSpace;
-        if (o.morph === 'irregular') this.disc(L, tx, size, p, this.discNormal(o, r), 0.95, r() * 6);
-        else this.sprite(L, tx, size, p, '#ffffff', o.morph === 'dwarf' ? 0.8 : 1);
+        const m = o.morph === 'irregular' ? this.disc(L, tx, size, p, this.discNormal(o, r), 0.95, r() * 6) : this.sprite(L, tx, size, p, '#ffffff', o.morph === 'dwarf' ? 0.8 : 1);
+        this.stand.set(o.key, [m.material as THREE.Material]);
       }
     }
     const m31 = at.get('dp_m31') ?? new THREE.Vector3(60, -40, -90);
@@ -403,7 +423,7 @@ export class DeepStage {
     this.bridge(L, m31, m33, 900, [0.35, 0.8, 0.75], 0.9, 17);
     this.approach(L, m31);
     if (!low) this.intragroupGas(L, m31);
-    this.distanceRings(L);
+    this.distanceRings(L, [1e6, 2e6, 3e6, 4e6, 5e6], [12, 250], 4.2);
     this.neighbourGroups(L);
     L.defTarget.copy(m31).multiplyScalar(0.42);
     this.backdrop(L, 4200, 1600, 1.1);
@@ -542,41 +562,46 @@ export class DeepStage {
 
   /** Very faint, lumpy warm gas filling the space between the galaxies. */
   private intragroupGas(L: LevelRT, m31: THREE.Vector3): void {
-    const S = this.quality.tier === 'high' ? 256 : 128;
-    const mid = m31.clone().multiplyScalar(0.45);
-    const blobs: [THREE.Vector3, number, [string, string], number][] = [
-      [mid, 260, ['#3049b8', '#6a2fa0'], 0.22],
+    this.gas(L, [
+      [m31.clone().multiplyScalar(0.45), 260, ['#3049b8', '#6a2fa0'], 0.22],
       [m31.clone().multiplyScalar(0.9).add(new THREE.Vector3(20, 25, -10)), 160, ['#2a6fb0', '#7a3fb0'], 0.16],
       [new THREE.Vector3(-30, -20, 25), 150, ['#2d4fb8', '#a0306e'], 0.14],
-    ];
+    ], 300);
+  }
+
+  /** Soft blue-violet gas clouds (the shared deep-space "atmosphere" of every level). */
+  private gas(L: LevelRT, blobs: [THREE.Vector3, number, [string, string], number][], seed: number): void {
+    if (this.quality.tier === 'low') blobs = blobs.slice(0, 2);
+    const S = this.quality.tier === 'high' ? 256 : 128;
     blobs.forEach(([p, size, hues, op], i) => {
-      const tx = new THREE.CanvasTexture(paintNebula(S, 300 + i, hues, false, false));
+      const tx = new THREE.CanvasTexture(paintNebula(S, seed + i, hues, false, false));
       tx.colorSpace = THREE.SRGBColorSpace;
       this.sprite(L, tx, size, p, '#ffffff', op);
     });
   }
 
-  /** Rings 1–5 million light-years round the Milky Way in its plane, like a radar scope, with distance tags. */
-  private distanceRings(L: LevelRT): void {
+  /** Distance rings (light-years) round the level's centre in the galactic plane, like a radar scope, with tags and spokes. */
+  private distanceRings(L: LevelRT, ly: number[], spokes: [number, number], h: number): void {
     const seg = 160, mat = this.fadeMat(L, new THREE.LineBasicMaterial({ color: '#7fd6ff', transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
     const tick = this.fadeMat(L, new THREE.LineBasicMaterial({ color: '#7fd6ff', transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
     const pts: number[] = [], rings: number[] = [];
-    for (let m = 1; m <= 5; m++) {
-      const R = (m * 1e6) / L.def.unit;
+    const Rmax = ly[ly.length - 1] / L.def.unit;
+    for (const d of ly) {
+      const R = d / L.def.unit;
       for (let i = 0; i < seg; i++) {
         const a0 = (i / seg) * Math.PI * 2, a1 = ((i + 1) / seg) * Math.PI * 2;
         rings.push(Math.cos(a0) * R, 0, Math.sin(a0) * R, Math.cos(a1) * R, 0, Math.sin(a1) * R);
       }
       for (let i = 0; i < 72; i++) {
-        const a = (i / 72) * Math.PI * 2, d = i % 6 === 0 ? 5 : 2;
-        pts.push(Math.cos(a) * (R - d), 0, Math.sin(a) * (R - d), Math.cos(a) * R, 0, Math.sin(a) * R);
+        const a = (i / 72) * Math.PI * 2, t = Rmax * (i % 6 === 0 ? 0.02 : 0.008);
+        pts.push(Math.cos(a) * (R - t), 0, Math.sin(a) * (R - t), Math.cos(a) * R, 0, Math.sin(a) * R);
       }
       const a = -Math.PI * 0.62;
-      this.text(L, () => fmtLy(m * 1e6, lang()), new THREE.Vector3(Math.cos(a) * R, 1.5, Math.sin(a) * R), 4.2);
+      this.text(L, () => fmtLy(d, lang()), new THREE.Vector3(Math.cos(a) * R, h * 0.36, Math.sin(a) * R), h);
     }
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2;
-      pts.push(Math.cos(a) * 12, 0, Math.sin(a) * 12, Math.cos(a) * 250, 0, Math.sin(a) * 250);
+      pts.push(Math.cos(a) * spokes[0], 0, Math.sin(a) * spokes[0], Math.cos(a) * spokes[1], 0, Math.sin(a) * spokes[1]);
     }
     for (const [arr, m] of [[rings, mat], [pts, tick]] as const) {
       const g = new THREE.BufferGeometry();
@@ -693,7 +718,7 @@ export class DeepStage {
       c.set([col[0] * bright, col[1] * bright, col[2] * bright], i * 3);
       s[i] = opts.size * (0.6 + r() * 1.1);
     }
-    gain(this.points(L, p, c, s), 0.4);
+    maxPx(gain(this.points(L, p, c, s, N, { TWINKLE: '' }), 0.24), 5);
     return nodes;
   }
 
@@ -718,13 +743,13 @@ export class DeepStage {
       const end = v.clone().lerp(ga, 0.55 + r() * 0.25);
       e.set([end.x, end.y, end.z], i * 3);
       c.set([0.35, 0.75, 1], i * 3);
-      s[i] = 2.6;
+      s[i] = 1.8;
       ph[i] = r();
     }
-    this.points(L, p, c, s, N, { FLOW: '' }, g => {
+    maxPx(this.points(L, p, c, s, N, { FLOW: '' }, g => {
       g.setAttribute('aEnd', new THREE.BufferAttribute(e, 3));
       g.setAttribute('aPhase', new THREE.BufferAttribute(ph, 1));
-    });
+    }), 5);
     // The basin's edge: a faint, lumpy shell
     const NS = Math.round(1800 * this.n), sp = new Float32Array(NS * 3), sc = new Float32Array(NS * 3), ss = new Float32Array(NS);
     for (let i = 0; i < NS; i++) {
@@ -732,10 +757,18 @@ export class DeepStage {
       const rad = 265 * (1 + 0.16 * Math.sin(v.x * 5 + 1) * Math.cos(v.z * 4) + 0.08 * Math.sin(v.y * 7));
       v.multiplyScalar(rad).add(centre);
       sp.set([v.x, v.y, v.z], i * 3);
-      sc.set([0.25, 0.5, 0.75], i * 3);
-      ss[i] = 3;
+      sc.set([0.3, 0.38, 0.85], i * 3);
+      ss[i] = 2.2;
     }
-    this.points(L, sp, sc, ss);
+    maxPx(gain(this.points(L, sp, sc, ss, NS, { TWINKLE: '' }), 0.7), 4);
+    this.sprite(L, new THREE.CanvasTexture(haloCanvas()), 760, centre, '#5b7cff', 0.3);
+    this.gas(L, [
+      [ga.clone(), 380, ['#3049b8', '#6a2fa0'], 0.4],
+      [centre.clone().multiplyScalar(0.4), 460, ['#2a6fb0', '#7a3fb0'], 0.3],
+      [new THREE.Vector3(-90, 40, 110), 360, ['#2d4fb8', '#a0306e'], 0.22],
+    ], 500);
+    this.distanceRings(L, [1e8, 2e8, 3e8, 4e8], [10, 420], 11);
+    this.backdrop(L, 4000, 2600, 0.9);
     L.home.set(0, 0, 0);
     L.defTarget.copy(centre).multiplyScalar(0.55);
     this.sprite(L, new THREE.CanvasTexture(glowCanvas()), 14, new THREE.Vector3(), '#a7f3d0', 0.8);
@@ -761,6 +794,12 @@ export class DeepStage {
     });
     L.cmb = cmb;
     L.scene.add(new THREE.Mesh(new THREE.SphereGeometry(CMB_R, 96, 48), cmb));
+    this.gas(L, [
+      [new THREE.Vector3(0, 0, 0), 70, ['#3049b8', '#6a2fa0'], 0.16],
+      [new THREE.Vector3(150, 60, -120), 420, ['#2a6fb0', '#7a3fb0'], 0.1],
+      [new THREE.Vector3(-170, -80, 140), 420, ['#2d4fb8', '#a0306e'], 0.08],
+    ], 700);
+    this.distanceRings(L, [1e10, 2e10, 3e10, 4e10], [6, CMB_R * 0.9], 7);
     L.home.set(0, 0, 0);
     L.defTarget.set(0, 0, 0);
     this.sprite(L, new THREE.CanvasTexture(glowCanvas()), 7, new THREE.Vector3(), '#a7f3d0', 0.9);
@@ -829,45 +868,61 @@ export class DeepStage {
     if (o) {
       const x = L.objs.find(v => v.o === o);
       if (!x) return;
-      const model = L.id === 'galaxy' && hasNebulaModel(o.key);
-      const want = model ? NEB_VIEW
+      const R = this.showModel(L, o, x.pos);
+      const want = R ? R * MODEL_VIEW
         : Math.max(L.def.downLy * 1.4, Math.min(L.def.defLy * 0.4, (o.sizeLy ?? L.def.defLy * 0.05) * 3.2 * (L.id === 'group' ? GROUP_EX : 1))) / L.def.unit;
-      this.tweenTo(L, x.pos, o.kind === 'cmb' ? L.def.defLy / L.def.unit : want, model ? 2200 : 1500);
-      if (model) this.showNebula(L, o, x.pos);
+      this.tweenTo(L, x.pos, o.kind === 'cmb' ? L.def.defLy / L.def.unit : want, R ? 2200 : 1500);
     }
     if (emit) this.ev.onSelect?.(o);
   }
 
+  /** Display radius (scene units) of `o`'s 3D model on level `L`, or 0 when it has none there. */
+  private modelRadius(L: LevelRT, o: DeepObject): number {
+    if (L.id === 'galaxy') return hasNebulaModel(o.key) ? NEB_R : 0;
+    if (!hasGalaxyModel(o.key) && !GAL_KINDS.includes(o.kind)) return 0;
+    if (o.kind === 'blackhole' && !hasGalaxyModel(o.key)) return 0;
+    const ly = galaxyExtentLy(o.key, { kind: o.kind, morph: o.morph, sizeLy: o.sizeLy }) / 2;
+    // the Local Group draws its galaxies GROUP_EX× life size: the model takes over at the drawn size
+    if (L.id === 'group') return Math.max(o.kind === 'dwarf' ? 0.65 : 1, (ly / L.def.unit) * GROUP_EX);
+    return ly / L.def.unit;
+  }
+
   /**
-   * Builds (once) the nebula's 3D model where its marker is, turned so its +Z (the face in the famous photos) points
-   * at the Sun, and swings the camera round to the Sun's side so it arrives on that view. Drawn NEB_R scene units
-   * across (much larger than life, like the markers) so it reads as a close-up.
+   * Builds (once) the picked object's 3D model where its marker is — +Z (the face in the famous photos) toward Earth,
+   * +Y toward celestial north, as we see it in the sky — and swings the camera round to Earth's side so it arrives
+   * on that view. Returns its display radius in scene units (0: no model, keep the old close-up).
    */
-  private showNebula(L: LevelRT, o: DeepObject, at: THREE.Vector3): void {
-    if (this.neb?.key !== o.key) {
-      this.dropNebula();
-      const m = buildNebula(o.key, this.quality.tier);
-      if (!m) return;
-      m.group.scale.setScalar(NEB_R / m.radius);
-      m.group.position.copy(scenePos(o.l, o.b, o.distLy, 'galaxy'));
+  private showModel(L: LevelRT, o: DeepObject, at: THREE.Vector3): number {
+    const R = this.modelRadius(L, o);
+    if (!R) { this.dropModel(); return 0; }
+    if (this.model?.key !== o.key || this.model.L !== L) {
+      this.dropModel();
+      const m = L.id === 'galaxy' ? buildNebula(o.key, this.quality.tier) : buildGalaxyModel(o.key, this.quality.tier, { kind: o.kind, morph: o.morph });
+      if (!m) return 0;
+      m.group.scale.setScalar(R / m.radius);
+      L.root.updateMatrixWorld(true);
+      const pos = scenePos(o.l, o.b, o.distLy, L.id), home = L.root.worldToLocal(L.home.clone());
+      m.group.position.copy(pos);
+      const z = home.sub(pos).normalize(), north = galToThree(NCP_GAL);
+      const y = north.addScaledVector(z, -north.dot(z)).normalize(), x = y.clone().cross(z);
+      m.group.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
       m.group.traverse(c => { c.renderOrder += 20; });
       L.root.add(m.group);
-      L.root.updateMatrixWorld(true);
-      m.group.lookAt(L.home);
       m.setOpacity(0);
-      this.neb = { key: o.key, L, m, a: 0 };
+      this.model = { key: o.key, L, m, a: 0, R };
     }
     const d = L.home.clone().sub(at).normalize();
     const az = Math.atan2(d.x, d.z);
     this.tweenAz = { from: this.az, to: this.az + ((((az - this.az) % TAU) + TAU * 1.5) % TAU - Math.PI), t: 0 };
     this.tweenEl = { from: this.el, to: Math.max(-1.2, Math.min(1.2, Math.asin(d.y))), t: 0 };
+    return R;
   }
 
-  private dropNebula(): void {
-    if (!this.neb) return;
-    this.neb.m.group.removeFromParent();
-    this.neb.m.dispose();
-    this.neb = null;
+  private dropModel(): void {
+    if (!this.model) return;
+    this.model.m.group.removeFromParent();
+    this.model.m.dispose();
+    this.model = null;
   }
 
   /** Back to the level's resting view. */
@@ -896,7 +951,8 @@ export class DeepStage {
     const nearHome = L.target.distanceTo(L.home) < L.dist * 0.25;
     L.dist *= f;
     const ly = L.dist * def.unit;
-    const close = this.neb && this.sel?.key === this.neb.key ? NEB_VIEW * 0.45 * def.unit : def.downLy;
+    const md = this.model?.L === L && this.sel?.key === this.model.key ? this.model : null;
+    const close = md ? md.R * 1.2 * def.unit : def.downLy;
     if (f < 1 && ly < close) {
       if (nearHome && !this.sel) { this.ev.onDown?.(); return; }
       L.dist = close / def.unit;
@@ -938,12 +994,13 @@ export class DeepStage {
       this.az = this.tweenAz.from + (this.tweenAz.to - this.tweenAz.from) * ease(this.tweenAz.t);
       if (this.tweenAz.t >= 1) this.tweenAz = null;
     }
-    const nb = this.neb;
-    if (nb) {
+    const md = this.model;
+    if (md) {
       // in while it is selected and the camera is close; out (and freed) otherwise
-      const on = this.sel?.key === nb.key && this.level === 'galaxy' ? THREE.MathUtils.smoothstep(NEB_VIEW * 8, NEB_VIEW * 2, nb.L.dist) : 0;
-      nb.a += (on - nb.a) * Math.min(1, sec * 3);
-      if (on === 0 && nb.a < 0.01 && this.sel?.key !== nb.key) this.dropNebula();
+      const v = md.R * MODEL_VIEW;
+      const on = this.sel?.key === md.key && this.level === md.L.id ? THREE.MathUtils.smoothstep(v * 8, v * 2, md.L.dist) : 0;
+      md.a += (on - md.a) * Math.min(1, sec * 3);
+      if (on === 0 && md.a < 0.01 && (this.sel?.key !== md.key || this.level !== md.L.id)) this.dropModel();
     }
     if (this.tweenEl) {
       this.tweenEl.t = Math.min(1, this.tweenEl.t + dt / 2200);
@@ -976,14 +1033,22 @@ export class DeepStage {
     cam.aspect = this.screen.w / this.screen.h;
     const off = new THREE.Vector3(Math.cos(this.el) * Math.sin(this.az), Math.sin(this.el), Math.cos(this.el) * Math.cos(this.az)).multiplyScalar(L.dist);
     cam.position.copy(L.target).add(off);
+    // close up on a model, roll so celestial north is up, as in the famous pictures
+    const md = this.model?.L === L ? this.model : null;
+    cam.up.set(0, 1, 0);
+    if (md && md.a > 0.003) {
+      const n = new THREE.Vector3(0, 1, 0).applyQuaternion(md.m.group.getWorldQuaternion(new THREE.Quaternion()));
+      const v = off.clone().normalize();
+      n.addScaledVector(v, -n.dot(v));
+      if (n.lengthSq() > 0.04) cam.up.lerp(n.normalize(), md.a).normalize();
+    }
     cam.lookAt(L.target);
     cam.near = Math.max(1e-3, L.dist * 0.002);
     cam.far = L.dist * 6 + 4000;
     cam.updateProjectionMatrix();
     const scale = (this.screen.h * this.screen.pr) / (2 * Math.tan((fov * D2R) / 2));
-    const nb = this.neb?.L === L ? this.neb : null;
-    // at close range the galaxy's star field is a wall of oversized blobs; dim it behind the nebula model
-    const bg = nb ? 1 - 0.75 * nb.a : 1;
+    // at close range the level's star field is a wall of oversized blobs; dim it behind the model
+    const bg = md ? 1 - 0.8 * md.a : 1;
     for (const m of L.pts) {
       m.uniforms.uScale.value = scale;
       m.uniforms.uFade.value = w * bg;
@@ -992,16 +1057,22 @@ export class DeepStage {
       m.uniforms.uTime.value = this.time;
     }
     for (const [m, base] of L.fades) m.opacity = base * w * bg;
-    if (L.cmb) L.cmb.uniforms.uFade.value = w * 0.9;
+    if (L.cmb) L.cmb.uniforms.uFade.value = w * 0.9 * (md ? 1 - 0.7 * md.a : 1);
     if (L.pulse) (L.pulse.material as THREE.SpriteMaterial).opacity = w * (0.45 + 0.25 * Math.sin(this.time * 1.7));
-    if (nb) {
-      nb.m.group.visible = nb.a > 0.003;
-      nb.m.setOpacity(nb.a * w);
-      nb.m.update(this.time, cam);
-      const g = this.nebGlow.get(nb.key);
-      if (g) (g.material as THREE.SpriteMaterial).opacity *= 1 - 0.9 * nb.a;
+    if (md) {
+      md.m.group.visible = md.a > 0.003;
+      md.m.setOpacity(md.a * w);
+      md.m.update(this.time, cam);
+      // its stand-in (painted disc, glow) gives way to it; the neighbours' (say, Andromeda's disc behind M32) fade back
+      for (const [k, mats] of this.stand) {
+        const f = 1 - (k === md.key ? 1 : 0.85) * md.a;
+        for (const m of mats) {
+          if (m instanceof THREE.ShaderMaterial) m.uniforms.uFade.value *= f;
+          else m.opacity *= f;
+        }
+      }
       // the model's dust occludes with depth; nothing else in the deep scenes writes or tests it
-      if (nb.m.group.visible) renderer.clearDepth();
+      if (md.m.group.visible) renderer.clearDepth();
     }
     renderer.render(L.scene, cam);
   }
@@ -1095,6 +1166,15 @@ export function deepThumb(o: DeepObject, mw: () => HTMLCanvasElement, W = 720, H
   const putDisc = (img: HTMLCanvasElement, s: number, tilt: number, rot: number) => {
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot); ctx.scale(1, tilt); ctx.drawImage(img, -s / 2, -s / 2, s, s); ctx.restore();
   };
+  // galaxies, clusters and quasars with a 3D model: the card shows the model's own portrait
+  const art = o.scale !== 'galaxy' && !/milky_way|milkyway/.test(o.key) && (hasGalaxyModel(o.key) || (GAL_KINDS.includes(o.kind) && o.kind !== 'blackhole'))
+    ? paintGalaxyArt(o.key, H, { kind: o.kind, morph: o.morph }) : null;
+  if (art) {
+    ctx.drawImage(art, cx - H / 2, 0, H, H);
+    ctx.globalCompositeOperation = 'source-over';
+    thumbCache.set(o.key, cv);
+    return cv;
+  }
   switch (o.kind) {
     case 'galaxy': case 'dwarf': {
       if (/milky_way|milkyway/.test(o.key)) { putDisc(mw(), H * 1.05, 0.55, -0.3); break; }
