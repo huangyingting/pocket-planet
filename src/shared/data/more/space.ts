@@ -4,7 +4,7 @@ import { many } from '../make.ts';
 export const SPACE = many('space', [
   { key: 'sp_ksc', slug: 'kennedy-space-center', name: ['Kennedy Space Center', '肯尼迪航天中心'], lat: 28.61, lon: -80.6,
     continent: 'north-america', country: 'US', tier: 1, emoji: '🚀', sub: 'launch site', model: { kind: 'space', hero: 'space/sp_ksc' },
-    facts: { built: 1965, heightM: 111 },
+    facts: { built: 1962, heightM: 111 },
     desc: ['A rocket port on the Florida coast where giant Saturn V rockets blasted off to carry astronauts to the Moon.',
       '位于美国佛罗里达州海边的火箭发射场，巨大的土星五号火箭曾从这里起飞，把航天员送上月球。'],
     fun: ['The Saturn V was taller than a 30-storey building, and its roar could rattle windows kilometres away.',
@@ -72,7 +72,7 @@ export const SPACE = many('space', [
       '日内瓦附近的科学实验室，地下有一条27公里长的环形隧道，科学家让微小的粒子以接近光速的速度相撞。'],
     fun: ['The World Wide Web was invented here in 1989 so scientists could share their work.',
       '万维网就是1989年在这里发明的，为的是让科学家们方便地分享研究成果。'] },
-  { key: 'sp_greenwich', slug: 'royal-observatory-greenwich', name: ['Royal Observatory Greenwich', '格林尼治皇家天文台'], lat: 51.3, lon: 0.2,
+  { key: 'sp_greenwich', slug: 'royal-observatory-greenwich', name: ['Royal Observatory Greenwich', '格林尼治皇家天文台'], lat: 51.4769, lon: -0.0005,
     continent: 'europe', country: 'GB', tier: 2, emoji: '🕰️', sub: 'telescope', model: { kind: 'space', hero: 'space/sp_greenwich' },
     facts: { built: 1676 },
     desc: ['A hilltop observatory in London where the Prime Meridian, the line of zero longitude, runs right across the courtyard.',

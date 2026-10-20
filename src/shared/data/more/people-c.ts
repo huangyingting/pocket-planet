@@ -24,7 +24,7 @@ export const PEOPLE_C = many('person', [
       '中国古代的名医，用草药和针灸为人治病。人们记得他是最早用麻药减轻手术疼痛的医生之一。'],
     fun: ['He invented the “Five Animal Frolics”, an exercise where you move like a tiger, deer, bear, monkey and bird to stay healthy.',
       '他发明了“五禽戏”，模仿虎、鹿、熊、猿、鸟的动作来锻炼身体、保持健康。'] },
-  { key: 'pp_marcopolo', slug: 'marco-polo', name: ['Marco Polo', '马可·波罗'], lat: 45.5, lon: 12.64, continent: 'europe', country: 'IT',
+  { key: 'pp_marcopolo', slug: 'marco-polo', name: ['Marco Polo', '马可·波罗'], lat: 45.44, lon: 12.34, continent: 'europe', country: 'IT',
     tier: 1, emoji: '🐫', sub: 'explorer', model: { kind: 'person', hero: 'people-c/pp_marcopolo' }, wiki: 'Marco Polo',
     facts: { born: 1254, died: 1324 },
     desc: ['A merchant from Venice who travelled the Silk Road to China and told Europe about its cities, paper money and inventions in a best-selling book.',

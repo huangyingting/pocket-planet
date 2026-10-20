@@ -1126,9 +1126,8 @@ export class Globe {
     const subSolarLat = (decl * 180) / Math.PI;
     const real = new THREE.Vector3(...latLonToVec(subSolarLat, subSolarLon));
     const cam = this.camera.position.clone().normalize();
-    // Blend real solar direction with a subtle camera offset so the day/night terminator sweeps across the visible limb
-    const sunDir = real.clone().multiplyScalar(0.55).add(cam.clone().multiplyScalar(0.45)).normalize();
-    this.earthUniforms.uSunDir.value.copy(sunDir);
+    // The real Sun: the day/night line is where it actually is right now (the "Day & night" switch hides the night)
+    this.earthUniforms.uSunDir.value.copy(real);
 
     // Viewer-relative 3-point studio lighting for 3D miniatures on the globe
     const camUp = this.camera.up.clone().normalize();

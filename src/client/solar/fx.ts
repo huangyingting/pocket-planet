@@ -323,7 +323,7 @@ class SunFX {
 /** Zonal jets (uv-x displacement per flow cycle, as GLSL of `lat` in radians) and storm vortices [lat, lon, radius (uv), spin]. */
 const FLOW: Partial<Record<BodyId, { jets: string; storms: [number, number, number, number][] }>> = {
   jupiter: { jets: '0.0045 * cos(lat * 13.0) * (1.0 - smoothstep(1.05, 1.35, abs(lat))) + 0.004 * exp(-lat * lat / 0.02)',
-    storms: [[-22, -60, 0.05, 0.5], [-33, 40, 0.018, 0.6], [24, 150, 0.02, -0.5]] },
+    storms: [[-22, -55, 0.05, 0.5], [-33, -100, 0.018, 0.6], [24, 150, 0.02, -0.5]] },
   saturn: { jets: '0.007 * exp(-lat * lat / 0.25) + 0.0016 * cos(lat * 10.0)', storms: [[89, 0, 0.06, 0.4], [-89, 0, 0.05, -0.4]] },
   uranus: { jets: '-0.002 * cos(lat) * cos(lat) + 0.002 * exp(-pow(abs(lat) - 1.0, 2.0) / 0.06)', storms: [[28, 120, 0.02, 0.4]] },
   neptune: { jets: '-0.005 * cos(lat) * cos(lat) + 0.003 * exp(-pow(abs(lat) - 1.15, 2.0) / 0.04)',
@@ -344,7 +344,7 @@ export function patchFlow(id: BodyId, mat: THREE.MeshStandardMaterial, uFlow: { 
     sh.uniforms.uFlow = uFlow;
     sh.fragmentShader = 'uniform float uFlow;\n' + sh.fragmentShader.replace('#include <map_fragment>', id === 'venus' ? /* glsl */ `
 #ifdef USE_MAP
-  diffuseColor *= texture2D(map, vMapUv - vec2(uFlow * 0.012, 0.0));
+  diffuseColor *= texture2D(map, vMapUv + vec2(uFlow * 0.012, 0.0)); // super-rotates westward, with the planet
 #endif` : /* glsl */ `
 #ifdef USE_MAP
   vec2 uv0 = vMapUv;

@@ -885,7 +885,7 @@ interface Vortex {
   lat: number; lon: number;
   /** Semi-axes: a in degrees of longitude, b in degrees of latitude. */
   a: number; b: number;
-  /** Swirl of the surrounding flow (radians at the centre; sign = sense). */
+  /** Swirl of the surrounding flow (radians at the centre); negative winds anticlockwise seen from outside, like the anticyclones of the south and the cyclones of the north. */
   spin: number;
   col?: RGB; op?: number;
   /** Collar colour drawn just outside the edge. */
@@ -989,10 +989,10 @@ const JUPITER_BANDS: Band[] = [
 
 function paintJupiter(w: number): BodyMaps {
   const rnd = mulberry32(61), vort: Vortex[] = [
-    { lat: -22, lon: -60, a: 7.5, b: 5.2, spin: 2.6, col: [206, 122, 84], rim: [238, 230, 214], rimOp: 0.75, reach: 2.6 }, // Great Red Spot
-    { lat: -33, lon: -125, a: 3.4, b: 2.4, spin: 2, col: [214, 170, 142], rim: [236, 228, 214], rimOp: 0.5 },           // Oval BA
+    { lat: -22, lon: -55, a: 7.5, b: 5.2, spin: -2.6, col: [206, 122, 84], rim: [238, 230, 214], rimOp: 0.75, reach: 2.6 }, // Great Red Spot
+    { lat: -33, lon: -100, a: 3.4, b: 2.4, spin: -2, col: [214, 170, 142], rim: [236, 228, 214], rimOp: 0.5 },           // Oval BA
   ];
-  for (let k = 0; k < 6; k++) vort.push({ lat: -41 + rnd() * 1.5, lon: -170 + k * 58 + rnd() * 20, a: 2.2 + rnd(), b: 1.5 + rnd() * 0.5, spin: 1.8, col: [246, 242, 232], op: 0.9 });
+  for (let k = 0; k < 6; k++) vort.push({ lat: -41 + rnd() * 1.5, lon: -170 + k * 58 + rnd() * 20, a: 2.2 + rnd(), b: 1.5 + rnd() * 0.5, spin: -1.8, col: [246, 242, 232], op: 0.9 });
   for (let k = 0; k < 5; k++) vort.push({ lat: 14.5 + rnd() * 2, lon: -150 + k * 70 + rnd() * 25, a: 2 + rnd() * 1.5, b: 0.9 + rnd() * 0.4, spin: -1.5, col: [118, 70, 50], op: 0.75 }); // barges
   for (let k = 0; k < 26; k++) {
     const north = rnd() < 0.5, lat = (north ? 1 : -1) * (46 + rnd() * 26), s = 0.6 + rnd() * 1.4;
@@ -1035,7 +1035,7 @@ function paintSaturn(w: number): BodyMaps {
   const { c } = gas(w, bandLut(SATURN_BANDS), {
     seed: 70, warp: 0.6, fine: 0.35, streak: 0.08, sy: 4,
     turb: (lat) => (Math.abs(lat) > 70 ? 0.6 : 1), remap: hex,
-    vort: [{ lat: 89.5, lon: 0, a: 40, b: 1.5, spin: 3, col: [110, 120, 128], op: 0.6, reach: 3 }],
+    vort: [{ lat: 89.5, lon: 0, a: 40, b: 1.5, spin: -3, col: [110, 120, 128], op: 0.6, reach: 3 }],
   });
   return finish(c, null);
 }
@@ -1057,8 +1057,8 @@ function paintNeptune(w: number): BodyMaps {
   const { c, w2 } = gas(w, bandLut(NEPTUNE_BANDS), {
     seed: 90, warp: 1.0, fine: 0.5, turb: () => 1, streak: 0.06, sy: 4,
     vort: [
-      { lat: -20, lon: -30, a: 16, b: 7, spin: 1.2, col: [38, 60, 150], op: 0.85, reach: 1.8 },   // Great Dark Spot
-      { lat: -55, lon: 60, a: 4, b: 2.5, spin: 1.5, col: [36, 58, 150], op: 0.8 },            // Dark Spot 2
+      { lat: -20, lon: -30, a: 16, b: 7, spin: -1.2, col: [38, 60, 150], op: 0.85, reach: 1.8 },   // Great Dark Spot
+      { lat: -55, lon: 60, a: 4, b: 2.5, spin: -1.5, col: [36, 58, 150], op: 0.8 },            // Dark Spot 2
     ],
   });
   const rnd = mulberry32(91), cl: Blob[] = [

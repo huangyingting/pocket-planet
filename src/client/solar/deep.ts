@@ -50,7 +50,7 @@ export function scenePos(l: number, b: number, distLy: number, lv: DeepScale, ou
 const galToThree = (v: Vec3) => new THREE.Vector3(v[0], v[2], -v[1]);
 
 const KIND_COLOR: Record<DeepKind, string> = {
-  blackhole: '#ffb86b', arm: '#7dd3fc', nebula: '#f9a8d4', remnant: '#fdba74', starcluster: '#93c5fd', globular: '#fde68a', star: '#fef3c7',
+  blackhole: '#ffb86b', arm: '#7dd3fc', bar: '#fcd9a0', region: '#fda4af', nebula: '#f9a8d4', remnant: '#fdba74', starcluster: '#93c5fd', globular: '#fde68a', star: '#fef3c7',
   galaxy: '#c4b5fd', dwarf: '#a5b4fc', group: '#a7f3d0', cluster: '#fcd34d', supercluster: '#fda4af', wall: '#f9a8d4', void: '#94a3b8',
   quasar: '#67e8f9', cmb: '#fca5a5', deepfield: '#e9d5ff',
 };
@@ -364,7 +364,7 @@ export class DeepStage {
         const pts = maxPx(gain(this.points(L, DeepStage.discToThree(c, size / 2), c.col, c.size.map(s => s * size * 0.4), Math.min(c.n, nStar), { TWINKLE: '' }), 0.16), 5);
         pts.position.copy(p);
         pts.quaternion.copy(d.quaternion);
-        const w = (seed % 2 ? 1 : -1) * (0.02 + (seed % 7) * 0.004);
+        const w = -(0.02 + (seed % 7) * 0.004); // same sense as the Milky Way's, so the arms trail
         L.spinners.push([d, w], [pts, w]);
         this.sprite(L, glow, size * 0.2, p, '#ffe2b0', 0.45);
       } else {
@@ -385,7 +385,8 @@ export class DeepStage {
     this.stellarHalo(L, origin, 34, 2600, 11);
     this.stellarHalo(L, m31, 40, 3000, 12);
     this.satellites(L, origin, 46, 50, 13, null);
-    this.satellites(L, m31, 50, 42, 14, new THREE.Vector3(0.35, 0.2, 0.92).normalize()); // the Great Plane of Andromeda
+    // The Great Plane of Andromeda: we see it almost exactly edge-on, so our line of sight lies in it
+    this.satellites(L, m31, 50, 42, 14, m31.clone().normalize().cross(new THREE.Vector3(0, 1, 0)).normalize());
     this.satellites(L, m33, 16, 6, 15, null);
     this.satellites(L, m31.clone().multiplyScalar(0.5), 150, 26, 16, null);
     this.magellanicStream(L, lmc, smc);
@@ -502,7 +503,9 @@ export class DeepStage {
   /** Andromeda's Giant Stellar Stream: the long golden trail of a small galaxy it shredded. */
   private giantStream(L: LevelRT, m31: THREE.Vector3): void {
     const r = rng(23), N = Math.round(1800 * this.n);
-    const dir = new THREE.Vector3(0.2, -0.75, 0.6).normalize(), bend = new THREE.Vector3(1, 0, 0).cross(dir).normalize();
+    // It runs south-east on our sky and reaches some 300,000 ly behind Andromeda (away from us)
+    const away = m31.clone().normalize(), south = new THREE.Vector3(0, -1, 0).addScaledVector(away, away.y).normalize();
+    const dir = away.clone().multiplyScalar(0.75).addScaledVector(south, 0.66).normalize(), bend = new THREE.Vector3(1, 0, 0).cross(dir).normalize();
     const p = new Float32Array(N * 3), c = new Float32Array(N * 3), s = new Float32Array(N), v = new THREE.Vector3();
     for (let i = 0; i < N; i++) {
       const t = r() ** 0.7, len = 22;
@@ -595,7 +598,7 @@ export class DeepStage {
   /** The nearest galaxy groups just outside ours: a bright main galaxy and its companions, far out in the dark. */
   private neighbourGroups(L: LevelRT): void {
     const r = rng(31), N = 14, groups = DEEP_OBJECTS.filter(o => o.scale === 'laniakea' && /sculptor_group|m81_group|maffei_group|centaurus_a/.test(o.key));
-    const extra: [number, number, number][] = [[138.2, 10.6, 10.7e6], [234, 4, 13e6], [75, 60, 14e6]]; // IC 342 group, Antlia–Sextans & Canes Venatici clouds
+    const extra: [number, number, number][] = [[138.2, 10.6, 10.7e6], [255, 30, 4.3e6], [123, 76, 13e6]]; // IC 342 group, Antlia–Sextans & Canes Venatici clouds
     const where = [...groups.map(o => [o.l, o.b, Math.min(o.distLy, 1.3e7)] as [number, number, number]), ...extra];
     const n = where.length * (N + 1), p = new Float32Array(n * 3), c = new Float32Array(n * 3), s = new Float32Array(n);
     let j = 0;
@@ -689,7 +692,7 @@ export class DeepStage {
     const known: THREE.Vector3[] = [];
     let ga: THREE.Vector3 | null = null;
     for (const o of DEEP_OBJECTS) {
-      if (o.scale !== 'laniakea' || !['cluster', 'group', 'supercluster'].includes(o.kind)) continue;
+      if (o.scale !== 'laniakea' || !['cluster', 'group', 'supercluster', 'region'].includes(o.kind)) continue;
       const v = scenePos(o.l, o.b, o.distLy, 'laniakea');
       known.push(v);
       if (/norma|great_attractor/.test(o.key) && !ga) ga = v.clone();
@@ -1031,7 +1034,7 @@ export function deepThumb(o: DeepObject, mw: () => HTMLCanvasElement, W = 720, H
       } else putDisc(paintBlob(o.morph ?? 'dwarf', 256, seed), H * 0.9, 1, 0);
       break;
     }
-    case 'arm': putDisc(mw(), H * 1.05, 0.55, -0.3); break;
+    case 'arm': case 'bar': putDisc(mw(), H * 1.05, 0.55, -0.3); break;
     case 'nebula': ctx.drawImage(paintNebula(256, seed, r() < 0.5 ? ['#ff5c8a', '#4fd1c5'] : ['#e05297', '#7aa2ff'], /ring|helix|cat|planetary/i.test(o.wiki)), cx - H / 2, 0, H, H); break;
     case 'remnant': ctx.drawImage(paintNebula(256, seed, ['#ff8a3d', '#5cc8ff'], true), cx - H / 2, 0, H, H); break;
     case 'starcluster': case 'globular': {
@@ -1043,7 +1046,7 @@ export function deepThumb(o: DeepObject, mw: () => HTMLCanvasElement, W = 720, H
       break;
     }
     case 'star': {
-      const c = /betelgeuse|antares|uy_scuti|vy_|red/i.test(o.key + o.wiki) ? '#ff9a5c' : /rigel|vega|sirius|eta/i.test(o.key) ? '#bcd4ff' : '#fff1c4';
+      const c = /betelgeuse|antares|uy_scuti|vy_|proxima|red/i.test(o.key + o.wiki) ? '#ff9a5c' : /rigel|vega|sirius|eta/i.test(o.key) ? '#bcd4ff' : '#fff1c4';
       blob(cx, cy, H * 0.9, c, 0.9); blob(cx, cy, H * 0.3, '#ffffff', 1);
       ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(cx - H * 0.6, cy); ctx.lineTo(cx + H * 0.6, cy); ctx.moveTo(cx, cy - H * 0.45); ctx.lineTo(cx, cy + H * 0.45); ctx.stroke();
@@ -1051,6 +1054,15 @@ export function deepThumb(o: DeepObject, mw: () => HTMLCanvasElement, W = 720, H
     }
     case 'blackhole': case 'quasar': {
       const q = o.kind === 'quasar';
+      if (o.key === 'dp_gaia_bh1') { // a quiet black hole: no gas falling in, so no glowing disc — just bent starlight
+        ctx.strokeStyle = 'rgba(220,235,255,0.55)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(cx, cy, H * 0.2, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(cx, cy, H * 0.15, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'lighter';
+        blob(cx + H * 0.55, cy - H * 0.1, H * 0.25, '#fff1c4', 0.9); // its Sun-like companion star
+        break;
+      }
       if (q) { ctx.strokeStyle = 'rgba(120,220,255,0.55)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(cx - 40, cy + H * 0.48); ctx.lineTo(cx + 40, cy - H * 0.48); ctx.stroke(); }
       ctx.save(); ctx.translate(cx, cy); ctx.scale(1, q ? 0.35 : 0.85);
       const g = ctx.createRadialGradient(0, 0, H * 0.14, 0, 0, H * 0.4);

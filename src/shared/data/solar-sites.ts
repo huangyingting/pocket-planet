@@ -73,7 +73,7 @@ export const SOLAR_SITES: SolarSite[] = [
     wiki: 'Apollo 17', model: hero('apollo17'),
   },
   {
-    key: 'ss_moon_luna9', body: 'moon', kind: 'lander', emoji: '🚀', lat: 7.13, lon: -64.37, year: 1966, agency: 'USSR',
+    key: 'ss_moon_luna9', body: 'moon', kind: 'lander', emoji: '🚀', lat: 7.08, lon: -64.37, year: 1966, agency: 'USSR',
     name: { en: 'Luna 9', zh: '月球9号' },
     desc: { en: 'The first spacecraft to land softly on the Moon and send back pictures from its surface.', zh: '第一个在月球上软着陆、并从月面传回照片的探测器。' },
     funFact: { en: 'It proved the ground was firm. Some scientists had feared landers would sink into deep dust!', zh: '它证明了月面很结实——之前有科学家担心着陆器会陷进厚厚的尘土里！' },
@@ -117,8 +117,8 @@ export const SOLAR_SITES: SolarSite[] = [
   {
     key: 'ss_moon_chandrayaan3', body: 'moon', kind: 'rover', emoji: '🇮🇳', lat: -69.373, lon: 32.32, year: 2023, agency: 'ISRO',
     name: { en: 'Chandrayaan-3', zh: '月船3号' },
-    desc: { en: "India's Vikram lander touched down near the Moon's south pole, and the Pragyan rover rolled out to explore.", zh: '印度的“维克拉姆”着陆器降落在月球南极附近，“普拉吉安”月球车随后开出来探索。' },
-    funFact: { en: "Pragyan's wheels stamped India's lion emblem and the ISRO logo into the Moon dust.", zh: '普拉吉安号的车轮在月尘上印下了印度国徽上的狮子和印度空间研究组织的标志。' },
+    desc: { en: "India's Vikram lander touched down near the Moon's south pole, and the Pragyan rover rolled out to explore.", zh: '印度的“维克拉姆”着陆器降落在月球南极附近，“普拉格扬号”月球车随后开出来探索。' },
+    funFact: { en: "Pragyan's wheels stamped India's lion emblem and the ISRO logo into the Moon dust.", zh: '普拉格扬号的车轮在月尘上印下了印度国徽上的狮子和印度空间研究组织的标志。' },
     wiki: 'Chandrayaan-3', model: hero('chandrayaan3'),
   },
   {
@@ -210,7 +210,7 @@ export const SOLAR_SITES: SolarSite[] = [
   {
     key: 'ss_mars_olympus_mons', body: 'mars', kind: 'landform', emoji: '🌋', lat: 18.653, lon: -133.8, year: 1971, agency: 'NASA',
     name: { en: 'Olympus Mons', zh: '奥林帕斯山' },
-    desc: { en: 'The tallest volcano in the Solar System: about 22 km high, almost three times as tall as Mount Everest!', zh: '太阳系最高的火山：大约22千米高，几乎是珠穆朗玛峰的三倍！' },
+    desc: { en: 'The tallest volcano in the Solar System: about 22 km high, two and a half times as tall as Mount Everest!', zh: '太阳系最高的火山：大约22千米高，是珠穆朗玛峰的两倍半！' },
     funFact: { en: 'It is about 600 km wide, so standing on it you could not even see its edges.', zh: '它宽约600千米，站在山上，你根本看不到它的边缘。' },
     wiki: 'Olympus Mons', model: hero('olympus'), scale: 2.2,
   },
@@ -276,8 +276,8 @@ export const SOLAR_SITES: SolarSite[] = [
   },
   {
     key: 'ss_io_pele', body: 'io', kind: 'plume', emoji: '🌋', lat: -18.71, lon: 104.72, year: 1979, agency: 'NASA',
-    name: { en: 'Pele volcano', zh: '皮勒火山' },
-    desc: { en: 'In 1979 Voyager 1 saw Pele erupting: the first volcano ever seen erupting on another world.', zh: '1979年，旅行者1号拍到皮勒火山正在喷发，这是人类第一次看到其他星球上的火山喷发。' },
+    name: { en: 'Pele volcano', zh: '佩蕾火山' },
+    desc: { en: 'In 1979 Voyager 1 saw Pele erupting: the first volcano ever seen erupting on another world.', zh: '1979年，旅行者1号拍到佩蕾火山正在喷发，这是人类第一次看到其他星球上的火山喷发。' },
     funFact: { en: 'Its plume rains sulfur down in a huge red ring over 1,000 km wide.', zh: '它喷出的硫落下来，形成一个直径超过1000千米的巨大红色圆环。' },
     wiki: 'Pele (volcano)', fx: { type: 'plume', color: '#e9a35c', height: 0.17 },
   },
@@ -343,7 +343,7 @@ export const SOLAR_SITES: SolarSite[] = [
   },
   {
     key: 'ss_ceres_ahuna_mons', body: 'ceres', kind: 'landform', emoji: '🏔️', lat: -10.48, lon: -43.8, year: 2015, agency: 'NASA',
-    name: { en: 'Ahuna Mons', zh: '阿胡那山' },
+    name: { en: 'Ahuna Mons', zh: '阿胡纳山' },
     desc: { en: 'A lonely ice volcano on Ceres, about 4 km tall, with bright salty streaks running down its steep sides.', zh: '谷神星上一座孤零零的冰火山，大约4千米高，陡峭的山坡上有一道道明亮的盐带。' },
     funFact: { en: 'Instead of hot lava, it oozed out a cold, muddy mix of salty water and ice.', zh: '它冒出来的不是滚烫的熔岩，而是由咸水和冰混成的冰冷泥浆。' },
     wiki: 'Ahuna Mons', model: hero('ahuna'), scale: 1.6,

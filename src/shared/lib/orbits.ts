@@ -55,6 +55,7 @@ export function moonPosition(d: number): Vec3 {
 /** Unit vector of a body's north pole in ecliptic coordinates. */
 export function poleOf(id: BodyId): Vec3 {
   const b = BODY[id];
+  if (b.kind === 'moon' && b.parent && id !== 'moon') return poleOf(b.parent);
   const t = b.tilt * D2R, l = (b.poleLon ?? 90) * D2R;
   return [Math.sin(t) * Math.cos(l), Math.sin(t) * Math.sin(l), Math.cos(t)];
 }

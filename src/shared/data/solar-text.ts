@@ -18,8 +18,8 @@ export const BODY_TEXT: Record<BodyId, { desc: I18n; funFact: I18n }> = {
   venus: {
     desc: { en: 'Venus is about the same size as Earth, but it is wrapped in thick clouds of acid that trap heat. It is the hottest planet — hot enough to melt lead.',
       zh: '金星和地球差不多大，但它裹着厚厚的酸性云层，把热量牢牢困住。它是最热的行星，热得能把铅熔化。' },
-    funFact: { en: 'Venus spins backwards, so the Sun rises in the west — and one day there is longer than its whole year!',
-      zh: '金星是倒着转的，所以那里的太阳从西边升起，而且金星上的一天比它的一年还长！' },
+    funFact: { en: 'Venus spins backwards, so the Sun rises in the west — and one spin takes 243 Earth days, longer than its whole 225-day year!',
+      zh: '金星是倒着转的，所以那里的太阳从西边升起；而且它自转一圈要 243 个地球日，比绕太阳一圈（225 天）还长！' },
   },
   earth: {
     desc: { en: 'Earth is our home — the only planet we know of with life. Liquid water covers about 71% of its surface, and its air keeps us warm and safe.',

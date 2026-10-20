@@ -21,15 +21,19 @@ import { eclToGal, galToEcl } from '../../shared/lib/sky.ts';
 import { DeepStage } from './deep.ts';
 import { SiteLayer, helioAU } from './sites.ts';
 import { SolarFX, FLOW_BODIES, COMET_NAME } from './fx.ts';
-import { ConstellationLayer } from './constellations.ts';
+import { ConstellationLayer, type Disc } from './constellations.ts';
 import type { Constellation } from '../../shared/data/constellations.ts';
 import type { SolarSite } from '../../shared/data/solar-sites.ts';
 
 const D2R = Math.PI / 180;
 /** Simulated seconds per real second for the time controls. */
 export const SPEEDS = [0, 1, 3600, 86400, 2_592_000, 31_557_600] as const;
-/** Visual spin is soft-capped at this many radians per real second (one turn a minute) so no world ever whirls. */
+/**
+ * Visual spin: Earth turns at most once a minute so no world ever whirls; every other world is slowed by the same
+ * factor, so their real speed ratios survive (Jupiter still turns about 2.4 times faster than Earth).
+ */
 const SPIN_MAX_W = (2 * Math.PI) / 60;
+const EARTH_DAY_H = 23.9345;
 /** Earth turns exactly with the clock (sun over the right longitude) up to this speed; faster it spins freely. */
 const EARTH_EXACT = 600;
 /** The camera turns with the focused world only this close (in radii) or while a surface spot is selected. */
@@ -150,6 +154,7 @@ export class SolarView {
   private labelsEl: HTMLDivElement;
   private featEl: HTMLDivElement;
   private rts = new Map<BodyId, BodyRT>();
+  private tmpDisc = new THREE.Vector3();
   private stars!: THREE.Points;
   private sunU = { uMap: { value: new THREE.Texture() as THREE.Texture }, uTime: { value: 0 } };
   private geoLo: THREE.SphereGeometry;
@@ -301,8 +306,8 @@ export class SolarView {
   private buildStars(): void {
     const n = this.quality.stars * 2;
     const pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
-    // Milky Way plane: the galactic pole is about 60° from the ecliptic pole.
-    const gp = new THREE.Vector3(0.0, 0.5, -0.866).normalize();
+    // Milky Way plane: the north galactic pole sits at ecliptic lon 180.0°, lat +29.8° (in Coma Berenices).
+    const gp = new THREE.Vector3(-0.8676, 0.497, 0).normalize();
     const v = new THREE.Vector3(), c = new THREE.Color();
     for (let i = 0; i < n; i++) {
       v.set(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1);
@@ -503,17 +508,18 @@ export class SolarView {
       const prev = rt.spinA;
       q.copy(rt.tilt.quaternion).invert();
       let target: number | null = null;
-      if (b.locked && b.parent) {
-        tmp.copy(this.rts.get(b.parent)!.pos).sub(rt.pos).normalize().applyQuaternion(q);
+      if (b.locked) {
+        // lon 0 faces the parent; Pluto and Charon are locked to each other
+        tmp.copy(this.rts.get(b.parent ?? 'charon')!.pos).sub(rt.pos).normalize().applyQuaternion(q);
         target = Math.atan2(tmp.x, tmp.z);
       } else if (b.id === 'earth' && Math.abs(this.speed) <= EARTH_EXACT) {
         tmp.copy(rt.pos).negate().normalize().applyQuaternion(q);
         target = Math.atan2(tmp.x, tmp.z) - subSolarLon(this.simMs) * D2R;
       }
-      if (target !== null) rt.spinA = dtReal <= 0 ? target : rt.spinA + wrapPi(target - rt.spinA) * Math.min(1, dtReal / 0.25);
+      if (target !== null) rt.spinA = dtReal <= 0 || b.locked ? target : rt.spinA + wrapPi(target - rt.spinA) * Math.min(1, dtReal / 0.25);
       else if (b.rotationH) {
-        const w = (simH * 2 * Math.PI) / b.rotationH;
-        rt.spinA += dtReal * SPIN_MAX_W * Math.tanh(w / SPIN_MAX_W);
+        const w = (simH * 2 * Math.PI) / b.rotationH, wEarth = (simH * 2 * Math.PI) / EARTH_DAY_H;
+        rt.spinA += dtReal * w * Math.min(1, SPIN_MAX_W / wEarth);
       }
       rt.spinA = wrapPi(rt.spinA);
       rt.spin.rotation.y = rt.spinA;
@@ -914,7 +920,7 @@ export class SolarView {
     if (ws > 0) {
       this.updateBodies(dt / 1000);
       this.updateCamera(dt);
-      this.cst.update(this.camera, this.sized.w, this.sized.h);
+      this.cst.update(this.camera, this.sized.w, this.sized.h, this.discs());
       this.sunU.uTime.value = now / 1000;
       const jup = this.rts.get('jupiter')!.pos, pr = this.renderer.getPixelRatio();
       this.fx.update({ dt: this.speed === 0 ? 0 : dt / 1000, ms: this.simMs, days: daysJ2000(this.simMs), jup: Math.atan2(-jup.z, jup.x), camera: this.camera, pr,
@@ -941,17 +947,38 @@ export class SolarView {
     if (view !== this.lastView) { this.lastView = view; this.ev.onView?.(this.focusId, this.dist < rt.R * 30); }
   }
 
+  /** Screen discs of the bodies big enough to hide sky labels behind them. */
+  private discs(): Disc[] {
+    const W = this.sized.w, H = this.sized.h, k = (H / 2) / Math.tan((this.camera.fov * D2R) / 2);
+    const out: Disc[] = [], cam = this.camera.position, p = this.tmpDisc;
+    for (const rt of this.rts.values()) {
+      const dc = cam.distanceTo(rt.pos);
+      if (dc <= rt.R) continue;
+      const r = (k * rt.R) / Math.sqrt(dc * dc - rt.R * rt.R);
+      if (r < 4) continue;
+      p.copy(rt.pos).project(this.camera);
+      if (p.z > 1) continue;
+      out.push([(p.x + 1) / 2 * W, (1 - p.y) / 2 * H, r + 2]);
+    }
+    return out;
+  }
+
   /** Dense spheres and the big texture only for the body you are looking at. */
   private updateLOD(): void {
+    const fb = BODY[this.focusId], fr = this.rts.get(this.focusId)!;
+    // Close up, sun-going orbits would cut across the world you're looking at (even its own runs through its middle): fade them out.
+    const keepOthers = THREE.MathUtils.clamp((this.dist / fr.R - 10) / 8, 0, 1);
     for (const rt of this.rts.values()) {
       const close = rt.b.id === this.focusId || this.camera.position.distanceTo(rt.pos) < rt.R * 8;
       const g = close ? this.geoHi : this.geoLo;
       if (rt.mesh.geometry !== g) rt.mesh.geometry = g;
       if (rt.orbit) {
         const m = rt.orbit.material as THREE.LineBasicMaterial;
-        m.opacity = rt.b.id === this.focusId || (rt.b.kind === 'moon' && (rt.b.parent === this.focusId || BODY[this.focusId].parent === rt.b.parent)) ? 0.5 : 0.2;
+        const mine = rt.b.id === this.focusId || (rt.b.kind === 'moon' && (rt.b.parent === this.focusId || fb.parent === rt.b.parent));
+        const f = rt.b.kind === 'moon' && mine ? 1 : keepOthers;
+        m.opacity = (mine ? 0.5 : 0.2) * f;
         // Moon orbits only near their planet; they'd just be clutter in the overview.
-        if (rt.b.kind === 'moon') rt.orbit.visible = this.camera.position.distanceTo(this.rts.get(rt.b.parent!)!.pos) < 30;
+        rt.orbit.visible = f > 0.01 && (rt.b.kind !== 'moon' || this.camera.position.distanceTo(this.rts.get(rt.b.parent!)!.pos) < 30);
       }
     }
   }

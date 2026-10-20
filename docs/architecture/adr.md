@@ -345,3 +345,37 @@ modals, space) looked slightly different, and the Local Group level felt empty.
 - \+ Motion uses only transform and opacity, and it is switched off on the low tier and with reduced motion.
 - − Because `clip-path` clips outer shadows, panels rely on hairlines and inner glow instead.
 - − The Local Group costs about 70 draw calls and 20k points at the medium tier.
+
+## ADR-020: Realism pass: real orientations and spin ratios, honest close-ups
+
+**Context.** An audit compared the scenes and the data with current references. It found several errors:
+- invented spin axes;
+- a spin cap that flattened the real speed ratios between planets;
+- storms that turned the wrong way;
+- a mis-tilted Milky Way band;
+- some wrong facts.
+
+It also found two close-up problems:
+- sky labels drawn over planets;
+- other worlds' orbits cutting across the focused planet.
+
+**Decision.**
+- **Axes and spin.**
+  - Pole directions (`tilt` from ecliptic north plus `poleLon`) come from the IAU.
+  - Planets use the invariable-plane north, so Venus and Uranus spin with a negative `rotationH`. Dwarf planets use the right-hand pole.
+  - Moons share their planet's pole.
+  - Tidally locked bodies face their partner exactly, so Pluto always faces Charon.
+- **Spin speed.** One scale factor, capped by Earth's spin, keeps the true speed ratios between bodies.
+- **Storms.** Anticyclones such as Jupiter's Great Red Spot and Neptune's dark spots now turn the right way, and Venus's clouds drift westward.
+- **Milky Way band.** Its pole uses the real galactic pole (ecliptic longitude 180°, latitude 29.8°).
+- **Globe day/night.** With the day/night switch on, the line between day and night follows the real Sun.
+- **Labels.** Constellation and star labels hide behind the screen-space discs of the Sun and planets.
+- **Close-up orbits.** Within about 10–18 radii, every orbit around the Sun fades out (including the body's own, which passes through its centre). Only the focused world's moon orbits stay.
+- **Deep space.**
+  - Andromeda's spin, its satellite plane (seen edge-on) and its Giant Stream now match real directions.
+  - The neighbouring galaxy groups are placed correctly.
+  - The galactic bar and the Great Attractor get their own kinds.
+
+**Consequences.**
+- \+ Planet tilts, spin directions, storms and the sky match what astronomers see.
+- − Distances and sizes are still compressed for play, so close planetary encounters look busier than in reality.

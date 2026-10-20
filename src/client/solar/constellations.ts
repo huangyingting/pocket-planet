@@ -46,6 +46,9 @@ function skyDir(ra: number, dec: number, out = new THREE.Vector3()): THREE.Vecto
   return out.set(e[0], e[2], -e[1]).normalize();
 }
 
+/** A body's disc on screen: centre x, y and radius in px. */
+export type Disc = [x: number, y: number, r: number];
+
 interface Figure {
   c: Constellation;
   dir: THREE.Vector3;
@@ -163,13 +166,14 @@ export class ConstellationLayer {
     this.lastKey = '';
   }
 
-  /** Keeps the sky centred on the camera (like a skybox) and places the name labels. */
-  update(camera: THREE.PerspectiveCamera, W: number, H: number): void {
+  /** Keeps the sky centred on the camera (like a skybox) and places the name labels; `discs` are bodies on screen. */
+  update(camera: THREE.PerspectiveCamera, W: number, H: number, discs: Disc[] = []): void {
     if (!this.on) return;
     this.group.position.copy(camera.position);
     camera.updateMatrixWorld();
     const e = camera.matrixWorld.elements;
-    const key = `${W}|${H}|${camera.fov}|${e[0].toFixed(5)}|${e[1].toFixed(5)}|${e[2].toFixed(5)}|${e[8].toFixed(5)}|${e[9].toFixed(5)}|${e[10].toFixed(5)}`;
+    const key = `${W}|${H}|${camera.fov}|${e[0].toFixed(5)}|${e[1].toFixed(5)}|${e[2].toFixed(5)}|${e[8].toFixed(5)}|${e[9].toFixed(5)}|${e[10].toFixed(5)}|`
+      + discs.map(d => `${d[0].toFixed(0)},${d[1].toFixed(0)},${d[2].toFixed(0)}`).join(';');
     if (key === this.lastKey) return;
     this.lastKey = key;
     camera.getWorldDirection(this.fwd);
@@ -182,12 +186,17 @@ export class ConstellationLayer {
     }
     cand.sort((p, q) => p.d - q.d);
     const max = W < 700 ? MAX_SMALL_LABELS : Infinity;
+    // Planet and Sun discs hide the sky behind them, names included.
     const boxes: [number, number, number, number][] = [];
+    const behind = (x0: number, x1: number, y0: number, y1: number) => discs.some(([cx, cy, r]) => {
+      const dx = cx - Math.max(x0, Math.min(cx, x1)), dy = cy - Math.max(y0, Math.min(cy, y1));
+      return dx * dx + dy * dy < r * r;
+    });
     const show = new Set<Figure>();
     for (const c of cand) {
       if (show.size >= max) break;
       const w = Math.max(40, textW(c.f.el.textContent!, 7)) / 2, x0 = c.x - w, x1 = c.x + w, y0 = c.y, y1 = c.y + 18;
-      if (boxes.some(([a0, a1, b0, b1]) => x0 < a1 && x1 > a0 && y0 < b1 && y1 > b0)) continue;
+      if (behind(x0, x1, y0, y1) || boxes.some(([a0, a1, b0, b1]) => x0 < a1 && x1 > a0 && y0 < b1 && y1 > b0)) continue;
       boxes.push([x0, x1, y0, y1]);
       show.add(c.f);
       c.f.el.style.transform = `translate(${c.x.toFixed(1)}px, ${c.y.toFixed(1)}px) translateX(-50%)`;
@@ -199,9 +208,10 @@ export class ConstellationLayer {
     for (const t of this.tags) {
       let s: [number, number] | null = null;
       if (n < MAX_STAR_LABELS && t.fig.dir.dot(this.fwd) > STAR_LABEL_COS) s = this.project(t.dir, camera, W, H);
+      if (s && behind(s[0], s[0], s[1], s[1])) s = null;
       if (s) {
         const w = textW(t.el.textContent!, 6), y0 = s[1] - 7, y1 = s[1] + 7;
-        const free = (x0: number) => !boxes.some(([a0, a1, b0, b1]) => x0 < a1 && x0 + w > a0 && y0 < b1 && y1 > b0);
+        const free = (x0: number) => !behind(x0, x0 + w, y0, y1) && !boxes.some(([a0, a1, b0, b1]) => x0 < a1 && x0 + w > a0 && y0 < b1 && y1 > b0);
         const x0 = free(s[0] + 6) ? s[0] + 6 : free(s[0] - 6 - w) ? s[0] - 6 - w : null;
         if (x0 === null) s = null;
         else { boxes.push([x0, x0 + w, y0, y1]); s = [x0, s[1]]; }

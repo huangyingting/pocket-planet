@@ -73,7 +73,7 @@ export const PEOPLE_B = many('person', [
       '出生在荷兰津德尔特的画家，用厚厚的、旋转的笔触和明亮的颜色画向日葵、星空和麦田。'],
     fun: ['He made about 860 oil paintings in only ten years, yet sold very few while he was alive; today his works are some of the most loved in the world.',
       '他在短短十年里画了大约860幅油画，活着的时候却几乎卖不出去；如今他的画是全世界最受喜爱的作品之一。'] },
-  { key: 'pp_frida', slug: 'frida-kahlo', name: ['Frida Kahlo', '弗里达·卡罗'], lat: 19.36, lon: -99.52, continent: 'north-america', country: 'MX',
+  { key: 'pp_frida', slug: 'frida-kahlo', name: ['Frida Kahlo', '弗里达·卡罗'], lat: 19.355, lon: -99.162, continent: 'north-america', country: 'MX',
     tier: 2, emoji: '🌺', sub: 'artist', model: { kind: 'person', hero: 'people-b/pp_frida' }, wiki: 'Frida Kahlo',
     facts: { born: 1907, died: 1954 },
     desc: ['A Mexican painter from Coyoacán in Mexico City, famous for colourful self-portraits full of flowers, animals and Mexican traditions. Her bright Blue House is now a museum.',

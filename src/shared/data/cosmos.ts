@@ -11,8 +11,8 @@ export type DeepScale = Exclude<ScaleId, 'solar'>;
 export const SCALES: ScaleId[] = ['universe', 'laniakea', 'group', 'galaxy', 'solar'];
 
 export type DeepKind =
-  | 'blackhole' | 'arm' | 'nebula' | 'remnant' | 'starcluster' | 'globular' | 'star'
-  | 'galaxy' | 'dwarf' | 'group' | 'cluster' | 'supercluster' | 'wall' | 'void' | 'quasar' | 'cmb' | 'deepfield';
+  | 'blackhole' | 'arm' | 'bar' | 'nebula' | 'remnant' | 'starcluster' | 'globular' | 'star'
+  | 'galaxy' | 'dwarf' | 'group' | 'cluster' | 'supercluster' | 'region' | 'wall' | 'void' | 'quasar' | 'cmb' | 'deepfield';
 
 export type Morph = 'spiral' | 'barred' | 'elliptical' | 'lenticular' | 'irregular' | 'dwarf';
 
@@ -54,8 +54,8 @@ export interface DeepObject {
 export const SCALE_INFO: Record<ScaleId, ScaleInfo> = {
   universe: {
     id: 'universe', name: { en: 'Observable Universe', zh: '可观测宇宙' }, emoji: '🌌', sizeLy: 93e9,
-    desc: { en: 'Everything we can see: about two trillion galaxies strung through a giant cosmic web of walls, threads and empty voids.',
-      zh: '我们能看到的一切：大约两万亿个星系，连成一张巨大的宇宙之网，有长墙、细丝，也有空荡荡的空洞。' },
+    desc: { en: 'Everything we can see: hundreds of billions of galaxies strung through a giant cosmic web of walls, threads and empty voids.',
+      zh: '我们能看到的一切：数千亿个星系，连成一张巨大的宇宙之网，有长墙、细丝，也有空荡荡的空洞。' },
     funFact: { en: 'The universe is 13.8 billion years old, but space keeps stretching, so the edge we can see is now about 46 billion light-years away!',
       zh: '宇宙已经138亿岁了，但空间一直在膨胀，所以我们能看到的边缘现在离我们约有460亿光年远！' },
     wiki: 'Observable universe',
@@ -103,7 +103,7 @@ const GALAXY: DeepObject[] = [
     funFact: { en: "In 2022 astronomers showed its first picture, taken by linking radio telescopes all over Earth into one giant 'eye'.",
       zh: '2022年，天文学家公布了它的第一张照片——那是把全世界的射电望远镜连成一只地球那么大的“眼睛”拍到的。' },
     wiki: 'Sagittarius A*' },
-  { key: 'dp_galactic_bar', scale: 'galaxy', kind: 'arm', name: { en: 'Galactic Bar', zh: '银河系中央棒' }, emoji: '💫',
+  { key: 'dp_galactic_bar', scale: 'galaxy', kind: 'bar', name: { en: 'Galactic Bar', zh: '银河系中央棒' }, emoji: '💫',
     l: 10, b: 0, distLy: 22_000, sizeLy: 27_000, rank: 2,
     desc: { en: "A huge bar of old, golden stars stretches across the Milky Way's middle. The spiral arms wind out from its ends.",
       zh: '银河系中部横着一根由古老的金黄色恒星组成的巨大“棒子”，旋臂就从棒的两端向外盘绕。' },
@@ -278,8 +278,8 @@ const GALAXY: DeepObject[] = [
     l: 59.01, b: 40.91, distLy: 22_200, sizeLy: 145,
     desc: { en: 'A great ball of several hundred thousand stars in Hercules, one of the finest globular clusters in northern skies.',
       zh: '武仙座里由几十万颗恒星组成的大球，是北半球天空中最漂亮的球状星团之一。' },
-    funFact: { en: 'In 1974 scientists beamed a radio message toward M13. It will take about 25,000 years to get there.',
-      zh: '1974年，科学家用阿雷西博射电望远镜向M13发送了一条无线电信息，它要飞大约2.5万年才能到达。' },
+    funFact: { en: 'In 1974 scientists beamed a radio message toward M13. It will take about 22,000 years to get there.',
+      zh: '1974年，科学家用阿雷西博射电望远镜向M13发送了一条无线电信息，它要飞大约2.2万年才能到达。' },
     wiki: 'Messier 13' },
   { key: 'dp_westerlund_1', scale: 'galaxy', kind: 'starcluster', name: { en: 'Westerlund 1', zh: '韦斯特隆德1' }, emoji: '💎',
     l: 339.55, b: -0.4, distLy: 12_600,
@@ -565,13 +565,13 @@ const LANIAKEA: DeepObject[] = [
       zh: '2019年，它成为人类拍到的第一个黑洞——一个发光的橙色圆环围着一片黑影。' },
     wiki: 'Messier 87' },
   { key: 'dp_virgo_supercluster', scale: 'laniakea', kind: 'supercluster', name: { en: 'Virgo Supercluster', zh: '室女座超星系团' }, emoji: '🕸️',
-    l: 284, b: 74, distLy: 33e6, sizeLy: 110e6, rank: 2,
+    l: 284, b: 74, distLy: 54e6, sizeLy: 110e6, rank: 2,
     desc: { en: 'The Local Supercluster: the Virgo Cluster plus about 100 galaxy groups around it, including ours. It is one part of Laniakea.',
       zh: '本超星系团：室女座星系团加上周围约100个星系群，其中就有我们的本星系群。它是拉尼亚凯亚的一部分。' },
     funFact: { en: 'Until 2014 it was thought to be our home supercluster; then astronomers found it belongs to the far bigger Laniakea.',
       zh: '2014年以前，人们以为它就是我们的家园超星系团；后来天文学家才发现它只是更大的拉尼亚凯亚的一部分。' },
     wiki: 'Virgo Supercluster' },
-  { key: 'dp_great_attractor', scale: 'laniakea', kind: 'supercluster', name: { en: 'Great Attractor', zh: '巨引源' }, emoji: '🧲',
+  { key: 'dp_great_attractor', scale: 'laniakea', kind: 'region', name: { en: 'Great Attractor', zh: '巨引源' }, emoji: '🧲',
     l: 307, b: 9, distLy: 2.0e8, rank: 3,
     desc: { en: 'A mysterious region whose gravity pulls our galaxy and thousands of others toward it at hundreds of kilometres per second.',
       zh: '一个神秘的区域，它的引力拉着我们的银河系和成千上万个星系，以每秒几百千米的速度朝它奔去。' },
