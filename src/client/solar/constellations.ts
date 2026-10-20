@@ -3,6 +3,8 @@ import { CONSTELLATIONS, type Constellation } from '../../shared/data/constellat
 import { eqToEcl } from '../../shared/lib/sky.ts';
 import { tr } from '../../shared/data/types.ts';
 import { lang } from '../lib/i18n.ts';
+import { starTint } from '../lib/starfield.ts';
+import { cssFont } from '../lib/fonts.ts';
 
 const D2R = Math.PI / 180;
 /** Just inside the background starfield (radius 120) so figures sit on the same sky. */
@@ -26,10 +28,12 @@ void main() {
 const POINT_FS = /* glsl */ `
 varying vec3 vColor;
 void main() {
-  vec2 d = gl_PointCoord - 0.5;
-  float r2 = dot(d, d) * 4.0;
-  if (r2 > 1.0) discard;
-  gl_FragColor = vec4(vColor * (1.0 - 0.75 * r2), 1.0);
+  vec2 q = gl_PointCoord * 2.0 - 1.0;
+  float d = length(q);
+  if (d > 1.0) discard;
+  // A crisp hot core inside a soft coloured glow, added onto the sky.
+  float core = 1.0 - smoothstep(0.18, 0.36, d), halo = pow(1.0 - d, 1.8);
+  gl_FragColor = vec4(vColor * (core + 0.75 * halo) + 0.4 * core, 1.0);
 }`;
 
 /** Rough label width in px (CJK glyphs are about twice as wide as Latin ones). */
@@ -94,10 +98,11 @@ export class ConstellationLayer {
       dirs.forEach((d, i) => {
         centre.add(d);
         const mag = c.stars[i][2];
-        const k = THREE.MathUtils.clamp(1.15 - 0.13 * mag, 0.5, 1);
+        const k = THREE.MathUtils.clamp(1.2 - 0.11 * mag, 0.62, 1);
+        const [cr, cg, cb] = starTint(c.stars[i][0], c.stars[i][1]);
         sPos.set([d.x * R, d.y * R, d.z * R], si * 3);
-        sCol.set([0.8 * k, 0.88 * k, k], si * 3);
-        sSize[si++] = THREE.MathUtils.clamp(4.2 - 0.6 * mag, 1.9, 5.6);
+        sCol.set([cr * k, cg * k, cb * k], si * 3);
+        sSize[si++] = THREE.MathUtils.clamp(18 - 2.4 * mag, 8, 24);
       });
       for (const [i, j] of c.lines) {
         a.copy(dirs[i]); b.copy(dirs[j]);
@@ -134,12 +139,12 @@ export class ConstellationLayer {
 
     const lg = new THREE.BufferGeometry();
     lg.setAttribute('position', new THREE.BufferAttribute(lPos, 3));
-    const lines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x3b6b8f, depthTest: false, depthWrite: false }));
+    const lines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x4a7fa8, depthTest: false, depthWrite: false }));
     const sg = new THREE.BufferGeometry();
     sg.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
     sg.setAttribute('aColor', new THREE.BufferAttribute(sCol, 3));
     sg.setAttribute('aSize', new THREE.BufferAttribute(sSize, 1));
-    const mat = new THREE.ShaderMaterial({ uniforms: { uPr: { value: 1 } }, vertexShader: POINT_VS, fragmentShader: POINT_FS, depthTest: false, depthWrite: false });
+    const mat = new THREE.ShaderMaterial({ uniforms: { uPr: { value: 1 } }, vertexShader: POINT_VS, fragmentShader: POINT_FS, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false });
     const pts = new THREE.Points(sg, mat);
     pts.onBeforeRender = (renderer) => { mat.uniforms.uPr.value = renderer.getPixelRatio(); };
     for (const o of [lines, pts]) {
@@ -291,7 +296,7 @@ export function drawConstellation(cv: HTMLCanvasElement, c: Constellation): void
     ctx.fillStyle = '#f4f8ff';
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
   });
-  ctx.font = '600 22px system-ui, sans-serif';
+  ctx.font = `600 22px ${cssFont('--font-hud')}`;
   ctx.fillStyle = 'rgba(186,230,253,0.9)';
   const l = lang();
   for (const [i, name] of Object.entries(c.named ?? {})) {

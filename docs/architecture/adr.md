@@ -571,3 +571,30 @@ These now match the sky theatre's Sun.
 **Consequences.**
 - \+ The Sun matches popular expectation, and the activity follows the real physical sequence.
 - − The disc colour is a convention, not the true colour. The eclipse view in the sky theatre keeps the physically white Sun.
+
+## ADR-027: One sky and one Chinese typeface across the views
+
+**Context.**
+- The Earth view had its own background: a slate `#020617` colour and grey dots in a shell at distance 14–26, so the stars showed parallax. It had no Milky Way and no real stars.
+- The Solar System used a different random field. Its constellation stars were small, dim dots, hard to tell from the background.
+- Fonts were inconsistent:
+  - `--font-mono` had no Chinese font, so mono text fell back to the OS default (SimSun serif on Windows).
+  - `--cjk` mixed Japanese and Korean faces.
+  - Canvas labels hard-coded their own stacks.
+
+**Decision.**
+- **Shared sky.** `client/lib/starfield.ts` builds one sky for both views:
+  - the real catalogue stars of the constellation figures, plus a seeded field of fainter stars concentrated along the galactic plane;
+  - spectral tints, sized and dimmed by magnitude;
+  - a skybox that follows the camera, so the stars are at infinity and show no parallax;
+  - drawn additively in the opaque pass, first, so bodies always cover it.
+  The Solar System uses it in the ecliptic frame. The Earth view uses it in the Earth-fixed frame, turned by the real Greenwich sidereal time, so the stars over a place are the ones really overhead. Both views clear to `SPACE_BG` (`#020306`).
+- **Constellation stars.** In the Solar System, constellation stars are drawn bigger by magnitude (8–24 px), with a crisp core and a coloured glow, and the figure lines are slightly brighter. The figures stay fixed when zooming: they are at effectively infinite distance, so that is physically correct. They do not twinkle, because there is no atmosphere in space.
+- **Fonts.**
+  - `--cjk` lists only Simplified-Chinese faces: PingFang SC, Hiragino Sans GB, Noto Sans CJK SC / Noto Sans SC, Source Han Sans SC, Microsoft YaHei.
+  - It is part of every stack (`--font`, `--font-mono`, `--font-hud`, `--font-data`, and the static pages).
+  - Canvas text reads the stack from CSS through `cssFont('--font-hud')`.
+
+**Consequences.**
+- \+ Going from Earth to the Solar System keeps the same sky and the same colours. Chinese text uses one face everywhere.
+- − Background stars are no longer re-randomised per view. The Earth sky turns slowly with real time.

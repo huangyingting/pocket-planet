@@ -49,10 +49,11 @@
   --bad: #f87171;
   --radius: 16px;
   --shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 32px rgba(0, 0, 0, 0.42);
-  --cjk: "PingFang SC", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Apple SD Gothic Neo", "Noto Sans CJK SC", "Microsoft YaHei", "Malgun Gothic";
+  /* One Simplified-Chinese face everywhere (Latin uses Geist / Geist Mono / Chakra Petch). */
+  --cjk: "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei";
   --font: "Geist", var(--cjk), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: var(--font);
-  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: "Geist Mono", var(--cjk), ui-monospace, SFMono-Regular, Menlo, monospace;
   /* HUD theme (space views): Chakra Petch for Latin + digits, system CJK for Chinese. */
   --font-hud: "Chakra Petch", var(--cjk), "Geist", system-ui, sans-serif;
   --hud: #7dd3fc;

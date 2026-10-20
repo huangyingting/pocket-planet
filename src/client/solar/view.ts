@@ -17,7 +17,8 @@ import { lang } from '../lib/i18n.ts';
 import { AdaptiveResolution, type Quality } from '../globe/quality.ts';
 import type { PaintReply, PaintRequest } from './solar.worker.ts';
 import { SCALES, type DeepObject, type DeepScale, type ScaleId } from '../../shared/data/cosmos.ts';
-import { eclToGal, galToEcl } from '../../shared/lib/sky.ts';
+import { eclToGal, eqToEcl, galToEcl } from '../../shared/lib/sky.ts';
+import { buildStarField, SPACE_BG } from '../lib/starfield.ts';
 import { DeepStage } from './deep.ts';
 import { SiteLayer, helioAU } from './sites.ts';
 import { SolarFX, FLOW_BODIES, COMET_NAME } from './fx.ts';
@@ -249,7 +250,7 @@ export class SolarView {
     this.renderer = new THREE.WebGLRenderer({ antialias: quality.msaa, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, quality.dprMax));
     this.adapt = new AdaptiveResolution(quality.dprMin, Math.min(devicePixelRatio || 1, quality.dprMax));
-    this.renderer.setClearColor(0x020306);
+    this.renderer.setClearColor(SPACE_BG);
     this.renderer.autoClear = false;
     this.veilScene.add(this.veil);
     const cv = this.renderer.domElement;
@@ -349,29 +350,8 @@ export class SolarView {
   }
 
   private buildStars(): void {
-    const n = this.quality.stars * 2;
-    const pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
-    // Milky Way plane: the north galactic pole sits at ecliptic lon 180.0°, lat +29.8° (in Coma Berenices).
-    const gp = new THREE.Vector3(-0.8676, 0.497, 0).normalize();
-    const v = new THREE.Vector3(), c = new THREE.Color();
-    for (let i = 0; i < n; i++) {
-      v.set(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1);
-      if (v.lengthSq() > 1 || v.lengthSq() < 1e-4) { i--; continue; }
-      v.normalize();
-      if (i % 5 < 2) { v.addScaledVector(gp, -v.dot(gp) * (0.86 + Math.random() * 0.14)).normalize(); }
-      v.multiplyScalar(120);
-      pos.set([v.x, v.y, v.z], i * 3);
-      const tmp = Math.random();
-      c.setHSL(tmp < 0.2 ? 0.6 : tmp < 0.35 ? 0.1 : 0.6, tmp < 0.35 ? 0.5 : 0.1, 0.55 + Math.random() * 0.4);
-      const k = Math.pow(Math.random(), 2.2) * 0.85 + 0.15;
-      col.set([c.r * k, c.g * k, c.b * k], i * 3);
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    this.stars = new THREE.Points(g, new THREE.PointsMaterial({ size: 1.7, sizeAttenuation: false, vertexColors: true, depthTest: false, depthWrite: false }));
-    this.stars.renderOrder = -10;
-    this.stars.frustumCulled = false;
+    // The same sky as the Earth view, in the ecliptic scene frame (ecliptic north +Y).
+    this.stars = buildStarField(this.quality.stars * 2, (x, y, z, out) => { const e = eqToEcl([x, y, z]); return out.set(e[0], e[2], -e[1]); }, 120);
     this.scene.add(this.stars);
   }
 
@@ -617,7 +597,6 @@ export class SolarView {
     this.camera.near = Math.max(0.0004, Math.min(0.5, surf * 0.3));
     this.camera.far = this.dist + 260;
     this.camera.updateProjectionMatrix();
-    this.stars.position.copy(this.camera.position);
   }
 
   // ---------- public API ----------

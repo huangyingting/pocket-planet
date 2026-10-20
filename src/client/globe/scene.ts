@@ -10,6 +10,7 @@ import { paintNightLights, type CountryInfo } from './painter.ts';
 import { CITIES } from '../../shared/data/cities.ts';
 import { TYPE_META, type LayerKey } from '../../shared/data/typemeta.ts';
 import { GlobeLayers, RENDER_ORDER, graticuleStep } from './layers.ts';
+import { buildStarField, gmstRad, SPACE_BG } from '../lib/starfield.ts';
 
 export type AuraPreset = 'waves' | 'aurora' | 'ember' | 'dusk' | 'sculpture';
 export type SurfaceMode = 'realistic' | 'minimal' | 'political';
@@ -250,6 +251,7 @@ export class Globe {
   renderer!: THREE.WebGLRenderer;
   scene = new THREE.Scene();
   camera: THREE.PerspectiveCamera;
+  private stars!: THREE.Points;
   earth!: THREE.Mesh;
   private earthMat!: THREE.ShaderMaterial;
   private earthUniforms!: {
@@ -369,8 +371,7 @@ export class Globe {
     r.domElement.setAttribute('aria-label', t('globeLabel'));
     r.domElement.tabIndex = 0;
     this.container.append(r.domElement, this.labelsEl);
-    // AuraFM slate-950 deep orbital space background
-    this.scene.background = new THREE.Color('#020617');
+    this.scene.background = new THREE.Color(SPACE_BG);
 
     const landTex = new THREE.CanvasTexture(earthCanvas);
     landTex.colorSpace = THREE.SRGBColorSpace;
@@ -470,25 +471,11 @@ export class Globe {
   }
 
   private addStars(): void {
-    const n = this.quality.stars;
-    const pos = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) {
-      const r = 14 + Math.random() * 12;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      pos[i * 3 + 2] = r * Math.cos(phi);
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    this.scene.add(new THREE.Points(g, new THREE.PointsMaterial({
-      color: 0x94a3b8,
-      size: 1.5,
-      sizeAttenuation: false,
-      transparent: true,
-      opacity: 0.55,
-    })));
+    // Real sky at infinity in the Earth-fixed frame (equatorial at Greenwich sidereal time 0), turned by the
+    // real sidereal time so the stars above each place are the ones really overhead.
+    this.stars = buildStarField(this.quality.stars * 2, (x, y, z, out) => out.set(y, z, x), 60);
+    this.stars.rotation.y = -gmstRad(Date.now());
+    this.scene.add(this.stars);
   }
 
   private orientAt(obj: THREE.Object3D, lat: number, lon: number, r: number, heading?: THREE.Vector3): void {
@@ -1128,6 +1115,7 @@ export class Globe {
     const cam = this.camera.position.clone().normalize();
     // The real Sun: the day/night line is where it actually is right now (the "Day & night" switch hides the night)
     this.earthUniforms.uSunDir.value.copy(real);
+    this.stars.rotation.y = -gmstRad(now.getTime());
 
     // Viewer-relative 3-point studio lighting for 3D miniatures on the globe
     const camUp = this.camera.up.clone().normalize();

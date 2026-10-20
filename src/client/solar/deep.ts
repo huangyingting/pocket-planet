@@ -15,6 +15,7 @@ import type { Quality } from '../globe/quality.ts';
 import { buildNebula, hasNebulaModel, paintNebulaArt, type NebulaModel } from './nebulae.ts';
 import { buildGalaxyModel, galaxyExtentLy, hasGalaxyModel, paintGalaxyArt } from './galaxies.ts';
 import { MILKY_WAY, genericSpiral, gauss, glowCanvas, hashStr, paintBlob, paintCMB, paintDisc, paintNebula, rng, sampleDisc, type DiscDef, type StarCloud } from './cosmos-paint.ts';
+import { cssFont } from '../lib/fonts.ts';
 
 const D2R = Math.PI / 180;
 /** Local Group: galaxies are drawn this many times their true size. */
@@ -616,7 +617,7 @@ export class DeepStage {
     const s = new THREE.Sprite(this.fadeMat(L, new THREE.SpriteMaterial({ map: tx, transparent: true, opacity: 0.55, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending })));
     s.position.copy(at);
     const paint = () => {
-      const txt = label(), ctx = cv.getContext('2d')!, font = '500 30px "Chakra Petch", "Noto Sans SC", system-ui, sans-serif';
+      const txt = label(), ctx = cv.getContext('2d')!, font = `500 30px ${cssFont('--font-hud')}`;
       ctx.font = font;
       cv.width = Math.ceil(ctx.measureText(txt).width) + 24; cv.height = 44;
       ctx.font = font; ctx.textBaseline = 'middle'; ctx.fillStyle = '#9ee3ff';
