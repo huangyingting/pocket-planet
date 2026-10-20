@@ -979,6 +979,8 @@ body.solar .time-bar, body.solar .ride-bar, body.solar .globe-tip { display: non
 .sb-label.k-moon { font-size: 11px; color: #a1a1aa; }
 .sb-label.k-dwarf { color: #c4b5fd; }
 .sb-label.k-star { color: #fcd34d; }
+.sb-label.k-comet { position: absolute; left: 0; top: 0; padding: 2px 6px; white-space: nowrap; pointer-events: none; font-size: 11px; color: #a5f3fc; text-shadow: 0 0 6px rgba(0, 0, 0, .9); }
+.sb-label.k-comet[hidden] { display: none; }
 .sb-label.on { color: var(--accent); font-weight: 600; }
 .sf-label { display: flex; align-items: center; gap: 6px; margin: -8px 0 0 -6px; font-size: 11.5px; color: #e4e4e7; --k: #cbd5e1; }
 .sf-label i { width: 8px; height: 8px; border-radius: 50%; background: var(--k); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 10px var(--k); flex: none; }
@@ -1155,6 +1157,22 @@ body:has(.info.expanded:not(.hidden)) .scale-rail { display: none; }
 .solar-ui .solar-speed { font-family: var(--font-hud); color: var(--hud-hi); letter-spacing: .04em; }
 .solar-ui .solar-date { font-family: var(--font-hud); color: var(--hud-dim); border-left-color: var(--hud-line); letter-spacing: .05em; }
 .solar-ui .solar-zoom button { color: var(--hud-dim); }
+.solar-ui .cst-toggle { gap: 5px; color: var(--hud-dim); border-radius: 2px; }
+.solar-ui .cst-toggle.on { color: var(--hud-hi); background: rgba(103, 232, 249, .12); box-shadow: inset 0 0 0 1px var(--hud-line); }
+/* Constellation names: faint sky lettering under the planet labels */
+.cst-label { padding: 1px 6px; border: 0; background: none; color: rgba(125, 211, 252, .62); font: 500 11px/1.4 var(--font-hud), var(--font, system-ui), sans-serif;
+  letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; cursor: pointer; text-shadow: 0 0 6px rgba(0, 0, 0, .9); transition: color .15s; }
+.cst-label:hover, .cst-label:focus-visible { color: #e0f7ff; outline: none; text-shadow: 0 0 8px rgba(103, 232, 249, .8); }
+.cst-star { color: rgba(224, 242, 254, .5); font: 500 10px/1.3 var(--font-hud), var(--font, system-ui), sans-serif; letter-spacing: .06em; white-space: nowrap;
+  text-shadow: 0 0 4px rgba(0, 0, 0, .9); }
+@media (max-width: 760px) {
+  .cst-star { display: none !important; }
+  .cst-label { font-size: 10px; letter-spacing: .08em; }
+  .solar-ui .solar-time .pill { white-space: nowrap; flex: none; }
+  .solar-ui .cst-toggle { width: 34px; padding: 0; justify-content: center; }
+  .solar-ui .cst-toggle span { display: none; }
+  .solar-ui .solar-date { min-width: 0; flex: 1 1 auto; padding: 0 4px; font-size: .68rem; line-height: 1.2; letter-spacing: 0; }
+}
 .solar-ui .solar-zoom button:hover { background: rgba(125, 211, 252, 0.1); color: var(--hud-hi); }
 .solar-ui .solar-hint { font-family: var(--font-hud); letter-spacing: .04em; color: var(--hud-hi); }
 .solar-ui .solar-hint::before { content: "▸ "; color: var(--hud); }

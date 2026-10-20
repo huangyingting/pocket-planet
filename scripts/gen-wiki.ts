@@ -10,6 +10,7 @@ import { BODIES } from '../src/shared/data/solar.ts';
 import { SOLAR_FEATURES } from '../src/shared/data/solar-features.ts';
 import { SOLAR_SITES } from '../src/shared/data/solar-sites.ts';
 import { DEEP_OBJECTS, SCALE_INFO } from '../src/shared/data/cosmos.ts';
+import { CONSTELLATIONS } from '../src/shared/data/constellations.ts';
 
 /** English article titles for core items whose display name is not the article title. */
 const OVERRIDES: Record<string, string> = {
@@ -77,6 +78,8 @@ const want = [
   ...SOLAR_SITES.map(s => ({ key: s.key, title: s.wiki })),
   ...DEEP_OBJECTS.map(o => ({ key: o.key, title: o.wiki })),
   ...Object.values(SCALE_INFO).map(i => ({ key: 'sc_' + i.id, title: i.wiki })),
+  // Constellations (`cst_<iau id>`) use the "(constellation)" article, which redirects where there is no clash.
+  ...CONSTELLATIONS.map(c => ({ key: 'cst_' + c.id, title: c.name.en + ' (constellation)' })),
 ];
 const result = new Map<string, { en: string; zh?: string; bad?: string }>();
 const titles = [...new Set(want.map(w => w.title))];

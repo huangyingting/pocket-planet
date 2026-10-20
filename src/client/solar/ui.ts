@@ -17,6 +17,7 @@ import type { Reader, Readable } from '../ui/reader.ts';
 import { SolarView, SPEEDS, featuresOf, type SolarSelection } from './view.ts';
 import { sitesOf, helioAU } from './sites.ts';
 import { deepThumb } from './deep.ts';
+import { drawConstellation, constellationText } from './constellations.ts';
 import { SOLAR_SITES } from '../../shared/data/solar-sites.ts';
 import { DEEP_OBJECTS, SCALE_INFO, SCALES, type DeepObject, type DeepKind, type DeepScale, type ScaleId } from '../../shared/data/cosmos.ts';
 import type { CatalogueItem } from '../../shared/data/types.ts';
@@ -86,6 +87,7 @@ export class SolarUI {
   private dateEl = h('span', { class: 'solar-date', 'data-testid': 'solar-date' });
   private speedEl = h('span', { class: 'solar-speed', 'data-testid': 'solar-speed' });
   private playBtn = h('button', { class: 'icon-btn', 'data-testid': 'solar-play' });
+  private cstBtn = h('button', { class: 'pill pill-sm cst-toggle', 'data-testid': 'solar-cst', html: icon('sparkle', 14) }, h('span', { 'data-i18n': 'cst_toggle' }, t('cst_toggle')));
   private hint = h('p', { class: 'solar-hint' });
   /** Telemetry in the HUD corner: target, coordinates/field of view, range. */
   private readout = h('dl', { class: 'hud-readout', 'aria-hidden': 'true' });
@@ -118,7 +120,8 @@ export class SolarUI {
           this.speedEl,
           h('button', { class: 'icon-btn', 'aria-label': '+', 'data-testid': 'solar-faster', html: icon('chevron', 15), onclick: () => this.setSpeed(Math.min(SPEEDS.length - 1, this.speedIdx + 1)) }),
           this.dateEl,
-          h('button', { class: 'pill pill-sm', 'data-testid': 'solar-now', 'data-i18n': 'now', onclick: () => { this.view.resetTime(); this.renderDate(this.view.simMs); } }, t('now'))),
+          h('button', { class: 'pill pill-sm', 'data-testid': 'solar-now', 'data-i18n': 'now', onclick: () => { this.view.resetTime(); this.renderDate(this.view.simMs); } }, t('now')),
+          this.cstBtn),
         this.dock),
       h('div', { class: 'solar-zoom zoom-ctl' },
         h('button', { 'aria-label': t('zoomIn'), 'data-testid': 'solar-zoom-in', html: icon('plus', 17), onclick: () => this.view.zoomBy(0.55) }),
@@ -131,6 +134,9 @@ export class SolarUI {
     root.append(this.el);
     window.setInterval(() => { if (this.view.isActive && !document.hidden) this.renderReadout(); }, 250);
     this.playBtn.onclick = () => this.setSpeed(this.speedIdx === 0 ? 2 : 0);
+    this.cstBtn.setAttribute('aria-label', t('cst_toggle'));
+    this.cstBtn.onclick = () => { sfx.tap(); this.setCst(!this.view.cst.visible); };
+    this.setCst(localStorage.getItem('pp.cst') !== '0');
     this.renderDock();
     this.setSpeed(2);
     this.view.setEarthCanvas(host.earthCanvas());
@@ -141,6 +147,14 @@ export class SolarUI {
       else if (this.sel) this.showCard(null);
       else this.overview();
     });
+  }
+
+  private setCst(on: boolean): void {
+    this.view.cst.visible = on;
+    this.cstBtn.setAttribute('aria-pressed', String(on));
+    this.cstBtn.classList.toggle('on', on);
+    try { localStorage.setItem('pp.cst', on ? '1' : '0'); } catch { /* private mode */ }
+    if (!on && this.sel?.kind === 'cst') this.showCard(null);
   }
 
   private bodyOf(s: Sel): BodyId | null {
@@ -277,6 +291,7 @@ export class SolarUI {
     for (const id of chain) parts.push(sep(), h('button', { class: 'crumb', onclick: () => this.view.select(id) }, tr(BODY[id].name, l)));
     if (this.sel?.kind === 'feature') parts.push(sep(), h('span', { class: 'crumb cur' }, tr(this.sel.f.name, l)));
     if (this.sel?.kind === 'site') parts.push(sep(), h('span', { class: 'crumb cur' }, tr(this.sel.s.name, l)));
+    if (this.sel?.kind === 'cst') parts.push(sep(), h('span', { class: 'crumb cur' }, tr(this.sel.c.name, l)));
     parts.at(-1)?.classList.add('cur');
     this.crumbs.replaceChildren(...parts);
     for (const c of this.dock.children) c.classList.toggle('on', (c as HTMLElement).dataset.testid === 'sp-' + fid);
@@ -284,6 +299,7 @@ export class SolarUI {
 
   private relabel(): void {
     this.view.relabel();
+    this.cstBtn.setAttribute('aria-label', t('cst_toggle'));
     for (const el of this.el.querySelectorAll<HTMLElement>('[data-i18n]')) el.textContent = t(el.dataset.i18n!);
     this.view.root.querySelector('canvas')?.setAttribute('aria-label', t('solarLabel'));
     this.renderDock();
@@ -316,6 +332,7 @@ export class SolarUI {
     const s = this.sel!;
     if (s.kind === 'feature') return { key: s.f.key, name: s.f.name, desc: s.f.desc, wiki: s.f.wiki, funFact: s.f.funFact };
     if (s.kind === 'site') return { key: s.s.key, name: s.s.name, desc: s.s.desc, wiki: s.s.wiki, funFact: s.s.funFact };
+    if (s.kind === 'cst') return { key: 'cst_' + s.c.id, name: s.c.name, desc: constellationText(s.c).desc, wiki: s.c.name.en + ' (constellation)' };
     if (s.kind === 'deep') return { key: s.o.key, name: s.o.name, desc: s.o.desc, wiki: s.o.wiki, funFact: s.o.funFact };
     if (s.kind === 'scale') { const i = SCALE_INFO[s.id]; return { key: 'sc_' + s.id, name: i.name, desc: i.desc, wiki: i.wiki, funFact: i.funFact }; }
     const b = BODY[s.id], tx = BODY_TEXT[s.id];
@@ -328,6 +345,7 @@ export class SolarUI {
   private drawHero(): void {
     const s = this.sel;
     if (!s || s.kind === 'site') return;
+    if (s.kind === 'cst') { drawConstellation(this.hero, s.c); return; }
     if (s.kind === 'deep' || s.kind === 'scale') {
       const o = s.kind === 'deep' ? s.o : ({ key: 'sc_' + s.id, kind: SCALE_THUMB[s.id] } as DeepObject);
       const src = deepThumb(o, () => this.view.deep.milkyWayCanvas());
@@ -354,7 +372,7 @@ export class SolarUI {
   private renderReadout(): void {
     const l = lang(), v = this.view, s = this.sel;
     const name = !s ? null : s.kind === 'deep' ? tr(s.o.name, l) : s.kind === 'site' ? tr(s.s.name, l) : s.kind === 'feature' ? tr(s.f.name, l)
-      : s.kind === 'body' ? tr(BODY[s.id].name, l) : null;
+      : s.kind === 'body' ? tr(BODY[s.id].name, l) : s.kind === 'cst' ? tr(s.c.name, l) : null;
     const rows: [string, string][] = [];
     if (v.scale === 'solar') {
       const { lat, lon, radii } = v.viewInfo();
@@ -378,7 +396,7 @@ export class SolarUI {
     void this.info.offsetWidth;
     this.info.classList.add('scan');
     const s = this.sel!;
-    if (s.kind === 'deep' || s.kind === 'scale' || s.kind === 'site') { this.renderOtherCard(); return; }
+    if (s.kind === 'deep' || s.kind === 'scale' || s.kind === 'site' || s.kind === 'cst') { this.renderOtherCard(); return; }
     const l = lang();
     const body = BODY[s.kind === 'body' ? s.id : s.f.body];
     const it = this.readable();
@@ -482,6 +500,13 @@ export class SolarUI {
         });
       } else hero.append(h('span', { class: 'site-emoji' }, x.emoji));
       if (!x.helio) footer.push(h('button', { class: 'pill pill-sm', 'data-testid': 'solar-back-body', onclick: () => this.view.select(x.body) }, t('backTo', { p: tr(body.name, l) })));
+    } else if (s.kind === 'cst') {
+      const b = constellationText(s.c).brightest;
+      eyebrow = t('cst_kind');
+      chip = '✨ ' + t('cst_kind');
+      color = '#67e8f9';
+      key.push([t('cst_stars'), fmtNum(s.c.stars.length)]);
+      if (b) key.push([t('cst_brightest'), tr(b, l)]);
     } else if (s.kind === 'deep') {
       const o = s.o;
       eyebrow = t('dk_' + o.kind) + (o.morph && o.kind !== 'dwarf' ? ' · ' + t('mo_' + o.morph) : '');

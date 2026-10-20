@@ -20,6 +20,9 @@ import { SCALES, type DeepObject, type DeepScale, type ScaleId } from '../../sha
 import { eclToGal, galToEcl } from '../../shared/lib/sky.ts';
 import { DeepStage } from './deep.ts';
 import { SiteLayer, helioAU } from './sites.ts';
+import { SolarFX, FLOW_BODIES, COMET_NAME } from './fx.ts';
+import { ConstellationLayer } from './constellations.ts';
+import type { Constellation } from '../../shared/data/constellations.ts';
 import type { SolarSite } from '../../shared/data/solar-sites.ts';
 
 const D2R = Math.PI / 180;
@@ -50,7 +53,7 @@ const wrapPi = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 const helioOrbit = (s: SolarSite, ms: number) => displayOrbit(helioAU(s, ms));
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
-export type SolarSelection = { kind: 'body'; id: BodyId } | { kind: 'feature'; f: SolarFeature } | { kind: 'site'; s: SolarSite };
+export type SolarSelection = { kind: 'body'; id: BodyId } | { kind: 'feature'; f: SolarFeature } | { kind: 'site'; s: SolarSite } | { kind: 'cst'; c: Constellation };
 
 export interface SolarEvents {
   /** A body or feature was picked (tap, label or chip). */
@@ -160,6 +163,10 @@ export class SolarView {
   private featLabels = new Map<string, HTMLButtonElement>();
   private adapt: AdaptiveResolution;
   private sites!: SiteLayer;
+  private fx!: SolarFX;
+  private cometLabel = document.createElement('span');
+  /** Stick figures of the constellations on the sky sphere (toggle with `.visible`). */
+  cst!: ConstellationLayer;
 
   simMs = Date.now();
   speed: number = SPEEDS[2];
@@ -214,6 +221,7 @@ export class SolarView {
       onDown: () => this.goScale(SCALES[SCALES.indexOf(this.scale) + 1], 'down'),
       onUp: () => this.goScale(SCALES[SCALES.indexOf(this.scale) - 1], 'up'),
     });
+    this.cst = new ConstellationLayer(this.scene, this.labelsEl, { onPick: c => this.ev.onSelect?.({ kind: 'cst', c }) });
     this.sites = new SiteLayer(this.scene, this.featEl, this.labelsEl, s => this.selectSite(s));
     this.build();
     this.bindInput(cv);
@@ -282,6 +290,10 @@ export class SolarView {
       this.rts.set(b.id, rt);
       rt.orbit = this.buildOrbit(rt, d);
     }
+    this.fx = new SolarFX(this.scene, [...this.rts.values()].map(rt => ({ id: rt.b.id, R: rt.R, tilt: rt.tilt, spin: rt.spin, node: rt.node, mat: rt.mat,
+      geo: this.geoHi })), this.quality, this.simMs);
+    this.cometLabel.className = 'sb-label k-comet';
+    this.labelsEl.append(this.cometLabel);
     this.relabel();
     this.updateBodies(0);
   }
@@ -463,6 +475,7 @@ export class SolarView {
     if (!t) return;
     if (rt.b.id === 'sun') { this.sunU.uMap.value = t.map; return; }
     const m = rt.mat as THREE.MeshStandardMaterial;
+    if (FLOW_BODIES.has(rt.b.id) && t.map.wrapS !== THREE.RepeatWrapping) { t.map.wrapS = THREE.RepeatWrapping; t.map.needsUpdate = true; }
     m.map = t.map;
     m.color.set(0xffffff);
     m.bumpMap = t.bump;
@@ -617,7 +630,7 @@ export class SolarView {
     const iF = SCALES.indexOf(from), iT = SCALES.indexOf(to);
     how ??= Math.abs(iF - iT) === 1 ? (iT < iF ? 'up' : 'down') : 'jump';
     if (to === 'solar') {
-      if (from === 'galaxy' || how === 'down') this.setAngles(this.anglesVec(this.deep.az, this.deep.el, galToEcl, eclToGal, true));
+      if (from === 'galaxy' || how === 'down') this.setAngles(this.anglesVec(this.deep.az - (from === 'galaxy' ? this.deep.galSpin : 0), this.deep.el, galToEcl, eclToGal, true));
       this.selFeature = null;
       this.focusId = 'sun';
       const rt = this.rts.get('sun')!;
@@ -627,7 +640,7 @@ export class SolarView {
     } else {
       if (from === 'solar') {
         const off = this.anglesVec(this.az, this.el, eclToGal, galToEcl, false);
-        this.deep.az = Math.atan2(off.x, off.z);
+        this.deep.az = Math.atan2(off.x, off.z) + (to === 'galaxy' ? this.deep.galSpin : 0);
         this.deep.el = Math.asin(Math.max(-1, Math.min(1, off.y)));
       }
       this.deep.enter(to as DeepScale, how, from === 'solar' ? 600 : this.deep.distLy);
@@ -721,6 +734,8 @@ export class SolarView {
       if (f) el.querySelector('span')!.textContent = tr(f.name, l);
     }
     this.sites.relabel();
+    this.cst.relabel();
+    this.cometLabel.textContent = tr(COMET_NAME, l);
   }
 
   zoomBy(f: number): void {
@@ -899,7 +914,11 @@ export class SolarView {
     if (ws > 0) {
       this.updateBodies(dt / 1000);
       this.updateCamera(dt);
+      this.cst.update(this.camera, this.sized.w, this.sized.h);
       this.sunU.uTime.value = now / 1000;
+      const jup = this.rts.get('jupiter')!.pos, pr = this.renderer.getPixelRatio();
+      this.fx.update({ dt: this.speed === 0 ? 0 : dt / 1000, ms: this.simMs, days: daysJ2000(this.simMs), jup: Math.atan2(-jup.z, jup.x), camera: this.camera, pr,
+        scale: (this.sized.h * pr) / (2 * Math.tan((this.camera.fov * D2R) / 2)) });
       this.updateLOD();
       this.renderer.render(this.scene, this.camera);
       if (ws < 1) {
@@ -971,6 +990,12 @@ export class SolarView {
       rt.label.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px) translateX(-50%)`;
       rt.label.classList.toggle('on', b.id === this.focusId);
     }
+    // Comet Encke: named only in the wider views, where its tail is a streak among the planets
+    const cp = this.fx.comet.pos;
+    p.copy(cp).project(this.camera);
+    const showComet = this.dist > 25 && p.z < 1 && Math.abs(p.x) < 1 && Math.abs(p.y) < 1;
+    this.cometLabel.hidden = !showComet;
+    if (showComet) this.cometLabel.style.transform = `translate(${((p.x + 1) / 2 * W + 8).toFixed(1)}px, ${((1 - p.y) / 2 * H - 20).toFixed(1)}px)`;
     const placed: [number, number][] = [];
     const f = this.rts.get(this.focusId)!;
     this.sites.sync(this.focusId !== 'sun' && this.dist < f.R * 9 ? { id: this.focusId, R: f.R, pos: f.pos, tilt: f.tilt, spin: f.spin } : null);

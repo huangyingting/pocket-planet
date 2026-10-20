@@ -263,3 +263,42 @@ to feel like one system, with real mission sites to visit on the other worlds. P
 visited, and point counts scale with the quality tier. − Positions in the Laniakea and universe levels are
 illustrative beyond the catalogued objects (the procedural web is not a survey map). − Distances inside each level are
 real, but sizes of labels and galaxies are enlarged so they can be seen.
+
+## ADR-018: Space weather, constellations and living deep-space levels behind a sci-fi HUD
+
+**Context.** Users asked for a more sci-fi interface. They also wanted space to feel grander and more alive: galaxies
+that rotate and glitter, constellations, solar flares, the asteroid belt, and storms and weather on the planets. The
+universe level showed the CMB as a ball floating in black instead of a sky that fills the screen.
+
+**Decision.**
+- **HUD theme.** Space views use a cyan "instrument" skin: corner brackets, a Chakra Petch display font for readouts,
+  a live coordinate/scale readout, a one-shot scan line when a card opens and size readouts on the scale rail. It is
+  pure CSS over the existing components (`.solar-ui`, `.hud-frame`), so the globe UI is unchanged.
+- **Solar effects (`solar/fx.ts`, `SolarFX`).** One module owns all of them:
+  - small bodies: point-cloud asteroid belt, Trojans and Kuiper belt, drifting with Kepler-like speeds in the
+    vertex shader;
+  - the Sun: corona, prominence loops, flares and coronal mass ejections that grow and fade on their own cycles;
+  - weather: flow-map clouds on the giant planets (zonal jets and vortices such as the Great Red Spot),
+    Venus's super-rotating clouds, a moving Earth cloud shell, Mars dust storms and polar aurorae on the Earth,
+    Jupiter and Saturn;
+  - Comet Encke on a real orbit, with dust and ion tails that point away from the Sun and lengthen near
+    perihelion.
+  Particle and loop counts scale with the quality tier, and effects pause with simulation time.
+- **Constellations (`solar/constellations.ts`, `shared/data/constellations.ts`).** 42 constellations and 51 named
+  stars, placed on a sky sphere that follows the camera, with bilingual names. A time-bar chip toggles them
+  (`pp.cst`). Each opens a card with a drawn star chart and a Wikipedia reader (`cst_<id>` keys in `gen-wiki`).
+- **Living deep space (`solar/deep.ts`).**
+  - Each level has a root group. The Milky Way turns clockwise as seen from the galactic north (a few degrees a
+    minute, so the motion is visible). Objects and the camera's carried-over angle rotate with it, so
+    Solar ↔ Milky Way hand-offs still line up.
+  - Disc and halo stars twinkle, and Sgr A* pulses. In the Local Group, spiral galaxies spin about their own
+    axes.
+  - After 6 s without input, the camera slowly orbits.
+- **Universe from inside.** The universe level now keeps the camera inside the CMB shell, and the shell samples
+  the CMB map by view direction. The afterglow fills the whole screen like a sky, with the cosmic web in front.
+
+**Consequences.**
+- \+ The views feel alive without extra draw calls on the globe.
+- \+ Effects cost about 10k points at the medium tier.
+- − Rotation and effects are exaggerated in speed and size, so that kids can see them.
+- − The constellation figures are simplified, with the main stick-figure lines only.

@@ -347,6 +347,14 @@ test('solar system: zoom out from Earth, visit Mars and a feature, land back on 
   await expect.poll(() => page.evaluate(() => (window as any).__pp.globe.paused)).toBe(true);
   await page.waitForTimeout(2500);
   await shot(page, `${info.project.name}_30_solar_earth`);
+  // Constellation overlay toggles on and off and remembers the choice.
+  const cst = page.getByTestId('solar-cst');
+  const on = await cst.getAttribute('aria-pressed');
+  await cst.click();
+  await expect(cst).toHaveAttribute('aria-pressed', on === 'true' ? 'false' : 'true');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('pp.cst'))).not.toBeNull();
+  await cst.click();
+  await expect(cst).toHaveAttribute('aria-pressed', String(on));
 
   await page.getByTestId('sp-mars').click();
   await expect(page.getByTestId('solar-name')).toHaveText('Mars');

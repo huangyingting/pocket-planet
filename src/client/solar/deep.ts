@@ -28,11 +28,13 @@ export const LEVELS: Record<DeepScale, LevelDef> = {
   galaxy: { unit: 1e3, downLy: 260, upLy: 3.4e5, defLy: 1.25e5, el: 0.9 },
   group: { unit: 2e4, downLy: 2.3e5, upLy: 1.1e7, defLy: 6.2e6, el: 0.42 },
   laniakea: { unit: 1e6, downLy: 7e6, upLy: 1.6e9, defLy: 8.5e8, el: 0.5 },
-  universe: { unit: 1e8, downLy: 1.1e9, upLy: 2.2e11, defLy: 1.25e11, el: 0.32 },
+  // We sit at the centre of our own observable universe: the camera stays inside the CMB shell (465 units), so it fills the sky.
+  universe: { unit: 1e8, downLy: 1.1e9, upLy: 4.3e10, defLy: 3.3e10, el: 0.32 },
 };
 /** Distance (ly) from the Sun to the Galactic Centre (Sgr A*). */
 export const GC_LY = 26_670;
 const CMB_R = 465;
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 /** Galactic (ly from the Sun) → three.js scene units for a level. */
 export function scenePos(l: number, b: number, distLy: number, lv: DeepScale, out = new THREE.Vector3()): THREE.Vector3 {
@@ -60,8 +62,9 @@ const ORIENT: [RegExp, number, number][] = [
 const POINT_VS = /* glsl */ `
 attribute float aSize; attribute vec3 aColor;
 uniform float uScale; uniform float uFade; uniform float uMinPx; uniform float uPr; uniform float uGain; uniform float uMaxPx;
+uniform float uTime;
 #ifdef FLOW
-attribute vec3 aEnd; attribute float aPhase; uniform float uTime;
+attribute vec3 aEnd; attribute float aPhase;
 #endif
 varying vec3 vC;
 void main() {
@@ -83,6 +86,10 @@ void main() {
   k *= clamp(pow(2.2 * uPr / max(px, uMinPx), 1.6), 0.1, 1.0);
   gl_PointSize = clamp(px, uMinPx, uMaxPx * uPr);
 #endif
+#ifdef TWINKLE
+  float h = fract(sin(dot(position, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+  k *= 0.72 + 0.28 * sin(uTime * (1.2 + 2.6 * h) + h * 60.0);
+#endif
   vC = aColor * uFade * uGain * k;
 }`;
 const POINT_FS = /* glsl */ `
@@ -103,8 +110,11 @@ varying vec2 vUv; varying vec3 vN; varying vec3 vW;
 void main() {
   float mu = abs(dot(normalize(vN), normalize(cameraPosition - vW)));
   float inside = step(length(cameraPosition), uR);
-  float a = mix(0.02 + 0.3 * pow(1.0 - mu, 3.0), 0.45, inside);
-  gl_FragColor = vec4(texture2D(uMap, vUv).rgb * a * uFade, 1.0);
+  // From inside (where we really are) the CMB is the infinitely distant sky: sample by view direction, not by the shell.
+  vec3 d = normalize(vW - cameraPosition);
+  vec2 uv = inside > 0.5 ? vec2(atan(d.z, d.x) * 0.1591549 + 0.5, asin(clamp(d.y, -1.0, 1.0)) * 0.3183099 + 0.5) : vUv;
+  float a = mix(0.02 + 0.3 * pow(1.0 - mu, 3.0), 0.11, inside);
+  gl_FragColor = vec4(texture2D(uMap, uv).rgb * a * uFade, 1.0);
   #include <colorspace_fragment>
 }`;
 
@@ -126,6 +136,15 @@ interface LevelRT {
   fades: [THREE.Material & { opacity: number }, number][];
   cmb?: THREE.ShaderMaterial;
   w: number;
+  /** Everything that turns with the level's own rotation (galaxy level: the whole Milky Way about its centre). */
+  root: THREE.Group;
+  /** rad/s about +y for `root` (positions, home and camera target are carried along). */
+  spin: number;
+  /** Accumulated `spin` (rad). */
+  angle: number;
+  /** Objects spinning about their own local y (galaxy discs about their normals), rad/s. */
+  spinners: [THREE.Object3D, number][];
+  pulse?: THREE.Sprite;
 }
 
 export interface DeepEvents {
@@ -161,6 +180,9 @@ export class DeepStage {
     root.append(this.layer);
   }
 
+  /** How far the Milky Way has turned (rad about +y): camera angles in galactic coordinates are relative to it. */
+  get galSpin(): number { return this.levels.get('galaxy')?.angle ?? 0; }
+
   /** How far the current level's camera sits from its target, in light-years (≈ the width of the view). */
   spanLy(): number {
     const L = this.levels.get(this.level);
@@ -183,7 +205,8 @@ export class DeepStage {
     homeLabel.onclick = () => this.ev.onDown?.();
     labels.append(homeLabel);
     L = { id, def: LEVELS[id], scene: new THREE.Scene(), labels, objs: [], homeLabel, home: new THREE.Vector3(), defTarget: new THREE.Vector3(),
-      target: new THREE.Vector3(), dist: LEVELS[id].defLy / LEVELS[id].unit, tween: null, pts: [], fades: [], w: 0 };
+      target: new THREE.Vector3(), dist: LEVELS[id].defLy / LEVELS[id].unit, tween: null, pts: [], fades: [], w: 0, root: new THREE.Group(), spin: 0, angle: 0, spinners: [] };
+    L.scene.add(L.root);
     this.levels.set(id, L);
     if (id === 'galaxy') this.buildGalaxy(L);
     else if (id === 'group') this.buildGroup(L);
@@ -224,7 +247,7 @@ export class DeepStage {
     extra?.(g);
     const p = new THREE.Points(g, this.pointsMat(L, defines));
     p.frustumCulled = false;
-    L.scene.add(p);
+    L.root.add(p);
     return p;
   }
 
@@ -237,7 +260,7 @@ export class DeepStage {
     m.position.copy(at);
     m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal.clone().normalize());
     m.rotateY(spin);
-    L.scene.add(m);
+    L.root.add(m);
     return m;
   }
 
@@ -245,7 +268,7 @@ export class DeepStage {
     const s = new THREE.Sprite(this.fadeMat(L, new THREE.SpriteMaterial({ map: tex, color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false })));
     s.position.copy(at);
     s.scale.setScalar(size);
-    L.scene.add(s);
+    L.root.add(s);
     return s;
   }
 
@@ -269,7 +292,10 @@ export class DeepStage {
   private buildGalaxy(L: LevelRT): void {
     const { cloud, tex } = this.milkyWay();
     this.disc(L, tex, MILKY_WAY.R * 2, new THREE.Vector3(), new THREE.Vector3(0, 1, 0), 0.45);
-    gain(this.points(L, DeepStage.discToThree(cloud, 1), cloud.col, cloud.size, cloud.n), 0.3);
+    gain(this.points(L, DeepStage.discToThree(cloud, 1), cloud.col, cloud.size, cloud.n, { TWINKLE: '' }), 0.3);
+    // The whole Galaxy turns about its centre (clockwise seen from the north, the Sun heading for l = 90°);
+    // sped up enormously: one turn every ~9 minutes instead of 230 million years.
+    L.spin = -0.012;
     // Halo: old globular clusters and faint halo stars
     const r = rng(9), nh = Math.round(2400 * this.n);
     const hp = new Float32Array(nh * 3), hc = new Float32Array(nh * 3), hs = new Float32Array(nh);
@@ -280,12 +306,14 @@ export class DeepStage {
       hc.set(glob ? [1, 0.85, 0.55] : [0.5, 0.48, 0.45], i * 3);
       hs[i] = glob ? 0.9 : 0.35;
     }
-    this.points(L, hp, hc, hs);
+    this.points(L, hp, hc, hs, nh, { TWINKLE: '' });
     const sun = scenePos(0, 0, 0, 'galaxy');
     L.home.copy(sun);
     L.defTarget.set(0, 0, 0);
     // "You are here" glow around the Sun
     this.sprite(L, new THREE.CanvasTexture(glowCanvas()), 1.6, sun, '#ffe9a8', 0.9);
+    // Sgr A*: a softly breathing glow at the very centre
+    L.pulse = this.sprite(L, new THREE.CanvasTexture(glowCanvas()), 2.4, new THREE.Vector3(), '#ffb86b', 0.6);
     // Nebulae glow pink, remnants orange: a soft sprite under their markers
     const glow = new THREE.CanvasTexture(glowCanvas());
     for (const o of DEEP_OBJECTS) {
@@ -298,9 +326,10 @@ export class DeepStage {
     const u = L.def.unit;
     const { cloud, tex } = this.milkyWay();
     const k = 1e3 / u;
-    this.disc(L, tex, MILKY_WAY.R * 2 * k, new THREE.Vector3(), new THREE.Vector3(0, 1, 0), 0.95);
+    const mw = this.disc(L, tex, MILKY_WAY.R * 2 * k, new THREE.Vector3(), new THREE.Vector3(0, 1, 0), 0.95);
     const sub = Math.min(cloud.n, Math.round(14_000 * this.n));
-    this.points(L, DeepStage.discToThree(cloud, k), cloud.col, cloud.size.map(s => s * k * 2.2), sub);
+    const mwPts = this.points(L, DeepStage.discToThree(cloud, k), cloud.col, cloud.size.map(s => s * k * 2.2), sub);
+    L.spinners.push([mw, -0.03], [mwPts, -0.03]);
     L.home.set(0, 0, 0);
     let m31: THREE.Vector3 | null = null;
     const r = rng(5);
@@ -319,7 +348,7 @@ export class DeepStage {
         const c = sampleDisc(def, 9000, seed, 0.02);
         const tx = new THREE.CanvasTexture(paintDisc(def, c, 256, 1.3));
         tx.colorSpace = THREE.SRGBColorSpace;
-        this.disc(L, tx, size, at, this.discNormal(o, r), 1, r() * 6);
+        L.spinners.push([this.disc(L, tx, size, at, this.discNormal(o, r), 1, r() * 6), (seed % 2 ? 1 : -1) * (0.02 + (seed % 7) * 0.004)]);
       } else {
         const tx = new THREE.CanvasTexture(paintBlob(o.morph ?? 'dwarf', 128, seed));
         tx.colorSpace = THREE.SRGBColorSpace;
@@ -456,6 +485,8 @@ export class DeepStage {
     this.web(L, { R: CMB_R * 0.97, nodes: [], extra: 520, n: 52_000, width: 3.2, size: 3.4, seed: 23, maxLink: 120 });
     const tex = new THREE.CanvasTexture(paintCMB(this.quality.tier === 'low' ? 512 : 1024));
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.generateMipmaps = false; // no mip seam where the view-direction longitude wraps
+    tex.minFilter = THREE.LinearFilter;
     const cmb = new THREE.ShaderMaterial({
       uniforms: { uMap: { value: tex }, uFade: { value: 1 }, uR: { value: CMB_R } }, vertexShader: CMB_VS, fragmentShader: CMB_FS,
       transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
@@ -500,7 +531,7 @@ export class DeepStage {
       this.tweenTo(L, L.defTarget, toD, 2200);
     } else {
       L.target.copy(L.defTarget);
-      L.dist = toD * 2.2;
+      L.dist = Math.min(toD * 2.2, def.upLy / def.unit);
       this.tweenTo(L, L.defTarget, toD, 1800);
       this.el = def.el * 0.8;
     }
@@ -537,7 +568,11 @@ export class DeepStage {
     this.tweenTo(L, L.defTarget, L.def.defLy / L.def.unit, 1400);
   }
 
+  /** Last user input (ms): after a while without any, the camera drifts round on its own. */
+  private input = 0;
+
   rotate(dx: number, dy: number): void {
+    this.input = performance.now();
     this.current.tween = null;
     this.az -= dx * 0.005;
     this.el = Math.max(-1.45, Math.min(1.45, this.el + dy * 0.005));
@@ -545,6 +580,7 @@ export class DeepStage {
   }
 
   zoomBy(f: number): void {
+    this.input = performance.now();
     const L = this.current, def = L.def;
     if (L.tween) { L.target.copy(L.tween.toT); L.tween = null; }
     if (f < 1 && !this.sel) L.target.lerp(L.home, Math.min(1, (1 - f) * 1.4));
@@ -572,6 +608,21 @@ export class DeepStage {
   /** Advances tweens of every visible level (`dt` in ms). */
   update(dt: number): void {
     this.time += dt / 1000;
+    const sec = dt / 1000;
+    // Idle: a slow cinematic orbit, easing in.
+    const idle = (performance.now() - this.input - 6000) / 4000;
+    if (idle > 0 && !this.current.tween) this.az += sec * 0.022 * Math.min(1, idle);
+    for (const L of this.levels.values()) {
+      if (L.spin) {
+        const q = new THREE.Quaternion().setFromAxisAngle(Y_AXIS, L.spin * sec);
+        L.root.quaternion.premultiply(q);
+        L.angle = (L.angle + L.spin * sec) % (Math.PI * 2);
+        for (const x of L.objs) x.pos.applyQuaternion(q);
+        for (const v of [L.home, L.target, L.defTarget]) v.applyQuaternion(q);
+        if (L.tween) { L.tween.fromT.applyQuaternion(q); L.tween.toT.applyQuaternion(q); }
+      }
+      for (const [o, w] of L.spinners) o.rotateY(w * sec);
+    }
     if (this.tweenEl) {
       this.tweenEl.t = Math.min(1, this.tweenEl.t + dt / 2200);
       this.el = this.tweenEl.from + (this.tweenEl.to - this.tweenEl.from) * ease(this.tweenEl.t);
@@ -617,6 +668,7 @@ export class DeepStage {
     }
     for (const [m, base] of L.fades) m.opacity = base * w;
     if (L.cmb) L.cmb.uniforms.uFade.value = w * 0.9;
+    if (L.pulse) (L.pulse.material as THREE.SpriteMaterial).opacity = w * (0.45 + 0.25 * Math.sin(this.time * 1.7));
     renderer.render(L.scene, cam);
   }
 
