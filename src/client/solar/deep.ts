@@ -161,6 +161,12 @@ export class DeepStage {
     root.append(this.layer);
   }
 
+  /** How far the current level's camera sits from its target, in light-years (≈ the width of the view). */
+  spanLy(): number {
+    const L = this.levels.get(this.level);
+    return L ? L.dist * L.def.unit : 0;
+  }
+
   private get n(): number { return this.quality.tier === 'high' ? 1 : this.quality.tier === 'medium' ? 0.42 : 0.28; }
 
   // ---------- building ----------

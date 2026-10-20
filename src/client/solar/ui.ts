@@ -87,6 +87,8 @@ export class SolarUI {
   private speedEl = h('span', { class: 'solar-speed', 'data-testid': 'solar-speed' });
   private playBtn = h('button', { class: 'icon-btn', 'data-testid': 'solar-play' });
   private hint = h('p', { class: 'solar-hint' });
+  /** Telemetry in the HUD corner: target, coordinates/field of view, range. */
+  private readout = h('dl', { class: 'hud-readout', 'aria-hidden': 'true' });
   private sel: Sel | null = null;
   private speedIdx = 2;
   private reader: Reader | null = null;
@@ -122,8 +124,12 @@ export class SolarUI {
         h('button', { 'aria-label': t('zoomIn'), 'data-testid': 'solar-zoom-in', html: icon('plus', 17), onclick: () => this.view.zoomBy(0.55) }),
         h('button', { 'aria-label': t('overviewScale'), title: t('overviewScale'), 'data-testid': 'solar-overview', html: icon('sun', 17), onclick: () => this.overview() }),
         h('button', { 'aria-label': t('zoomOut'), 'data-testid': 'solar-zoom-out', html: icon('minus', 17), onclick: () => this.view.zoomBy(1.8) })),
-      this.hint);
+      this.hint,
+      h('div', { class: 'hud-frame', 'aria-hidden': 'true' },
+        h('i', { class: 'hc c-tl' }), h('i', { class: 'hc c-tr' }), h('i', { class: 'hc c-bl' }), h('i', { class: 'hc c-br' }),
+        h('i', { class: 'hud-cross' }), this.readout));
     root.append(this.el);
+    window.setInterval(() => { if (this.view.isActive && !document.hidden) this.renderReadout(); }, 250);
     this.playBtn.onclick = () => this.setSpeed(this.speedIdx === 0 ? 2 : 0);
     this.renderDock();
     this.setSpeed(2);
@@ -345,7 +351,32 @@ export class SolarUI {
     }
   }
 
+  private renderReadout(): void {
+    const l = lang(), v = this.view, s = this.sel;
+    const name = !s ? null : s.kind === 'deep' ? tr(s.o.name, l) : s.kind === 'site' ? tr(s.s.name, l) : s.kind === 'feature' ? tr(s.f.name, l)
+      : s.kind === 'body' ? tr(BODY[s.id].name, l) : null;
+    const rows: [string, string][] = [];
+    if (v.scale === 'solar') {
+      const { lat, lon, radii } = v.viewInfo();
+      rows.push([t('hud_target'), name ?? tr(BODY[v.focusId].name, l)]);
+      rows.push([t('hud_coord'), `${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'W'}`]);
+      rows.push([t('hud_range'), t('hud_radii', { n: radii < 10 ? radii.toFixed(2) : radii.toFixed(0) })]);
+    } else {
+      rows.push([t('hud_scale'), tr(SCALE_INFO[v.scale].name, l)]);
+      rows.push([t('hud_span'), fmtLy(v.deep.spanLy(), l)]);
+      if (name) rows.push([t('hud_target'), name]);
+    }
+    const sig = rows.flat().join('|');
+    if (this.readout.dataset.sig === sig) return;
+    this.readout.dataset.sig = sig;
+    this.readout.replaceChildren(...rows.flatMap(([k, val]) => [h('dt', {}, k), h('dd', {}, val)]));
+  }
+
   private renderCard(): void {
+    // Restart the "scan" sweep across the card each time it shows something new.
+    this.info.classList.remove('scan');
+    void this.info.offsetWidth;
+    this.info.classList.add('scan');
     const s = this.sel!;
     if (s.kind === 'deep' || s.kind === 'scale' || s.kind === 'site') { this.renderOtherCard(); return; }
     const l = lang();

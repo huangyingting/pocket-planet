@@ -688,6 +688,17 @@ export class SolarView {
     if (id !== 'sun' || dist === undefined) this.request(id, this.hiTexW(), true);
   }
 
+  /** The point under the camera on the focused body and the camera distance in body radii (for the HUD readout). */
+  viewInfo(): { lat: number; lon: number; radii: number } {
+    const rt = this.rts.get(this.focusId)!;
+    rt.spin.updateWorldMatrix(true, false);
+    const inv = new THREE.Matrix4().copy(rt.spin.matrixWorld).invert();
+    const v = this.camera.position.clone().sub(rt.pos);
+    const radii = v.length() / rt.R;
+    const [lat, lon] = vecToLatLon(...(v.normalize().transformDirection(inv).toArray() as [number, number, number]));
+    return { lat, lon, radii };
+  }
+
   /** Where on Earth the camera looks down from (for handing back to the globe). */
   earthLatLon(): [number, number] {
     const rt = this.rts.get('earth')!;
