@@ -564,7 +564,7 @@ These now match the sky theatre's Sun.
 - **Eruption timeline.** It runs about every 16–32 s:
   1. A limb prominence rises and fades out.
   2. A two-ribbon flare brightens the surface beneath it.
-  3. A three-part coronal mass ejection (bright front, dark cavity, bright core) expands and accelerates outward in the corona shader, with a particle cone.
+  3. A three-part coronal mass ejection (bright front, dark cavity, bright core) expands and accelerates outward in the corona shader, with a particle cone. *(Reworked in ADR-028.)*
   4. The prominence then regrows.
 - **Corona.** Helmet streamers are concentrated towards the solar equator, using the Sun's pole projected to the screen. It also has polar plumes and fine radial filaments, and falls off as about r^-2.6.
 
@@ -598,3 +598,35 @@ These now match the sky theatre's Sun.
 **Consequences.**
 - \+ Going from Earth to the Solar System keeps the same sky and the same colours. Chinese text uses one face everywhere.
 - − Background stars are no longer re-randomised per view. The Earth sky turns slowly with real time.
+
+## ADR-028: Physically modelled solar eruptions
+
+**Context.** The ADR-026 eruption read as graphics rather than the Sun:
+- Prominences were bright wires that crossed the disc.
+- The CME was a sparkly particle cone.
+- The flare ribbons were sub-pixel and could not be seen.
+
+**Decision.** Each layer follows what H-alpha, white-light and EUV observations show.
+- **Prominences are flux ropes.**
+  - Each rope is a few twisted threads, 5 per loop (3 on the low tier).
+  - Blending is premultiplied "over" with colour/alpha equal to H-alpha red. Stacked threads therefore converge on red instead of saturating to white.
+  - Beyond the limb they glow; in front of the photosphere they only absorb, showing as dark filaments.
+  - Plasma blobs drain down both legs.
+- **The eruption runs away.**
+  - The rope rises slowly. At the flare it grows exponentially, balloons sideways and kinks: the apex rotates and the rope untwists.
+  - The feet stay rooted, and the rope fades into the CME core. A new filament re-forms later.
+- **Flare on the photosphere.** Two white-light kernels flash in the impulsive phase. Then two patchy, bowed ribbons separate either side of the neutral line over a brightened plage, and a faint EUV wave sweeps across the disc. The ribbons are drawn larger than true scale so they show at normal zoom.
+- **Post-flare arcade.**
+  - Loops stand on the ribbons, shared through `FLARE_GLSL`.
+  - They start sheared and low, then grow taller and more upright as the ribbons separate.
+  - Coronal rain falls down their legs, and they are drawn in EUV gold using the same "over" blending.
+- **Lightbulb CME.**
+  - A three-part CME in the corona shader: a bright front shaped by a capsule SDF with filamentary structure, a dark cavity, a twisted red core that heats towards white, and a faint shock sheath ahead.
+  - It accelerates, is foreshortened by viewing angle, and dims as about r^-1.1.
+  - The particle cone is removed.
+- **Site and timing.** The eruption site is the active region nearest the limb, slightly towards the viewer, so the CME is seen side-on and the flare is still visible. Eruptions recur every 18–34 s, starting 4 s after the scene opens. The timeline is `{flare: 3, cme: 2.6, end: 24}` s.
+
+**Consequences.**
+- \+ The sequence matches real observations, and the colours no longer blow out to white.
+- \+ Removing the particle cone saves draw calls and overdraw.
+- − The ribbons and arcade are exaggerated in size, and the timescales are compressed from minutes and hours to seconds, so that they are readable in a toy.

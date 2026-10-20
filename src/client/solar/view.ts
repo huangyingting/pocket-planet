@@ -21,7 +21,7 @@ import { eclToGal, eqToEcl, galToEcl } from '../../shared/lib/sky.ts';
 import { buildStarField, SPACE_BG } from '../lib/starfield.ts';
 import { DeepStage } from './deep.ts';
 import { SiteLayer, helioAU } from './sites.ts';
-import { SolarFX, FLOW_BODIES, COMET_NAME } from './fx.ts';
+import { SolarFX, FLOW_BODIES, COMET_NAME, FLARE_GLSL } from './fx.ts';
 import { ConstellationLayer, type Disc } from './constellations.ts';
 import type { Constellation } from '../../shared/data/constellations.ts';
 import type { SolarSite } from '../../shared/data/solar-sites.ts';
@@ -144,6 +144,8 @@ const SUN_FS = /* glsl */ `
 uniform sampler2D uMap; uniform float uTime; uniform vec4 uFlare;
 varying vec2 vUv; varying vec3 vN; varying vec3 vW; varying vec3 vP;
 float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float n1(float x) { float i = floor(x), f = fract(x); return mix(h3(vec3(i, 0.3, 0.7)), h3(vec3(i + 1.0, 0.3, 0.7)), f * f * (3.0 - 2.0 * f)); }
+${FLARE_GLSL}
 #ifdef GRAN
 float cells(vec3 p, float t) {
   vec3 i = floor(p), f = fract(p);
@@ -177,16 +179,25 @@ void main() {
   float m1 = 1.0 - mu, m2 = 1.0 - mu * mu;
   vec3 ld = vec3(1.0) - vec3(0.80, 0.88, 0.97) * m1 + vec3(0.20, 0.23, 0.22) * m2;
   c *= ld * 1.3 * gran;
-  // Flare: two bright ribbons either side of the magnetic neutral line, flashing on and drifting apart as they fade.
+  // Flare. The impulsive phase flashes two white-light kernels; then two patchy ribbons either side of the magnetic
+  // neutral line drift apart as reconnection climbs (the post-flare loops in fx.ts stand on them), and a faint EUV
+  // wave races out across the disc.
   float fa = uFlare.w;
-  if (fa > -0.4 && fa < 14.0) {
-    vec3 f0 = uFlare.xyz, tg = normalize(cross(f0, abs(f0.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0))), bt = cross(f0, tg);
+  if (fa > -0.4 && fa < 20.0) {
+    vec3 f0 = uFlare.xyz, tg = normalize(cross(f0, vec3(0.0, 1.0, 0.0))), bt = cross(f0, tg);
     vec3 q = n - f0;
-    float al = dot(q, tg), ac = dot(q, bt), sep = 0.008 + 0.0035 * max(fa, 0.0);
-    float rib = exp(-pow(al / 0.05, 2.0)) * (exp(-pow((ac - sep) / 0.005, 2.0)) + exp(-pow((ac + sep) / 0.005, 2.0)));
-    float kern = exp(-dot(q, q) / 0.0012);
-    float env = smoothstep(-0.4, 0.15, fa) * exp(-max(fa, 0.0) / 2.8);
-    c += vec3(1.0, 0.97, 0.9) * env * (rib * 1.6 + kern * 1.1);
+    float al = dot(q, tg), ac = dot(q, bt), x = al / FLARE_LEN, fp = max(fa, 0.0);
+    float sep = flareSep(fa) * flareBow(x), rw = 0.008 + 0.0008 * fp;
+    float along = smoothstep(1.15, 0.7, abs(x));
+    float patchy = 0.35 + 0.65 * n1(al * 90.0 + sign(ac) * 17.0 + fp * 0.5);
+    float rib = along * patchy * (exp(-pow((ac - sep) / rw, 2.0)) + exp(-pow((ac + sep) / rw, 2.0)));
+    float kern = (exp(-(pow(al - 0.02, 2.0) + pow(ac - sep, 2.0)) / 0.0005) + exp(-(pow(al + 0.03, 2.0) + pow(ac + sep, 2.0)) / 0.0005))
+      * smoothstep(-0.3, 0.05, fa) * exp(-fp / 0.5);
+    float env = smoothstep(-0.3, 0.1, fa) * (0.3 + 0.7 * exp(-fp / 2.2)) * (1.0 - smoothstep(10.0, 17.0, fa));
+    float ang = acos(clamp(dot(n, f0), -1.0, 1.0)), wr = 0.04 + 0.11 * fp;
+    float wave = exp(-pow((ang - wr) / (0.03 + 0.01 * fp), 2.0)) * 0.1 * exp(-fp / 3.5) * step(0.0, fa);
+    float plage = exp(-(al * al / (FLARE_LEN * FLARE_LEN) + ac * ac / (9.0 * sep * sep)) * 1.5);   // brightened active region
+    c += vec3(1.0, 0.96, 0.88) * (env * (rib * 1.6 + plage * 0.25) + kern * 2.5 + wave);
   }
   gl_FragColor = vec4(c, 1.0);
   #include <colorspace_fragment>

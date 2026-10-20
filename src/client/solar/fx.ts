@@ -134,18 +134,51 @@ float vn(vec2 p) {
   vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(h2(i), h2(i + vec2(1.0, 0.0)), f.x), mix(h2(i + vec2(0.0, 1.0)), h2(i + vec2(1.0, 1.0)), f.x), f.y);
 }`;
+
+/**
+ * Flare geometry shared by the photosphere's ribbons (view.ts) and the post-flare loop arcade, so the loops stand on
+ * the ribbons. Angles in radians on the unit Sun; `fa` is seconds since the flare's impulsive phase.
+ */
+export const FLARE_GLSL = /* glsl */ `
+const float FLARE_LEN = 0.15;                                                  // half-length of the ribbons
+float flareSep(float fa) { return 0.02 + 0.007 * clamp(fa, 0.0, 12.0); }     // ribbons drift apart as reconnection climbs
+float flareBow(float x) { return 1.0 + 0.35 * x * x; }                         // x = along / FLARE_LEN
+`;
+
+/** Where a point lies against the solar disc: 1 when it is in front of the photosphere, 0 beyond the limb or behind. */
+const DISC_GLSL = /* glsl */ `
+float onDisc(vec3 w, float rLocal) {
+  vec3 C = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  float Rw = rLocal * length(modelMatrix[0].xyz);
+  vec3 V = normalize(cameraPosition - C), rel = w - C;
+  float along = dot(rel, V);
+  float perp = length(rel - V * along) / Rw;
+  return along > 0.0 ? 1.0 - smoothstep(0.985, 1.015, perp) : 0.0;
+}`;
+
 const CORONA_VS = /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 /**
  * The corona as a coronagraph sees it, drawn on a camera-facing plane (x = screen right, y = screen up):
  * - helmet streamers bunched around the solar equator that narrow into long rays,
  * - short fine plumes over the poles,
  * - radial filaments that evolve slowly (noise sampled on the direction only, so every structure stays radial),
- * - and the three-part coronal mass ejection: a bright leading loop, a dark cavity and a bright prominence core.
+ * - and the classic three-part coronal mass ejection as LASCO records it: a "light bulb" whose bright, loopy leading
+ *   edge sits on two legs rooted at the Sun, a dark cavity (the flux rope), a bright twisted core (the erupted
+ *   prominence) and, ahead of it, the faint sheath of compressed corona behind the shock. The bulb grows
+ *   self-similarly and accelerates outward; it is foreshortened by how far the eruption points towards the viewer.
  */
 const CORONA_FS = /* glsl */ `
-uniform float uT; uniform float uBoost; uniform float uSpan; uniform vec2 uPole; uniform vec4 uCme;
+uniform float uT; uniform float uBoost; uniform float uSpan; uniform vec2 uPole; uniform vec4 uCme; // angle, age, sin(view), on
 varying vec2 vUv;
 ${NOISE2}
+float sdBulb(vec2 p, float r1, float r2, float h) {   // uneven capsule: a cone from the base circle to the bulb circle
+  p.x = abs(p.x);
+  float b = (r1 - r2) / h, a = sqrt(max(0.0, 1.0 - b * b));
+  float k = dot(p, vec2(-b, a));
+  if (k < 0.0) return length(p) - r1;
+  if (k > a * h) return length(p - vec2(0.0, h)) - r2;
+  return dot(p, vec2(a, b)) - r1;
+}
 void main() {
   vec2 p = (vUv - 0.5) * 2.0 * uSpan;          // in solar radii
   float r = length(p);
@@ -163,93 +196,165 @@ void main() {
   float inner = pow(1.0 / r, 6.0);
   float k = (0.55 * inner + 0.5 * ray) * smoothstep(0.98, 1.05, r) * (1.0 + uBoost);
   vec3 col = vec3(1.0, 0.86, 0.6) * k;
-  if (uCme.w > 0.0) {
+  if (uCme.w > 0.0 && uCme.y > 0.0) {
     float age = uCme.y;
-    float da = acos(clamp(dot(d, vec2(cos(uCme.x), sin(uCme.x))), -1.0, 1.0));
-    float wid = uCme.z * (0.55 + 0.45 * smoothstep(0.0, 3.0, age));
-    float side = smoothstep(wid, wid * 0.75, da);
-    float rf = 1.1 + age * 0.38 + age * age * 0.025;                // slow lift-off, then it races out
-    float shape = rf * (1.0 - 0.3 * pow(da / max(wid, 1e-3), 2.0)); // a rounded bubble
-    float w = 0.07 + 0.02 * age;
-    float front = exp(-pow((r - shape) / w, 2.0)) * side;
-    float cavity = smoothstep(shape - w, shape * 0.6, r) * smoothstep(1.0, 1.25, r) * side;
-    float core = exp(-pow((r - shape * 0.55) / (0.1 + 0.03 * age), 2.0)) * exp(-pow(da / (wid * 0.35), 2.0));
-    float fade = smoothstep(0.0, 0.8, age) * (1.0 - smoothstep(6.0, 11.0, age));
-    float strands = 0.55 + 0.45 * vn(d * 55.0 + r * 4.0);
-    col *= 1.0 - 0.55 * cavity * fade;
-    col += (vec3(1.0, 0.92, 0.76) * front * 0.85 + vec3(1.0, 0.5, 0.22) * core * 0.75) * strands * fade / max(r * 0.6, 1.0);
+    vec2 ax = vec2(cos(uCme.x), sin(uCme.x)), bx = vec2(-ax.y, ax.x);
+    // CME frame: x across, y outward from the Sun's centre, stretched back by the foreshortening
+    vec2 q = vec2(dot(p, bx), 1.0 + (dot(p, ax) - 1.0) / max(uCme.z, 0.3));
+    float top = 1.12 + 0.2 * age + 0.07 * age * age;   // leading edge (R): slow lift-off, then it races out
+    float rb = 0.42 * (top - 0.95);                     // bulb radius
+    float r1 = min(0.2, rb * 0.9);                      // the legs' spread at the limb
+    float hh = max(top - rb - 1.0, abs(r1 - rb) + 0.02);
+    float sd = sdBulb(q - vec2(0.0, 1.0), r1, rb, hh);
+    float w = 0.05 + 0.02 * age;
+    vec2 cq = q - vec2(0.0, 1.0 + hh);                  // from the bulb's centre
+    float phi = atan(cq.x, cq.y);
+    float bulb = smoothstep(-0.6, 0.2, cq.y / rb);      // the bulb is brighter than the legs
+    // loop-like brightenings along the rim, streaked radially like the rest of the corona
+    float loops = (0.35 + 0.65 * vn(vec2(phi * 4.0 + 3.0, age * 0.2))) * (0.45 + 0.75 * fil);
+    float front = exp(-pow(sd / w, 2.0)) * loops * (0.35 + 0.65 * bulb);
+    front += 0.3 * exp(-pow((sd + 2.6 * w) / (1.3 * w), 2.0)) * vn(vec2(phi * 5.0 + 11.0, age * 0.3)) * bulb * fil;
+    float sheath = step(0.0, sd) * exp(-sd / (0.1 + 0.05 * age)) * smoothstep(-0.2, 0.7, cq.y / rb) * 0.2;
+    float cavity = smoothstep(-w, -3.0 * w, sd);
+    vec2 kq = (q - vec2(0.0, 1.0 + hh * 0.72)) / (rb * vec2(0.32, 0.3));
+    float twist = 0.5 + 0.5 * sin(kq.x * 3.5 + kq.y * 5.0 - age * 0.6);
+    float core = exp(-dot(kq, kq)) * (0.3 + 0.7 * twist * twist) * (0.6 + 0.4 * vn(kq * 3.0 + age));
+    float fade = smoothstep(0.0, 0.7, age) * (1.0 - smoothstep(4.5, 8.0, age));
+    float dim = pow(max(r, 1.0), -1.1);
+    col *= 1.0 - 0.6 * cavity * fade;
+    vec3 coreC = mix(vec3(1.0, 0.42, 0.22), vec3(1.0, 0.82, 0.62), smoothstep(1.5, 7.0, age)); // cool prominence gas heats up
+    col += (vec3(1.0, 0.93, 0.8) * (front * 0.6 + sheath) + coreC * core * 0.7) * fade * dim;
   }
   gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>
 }`;
 
+/**
+ * Prominences as magnetic flux ropes: a few fine threads twisted around each loop's axis. Against space they glow
+ * H-alpha red; in front of the disc they show as dark filaments, as in H-alpha photographs. The erupting rope rises
+ * slowly, then runs away once the flare goes off: it swells, untwists into a kink (the top rotates), its plasma drains
+ * down both legs, and it fades into the CME's core. The legs stay rooted.
+ */
 const PROM_VS = /* glsl */ `
-attribute vec3 aBase; attribute vec3 aLoop; attribute float aIdx; // aLoop: s along loop, period, offset
-uniform float uT; uniform float uEid; uniform float uEage;
-varying float vS; varying float vI; varying vec3 vN; varying vec3 vV; varying float vId;
+attribute vec3 aTan; attribute vec3 aCtr; attribute vec4 aStr; attribute vec3 aLoop;
+// position: point on the thread's axis; normal / aTan: frame; aCtr: loop centre (unit); aStr: thread phase, ring angle,
+// s along the loop, thread offset from the rope axis; aLoop: period, phase offset, loop id
+uniform float uT; uniform float uEid; uniform float uEage; uniform float uR; uniform float uThread; uniform float uFlareAt;
+varying float vS; varying float vI; varying float vId; varying float vDisc; varying float vErupt;
+varying vec3 vN; varying vec3 vV;
+${DISC_GLSL}
+vec3 rotK(vec3 p, vec3 k, float a) { return p * cos(a) + cross(k, p) * sin(a) + k * dot(k, p) * (1.0 - cos(a)); }
 void main() {
-  float life = fract(uT / aLoop.y + aLoop.z);
-  bool mine = abs(aIdx - uEid) < 0.5;
-  bool erupting = mine && uEage < 10.0;
+  float s = aStr.z, hump = sin(3.14159 * s);
+  float life = fract(uT / aLoop.x + aLoop.y);
+  bool mine = abs(aLoop.z - uEid) < 0.5;
+  float e = uEage;
+  bool erupting = mine && e < 12.0;
   if (erupting) life = 0.55;
-  float g = 0.45 + 0.55 * smoothstep(0.0, 0.6, life);
-  vec3 p = aBase + (position - aBase) * g;
+  vec3 foot = normalize(position) * uR;
+  vec3 p = foot + (position - foot) * (0.45 + 0.55 * smoothstep(0.0, 0.6, life));
+  float tw = 0.0, wid = 1.0;
   if (erupting) {
-    // Eruptive prominence: the legs stay rooted while the loop rises slowly, then accelerates and balloons outward
-    float e = uEage;
-    p = aBase + (p - aBase) * (1.0 + 0.1 * e + 0.07 * e * e);
+    float run = max(e - uFlareAt, 0.0);
+    float G = 1.0 + 0.06 * e + 0.035 * (exp(1.05 * run) - 1.0);
+    p = foot + (p - foot) * G;
+    vec3 lat = p - aCtr * dot(p, aCtr);
+    p += lat * 0.28 * (G - 1.0) * hump;                                  // the top balloons sideways
+    vec3 o = aCtr * uR;
+    p = o + rotK(p - o, aCtr, 0.7 * smoothstep(1.0, 7.0, e) * hump);     // kink: the apex writhes
+    tw = 0.9 * smoothstep(0.0, 7.0, e);
+    wid = 1.0 + 0.3 * (G - 1.0);
   }
-  vec4 w = modelMatrix * vec4(p, 1.0);
-  vN = normalize(mat3(modelMatrix) * normal);
+  vec3 n1 = normal, n2 = cross(aTan, n1);
+  float ph = aStr.x + 6.2831 * (0.3 * s + tw * hump);
+  vec3 thread = (n1 * cos(ph) + n2 * sin(ph)) * aStr.w * wid;
+  vec3 ring = n1 * cos(aStr.y) + n2 * sin(aStr.y);
+  vec4 w = modelMatrix * vec4(p + thread + ring * uThread * wid, 1.0);
+  vN = normalize(mat3(modelMatrix) * ring);
   vV = normalize(cameraPosition - w.xyz);
-  vS = aLoop.x; vId = aLoop.z * 31.0;
-  vI = pow(sin(3.14159 * life), 1.4);
-  if (erupting) vI *= (1.0 + 0.6 * smoothstep(0.5, 2.0, uEage)) * (1.0 - smoothstep(4.0, 8.5, uEage));
-  else if (mine) vI *= smoothstep(10.0, 16.0, uEage);              // regrows quietly afterwards
+  vDisc = onDisc(w.xyz, uR);
+  vS = s; vId = aLoop.z * 7.13 + aStr.x;
+  vErupt = erupting ? 1.0 : 0.0;
+  vI = pow(sin(3.14159 * life), 1.4) * (0.65 + 0.35 * fract(sin(aStr.x * 91.7 + aLoop.z) * 437.5));
+  if (erupting) vI *= (1.0 + 0.5 * smoothstep(uFlareAt - 1.0, uFlareAt + 1.0, e)) * (1.0 - smoothstep(4.5, 8.0, e));
+  else if (mine) vI *= smoothstep(13.0, 19.0, e);                    // a new prominence slowly re-forms afterwards
   gl_Position = projectionMatrix * viewMatrix * w;
 }`;
 const PROM_FS = /* glsl */ `
 uniform float uT;
-varying float vS; varying float vI; varying vec3 vN; varying vec3 vV; varying float vId;
+varying float vS; varying float vI; varying float vId; varying float vDisc; varying float vErupt;
+varying vec3 vN; varying vec3 vV;
 void main() {
-  float flow = 0.5 + 0.5 * sin(vS * 34.0 - uT * 2.4 + vId);
-  float knots = 0.75 + 0.25 * sin(vS * 97.0 + uT * 1.1 + vId * 2.0);
-  float rim = pow(abs(dot(normalize(vN), normalize(vV))), 1.6);
-  vec3 c = mix(vec3(0.95, 0.22, 0.05), vec3(1.0, 0.62, 0.24), flow * 0.6);
-  gl_FragColor = vec4(c * (0.6 + 0.6 * flow) * knots, vI * rim * 0.85);
+  float u = abs(vS - 0.5) * 2.0;                                       // 0 at the top, 1 at the feet
+  float drain = pow(0.5 + 0.5 * sin(u * 23.0 - uT * (1.2 + 2.5 * vErupt) + vId * 3.0), 2.0); // blobs sliding down both legs
+  float rim = abs(dot(normalize(vN), normalize(vV)));
+  float k = 0.75 + 0.35 * drain * (0.5 + 0.5 * vErupt);
+  vec3 glow = mix(vec3(0.9, 0.16, 0.1), vec3(1.0, 0.36, 0.22), drain * 0.4) * k;   // H-alpha red, hotter in the blobs
+  // Premultiplied "over" with colour/alpha = glow, so stacked threads converge on H-alpha red instead of saturating to
+  // white. Beyond the limb the gas shines over the corona; on the disc it only absorbs (a dark filament).
+  float a = vI * rim * 0.42;
+  gl_FragColor = vec4(glow * a * (1.0 - vDisc), a * mix(1.0, 1.2, vDisc));
   #include <colorspace_fragment>
 }`;
 
-const CME_VS = /* glsl */ `
-attribute vec3 aDir; attribute vec2 aSeed;
-uniform float uT; uniform float uR; uniform float uPr; uniform float uScale;
-varying vec3 vC;
+/**
+ * The post-flare loop arcade: hot loops that stand on the two flare ribbons, first sheared and low, then higher and
+ * more upright as the ribbons separate, later raining cooled plasma down their legs. Built in a frame with the flare
+ * at +Y and the ribbons along X; the mesh is turned onto the flare site.
+ */
+const ARC_VS = /* glsl */ `
+attribute vec4 aA;   // position along the neutral line (-1..1), s along the loop, ring angle, seed
+uniform float uAge; uniform float uR;
+varying float vS; varying float vSeed; varying float vDisc;
+${FLARE_GLSL}
+${DISC_GLSL}
 void main() {
-  float f = clamp(uT / 9.0, 0.0, 1.0);
-  float d = uR * (1.03 + aSeed.x * (f * 2.0 + f * f * 4.0) + aSeed.y * 0.12);
-  vec4 mv = modelViewMatrix * vec4(aDir * d, 1.0);
-  gl_Position = projectionMatrix * mv;
-  float px = uR * 0.03 * uScale / max(1e-4, -mv.z);
-  gl_PointSize = clamp(px, 1.0 * uPr, 3.5 * uPr);
-  float fade = (1.0 - f) * (1.0 - f) * smoothstep(0.0, 0.05, f);
-  vC = mix(vec3(1.0, 0.7, 0.35), vec3(1.0, 0.9, 0.75), clamp(f * 1.6, 0.0, 1.0)) * fade * (0.1 + 0.22 * aSeed.y);
+  float fa = max(uAge, 0.0), s = aA.y;
+  float sep = flareSep(fa) * flareBow(aA.x);
+  float shear = sep * 1.6 * exp(-fa / 3.0);
+  float x = aA.x * FLARE_LEN + mix(-shear, shear, s), z = mix(-sep, sep, s);
+  vec3 dir = normalize(vec3(x, 1.0, z));
+  vec3 ax = dir * uR * (1.0 + sep * (0.85 + 0.3 * aA.w) * sin(3.14159 * s));
+  vec3 o = (vec3(1.0, 0.0, 0.0) * cos(aA.z) + dir * sin(aA.z)) * uR * 0.0055;
+  vec4 w = modelMatrix * vec4(ax + o, 1.0);
+  vDisc = onDisc(w.xyz, uR);
+  vS = s; vSeed = aA.w;
+  gl_Position = projectionMatrix * viewMatrix * w;
+}`;
+const ARC_FS = /* glsl */ `
+uniform float uAge; uniform float uT;
+varying float vS; varying float vSeed; varying float vDisc;
+void main() {
+  float fa = uAge, u = abs(vS - 0.5) * 2.0;
+  float env = smoothstep(0.4, 2.5, fa) * (1.0 - smoothstep(11.0, 18.0, fa)) * smoothstep(vSeed * 6.0, vSeed * 6.0 + 1.5, fa);
+  float rain = smoothstep(5.0, 9.0, fa) * pow(0.5 + 0.5 * sin(u * 30.0 - uT * 2.2 + vSeed * 40.0), 10.0);
+  float top = 0.55 + 0.45 * (1.0 - u * u);                             // loop tops glow brightest
+  // Premultiplied "over" converging on EUV gold, so the stacked loops stay gold against the bright inner corona.
+  vec3 c = mix(vec3(1.0, 0.52, 0.18), vec3(1.0, 0.72, 0.36), top * vSeed) + vec3(0.0, -0.2, -0.1) * rain;
+  float a = env * (0.3 + 0.25 * vSeed) * top * mix(1.0, 0.45, vDisc) + env * rain * 0.5;
+  gl_FragColor = vec4(c * a, a);
+  #include <colorspace_fragment>
 }`;
 
-/** The timeline of one eruption, in seconds after it starts (shared by every layer so they stay in step). */
-const ERUPT = { flare: 1.2, cme: 0.6, end: 18 };
+/**
+ * The timeline of one eruption, in seconds after it starts (shared by every layer so they stay in step): the
+ * prominence lifts slowly, then at `flare` the impulsive phase lights the ribbons and the rope runs away; the CME bulb
+ * appears just before, and the arcade grows and cools until `end`.
+ */
+const ERUPT = { flare: 3.0, cme: 2.6, end: 24 };
 
 /** Corona, prominences and eruptions, parented to the Sun's node (prominences turn with its surface). */
 class SunFX {
   private corona: THREE.Mesh;
-  private cu = { uT: { value: 0 }, uBoost: { value: 0 }, uSpan: { value: 6 }, uPole: { value: new THREE.Vector2(0, 1) }, uCme: { value: new THREE.Vector4(0, 0, 0.5, 0) } };
-  private pu = { uT: { value: 0 }, uEid: { value: -1 }, uEage: { value: 99 } };
-  private eu = { uT: { value: 99 }, uR: { value: 1 }, uPr: { value: 1 }, uScale: { value: 1 } };
-  private cme: THREE.Points;
+  private cu = { uT: { value: 0 }, uBoost: { value: 0 }, uSpan: { value: 6 }, uPole: { value: new THREE.Vector2(0, 1) }, uCme: { value: new THREE.Vector4(0, 0, 1, 0) } };
+  private pu = { uT: { value: 0 }, uEid: { value: -1 }, uEage: { value: 99 }, uR: { value: 1 }, uThread: { value: 0.004 }, uFlareAt: { value: ERUPT.flare } };
+  private au = { uT: { value: 0 }, uAge: { value: -99 }, uR: { value: 1 } };
+  private arcade: THREE.Mesh;
   private loops: THREE.Vector3[] = [];
   private eDir = new THREE.Vector3(0, 1, 0);
   private flareLocal = new THREE.Vector3(0, 1, 0);
   private uFlare: { value: THREE.Vector4 } | null;
-  private next = 5;
+  private next = 4;
   private since = 99;
   private r = rng(7);
   private v = new THREE.Vector3();
@@ -260,34 +365,21 @@ class SunFX {
     this.corona = new THREE.Mesh(new THREE.PlaneGeometry(2 * R * S, 2 * R * S),
       additive({ uniforms: this.cu, vertexShader: CORONA_VS, fragmentShader: CORONA_FS }));
     node.add(this.corona);
-    spin.add(this.prominences(q.tier === 'high' ? 9 : q.tier === 'medium' ? 7 : 5));
+    this.pu.uR.value = R;
+    this.pu.uThread.value = R * 0.0032;
+    spin.add(this.prominences(q.tier === 'high' ? 9 : q.tier === 'medium' ? 7 : 5, q.tier === 'low' ? 3 : 5));
     this.uFlare = (mat as THREE.ShaderMaterial).uniforms?.uFlare ?? null;
-    // Flare-driven plasma blobs: a cone that leaves with the CME, adding depth to the coronagraph picture.
-    const n = q.tier === 'high' ? 700 : q.tier === 'medium' ? 400 : 220;
-    const dir = new Float32Array(n * 3), seed = new Float32Array(n * 2), v = new THREE.Vector3();
-    for (let i = 0; i < n; i++) {
-      const th = this.r() * TAU, sp = Math.pow(this.r(), 0.7) * 0.45;
-      v.set(Math.sin(sp) * Math.cos(th), Math.cos(sp), Math.sin(sp) * Math.sin(th));
-      dir.set([v.x, v.y, v.z], i * 3);
-      seed.set([0.5 + this.r() * 0.7 * (1 - sp), this.r()], i * 2);
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
-    g.setAttribute('aDir', new THREE.BufferAttribute(dir, 3));
-    g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 2));
-    this.eu.uR.value = R;
-    this.cme = new THREE.Points(g, additive({ uniforms: this.eu, vertexShader: CME_VS, fragmentShader: BELT_FS }));
-    this.cme.frustumCulled = false;
-    this.cme.visible = false;
-    node.add(this.cme);
+    this.au.uR.value = R;
+    this.arcade = this.buildArcade(q.tier === 'low' ? 9 : 15);
+    spin.add(this.arcade);
   }
 
-  /** Magnetic loops of glowing plasma standing on the surface, each growing and fading on its own cycle. */
-  private prominences(n: number): THREE.Mesh {
-    const R = this.R, SEG = 40, RING = 6;
-    const pos: number[] = [], nor: number[] = [], base: number[] = [], loop: number[] = [], idx: number[] = [], ids: number[] = [];
+  /** Magnetic flux ropes standing on the surface, each growing and fading on its own cycle. */
+  private prominences(n: number, threads: number): THREE.Mesh {
+    const R = this.R, SEG = 40, RING = 4;
+    const pos: number[] = [], nor: number[] = [], tan: number[] = [], ctr: number[] = [], str: number[] = [], loop: number[] = [], idx: number[] = [];
     const c = new THREE.Vector3(), t = new THREE.Vector3(), ax = new THREE.Vector3(), d = new THREE.Vector3(), T = new THREE.Vector3();
-    const N1 = new THREE.Vector3(), N2 = new THREE.Vector3(), P = new THREE.Vector3(), Pn = new THREE.Vector3(), o = new THREE.Vector3();
+    const N1 = new THREE.Vector3(), P = new THREE.Vector3(), Pn = new THREE.Vector3(), o = new THREE.Vector3();
     for (let k = 0; k < n; k++) {
       // Active regions live in two belts either side of the equator.
       const lat = (this.r() < 0.5 ? -1 : 1) * (8 + this.r() * 27) * D2R, lon = this.r() * TAU;
@@ -295,77 +387,97 @@ class SunFX {
       this.loops.push(c.clone());
       t.set(this.r() - 0.5, this.r() - 0.5, this.r() - 0.5).cross(c).normalize();
       ax.crossVectors(c, t).normalize();
-      const sep = (6 + this.r() * 10) * D2R, H = R * (0.14 + this.r() * 0.32), w0 = R * (0.006 + this.r() * 0.006);
+      const sep = (6 + this.r() * 10) * D2R, H0 = R * (0.14 + this.r() * 0.32), rope = R * (0.008 + this.r() * 0.008);
       const period = 16 + this.r() * 22, off = this.r();
-      const v0 = pos.length / 3;
-      const at = (s: number, out: THREE.Vector3, dir: THREE.Vector3) => {
-        dir.copy(c).applyAxisAngle(ax, (s - 0.5) * sep);
-        return out.copy(dir).multiplyScalar(R * 0.995 + H * Math.sin(Math.PI * s));
-      };
-      for (let i = 0; i <= SEG; i++) {
-        const s = i / SEG;
-        at(s, P, d);
-        at(Math.min(1, s + 0.01), Pn, o);
-        if (i === SEG) { at(s - 0.01, Pn, o); T.subVectors(P, Pn).normalize(); } else T.subVectors(Pn, P).normalize();
-        N1.copy(d).addScaledVector(T, -d.dot(T)).normalize();
-        N2.crossVectors(T, N1);
-        const w = w0 * (0.7 + 0.6 * Math.sin(Math.PI * s));
-        for (let j = 0; j < RING; j++) {
-          const a = (j / RING) * TAU;
-          o.copy(N1).multiplyScalar(Math.cos(a)).addScaledVector(N2, Math.sin(a));
-          pos.push(P.x + o.x * w, P.y + o.y * w, P.z + o.z * w);
-          nor.push(o.x, o.y, o.z);
-          base.push(d.x * R, d.y * R, d.z * R);
-          loop.push(s, period, off);
-          ids.push(k);
+      for (let j = 0; j < threads; j++) {
+        const H = H0 * (0.9 + this.r() * 0.2), ph = (j / threads) * TAU + this.r() * 0.6, rr = rope * (0.6 + this.r() * 0.6);
+        const at = (s: number, out: THREE.Vector3, dir: THREE.Vector3) => {
+          dir.copy(c).applyAxisAngle(ax, (s - 0.5) * sep);
+          return out.copy(dir).multiplyScalar(R * 0.995 + H * Math.sin(Math.PI * s));
+        };
+        const v0 = pos.length / 3;
+        for (let i = 0; i <= SEG; i++) {
+          const s = i / SEG;
+          at(s, P, d);
+          at(Math.min(1, s + 0.01), Pn, o);
+          if (i === SEG) { at(s - 0.01, Pn, o); T.subVectors(P, Pn).normalize(); } else T.subVectors(Pn, P).normalize();
+          N1.copy(d).addScaledVector(T, -d.dot(T)).normalize();
+          const taper = 0.5 + 0.5 * Math.sin(Math.PI * s);
+          for (let m = 0; m < RING; m++) {
+            pos.push(P.x, P.y, P.z); nor.push(N1.x, N1.y, N1.z); tan.push(T.x, T.y, T.z); ctr.push(c.x, c.y, c.z);
+            str.push(ph, (m / RING) * TAU, s, rr * taper);
+            loop.push(period, off, k);
+          }
         }
-      }
-      for (let i = 0; i < SEG; i++) for (let j = 0; j < RING; j++) {
-        const a = v0 + i * RING + j, b = v0 + i * RING + ((j + 1) % RING), c2 = a + RING, d2 = b + RING;
-        idx.push(a, c2, b, b, c2, d2);
+        for (let i = 0; i < SEG; i++) for (let m = 0; m < RING; m++) {
+          const a = v0 + i * RING + m, b = v0 + i * RING + ((m + 1) % RING), c2 = a + RING, d2 = b + RING;
+          idx.push(a, c2, b, b, c2, d2);
+        }
       }
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-    g.setAttribute('aBase', new THREE.Float32BufferAttribute(base, 3));
+    g.setAttribute('aTan', new THREE.Float32BufferAttribute(tan, 3));
+    g.setAttribute('aCtr', new THREE.Float32BufferAttribute(ctr, 3));
+    g.setAttribute('aStr', new THREE.Float32BufferAttribute(str, 4));
     g.setAttribute('aLoop', new THREE.Float32BufferAttribute(loop, 3));
-    g.setAttribute('aIdx', new THREE.Float32BufferAttribute(ids, 1));
     g.setIndex(idx);
-    const m = new THREE.Mesh(g, additive({ uniforms: this.pu, vertexShader: PROM_VS, fragmentShader: PROM_FS, side: THREE.DoubleSide, blending: THREE.NormalBlending }));
+    const m = new THREE.Mesh(g, additive({ uniforms: this.pu, vertexShader: PROM_VS, fragmentShader: PROM_FS,
+      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor }));
     m.frustumCulled = false;
     return m;
   }
 
-  update(t: number, dt: number, camera: THREE.Camera, node: THREE.Object3D, scale: number, pr: number): void {
+  /** `n` thin loops along the neutral line; their shape is computed in the shader from the flare's age. */
+  private buildArcade(n: number): THREE.Mesh {
+    const SEG = 24, RING = 4, a: number[] = [], idx: number[] = [];
+    for (let k = 0; k < n; k++) {
+      const u = n === 1 ? 0 : (k / (n - 1)) * 2 - 1 + (this.r() - 0.5) * 0.08, seed = this.r(), v0 = a.length / 4;
+      for (let i = 0; i <= SEG; i++) for (let m = 0; m < RING; m++) a.push(u, i / SEG, (m / RING) * TAU, seed);
+      for (let i = 0; i < SEG; i++) for (let m = 0; m < RING; m++) {
+        const p = v0 + i * RING + m, q = v0 + i * RING + ((m + 1) % RING);
+        idx.push(p, p + RING, q, q, p + RING, q + RING);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(a.length / 4 * 3), 3));
+    g.setAttribute('aA', new THREE.Float32BufferAttribute(a, 4));
+    g.setIndex(idx);
+    const m = new THREE.Mesh(g, additive({ uniforms: this.au, vertexShader: ARC_VS, fragmentShader: ARC_FS,
+      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor }));
+    m.frustumCulled = false;
+    m.visible = false;
+    return m;
+  }
+
+  update(t: number, dt: number, camera: THREE.Camera, node: THREE.Object3D): void {
     this.corona.quaternion.copy(camera.quaternion);
     if (node.parent) this.corona.quaternion.premultiply(node.parent.getWorldQuaternion(this.q).invert());
     this.cu.uT.value = t;
     this.pu.uT.value = t;
-    this.eu.uPr.value = pr;
-    this.eu.uScale.value = scale;
+    this.au.uT.value = t;
     this.next -= dt;
     this.since += dt;
     if (this.next <= 0) this.erupt(camera, node);
-    const f = this.since;
+    const f = this.since, fl = f - ERUPT.flare, live = f < ERUPT.end;
     // Screen-space axes of the corona plane, for the solar pole and the eruption's direction.
-    const e = camera.matrixWorld.elements, rx = e[0], ry = e[1], rz = e[2], ux = e[4], uy = e[5], uz = e[6];
+    const e = camera.matrixWorld.elements, rx = e[0], ry = e[1], rz = e[2], ux = e[4], uy = e[5], uz = e[6], bx = e[8], by = e[9], bz = e[10];
     const pole = this.v.set(0, 1, 0).applyQuaternion(this.spin.getWorldQuaternion(this.q));
     const px = pole.x * rx + pole.y * ry + pole.z * rz, py = pole.x * ux + pole.y * uy + pole.z * uz, pl = Math.hypot(px, py);
     if (pl > 0.05) this.cu.uPole.value.set(px / pl, py / pl);
-    const d = this.eDir;
-    this.cu.uCme.value.set(Math.atan2(d.x * ux + d.y * uy + d.z * uz, d.x * rx + d.y * ry + d.z * rz), f - ERUPT.cme, 0.55, f < ERUPT.end ? 1 : 0);
+    const d = this.eDir, sinV = Math.sqrt(Math.max(0, 1 - (d.x * bx + d.y * by + d.z * bz) ** 2));
+    this.cu.uCme.value.set(Math.atan2(d.x * ux + d.y * uy + d.z * uz, d.x * rx + d.y * ry + d.z * rz), f - ERUPT.cme, sinV, live ? 1 : 0);
     this.pu.uEage.value = f;
-    this.eu.uT.value = f - ERUPT.flare;
-    this.cme.visible = f > ERUPT.flare && f < ERUPT.flare + 9;
-    if (this.uFlare) this.uFlare.value.set(this.flareLocal.x, this.flareLocal.y, this.flareLocal.z, f < ERUPT.end ? f - ERUPT.flare : -99);
-    const fl = f - ERUPT.flare;
-    this.cu.uBoost.value = fl > 0 && fl < 6 ? 0.45 * Math.exp(-fl * 0.8) * Math.min(1, fl * 4) : 0;
+    this.au.uAge.value = fl;
+    this.arcade.visible = live && fl > 0;
+    if (this.uFlare) this.uFlare.value.set(this.flareLocal.x, this.flareLocal.y, this.flareLocal.z, live ? fl : -99);
+    this.cu.uBoost.value = fl > 0 && fl < 8 ? 0.45 * Math.exp(-fl * 0.7) * Math.min(1, fl * 5) : 0;
   }
 
   /** Start an eruption from the active-region loop nearest the limb, so it is seen side-on against space. */
   private erupt(camera: THREE.Camera, node: THREE.Object3D): void {
-    this.next = 16 + this.r() * 16;
+    this.next = 18 + this.r() * 16;
     this.since = 0;
     const view = node.getWorldPosition(new THREE.Vector3()).sub(camera.getWorldPosition(this.v)).normalize();
     const sq = this.spin.getWorldQuaternion(new THREE.Quaternion());
@@ -373,15 +485,17 @@ class SunFX {
     const w = new THREE.Vector3();
     this.loops.forEach((c, k) => {
       w.copy(c).applyQuaternion(sq);
-      const s = Math.abs(w.dot(view) + 0.12) + this.r() * 0.15; // on the limb, a touch towards us
+      const s = Math.abs(w.dot(view) + 0.3) + this.r() * 0.15; // near the limb, a little towards us so the flare shows too
       if (s < bs) { bs = s; best = k; }
     });
+    const c = this.loops[best];
     this.pu.uEid.value = best;
-    this.eDir.copy(this.loops[best]).applyQuaternion(sq);
-    const nq = node.getWorldQuaternion(new THREE.Quaternion()).invert();
-    this.cme.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), this.eDir.clone().applyQuaternion(nq));
+    this.eDir.copy(c).applyQuaternion(sq);
+    // Arcade frame: +Y on the flare, X along the ribbons (the same tangent the photosphere shader uses).
+    const tg = new THREE.Vector3().crossVectors(c, new THREE.Vector3(0, 1, 0)).normalize();
+    this.arcade.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(tg, c, new THREE.Vector3().crossVectors(tg, c)));
     // The Sun mesh is turned −90° about Y inside its spin group (texture seam), so undo that for the flare spot.
-    this.flareLocal.copy(this.loops[best]).applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
+    this.flareLocal.copy(c).applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
   }
 }
 
@@ -673,7 +787,7 @@ export class SolarFX {
     this.wu.uT.value = this.t;
     for (const [id, u] of this.uFlow) u.value = this.t / (id === 'venus' ? 1 : 9);
     for (const s of this.shells) s.u.uSun.value.copy(s.node.position).negate().normalize();
-    if (this.sun && this.sunNode) this.sun.update(this.t, f.dt, f.camera, this.sunNode, f.scale, f.pr);
+    if (this.sun && this.sunNode) this.sun.update(this.t, f.dt, f.camera, this.sunNode);
     this.comet.update(f.ms, this.t, f.scale, f.pr);
   }
 }
