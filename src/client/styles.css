@@ -932,6 +932,72 @@ body.gaming .topbar .tools, body.gaming .topbar .omnibar, body.gaming .info { di
 .gb-list p { margin: 4px 0 0; overflow-wrap: anywhere; }
 
 /* ---- responsive ---- */
+/* ---- Solar System view (src/client/solar) ---- */
+#app { transition: opacity .23s ease; }
+body.fading #app { opacity: 0; }
+body.solar #globe { visibility: hidden; }
+body.solar .topbar .omnibar, body.solar .topbar .tools, body.solar .bl, body.solar .br, body.solar #info, body.solar .menu,
+body.solar .time-bar, body.solar .ride-bar, body.solar .globe-tip { display: none !important; }
+.solar-stage { position: absolute; inset: 0; background: #020306; }
+.solar-stage.hidden, .solar-ui.hidden { display: none; }
+.solar-canvas { display: block; width: 100%; height: 100%; touch-action: none; outline: none; cursor: grab; }
+.solar-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.solar-labels button { pointer-events: auto; position: absolute; left: 0; top: 0; background: none; border: 0; padding: 2px 6px; white-space: nowrap; cursor: pointer;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 0 10px rgba(0, 0, 0, 0.8); font-family: var(--font-display); }
+.solar-labels button[hidden] { display: none; }
+.sb-label { font-size: 12.5px; font-weight: 500; letter-spacing: .02em; color: rgba(244, 244, 245, 0.88); border-radius: 6px; }
+.sb-label:hover { color: #fff; }
+.sb-label.k-moon { font-size: 11px; color: #a1a1aa; }
+.sb-label.k-dwarf { color: #c4b5fd; }
+.sb-label.k-star { color: #fcd34d; }
+.sb-label.on { color: var(--accent); font-weight: 600; }
+.sf-label { display: flex; align-items: center; gap: 6px; margin: -8px 0 0 -6px; font-size: 11.5px; color: #e4e4e7; --k: #cbd5e1; }
+.sf-label i { width: 8px; height: 8px; border-radius: 50%; background: var(--k); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 10px var(--k); flex: none; }
+.sf-label:hover span, .sf-label.on span { color: #fff; }
+.sf-label.on i { box-shadow: 0 0 0 2px #09090b, 0 0 0 4px var(--accent), 0 0 14px var(--accent); }
+.kind-mountain, .kind-volcano { --k: #fb923c; }
+.kind-canyon, .kind-rift, .kind-cliff, .kind-ridge { --k: #fbbf24; }
+.kind-landing { --k: #4ade80; }
+.kind-cap, .kind-lake, .kind-geyser { --k: #7dd3fc; }
+.kind-storm, .kind-spot, .kind-ring { --k: #f472b6; }
+.kind-plain, .kind-region { --k: #a5b4fc; }
+.solar-top { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; z-index: 7; max-width: calc(100vw - 440px); }
+.solar-back { background: var(--panel); backdrop-filter: blur(20px); box-shadow: var(--shadow); height: 36px; flex: none; }
+.solar-crumbs { display: flex; align-items: center; gap: 2px; height: 36px; padding: 0 6px; background: var(--panel); backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); overflow-x: auto; scrollbar-width: none; min-width: 0; }
+.solar-crumbs .crumb { background: none; border: 0; color: var(--muted); font-size: .86rem; padding: 4px 7px; border-radius: 7px; white-space: nowrap; }
+.solar-crumbs button.crumb:hover { color: var(--text); background: var(--hover); }
+.solar-crumbs .crumb.cur { color: var(--text); font-weight: 600; }
+.solar-crumbs .sep { color: var(--faint); }
+.solar-bottom { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 6; max-width: calc(100vw - 120px); }
+.solar-dock, .solar-time { display: flex; align-items: center; gap: 3px; padding: 5px; background: var(--panel); backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); max-width: 100%; }
+.solar-dock { overflow-x: auto; scrollbar-width: none; }
+.solar-chip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border: 0; border-radius: 10px; background: transparent; color: var(--text-2); font-size: .82rem; font-weight: 500; white-space: nowrap; flex: none; }
+.solar-chip:hover { background: var(--hover); color: var(--text); }
+.solar-chip.on { background: var(--text); color: #09090b; }
+.dot { --c: #9ca3af; position: relative; width: 11px; height: 11px; border-radius: 50%; flex: none; display: inline-block;
+  background: radial-gradient(circle at 35% 32%, rgba(255, 255, 255, 0.75), var(--c) 42%, color-mix(in srgb, var(--c) 45%, #000) 100%); }
+.dot[style*="--ring"]::after { content: ""; position: absolute; left: -4px; right: -4px; top: 4px; height: 3px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--c) 70%, #fff); transform: rotate(-18deg); }
+.solar-time { padding: 4px 6px; gap: 4px; }
+.solar-time .icon-btn { width: 28px; height: 28px; border-color: transparent; background: transparent; }
+.solar-time .icon-btn:hover { background: var(--hover); color: var(--text); }
+.solar-speed { min-width: 78px; text-align: center; font-size: .8rem; font-weight: 600; color: var(--text); }
+.solar-date { font-family: var(--font-mono); font-size: .76rem; color: var(--muted); padding: 0 8px; border-left: 1px solid var(--line); min-width: 112px; text-align: center; font-variant-numeric: tabular-nums; }
+.solar-zoom { position: absolute; right: 20px; bottom: 20px; z-index: 6; }
+.solar-hint { position: absolute; left: 50%; bottom: 128px; transform: translateX(-50%); margin: 0; padding: 6px 12px; border-radius: 999px; background: rgba(9, 9, 11, 0.6);
+  color: var(--muted); font-size: .8rem; pointer-events: none; transition: opacity .6s; z-index: 5; white-space: nowrap; }
+.solar-hint.gone { opacity: 0; }
+.solar-info .stats-row dd { white-space: normal; line-height: 1.25; }
+.solar-info { max-height: calc(100vh - 190px); }
+.solar-info.expanded { height: calc(100vh - 190px); }
+.solar-hero { background: #0d0d11; }
+.solar-map { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; }
+.solar-hero .type-chip { position: absolute; left: 12px; top: 12px; }
+.solar-list h3 { margin: 16px 0 8px; font-size: .72rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.solar-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel2); color: var(--text-2); font-size: .8rem; }
+.tag-chip:hover { background: var(--hover); color: var(--text); border-color: var(--line-strong); }
 @media (max-width: 960px) {
   .omni-kbd { display: none; }
   .omnibar { width: min(320px, 36vw); }
@@ -967,6 +1033,21 @@ body.gaming .topbar .tools, body.gaming .topbar .omnibar, body.gaming .info { di
 /* Narrow phones: the toolbars need the whole row, so the title is kept for screen readers only. */
 @media (max-width: 440px) {
   .brand h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+@media (max-width: 760px) {
+  body.solar .topbar { display: none; }
+  .solar-top { left: 8px; right: 8px; top: 8px; transform: none; max-width: none; }
+  .solar-back span { display: none; }
+  .solar-back { width: 36px; justify-content: center; padding: 0; }
+  .solar-crumbs { flex: 1; }
+  .solar-bottom { left: 8px; right: 8px; bottom: 8px; transform: none; max-width: none; align-items: stretch; }
+  .solar-time { justify-content: center; }
+  .solar-zoom { display: none; }
+  .solar-hint { bottom: 112px; }
+  .solar-info { max-height: 58vh; }
+  .solar-info.expanded { height: auto; }
+  body:has(.solar-info:not(.hidden)) .solar-bottom, body:has(.solar-info:not(.hidden)) .solar-hint { display: none; }
+  .sb-label { font-size: 11.5px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0s !important; transition: none !important; } }
 body.lowfx *, body.lowfx *::before, body.lowfx *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; animation-duration: 0s !important; transition: none !important; }

@@ -1,7 +1,9 @@
 import './styles.css';
 import type { Topology } from 'topojson-specification';
 import { Globe } from './globe/scene.ts';
+import type { SolarUI } from './solar/ui.ts';
 import { detectQuality } from './globe/quality.ts';
+import { DEFAULT_H, MAX_H } from './globe/scene.ts';
 import { loadCountries, paintEarth, buildBorderPositions } from './globe/painter.ts';
 import { CATALOGUE, BY_KEY } from '../shared/data/catalogue.ts';
 import { Shell } from './ui/shell.ts';
@@ -22,7 +24,7 @@ import { openGames, openDaily } from './ui/games.ts';
 import { openTutorial } from './ui/tutorial.ts';
 import { openAccount, openGuestbook, openCredits, syncNow } from './ui/account.ts';
 
-declare global { interface Window { __pp?: { ready: boolean; globe: Globe; shell: Shell; itemScreen: (k: string) => { x: number; y: number } | null } } }
+declare global { interface Window { __pp?: { ready: boolean; globe: Globe; shell: Shell; itemScreen: (k: string) => { x: number; y: number } | null; solar: () => SolarUI | null } } }
 
 const params = new URLSearchParams(location.search);
 const lowfx = params.has('lowfx') || matchMedia('(prefers-reduced-motion: reduce)').matches && params.get('lowfx') !== '0';
@@ -48,10 +50,12 @@ async function boot(): Promise<void> {
     onPick: it => shell.showItem(it),
     onHover: (it, scr) => shell?.showHover(it, scr),
     onView: z => shell.setZoom(z),
+    onBeyond: () => void enterSolar(),
   }, lowfx, quality);
   globe.lang = lang();
   globe.applySettings(store.settings);
-  if (!globe.init(paint(), countries, CATALOGUE, buildBorderPositions(topo))) {
+  let earthCv = paint();
+  if (!globe.init(earthCv, countries, CATALOGUE, buildBorderPositions(topo))) {
     loader?.remove();
     app.replaceChildren(h('div', { class: 'fatal', role: 'alert' }, h('p', { class: 'big' }, '🌍'), h('p', {}, t('webglFail'))));
     return;
@@ -68,6 +72,39 @@ async function boot(): Promise<void> {
   };
   const host = { globe, setGameMode };
 
+  // ---- Solar System (lazy: its own renderer, loaded on first use) ----
+  let solar: SolarUI | null = null;
+  let solarLoad: Promise<SolarUI> | null = null;
+  let inSolar = false;
+  const loadSolar = () => solarLoad ??= import('./solar/ui.ts').then(m => (solar = new m.SolarUI(app, { quality, earthCanvas: () => earthCv, exit: leaveSolar })));
+  const fade = (fn: () => void) => {
+    document.body.classList.add('fading');
+    setTimeout(() => { fn(); requestAnimationFrame(() => document.body.classList.remove('fading')); }, lowfx ? 0 : 230);
+  };
+  const enterSolar = async (opts: { focus?: string } = {}) => {
+    if (inSolar || gaming) return;
+    inSolar = true;
+    shell.showItem(null); shell.toggleMenu(false); shell.time.toggle(false);
+    const ui = await loadSolar();
+    fade(() => {
+      globe.paused = true;
+      document.body.classList.add('solar');
+      ui.enter(opts.focus ? { focus: opts.focus } : { from: { lat: globe.lat, lon: globe.lon } });
+    });
+  };
+  const leaveSolar = (lat: number, lon: number) => {
+    if (!inSolar) return;
+    inSolar = false;
+    fade(() => {
+      solar?.leave();
+      document.body.classList.remove('solar');
+      globe.paused = false;
+      globe.lat = lat; globe.lon = lon; globe.h = MAX_H;
+      globe.flyTo(lat, lon, DEFAULT_H, 1400);
+      history.replaceState(null, '', location.pathname + location.search);
+    });
+  };
+
   const passport = () => openPassport({
     here: () => shell.current ? [shell.current.lat, shell.current.lon] : [globe.lat, globe.lon],
     travel: (it, from) => { shell.showItem(it); if (Math.abs(from[0] - it.lat) + Math.abs(from[1] - it.lon) > 2) globe.showFlightArc(from, [it.lat, it.lon]); },
@@ -79,6 +116,7 @@ async function boot(): Promise<void> {
     openGames: () => { if (!gaming) openGames(host); },
     openTutorial,
     openAccount, openGuestbook: () => void openGuestbook(), openCredits,
+    openSolar: () => void enterSolar(),
   });
   shell.mount();
   shell.applySettings(store.settings);
@@ -89,7 +127,7 @@ async function boot(): Promise<void> {
     if (!gaming) shell.applySettings(s); else globe.applySettings({ ...s, names: globe.settings.names });
     if (s.terrain !== painted.terrain || s.borders !== painted.borders) {
       painted = { terrain: s.terrain, borders: s.borders };
-      setTimeout(() => globe.setEarthTexture(paint()), 0);
+      setTimeout(() => { earthCv = paint(); globe.setEarthTexture(earthCv); solar?.view.setEarthCanvas(earthCv); }, 0);
     }
   });
   onLang(l => { document.documentElement.lang = l; });
@@ -106,6 +144,11 @@ async function boot(): Promise<void> {
   const route = () => {
     const hsh = decodeURIComponent(location.hash.slice(1));
     if (!hsh) return;
+    if (hsh === 'solar' || hsh.startsWith('solar/')) {
+      const focus = hsh.slice(6) || 'overview';
+      if (!inSolar) void enterSolar({ focus }); else solar?.goTo(focus);
+      return;
+    }
     if (hsh === 'daily') openDaily(host);
     else if (hsh === 'placeit' || hsh === 'quiz' || hsh === 'games') openGames(host);
     else if (hsh === 'collection') showCollection();
@@ -117,7 +160,7 @@ async function boot(): Promise<void> {
   window.addEventListener('hashchange', route);
 
   loader?.remove();
-  window.__pp = { ready: true, globe, shell, itemScreen: k => globe.itemScreen(k) };
+  window.__pp = { ready: true, globe, shell, itemScreen: k => globe.itemScreen(k), solar: () => solar };
 
   // ---- account (optional) ----
   void api.me().then(async me => {

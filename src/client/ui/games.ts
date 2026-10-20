@@ -1,3 +1,4 @@
+import { subName } from '../../shared/data/subs.ts';
 import { h, openModal, closeModal, toast, confetti } from './dom.ts';
 import { t, lang, countryName, fmtNum } from '../lib/i18n.ts';
 import { store, updateProgress } from '../store.ts';
@@ -24,7 +25,7 @@ export function openGames(host: GameHost): void {
     h('button', { class: 'game-card', 'data-testid': id, onclick: () => { closeModal('games'); fn(); } },
       h('span', { class: 'hub-ico', html: icon(ic, 20) }), h('strong', {}, title), h('span', { class: 'gc-sub' }, sub), badge ? h('em', { class: 'gc-badge' }, badge) : null);
   openModal('games', t('chooseGame'), h('div', { class: 'game-grid' },
-    card('game-daily', 'calendar', t('daily'), t('dailySub'), () => openDaily(host), doneToday ? '✓' : 'NEW'),
+    card('game-daily', 'calendar', t('daily'), t('dailySub'), () => openDaily(host), doneToday ? '✓' : t('badgeNew')),
     card('game-placeit', 'pin', t('placeit'), t('placeitSub'), () => placeItSetup(host)),
     card('game-quiz', 'brain', t('quiz'), t('quizSub'), () => quizSetup(host))), { wide: true });
 }
@@ -260,7 +261,7 @@ export function openDaily(host: GameHost): void {
   const endEl = h('div', { class: 'daily-end' });
   const facts = target.facts ?? {};
   const clue = h('div', { class: 'daily-clue' }, h('span', { class: 'big', 'aria-hidden': 'true' }, state.done ? target.emoji : '❓'),
-    h('p', {}, `#${day + 1} · ${target.sub}${facts.built !== undefined ? ' · ' + t('built') + ' ' + (facts.built < 0 ? `${-facts.built} BCE` : facts.built) : ''}${facts.heightM ? ' · ' + fmtNum(facts.heightM) + ' m' : ''}`));
+    h('p', {}, `#${day + 1} · ${subName(target.sub, lang())}${facts.built !== undefined ? ' · ' + t('built') + ' ' + (facts.built < 0 ? t('bce', { n: -facts.built }) : facts.built) : ''}${facts.heightM ? ' · ' + fmtNum(facts.heightM) + ' m' : ''}`));
 
   function render() {
     const s = state!;

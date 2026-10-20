@@ -1,3 +1,4 @@
+import { subName } from '../../shared/data/subs.ts';
 import { h, openModal, closeModal } from './dom.ts';
 import { t, lang } from '../lib/i18n.ts';
 import { store } from '../store.ts';
@@ -39,7 +40,7 @@ function dex(title: string, items: CatalogueItem[], got: Record<string, number>,
   for (const it of items) { const k = it.sub; groups.set(k, [...(groups.get(k) ?? []), it]); }
   const body = h('div', { class: 'dex' }, h('p', { class: 'muted' }, t('found', { n: items.filter(i => i.key in got).length, t: items.length })));
   for (const [g, list] of groups) {
-    body.append(h('h3', { class: 'dex-group' }, g), h('div', { class: 'dex-grid' }, ...list.map(it => {
+    body.append(h('h3', { class: 'dex-group' }, subName(g, lang())), h('div', { class: 'dex-grid' }, ...list.map(it => {
       const have = it.key in got;
       return h('button', { class: 'dex-cell' + (have ? ' have' : ''), 'data-testid': 'dex-' + it.key, title: have ? tr(it.name, lang()) : t('locked'),
         onclick: () => { closeModal('dex'); closeModal('collection'); go(it); } },

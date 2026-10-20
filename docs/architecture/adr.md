@@ -194,3 +194,42 @@ fill (pixels × MSAA × translucent layers) plus geometry.
 **Consequences.** Phone emulation: ready 8.7 s → 4.4 s, draw calls 287 → 170, triangles 512k → 303k, render buffer
 1.3 M → 0.74 M pixels without MSAA. − Phones show fewer models at once when zoomed out (the nearest win; zooming in
 reveals the rest). − Phone edges are slightly softer (no MSAA, DPR ≤ 1.5).
+
+## ADR-016: The Solar System is a second, lazily loaded view with real orbits and compressed scales
+**Status:** Accepted
+
+**Context.** Kids asked to zoom out from the Earth to the other planets and see their landscapes and where they are.
+Real scales do not fit on a screen (Neptune is ~4.5 billion km away; Earth would be under a pixel), the globe's camera,
+picking and item pipeline are Earth-specific, and the extra code and textures must not slow the globe or phones.
+
+**Decision.**
+- **Separate view, loaded on demand.** `src/client/solar/` (view, UI, painter worker) is a dynamic-import chunk with its
+  own `WebGLRenderer` and canvas. While it is up the globe is `paused` (its RAF does no work) and hidden; only one
+  renderer draws at a time. Entry: wheel/pinch on past the globe's widest zoom (`Globe.ev.onBeyond`), the zoom-out button
+  at max zoom, the toolbar planet button, or `#solar…` links. Exit: zooming into Earth below 4.6 R (the globe's widest
+  view is 5.5 R), "Back to Earth" or "Land on Earth"; the globe then flies in to the same latitude/longitude.
+- **Real positions, display scales.** `shared/lib/orbits.ts` (pure, unit-tested) computes heliocentric ecliptic
+  positions from JPL's approximate Keplerian elements, the Moon from a short lunar series (correct phases) and other
+  moons on circular orbits in their planet's equatorial plane. For display, orbit radii are compressed as `12·√AU` and
+  body radii as `0.34·(R/R⊕)^0.45` (Sun fixed at 2.6); moon distances are monotonic in the real ones. Directions,
+  order, eccentricity and inclinations stay real. Axial tilts and pole directions are applied; Earth's spin puts the
+  sub-solar point over the right longitude, tidally locked moons keep the same face to their planet, others spin freely.
+  Spin is capped at 2 simulated hours per real second so fast time does not whirl the planets.
+- **Time.** A simulated clock (pause, real time, 1 hour/1 day/1 month/1 year per second, "now"); positions are recomputed
+  each frame (20 bodies, microseconds).
+- **Surfaces painted procedurally in a worker.** `paint.ts` (DOM-free) paints equirectangular colour maps with real named
+  features at real coordinates, plus height maps used as bump maps for solid bodies, and ring profiles. Every body gets a
+  small map up front (256 px, 512 on desktop); the focused body is repainted at 1024 px (2048 on desktop), at most three
+  large maps are kept. Earth reuses the globe's own painted land map over an ocean.
+- **Camera.** An orbit camera around the focus body (drag, wheel/pinch, inertia; distance measured from the surface).
+  Near a body it co-rotates with the surface, so landforms stay put while day and night sweep across. Picking is
+  screen-space against projected discs (plus a 16 px slop for tiny far bodies); names and features are HTML labels
+  (feature labels only on the visible hemisphere of the focus body, de-cluttered, largest first).
+- **Content.** `solar.ts` (physical data), `solar-text.ts` (card text) and `solar-features.ts` (named craters, maria,
+  volcanoes, canyons, landing sites… with east-positive planetocentric coordinates) are bilingual; `gen-wiki` maps them
+  to Wikipedia as `sb_<body>` / `sf_<body>_<slug>` so the same in-card reader works.
+
+**Consequences.** + No cost to the globe until opened; the chunk is small and textures are painted, not downloaded.
++ Correct sky for any date (planet positions, Moon phase, seasons via Earth's tilt). − Distances and sizes are not to
+scale (explained by the compressed display; facts in the card give real numbers). − Minor moons' positions along their
+orbits are approximate.

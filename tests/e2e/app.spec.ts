@@ -328,3 +328,57 @@ test('mobile layout: info card as bottom sheet @mobile', async ({ page }, info) 
   await page.getByTestId('btn-menu').click();
   await shot(page, 'mobile_03_menu');
 });
+
+test('solar system: zoom out from Earth, visit Mars and a feature, land back on Earth @mobile', async ({ page }, info) => {
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.route('**/*.wikipedia.org/**', route => route.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ query: { pages: [{ title: 'Mars', extract: 'Mars is the fourth planet.\n== Geography ==\nRed dust.', description: 'Planet' }] } }) }));
+  await openApp(page);
+  const mobile = info.project.name === 'mobile';
+  // Wheeling on past the widest globe view opens the Solar System.
+  await page.mouse.move(400, 400);
+  if (mobile) await page.getByTestId('btn-solar').click();
+  else for (let i = 0; i < 60 && !(await page.evaluate(() => document.body.classList.contains('solar'))); i++) {
+    await page.mouse.wheel(0, 120); await page.waitForTimeout(80);
+  }
+  await expect(page.getByTestId('sp-earth')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('body')).toHaveClass(/solar/);
+  await expect.poll(() => page.evaluate(() => (window as any).__pp.globe.paused)).toBe(true);
+  await page.waitForTimeout(2500);
+  await shot(page, `${info.project.name}_30_solar_earth`);
+
+  await page.getByTestId('sp-mars').click();
+  await expect(page.getByTestId('solar-name')).toHaveText('Mars');
+  await expect(page).toHaveURL(/#solar\/mars$/);
+  await page.waitForTimeout(2500);
+  await shot(page, `${info.project.name}_31_solar_mars`);
+  const feat = page.locator('[data-testid^="feat-sf_mars_"]').first();
+  const featName = (await feat.textContent())!.replace(/^\S+\s*/u, '').trim();
+  await feat.click();
+  await expect(page.getByTestId('solar-name')).toContainText(featName.slice(0, 4));
+  await expect(page.getByTestId('solar-crumbs')).toContainText('Mars');
+  await page.waitForTimeout(2200);
+  await shot(page, `${info.project.name}_32_solar_feature`);
+  await page.getByTestId('solar-read-more').click();
+  await expect(page.getByTestId('reader')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('reader')).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('solar-info')).toBeHidden();
+
+  await page.getByTestId('crumb-system').click();
+  await page.waitForTimeout(2200);
+  await shot(page, `${info.project.name}_33_solar_overview`);
+  await page.getByTestId('sp-earth').click();
+  await page.getByTestId('solar-enter-earth').click();
+  await expect(page.getByTestId('sp-earth')).toBeHidden();
+  await expect(page.locator('body')).not.toHaveClass(/solar/);
+  await expect.poll(() => page.evaluate(() => (window as any).__pp.globe.paused)).toBe(false);
+  await expect(page.locator('canvas.globe-canvas')).toBeVisible();
+
+  // Deep link straight to a body.
+  await page.goto('/?lowfx=1&notut#solar/saturn');
+  await expect(page.getByTestId('solar-name')).toHaveText('Saturn', { timeout: 30_000 });
+  expect(errors).toEqual([]);
+});

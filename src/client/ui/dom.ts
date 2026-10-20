@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n.ts';
 type Attrs = Record<string, string | number | boolean | EventListener | undefined | null>;
 type Child = Node | string | number | null | undefined | false;
 
@@ -22,7 +23,7 @@ const stack: ModalRec[] = [];
 
 export function openModal(id: string, title: string, body: Node, opts: { onClose?: () => void; wide?: boolean; className?: string } = {}): HTMLElement {
   closeModal(id);
-  const closeBtn = h('button', { class: 'icon-btn modal-x', 'aria-label': 'Close', 'data-testid': 'modal-close', onclick: () => closeModal(id) }, '✕');
+  const closeBtn = h('button', { class: 'icon-btn modal-x', 'aria-label': t('close'), 'data-testid': 'modal-close', onclick: () => closeModal(id) }, '✕');
   const panel = h('div', { class: 'modal-panel' + (opts.wide ? ' wide' : '') + (opts.className ? ' ' + opts.className : ''), role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': id + '-title' },
     h('header', { class: 'modal-head' }, h('h2', { id: id + '-title' }, title), closeBtn), h('div', { class: 'modal-body' }, body));
   const wrap = h('div', { class: 'modal', id, onclick: (e: Event) => { if (e.target === wrap) closeModal(id); } }, panel);

@@ -1,6 +1,6 @@
 # Pocket Planet
 
-An original 3D toy globe for curious kids. Spin the Earth and tap landmarks, animals, dinosaurs, foods, festivals, volcanoes, space sites and discoveries, then collect them in a dex. Every place you open gets a stamp in your **passport**. The **time machine** rewinds the globe to the age of dinosaurs or any century. Animals can play their calls, and places can say hello in the local language. Layers show clouds, aurora and tectonic plates, and migration and voyage routes can be ridden. You can also ride ships, planes and trains, take photos, and play three geography games: Place it!, Quiz and Daily Planet.
+An original 3D toy globe for curious kids. Spin the Earth and tap landmarks, animals, dinosaurs, foods, festivals, volcanoes, space sites and discoveries, then collect them in a dex. Every place you open gets a stamp in your **passport**. The **time machine** rewinds the globe to the age of dinosaurs or any century. Animals can play their calls, and places can say hello in the local language. Layers show clouds, aurora and tectonic plates, and migration and voyage routes can be ridden. You can also ride ships, planes and trains, take photos, and play three geography games: Place it!, Quiz and Daily Planet. Zoom out past the Earth (or press the planet button) to fly around the **Solar System**: the Sun, eight planets, dwarf planets and major moons sit at their real positions for any date, with painted surfaces, named craters, volcanoes and landing sites, and a Wikipedia reader for each.
 
 **▶ Play it: https://huangyingting.github.io/pocket-planet/** (static GitHub Pages edition: [see Deployment](#deployment))
 
@@ -36,6 +36,7 @@ The game works fully without an account; progress is stored in `localStorage` an
 | `?notut` | skip the first-visit tutorial |
 | `#<key>` | deep link to an item, e.g. `/#eiffel`, `/#an_lion` |
 | `#daily` | open Daily Planet |
+| `#solar`, `#solar/<body>`, `#solar/<feature>` | open the Solar System (overview, e.g. `#solar/mars`, or a feature such as `#solar/sf_mars_olympus_mons`) |
 
 ## Environment variables (server)
 Set these in `.env` (template: [`.env.example`](.env.example)) or export them.
@@ -67,14 +68,15 @@ The e2e config builds nothing. It starts `node src/server/index.ts` on port 8790
 │   │   ├── store.ts            progress + settings + session state, debounced sync
 │   │   ├── styles.css
 │   │   ├── globe/              scene.ts (three.js globe, controls, picking, LOD, rides), painter.ts (map texture)
+│   │   ├── solar/              Solar System (lazy chunk): view.ts (renderer, orbits, camera, labels), ui.ts (dock, time, cards), paint.ts + solar.worker.ts (procedural surfaces)
 │   │   ├── models/             kit.ts primitives; heroes/ hand-built detailed models per content type
 │   │   ├── ui/                 shell (top bar, menu, info card), collection, passport, time machine, photo, games, account, tutorial, dom helpers
 │   │   └── lib/                api client, i18n (English + Simplified Chinese), storage, sfx (UI tones, procedural animal calls, speech)
 │   ├── server/                 index.ts (env/boot), app.ts (Express routes), db.ts (SQLite schema)
 │   └── shared/                 pure TS used by client, server and build script (no DOM)
-│       ├── data/               catalogue + more/ (dinos, foods, festivals, space, …), typemeta, passports, greetings, cities, ISO names, types
+│       ├── data/               catalogue + more/ (dinos, foods, festivals, space, …), solar (bodies, text, features), typemeta, passports, greetings, cities, ISO names, types
 │       ├── games/              placeit.ts, quiz.ts, daily.ts
-│       └── lib/                geo, rng, progress (merge), stickers, timeline (time machine), season
+│       └── lib/                geo, rng, progress (merge), stickers, timeline (time machine), season, orbits (planet/moon positions)
 ├── public/                     static assets copied as-is (favicon, Natural Earth TopoJSON)
 ├── scripts/build-pages.ts      static /landmarks, /animals, /discover pages + sitemap.xml, robots.txt, 404.html
 ├── tests/

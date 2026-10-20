@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n.ts';
 import * as THREE from 'three';
 import { QUALITY, AdaptiveResolution, type Quality } from './quality.ts';
 import type { CatalogueItem, Lang } from '../../shared/data/types.ts';
@@ -14,11 +15,11 @@ export type AuraPreset = 'waves' | 'aurora' | 'ember' | 'dusk' | 'sculpture';
 export type SurfaceMode = 'realistic' | 'minimal' | 'political';
 
 export const AURA_PRESETS: Record<AuraPreset, { label: string; colors: [string, string, string] }> = {
-  waves: { label: 'Atmosphere', colors: ['#38bdf8', '#1d4ed8', '#7dd3fc'] },
-  aurora: { label: 'Aurora', colors: ['#2dd4bf', '#0284c7', '#34d399'] },
-  ember: { label: 'Solar', colors: ['#38bdf8', '#1e40af', '#fbbf24'] },
-  dusk: { label: 'Magneto', colors: ['#60a5fa', '#3730a3', '#818cf8'] },
-  sculpture: { label: 'Ionosphere', colors: ['#22d3ee', '#0369a1', '#67e8f9'] },
+  waves: { label: 'auraWaves', colors: ['#38bdf8', '#1d4ed8', '#7dd3fc'] },
+  aurora: { label: 'auraAurora', colors: ['#2dd4bf', '#0284c7', '#34d399'] },
+  ember: { label: 'auraEmber', colors: ['#38bdf8', '#1e40af', '#fbbf24'] },
+  dusk: { label: 'auraDusk', colors: ['#60a5fa', '#3730a3', '#818cf8'] },
+  sculpture: { label: 'auraSculpture', colors: ['#22d3ee', '#0369a1', '#67e8f9'] },
 };
 
 export type Settings = Record<LayerKey, boolean> & {
@@ -241,6 +242,8 @@ export interface GlobeEvents {
   onGlobeTap?: (lat: number, lon: number) => void;
   onView?: (zoom: number, lat: number, lon: number) => void;
   onFirst?: (what: 'drag' | 'zoom') => void;
+  /** Kept zooming out past the widest view (wheel / pinch / zoom-out button): time to show the Solar System. */
+  onBeyond?: () => void;
 }
 
 export class Globe {
@@ -314,6 +317,9 @@ export class Globe {
   settings: Settings = { ...DEFAULT_SETTINGS };
   lang: Lang = 'en';
   gameMode = false;
+  /** While the Solar System view is up, the globe stops rendering. */
+  paused = false;
+  private overshoot = { v: 0, t: 0 };
   /** Optional extra visibility predicate (e.g. the time machine); selected/ridden items always stay visible. */
   private itemFilter: ((it: CatalogueItem) => boolean) | null = null;
   setItemFilter(fn: ((it: CatalogueItem) => boolean) | null): void { this.itemFilter = fn; this.dirty = true; }
@@ -360,7 +366,7 @@ export class Globe {
     if (!this.lowfx) this.adapt = new AdaptiveResolution(Math.min(q.dprMin, dpr), dpr);
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.domElement.className = 'globe-canvas';
-    r.domElement.setAttribute('aria-label', 'Interactive 3D globe');
+    r.domElement.setAttribute('aria-label', t('globeLabel'));
     r.domElement.tabIndex = 0;
     this.container.append(r.domElement, this.labelsEl);
     // AuraFM slate-950 deep orbital space background
@@ -412,7 +418,7 @@ export class Globe {
     this.resize();
     new ResizeObserver(() => this.resize()).observe(this.container);
     this.bindInput(r.domElement);
-    const loop = () => { this.frame(); requestAnimationFrame(loop); };
+    const loop = () => { if (!this.paused) this.frame(); requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
     return true;
   }
@@ -724,7 +730,11 @@ export class Globe {
       if (ptrs.size === 2) {
         const [a, b] = [...ptrs.values()];
         const d = Math.hypot(a.x - b.x, a.y - b.y);
-        if (pinch0 > 0) this.setH(h0 * (pinch0 / d));
+        if (pinch0 > 0) {
+          const want = h0 * (pinch0 / d);
+          this.setH(want);
+          if (want > MAX_H * 1.35 && !this.ride && !this.gameMode) { pinch0 = 0; this.ev.onBeyond?.(); }
+        }
         moved = true;
         this.ev.onFirst?.('zoom');
         return;
@@ -763,6 +773,13 @@ export class Globe {
       if (this.ride) { this.ride.dist = Math.max(0.5, Math.min(6, this.ride.dist * Math.exp(e.deltaY * 0.0015))); this.dirty = true; return; }
       this.setH(this.h * Math.exp(e.deltaY * 0.0015));
       this.ev.onFirst?.('zoom');
+      // Wheeling on outward at the widest view builds up "overshoot"; enough of it opens the Solar System.
+      const now = performance.now();
+      if (e.deltaY > 0 && this.h >= MAX_H - 1e-3 && !this.fly && !this.gameMode) {
+        this.overshoot.v = (now - this.overshoot.t < 700 ? this.overshoot.v : 0) + Math.min(0.2, e.deltaY * 0.0015);
+        this.overshoot.t = now;
+        if (this.overshoot.v > 0.35) { this.overshoot.v = 0; this.ev.onBeyond?.(); }
+      } else this.overshoot.v = 0;
     }, { passive: false });
     el.addEventListener('keydown', e => {
       const k = this.degPerPx() * 40;
@@ -780,7 +797,10 @@ export class Globe {
   }
 
   setH(h: number): void { this.h = Math.max(MIN_H, Math.min(MAX_H, h)); this.dirty = true; }
-  zoomBy(f: number): void { this.flyTo(this.lat, this.lon, this.h / f, 350); }
+  zoomBy(f: number): void {
+    if (f < 1 && this.h >= MAX_H - 1e-3 && !this.ride && !this.gameMode) { this.ev.onBeyond?.(); return; }
+    this.flyTo(this.lat, this.lon, this.h / f, 350);
+  }
 
   flyTo(lat: number, lon: number, h = this.h, dur = 1200): void {
     let dl = ((lon - this.lon + 540) % 360) - 180;

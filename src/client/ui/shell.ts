@@ -1,3 +1,4 @@
+import { SUB_ZH } from '../../shared/data/subs.ts';
 import { h, closeModal, openModal, toast, $ } from './dom.ts';
 import { t, lang, setLang, countryName, fmtNum, onLang } from '../lib/i18n.ts';
 import { store, updateProgress, updateSettings, resetSettings, subscribe } from '../store.ts';
@@ -22,6 +23,7 @@ const AURA_ORDER: AuraPreset[] = ['waves', 'aurora', 'ember', 'dusk', 'sculpture
 export interface ShellHooks {
   openPhoto: () => void; openCollection: () => void; openGames: () => void; openTutorial: () => void;
   openAccount: () => void; openGuestbook: () => void; openCredits: () => void;
+  openSolar: () => void;
 }
 
 export class Shell {
@@ -30,7 +32,7 @@ export class Shell {
   private info = h('aside', { id: 'info', class: 'info hidden', 'data-testid': 'info' }, this.infoMain);
   private reader: import('./reader.ts').Reader | null = null;
   private readerOpen = false;
-  private menu = h('div', { id: 'menu', class: 'menu hidden', role: 'dialog', 'aria-label': 'Menu' });
+  private menu = h('div', { id: 'menu', class: 'menu hidden', role: 'dialog', 'aria-label': t('menu') });
   private hints = h('div', { class: 'hints hidden', id: 'hints' });
   private rideBar = h('div', { class: 'ride-bar hidden', 'data-testid': 'ride-bar' });
   private tipEl = h('div', { id: 'tip', class: 'globe-tip hidden', 'aria-hidden': 'true' });
@@ -54,11 +56,12 @@ export class Shell {
           h('span', { class: 'omni-placeholder', 'data-i18n': 'searchPlaceholder' }, t('searchPlaceholder')),
           h('kbd', { class: 'omni-kbd', 'aria-hidden': 'true' }, '⌘K')),
         h('button', { class: 'omni-btn', id: 'btn-random', title: t('randomHop'), 'aria-label': t('randomHop'), html: icon('shuffle', 17), onclick: () => { sfx.tap(); this.randomHop(); } })),
-      h('nav', { class: 'tools', 'aria-label': 'Tools' },
+      h('nav', { class: 'tools', 'aria-label': t('tools') },
         tool('btn-photo', 'camera', 'photo', this.hooks.openPhoto),
         tool('btn-collection', 'collection', 'collection', this.hooks.openCollection),
         tool('btn-game', 'game', 'game', this.hooks.openGames),
         tool('btn-time', 'clock', 'timeMachine', () => this.time.toggle()),
+        tool('btn-solar', 'planet', 'solarSystem', this.hooks.openSolar),
         h('span', { class: 'tools-sep', 'aria-hidden': 'true' }),
         tool('btn-menu', 'menu', 'menu', () => this.toggleMenu())));
     const bottomLeft = h('div', { class: 'bl' }, this.hints,
@@ -130,7 +133,7 @@ export class Shell {
         return tr(it.name, l).toLowerCase().includes(q) ||
           it.name.en.toLowerCase().includes(q) ||
           countryName(it.country, l).toLowerCase().includes(q) ||
-          it.sub.toLowerCase().includes(q);
+          it.sub.toLowerCase().includes(q) || (SUB_ZH[it.sub] ?? '').includes(q);
       });
       if (!matches.length) {
         listEl.replaceChildren(h('p', { class: 'muted' }, t('notFound')));
@@ -244,7 +247,7 @@ export class Shell {
           onclick: () => { sfx.tap(); updateSettings({ auraPreset: p }); },
         },
           h('span', { class: 'aura-dot', style: `background:${AURA_PRESETS[p].colors[0]}` }),
-          AURA_PRESETS[p].label,
+          t(AURA_PRESETS[p].label),
         )
       )
     );

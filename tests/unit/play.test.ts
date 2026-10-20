@@ -94,3 +94,12 @@ describe('render quality tiers', async () => {
     expect(a.ratio).toBe(2);
   });
 });
+
+describe('sub-category names', () => {
+  it('have a Chinese name for every catalogue sub-category', async () => {
+    const { SUB_ZH, subName } = await import('../../src/shared/data/subs.ts');
+    const missing = [...new Set(CATALOGUE.map(i => i.sub))].filter(s => !SUB_ZH[s]);
+    expect(missing).toEqual([]);
+    expect(subName('old-town', 'en')).toBe('Old town');
+  });
+});

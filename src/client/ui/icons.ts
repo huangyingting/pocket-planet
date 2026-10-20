@@ -54,6 +54,10 @@ const P: Record<string, string> = {
   external: '<path d="M14 4.5h5.5V10M19.5 4.5 11 13"/><path d="M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/>',
   collapse: '<path d="m15 6-6 6 6 6"/>',
   grid: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M5 7.5h14M5 16.5h14M12 3.5v17"/><path d="M12 3.5c-3 2.5-4 5.5-4 8.5s1 6 4 8.5M12 3.5c3 2.5 4 5.5 4 8.5s-1 6-4 8.5"/>',
+  planet: '<circle cx="12" cy="12" r="5.5"/><path d="M6.3 10.2C3.2 11.6 1.9 13.3 2.5 14.5c1 2 7 1.2 13.2-1.8s10.3-6.8 8.8-8.5c-.7-.9-2.6-.8-5 0"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>',
+  play: '<path d="M8 5.5v13l10.5-6.5z"/>',
+  pause: '<path d="M8.5 5.5v13M15.5 5.5v13"/>',
 };
 
 export type IconName = keyof typeof P;

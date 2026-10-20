@@ -18,12 +18,15 @@ const HTML_LANG: Record<Lang, string> = { en: 'en', zh: 'zh-CN' };
 
 export interface ReaderHooks { close: () => void; pick: (it: CatalogueItem) => void }
 
+/** Anything with a Wikipedia article: catalogue items, and solar-system bodies/features (no type → no nearby list). */
+export type Readable = Pick<CatalogueItem, 'key' | 'name' | 'desc'> & Partial<Pick<CatalogueItem, 'type' | 'slug' | 'lat' | 'lon' | 'route' | 'wiki' | 'funFact'>>;
+
 export class Reader {
   readonly el: HTMLElement;
   private scroller = h('div', { class: 'reader-scroll' });
   private seg = h('div', { class: 'reader-lang', role: 'group', 'aria-label': 'Language' });
   private ext = h('a', { class: 'icon-btn', target: '_blank', rel: 'noopener', 'data-testid': 'reader-wiki-link', html: icon('external', 16) });
-  private item: CatalogueItem | null = null;
+  private item: Readable | null = null;
   private readLang: Lang = lang();
   private shown = '';
   private seq = 0;
@@ -38,7 +41,7 @@ export class Reader {
   }
 
   /** Shows `it` in `l` (defaults to the reading language); no-op if already shown. */
-  show(it: CatalogueItem, l: Lang = this.item?.key === it.key ? this.readLang : lang()): void {
+  show(it: Readable, l: Lang = this.item?.key === it.key ? this.readLang : lang()): void {
     this.item = it;
     this.readLang = l;
     const id = it.key + ':' + l;
@@ -60,7 +63,7 @@ export class Reader {
     this.el.querySelector('.reader-back')?.setAttribute('aria-label', t('readerClose'));
   }
 
-  private async load(it: CatalogueItem, want: Lang): Promise<void> {
+  private async load(it: Readable, want: Lang): Promise<void> {
     const seq = ++this.seq;
     const titles = WIKI[it.key];
     const l: Lang = want === 'zh' && titles?.[1] ? 'zh' : 'en';
@@ -77,14 +80,14 @@ export class Reader {
     this.scroller.replaceChildren(art ? this.article(it, art, want !== l) : this.fallback(it, failed));
   }
 
-  private skeleton(it: CatalogueItem): HTMLElement {
+  private skeleton(it: Readable): HTMLElement {
     return h('article', { class: 'reader-article', 'aria-busy': 'true' },
       h('div', { class: 'reader-figure sk' }),
       h('h1', {}, tr(it.name, lang())),
       ...[92, 100, 96, 70, 0, 100, 88, 94, 60].map(w => h('div', { class: 'sk-line', style: w ? `width:${w}%` : 'height:10px;background:none' })));
   }
 
-  private article(it: CatalogueItem, a: WikiArticle, notInLang: boolean): HTMLElement {
+  private article(it: Readable, a: WikiArticle, notInLang: boolean): HTMLElement {
     const mins = Math.max(1, Math.round(a.words / (a.lang === 'zh' ? 300 : 220)));
     const top = a.sections.filter(s => s.level === 2);
     const body = h('div', { class: 'reader-body' });
@@ -101,7 +104,7 @@ export class Reader {
       if (more?.isConnected && i >= firstEnd) more.click();
       this.scroller.querySelector<HTMLElement>(`[data-sec="${i}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
-    const section = TYPE_META[it.type].section;
+    const section = it.type ? TYPE_META[it.type].section : undefined;
     return h('article', { class: 'reader-article', lang: HTML_LANG[a.lang], 'data-testid': 'reader-article' },
       a.image ? h('figure', { class: 'reader-figure' + (a.image.height > a.image.width * 0.75 ? ' tall' : ''), style: `--img:url("${a.image.src.replace(/"/g, "%22")}")` },
         h('img', { src: a.image.src, alt: a.title, loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', width: a.image.width, height: a.image.height,
@@ -129,7 +132,7 @@ export class Reader {
       h(tag, {}, s.title), ...s.paras.map(p => h('p', {}, p)));
   }
 
-  private fallback(it: CatalogueItem, offline: boolean): HTMLElement {
+  private fallback(it: Readable, offline: boolean): HTMLElement {
     const l = lang();
     return h('article', { class: 'reader-article' },
       h('h1', {}, tr(it.name, l)),
@@ -139,11 +142,12 @@ export class Reader {
       this.nearby(it));
   }
 
-  private nearby(it: CatalogueItem): HTMLElement | null {
-    if (it.route) return null;
+  private nearby(it: Readable): HTMLElement | null {
+    if (it.route || !it.type || it.lat === undefined || it.lon === undefined) return null;
+    const lat = it.lat, lon = it.lon;
     const l = lang();
     const near = CATALOGUE.filter(o => o.key !== it.key && !o.route)
-      .map(o => ({ o, d: haversineKm(it.lat, it.lon, o.lat, o.lon) }))
+      .map(o => ({ o, d: haversineKm(lat, lon, o.lat, o.lon) }))
       .sort((a, b) => a.d - b.d).slice(0, 6);
     return h('aside', { class: 'reader-nearby' },
       h('span', { class: 'reader-label' }, t('readerNearby')),
