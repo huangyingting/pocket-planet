@@ -23,7 +23,7 @@ const AURA_ORDER: AuraPreset[] = ['waves', 'aurora', 'ember', 'dusk', 'sculpture
 
 export interface ShellHooks {
   openPhoto: () => void; openCollection: () => void; openGames: () => void; openTutorial: () => void;
-  openAccount: () => void; openGuestbook: () => void; openCredits: () => void;
+  openAccount: () => void; openGuestbook: () => void;
   openSolar: () => void;
   openSky: () => void;
 }
@@ -287,8 +287,8 @@ export class Shell {
       ...(HAS_API ? [row('user', store.me ? t('signedInAs', { e: store.me.handle ?? store.me.email }) : t('account'), h('button', { class: 'pill', 'data-testid': 'menu-account', onclick: () => { this.toggleMenu(false); this.hooks.openAccount(); } }, store.me ? t('account') : t('signIn'))),
       row('chat', t('guestbook'), h('button', { class: 'pill', 'data-testid': 'menu-guestbook', onclick: () => { this.toggleMenu(false); this.hooks.openGuestbook(); } }, t('open')))] : []),
       h('footer', { class: 'menu-links' },
-        h('a', { href: url('about/') }, t('about')), h('a', { href: url('encyclopedia/') }, t('encyclopedia')),
-        h('button', { class: 'link', onclick: () => { this.toggleMenu(false); this.hooks.openCredits(); } }, t('credits')), h('a', { href: url('privacy/') }, t('privacy'))));
+        ...([['about/', 'about', 'bulb'], ['encyclopedia/', 'encyclopedia', 'book'], ['privacy/', 'privacy', 'eye']] as const).map(([href, key, ic]) =>
+          h('a', { href: url(href), 'data-testid': 'menu-link-' + key }, h('span', { class: 'ml-ico', html: icon(ic, 15) }), h('span', {}, t(key))))));
   }
 
   applySettings(s: Settings): void {

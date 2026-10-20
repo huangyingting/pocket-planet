@@ -412,9 +412,17 @@ a:hover { text-decoration: underline; }
 .switch-card:has(input:focus-visible) { outline: 2px solid var(--accent); }
 .menu-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 0.86rem; color: var(--text-2); }
 .menu-row select { background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 6px 10px; }
-.menu-links { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; font-size: .8rem; }
-.menu-links a, .menu-links .link { color: var(--muted); text-decoration: none; }
-.menu-links a:hover, .menu-links .link:hover { color: var(--text); }
+.menu-links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--hud-line); }
+.menu-links a {
+  --cut: 7px;
+  display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 0 8px;
+  font: 500 .78rem/1 var(--font-data); letter-spacing: .1em; text-transform: uppercase; text-decoration: none; color: var(--hud-dim);
+  border: 1px solid var(--line); background: var(--hud-fill);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  transition: color .15s, background-color .15s, border-color .15s;
+}
+.menu-links .ml-ico { display: inline-flex; opacity: .85; }
+.menu-links a:hover, .menu-links a:focus-visible { color: var(--hud-hi); border-color: var(--hud-line); background: var(--hud-fill-hi); outline: none; }
 
 /* ---- info card: 3D hero · title · description · key stats · folded details ---- */
 .info {

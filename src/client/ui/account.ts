@@ -85,6 +85,3 @@ export async function openGuestbook(): Promise<void> {
   await load();
 }
 
-export function openCredits(): void {
-  openModal('credits', t('credits'), h('div', {}, h('p', {}, t('creditsBody'))));
-}

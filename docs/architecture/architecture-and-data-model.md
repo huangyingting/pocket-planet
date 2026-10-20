@@ -35,7 +35,7 @@ Browser storage (observed keys): `globe-lang`, `tutorial`, `hint-open`, `names`,
 │  ├─ ui/collection.ts  Hub, animal dex, discovery log, stickers                                            │
 │  ├─ ui/photo.ts       Photo mode, IndexedDB album                                                         │
 │  ├─ ui/games.ts       Chooser, Place it!, Quiz, Daily Planet UIs                                          │
-│  ├─ ui/tutorial.ts    Spotlight tutorial          ui/account.ts  sign-in, nickname, sync, guestbook, credits│
+│  ├─ ui/tutorial.ts    Spotlight tutorial          ui/account.ts  sign-in, nickname, sync, guestbook       │
 │  ├─ ui/dom.ts         h() element helper, modal stack, toasts, confetti                                   │
 │  ├─ lib/*.ts          storage (pp.*), i18n, sfx (WebAudio), api client                                    │
 │  ├─ store.ts          progress + settings + me; subscribe/emit; debounced sync                            │

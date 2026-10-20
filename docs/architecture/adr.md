@@ -475,3 +475,26 @@ Picking a galaxy, cluster or quasar outside the Milky Way only flew the camera t
   - some arm winding directions and cluster-member positions are guesses;
   - real photographs remain in the Wikipedia reader.
 - − The largest models build in about 100–190 ms (measured under software rendering), once per selection.
+
+## ADR-023: Static pages in the Astrolabe style; Credits folded into About
+
+**Context.** The About, Encyclopedia and Privacy pages still used the old rounded zinc style with coloured emoji, so they looked like a different product from the HUD. Credits was a separate in-app modal. In the menu footer, "Credits" was a `<button class="link">`, and the global `.link` padding pushed it below the two `<a>` links.
+
+**Decision.**
+- **One style.** `scripts/build-pages.ts` now uses the HUD vocabulary:
+  - cut-corner slabs with an amber tab and ruler ticks;
+  - a blueprint grid over a CSS starfield;
+  - Chakra Petch for display text and Geist Mono for data;
+  - numbered section heads;
+  - the monochrome line icons from `ui/icons.ts` instead of emoji.
+
+  Item pages open on a lock-on reticle with coordinates and a "see on the 3D globe" button.
+- **Which pages stay.**
+  - The Encyclopedia stays. It is how search engines index the 518 entries, it gives devices without WebGL something to read, and every entry deep-links into the globe.
+  - Privacy stays. The app has email sign-in, cookies and a public guestbook, and it is meant for children.
+  - Credits moves into About as a numbered section with each source's licence. The modal and its i18n keys are removed.
+- **Menu footer.** About, Encyclopedia and Privacy are now three equal `<a>` tiles in a three-column grid, so they share one baseline.
+
+**Consequences.**
+- \+ The site reads as one product, and there is one fewer page to maintain.
+- − The static pages copy the HUD tokens into their own inline CSS, so the two must be kept in step by hand.

@@ -24,7 +24,7 @@ import { openCollection } from './ui/collection.ts';
 import { openPhotoMode } from './ui/photo.ts';
 import { openGames, openDaily } from './ui/games.ts';
 import { openTutorial } from './ui/tutorial.ts';
-import { openAccount, openGuestbook, openCredits, syncNow } from './ui/account.ts';
+import { openAccount, openGuestbook, syncNow } from './ui/account.ts';
 import { ScaleRail, type RailLevel } from './ui/scales.ts';
 import type { ScaleId } from '../shared/data/cosmos.ts';
 
@@ -146,7 +146,7 @@ async function boot(): Promise<void> {
     openCollection: showCollection,
     openGames: () => { if (!gaming) openGames(host); },
     openTutorial,
-    openAccount, openGuestbook: () => void openGuestbook(), openCredits,
+    openAccount, openGuestbook: () => void openGuestbook(),
     openSolar: () => void enterSolar(),
     openSky: () => void openSky(),
   });
