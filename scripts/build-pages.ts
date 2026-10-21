@@ -296,17 +296,17 @@ ${credit(T('Geist · Chakra Petch', 'Geist · Chakra Petch'), T('Typefaces for r
 
 const li = (en: string, zh: string) => `<li>${bi(T(en, zh), 'span')}</li>`;
 page('/privacy/', 'Privacy — Pocket Planet', 'How Pocket Planet handles data.', `<div class="prose"><p class="eyebrow">${bi(T('Privacy', '隐私'))}</p><h1>${bi(T('Privacy', '隐私说明'))}</h1>
-${bi(T('Short version: no ads, no third-party trackers, and nothing leaves your device unless you choose to sign in.', '简单来说：没有广告，没有第三方追踪；除非你选择登录，否则数据不会离开你的设备。'), 'p', 'lead')}
+${bi(T('Short version: Pocket Planet shows no ads and has no third-party trackers. Your progress and photos stay on your device unless you sign in or share them yourself. A few features — Wikipedia articles and live radio — load content from other websites when you open them.', '简单来说：口袋星球本身不投放广告，也没有第三方追踪。除非你登录或自己分享，你的进度和照片都留在你的设备上。少数功能（维基百科文章、直播电台）会在你打开时从其他网站加载内容。'), 'p', 'lead')}
 <h2>${bi(T('The details', '具体说明'))}</h2><ol class="rules">
-${li('Progress, settings and photos are stored on your device (localStorage and IndexedDB). Photos never leave your device.', '进度、设置和照片保存在你的设备上（localStorage 和 IndexedDB）。照片永远不会离开你的设备。')}
+${li('Progress, settings and photos are stored on your device (localStorage and IndexedDB). Photos are only sent somewhere if you use Share or Save yourself. You can export your progress to a file from the menu.', '进度、设置和照片保存在你的设备上（localStorage 和 IndexedDB）。只有你自己点“分享”或“保存”时，照片才会离开这个页面。你可以在菜单中把进度导出为文件。')}
 ${STATIC ? li('This edition has no server: there are no accounts, cookies or uploads. Clearing site data removes everything.', '这个版本没有服务器：没有账户、Cookie 或上传。清除网站数据即可删除一切。')
   : li('If you choose to sign in, we store your email address, an optional nickname and a copy of your progress so it can sync.', '如果你选择登录，我们会保存你的邮箱、可选的昵称以及进度副本，以便同步。')
   + li('Likes and “I’ve been here” use an anonymous random cookie so each device counts once.', '“喜欢”和“我去过”使用匿名随机 Cookie，每台设备只计一次。')
   + li('Guestbook messages are public, limited to 200 characters, filtered for links and unkind words, and hidden after reports.', '留言板消息是公开的，最多 200 字，会过滤链接和不友善的词语，被举报后会隐藏。')
   + li('You can delete your account and server data any time from the Account panel.', '你可以随时在账户面板中删除账户和服务器数据。')}
 ${li('Reading an article in the app loads it directly from Wikipedia (wikipedia.org), which sees your IP address like any website.', '在应用中阅读文章时会直接从维基百科（wikipedia.org）加载，维基百科会像任何网站一样看到你的 IP 地址。')}
-${li('Listening to the radio connects straight to that station’s own server, which sees your IP address like any website. Stations choose what they broadcast.', '收听电台时会直接连接该电台自己的服务器，它会像任何网站一样看到你的 IP 地址。电台播放什么内容由电台决定。')}
-${li('No ads, no third-party trackers.', '没有广告，没有第三方追踪。')}</ol></div>`, { current: 'privacy' });
+${li('Listening to the radio connects straight to that station’s own server, which sees your IP address like any website. Stations choose what they broadcast — including news, adverts and talk meant for adults — and we cannot check it. The app asks before the first station plays, shuffle only picks music stations, and you can hide any station on your device. Classroom mode switches live radio and Wikipedia off completely.', '收听电台时会直接连接该电台自己的服务器，它会像任何网站一样看到你的 IP 地址。电台播放什么（包括新闻、广告和面向成人的谈话）由电台决定，我们无法检查。应用会在第一次播放前询问你；随机播放只选音乐电台；你也可以在设备上隐藏任何电台。课堂模式会完全关闭直播电台和维基百科。')}
+${li('Pocket Planet itself shows no ads and uses no third-party trackers or analytics. (Radio stations may broadcast their own adverts.)', '口袋星球本身不投放广告，也不使用第三方追踪或统计工具。（电台可能会播放它们自己的广告。）')}</ol></div>`, { current: 'privacy' });
 page('/404/', 'Not found — Pocket Planet', 'Page not found.', `<div class="prose" style="padding:40px 0"><p class="eyebrow">404</p><h1>${bi(T('Lost in space?', '迷失在太空了吗？'))}</h1>
 ${bi(T('We couldn’t find that page.', '我们找不到这个页面。'), 'p', 'lead')}<div class="actions"><a class="btn sig" href="/">${icon('globe', 16)}${bi(T('Back to the globe', '回到地球'))}</a></div></div>`);
 writeFileSync(join(out, '404.html'), (await import('node:fs')).readFileSync(join(out, '404', 'index.html'), 'utf8'));

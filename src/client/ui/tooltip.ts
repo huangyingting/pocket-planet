@@ -5,7 +5,9 @@
  * - hides when the pointer leaves, and on click, key press, wheel or scroll; it stays hidden on that element
  *   until the pointer leaves it;
  * - once one has shown, moving quickly onto the next titled element shows its tooltip at once;
- * - mouse only (touch and pen never show it); `title=""` switches off an ancestor's tooltip.
+ * - mouse, plus keyboard focus (anchored under the element); touch and pen never show it, so a tooltip is
+ *   never the only way to learn what a control does: every icon control also gets an accessible name;
+ * - `title=""` switches off an ancestor's tooltip.
  */
 const DELAY = 500;
 const WARM = 400;
@@ -18,6 +20,7 @@ let timer = 0;
 let shown = false;
 let lastHide = -Infinity;
 let px = 0, py = 0;
+let byKey = false;
 
 function adopt(el: Element): void {
   const v = el.getAttribute('title');
@@ -27,11 +30,21 @@ function adopt(el: Element): void {
   // the title was also the accessible name of icon-only buttons
   // (marked, so a later title change, e.g. a language switch, renames it too)
   const own = el.hasAttribute('data-tip-label');
-  if (own || (v && !el.hasAttribute('aria-label') && !el.hasAttribute('aria-labelledby') && !(el.textContent ?? '').trim())) {
+  if (own || (v && !el.hasAttribute('aria-label') && !el.hasAttribute('aria-labelledby') && !spokenText(el))) {
     el.setAttribute('aria-label', v);
     el.setAttribute('data-tip-label', '');
   }
   if (el === target && shown) place();
+}
+
+/** Text a screen reader would read from the element's content: `aria-hidden` subtrees (decorative emoji, icons) do not count. */
+export function spokenText(el: Element): string {
+  let out = '';
+  for (const n of el.childNodes) {
+    if (n.nodeType === Node.TEXT_NODE) out += n.textContent ?? '';
+    else if (n instanceof Element && n.getAttribute('aria-hidden') !== 'true' && !(n instanceof SVGElement)) out += n.getAttribute('aria-label') ?? spokenText(n);
+  }
+  return out.trim();
 }
 
 function adoptTree(root: ParentNode): void {
@@ -45,8 +58,14 @@ function place(): void {
   tip.textContent = text;
   tip.hidden = false;
   const w = tip.offsetWidth, h = tip.offsetHeight;
-  let x = px, y = py + CURSOR_H;
-  if (y + h > innerHeight - EDGE) y = py - h - 6;
+  let ax = px, ay = py, below = CURSOR_H, above = 6;
+  if (byKey) {
+    // keyboard focus has no pointer: anchor under the element instead
+    const r = target.getBoundingClientRect();
+    ax = r.left + r.width / 2 - w / 2; ay = r.bottom; below = 6; above = r.height + 6;
+  }
+  let x = ax, y = ay + below;
+  if (y + h > innerHeight - EDGE) y = ay - h - above;
   x = Math.max(EDGE, Math.min(x, innerWidth - EDGE - w));
   y = Math.max(EDGE, y);
   tip.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
@@ -66,10 +85,11 @@ function dismiss(): void {
   lastHide = -Infinity;
 }
 
-function enter(el: Element | null): void {
-  if (el === target) return;
+function enter(el: Element | null, key = false): void {
+  if (el === target && key === byKey) return;
   hide();
   target = el;
+  byKey = key;
   if (!el?.getAttribute('data-tip')) return;
   if (performance.now() - lastHide < WARM) place();
   else timer = window.setTimeout(place, DELAY);
@@ -94,6 +114,8 @@ export function initTooltips(): void {
 
   window.addEventListener('pointerover', e => {
     if (e.pointerType !== 'mouse') { enter(null); return; }
+    // content sliding under a resting mouse (e.g. a dialog closing) must not steal a keyboard tooltip
+    if (byKey && e.clientX === px && e.clientY === py) return;
     px = e.clientX; py = e.clientY;
     enter((e.target as Element).closest?.('[data-tip]') ?? null);
   }, true);
@@ -101,6 +123,13 @@ export function initTooltips(): void {
   document.documentElement.addEventListener('pointerleave', () => enter(null));
   for (const ev of ['pointerdown', 'keydown', 'wheel'] as const) addEventListener(ev, dismiss, { capture: true, passive: true });
   // only a scroll that moves the element under the pointer (code nudging some other strip's scrollLeft does not count)
-  window.addEventListener('scroll', e => { const n = e.target; if (target && (n === document || (n instanceof Node && n.contains(target)))) dismiss(); }, { capture: true, passive: true });
+  window.addEventListener('scroll', e => { const n = e.target; if (target && (n === document || (n instanceof Node && n.contains(target)))) { if (byKey) { if (shown) place(); } else dismiss(); } }, { capture: true, passive: true });
   window.addEventListener('blur', () => enter(null));
+  // keyboard users get the same hint when tabbing onto a control
+  document.addEventListener('focusin', e => {
+    const el = e.target as Element;
+    if (!el.matches?.(':focus-visible')) return;
+    enter(el.closest('[data-tip]'), true);
+  });
+  document.addEventListener('focusout', () => { if (byKey) enter(null); });
 }

@@ -108,3 +108,77 @@ describe('helpers', () => {
     expect(HANDLE_RE.test('bad name')).toBe(false);
   });
 });
+
+describe('sign-in mail', async () => {
+  const { mailerFromEnv } = await import('../../src/server/mail.ts');
+  const { createServer } = await import('node:net');
+
+  it('explains a missing or invalid transport', () => {
+    expect('error' in mailerFromEnv({})).toBe(true);
+    expect('error' in mailerFromEnv({ SMTP_URL: 'smtp://h' })).toBe(true);
+    expect('error' in mailerFromEnv({ SMTP_URL: 'http://h', MAIL_FROM: 'a@b.co' })).toBe(true);
+    expect('send' in mailerFromEnv({ MAIL_API_URL: 'https://x', MAIL_FROM: 'a@b.co' })).toBe(true);
+  });
+
+  it('speaks SMTP with STARTTLS and AUTH to deliver one message', async () => {
+    const { execFileSync } = await import('node:child_process');
+    const { mkdtempSync, readFileSync, writeFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { TLSSocket, createSecureContext } = await import('node:tls');
+    const dir = mkdtempSync(join(tmpdir(), 'pp-smtp-'));
+    try {
+      execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1', '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost',
+        '-keyout', join(dir, 'k.pem'), '-out', join(dir, 'c.pem')], { stdio: 'ignore' });
+    } catch { return; /* no openssl: skip */ }
+    const ctx = createSecureContext({ key: readFileSync(join(dir, 'k.pem')), cert: readFileSync(join(dir, 'c.pem')) });
+    const seen: string[] = [];
+    const srv = createServer(raw => {
+      let s: import('node:net').Socket = raw, buf = '', data = false;
+      const onData = (d: Buffer) => {
+        buf += d.toString();
+        let i;
+        while ((i = buf.indexOf('\r\n')) >= 0) {
+          const line = buf.slice(0, i); buf = buf.slice(i + 2);
+          if (data) { if (line === '.') { data = false; s.write('250 queued\r\n'); } else seen.push(line); continue; }
+          seen.push(line.startsWith('AUTH') ? 'AUTH' : line);
+          if (line.startsWith('EHLO')) s.write(s === raw ? '250-hi\r\n250 STARTTLS\r\n' : '250-hi\r\n250 AUTH PLAIN\r\n');
+          else if (line === 'STARTTLS') {
+            s.write('220 go\r\n'); raw.removeAllListeners('data');
+            s = new TLSSocket(raw, { isServer: true, secureContext: ctx }); s.on('data', onData);
+          } else if (line.startsWith('AUTH')) s.write('235 ok\r\n');
+          else if (line === 'DATA') { data = true; s.write('354 go\r\n'); }
+          else if (line === 'QUIT') { s.write('221 bye\r\n'); s.end(); }
+          else s.write('250 ok\r\n');
+        }
+      };
+      raw.on('data', onData);
+      raw.write('220 hi\r\n');
+    });
+    await new Promise<void>(r => srv.listen(0, '127.0.0.1', () => r()));
+    const port = (srv.address() as { port: number }).port;
+    writeFileSync(join(dir, 'ca.pem'), readFileSync(join(dir, 'c.pem')));
+    const m = mailerFromEnv({ SMTP_URL: `smtp://u:p@localhost:${port}`, MAIL_FROM: 'Pocket <pp@b.co>', SMTP_CA_FILE: join(dir, 'ca.pem') });
+    if (!('send' in m)) throw new Error(m.error);
+    await m.send('kid@b.co', 'http://x/verify?token=1');
+    srv.close();
+    expect(seen).toEqual(expect.arrayContaining(['STARTTLS', 'AUTH', 'MAIL FROM:<pp@b.co>', 'RCPT TO:<kid@b.co>', 'DATA']));
+    const body = Buffer.from(seen.slice(seen.indexOf('') + 1).join(''), 'base64').toString();
+    expect(body).toContain('http://x/verify?token=1');
+  });
+
+  it('reports a failed send instead of claiming the link went out', async () => {
+    const db = openDb(':memory:');
+    const app = createApp({ db, devLogin: false, baseUrl: 'http://t', secureCookies: false, sendMail: async () => { throw new Error('down'); } });
+    const s: Server = await new Promise(r => { const x = app.listen(0, () => r(x)); });
+    const port = (s.address() as { port: number }).port;
+    const res = await fetch(`http://127.0.0.1:${port}/api/auth/request`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'a@b.co' }) });
+    expect(res.status).toBe(502);
+    expect((db.prepare('SELECT COUNT(*) AS n FROM login_tokens').get() as { n: number }).n).toBe(0);
+    const off = createApp({ db, devLogin: false, baseUrl: 'http://t', secureCookies: false });
+    const s2: Server = await new Promise(r => { const x = off.listen(0, () => r(x)); });
+    const r2 = await fetch(`http://127.0.0.1:${(s2.address() as { port: number }).port}/api/auth/request`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'a@b.co' }) });
+    expect(r2.status).toBe(503);
+    s.close(); s2.close();
+  });
+});

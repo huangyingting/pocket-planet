@@ -14,7 +14,7 @@ const waits = new Map<string, Promise<void>>();
 const keyOf = (r: ModelRecipe) => JSON.stringify(r);
 
 let kit: Promise<Kit> | null = null;
-const loadKit = () => (kit ??= import('./kit.ts'));
+const loadKit = () => (kit ??= import('./kit.ts').catch((e: unknown) => { kit = null; throw e; }));
 
 interface Job { id: number; recipe: ModelRecipe; resolve: (g: THREE.Group) => void; reject: (e: Error) => void }
 interface Slot { w: Worker; busy: Job | null }

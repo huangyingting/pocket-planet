@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import type { SkyEvent } from '../../shared/lib/astro/index.ts';
 import { tr } from '../../shared/data/types.ts';
-import { h } from '../ui/dom.ts';
+import { h, trapTab } from '../ui/dom.ts';
 import { icon } from '../ui/icons.ts';
 import { lang } from '../lib/i18n.ts';
 import { s, SITES, type SkyKey } from './text.ts';
@@ -309,7 +309,7 @@ export class Theatre {
   private markZoom(z?: 'tele' | 'eye'): void {
     const f = this.ctx.look.targetFov, a = this.act;
     const cur = z ?? (Math.abs(Math.log(f / a.fov.tele)) < Math.abs(Math.log(f / a.fov.eye)) ? 'tele' : 'eye');
-    for (const b of this.zoomEl.querySelectorAll<HTMLElement>('.sky-zbtn')) b.classList.toggle('on', b.dataset.z === cur);
+    for (const b of this.zoomEl.querySelectorAll<HTMLElement>('.sky-zbtn')) { b.classList.toggle('on', b.dataset.z === cur); b.setAttribute('aria-pressed', String(b.dataset.z === cur)); }
   }
 
   private setPlaying(on: boolean): void {
@@ -345,6 +345,7 @@ export class Theatre {
     if (document.querySelector('.modal')) return;
     // the globe and Solar System listen on document: keep keys meant for the theatre away from them
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.stopPropagation(); return; }
+    if (e.key === 'Tab') { trapTab(e, this.el); return; }
     if (e.key === 'Escape') {
       e.preventDefault(); e.stopPropagation();
       if (this.el.classList.contains('cal-open')) this.toggleCal(false); else this.close();

@@ -80,6 +80,21 @@ const en: Dict = {
   readerLicense: 'Text from the Wikipedia article “{title}”, shared under', readerPage: 'Pocket Planet page', readerOffline: 'Couldn’t reach Wikipedia. Here’s what we know:',
   readerMissing: 'Wikipedia has no article for this one yet. Here’s what we know:', readerRetry: 'Try again', readerNearby: 'Nearby on Pocket Planet',
   graticule: 'Latitude & longitude lines',
+  dockLabel: "Places to visit",
+  linkExpired: "That sign-in link has expired — ask for a new one",
+  linkUnknown: "That link doesn’t lead anywhere we know — here’s the Earth instead",
+  loadFail: "{s} didn’t load. Check the connection and try again.",
+  retry: "Try again",
+  reloadPage: "Reload page",
+  radioAskT: "Before you tune in",
+  radioAsk1: "Live radio plays real stations from around the world, run by other people. Pocket Planet can’t check what they broadcast: news, adverts or grown-up talk may come on.",
+  radioAsk2: "Listening connects your device straight to the station’s server. Shuffle only picks music stations, and the flag button hides a station you don’t like.",
+  radioAskYes: "Listen",
+  radioAskNo: "Not now",
+  radioHide: "Not for me: hide this station",
+  radioHidden: "Hidden on this device. Here’s another station.",
+  radioApprox: "location approximate",
+  radioAsOf: "list from {d}",
 };
 
 const zh: Dict = {
@@ -159,6 +174,21 @@ const zh: Dict = {
   readerLicense: '正文来自维基百科条目“{title}”，遵循', readerPage: '口袋星球页面', readerOffline: '暂时连不上维基百科。以下是我们知道的：',
   readerMissing: '维基百科还没有这个条目。以下是我们知道的：', readerRetry: '重试', readerNearby: '附近的地点',
   graticule: '经纬线',
+  dockLabel: "可前往的天体",
+  linkExpired: "这个登录链接已过期，请重新获取",
+  linkUnknown: "这个链接指向的内容找不到了，先看看地球吧",
+  loadFail: "{s}没有加载成功，请检查网络后重试。",
+  retry: "重试",
+  reloadPage: "重新载入页面",
+  radioAskT: "收听之前",
+  radioAsk1: "直播电台播放的是世界各地由他人运营的真实电台。口袋星球无法检查它们播出的内容，可能会出现新闻、广告或适合大人的谈话。",
+  radioAsk2: "收听时你的设备会直接连接电台的服务器。随机播放只会选择音乐电台；遇到不喜欢的电台，可以用旗子按钮把它隐藏。",
+  radioAskYes: "开始收听",
+  radioAskNo: "暂不收听",
+  radioHide: "不想听：隐藏这个电台",
+  radioHidden: "已在这台设备上隐藏，换一个电台。",
+  radioApprox: "位置为估计",
+  radioAsOf: "目录更新于 {d}",
 };
 
 const DICTS: Record<Lang, Dict> = { en, zh };

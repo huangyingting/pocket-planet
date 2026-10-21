@@ -10,7 +10,7 @@ import { music } from '../lib/music.ts';
 import { t, countryName, fmtNum, onLang, lang } from '../lib/i18n.ts';
 import { url } from '../lib/env.ts';
 import { load, save } from '../lib/storage.ts';
-import { h, toast } from './dom.ts';
+import { h, toast, openModal, closeModal } from './dom.ts';
 import { icon } from './icons.ts';
 import { sfx } from '../lib/sfx.ts';
 import * as THREE from 'three';
@@ -37,6 +37,13 @@ const GENRE_ZH: [RegExp, string][] = [
   [/cultur|education|documentar|science|history/, '文化'], [/entertain|entreten|variety|eclectic|general/, '综合'],
   [/world|international|multicultural/, '世界音乐'], [/public|community|local|regional|national|pública/, '公共电台'],
 ];
+/** Shuffle only lands on stations tagged as music (no news, talk, religion or sport); the whole map is still there to explore. */
+const MUSIC = /music|classical|jazz|ambient|chill|lounge|instrumental|piano|kids|children|infantil|pop|hits|oldies|dance|folk|country|latin|world|soundtrack|easy listening|relax|smooth|acoustic|blues|soul|reggae/;
+const NOT_MUSIC = /news|talk|politic|religio|christian|islam|quran|gospel|church|bible|sport|football|soccer|adult|erotic|comedy|humor|conservative|noticia|notícia|новости/;
+export function musicOnly(tags: string[]): boolean {
+  return tags.some(tg => MUSIC.test(tg)) && !tags.some(tg => NOT_MUSIC.test(tg));
+}
+
 function genres(tags: string[]): string[] {
   if (lang() !== 'zh') return tags;
   const out: string[] = [];
@@ -50,6 +57,8 @@ type Row = [string, string, number, number, string, number, string, number, numb
 const FAV_KEY = 'pp.radio.fav';
 const VOL_KEY = 'pp.radio.vol';
 const LAST_KEY = 'pp.radio.last';
+const OK_KEY = 'pp.radio.ok';
+const HIDE_KEY = 'pp.radio.hidden';
 const D2R = Math.PI / 180;
 
 
@@ -76,9 +85,13 @@ export class Radio {
   private wasPlaying = false;
   private raf = 0;
   private countries: number;
+  private hidden: Set<string>;
+  private pool: number[];
 
-  constructor(private globe: Globe, private st: Station[], private onActive: (on: boolean) => void) {
+  constructor(private globe: Globe, private st: Station[], private onActive: (on: boolean) => void, private snapshot = '') {
     this.favs = new Set(load<string[]>(FAV_KEY, []));
+    this.hidden = new Set(load<string[]>(HIDE_KEY, []));
+    this.pool = st.flatMap((s, i) => musicOnly(s.tags) ? [i] : []);
     this.countries = new Set(st.map(s => s.cc)).size;
     this.dots = new StationDots(Float32Array.from(st, s => s.lat), Float32Array.from(st, s => s.lon));
     this.dots.setFavourites(i => this.favs.has(st[i].url));
@@ -96,6 +109,7 @@ export class Radio {
         this.favBtn, this.playBtn,
         btn('radio-next', 'skip', 'radioNext', () => this.step(), 'radio-next'),
         btn('radio-rand', 'shuffle', 'radioRandom', () => this.random()),
+        btn('radio-hide', 'flag', 'radioHide', () => this.hideCurrent(), 'radio-hide'),
         vol,
         btn('radio-x', 'close', 'radioClose', () => this.toggle(false))));
     this.engine.onStatus = s => this.status(s);
@@ -141,8 +155,24 @@ export class Radio {
     }
   }
 
+  /** Live radio is other people's content: ask once before the first stream (declining makes no request). */
+  private consent(): Promise<boolean> {
+    if (load<boolean>(OK_KEY, false)) return Promise.resolve(true);
+    return new Promise(res => {
+      let done = false;
+      const answer = (ok: boolean) => { if (done) return; done = true; if (ok) save(OK_KEY, true); closeModal('radio-consent'); res(ok); };
+      openModal('radio-consent', t('radioAskT'), h('div', { class: 'radio-ask' },
+        h('p', {}, t('radioAsk1')), h('p', { class: 'muted' }, t('radioAsk2')),
+        h('div', { class: 'row' },
+          h('button', { class: 'cta', 'data-testid': 'radio-ok', onclick: () => answer(true) }, t('radioAskYes')),
+          h('button', { class: 'pill', 'data-testid': 'radio-no', onclick: () => answer(false) }, t('radioAskNo')))),
+      { onClose: () => answer(false) });
+    });
+  }
+
   private async tune(i: number, auto = 0): Promise<void> {
     if (i < 0 || i >= this.st.length) return;
+    if (!(await this.consent())) { this.render(); return; }
     this.cur = i;
     this.history = [i, ...this.history.filter(x => x !== i)].slice(0, 16);
     save(LAST_KEY, this.st[i].url);
@@ -175,10 +205,24 @@ export class Radio {
 
   private random(): void {
     sfx.tap();
+    const pool = this.pool.filter(k => !this.hidden.has(this.st[k].url));
+    const from = pool.length ? pool : this.st.map((_, k) => k);
     let i = 0;
-    for (let k = 0; k < 8; k++) { i = Math.floor(Math.random() * this.st.length); if (!this.history.includes(i)) break; }
+    for (let k = 0; k < 8; k++) { i = from[Math.floor(Math.random() * from.length)]; if (!this.history.includes(i)) break; }
     this.fly(i, true);
     void this.tune(i);
+  }
+
+  /** “Not for me”: stop it, hide it on this device and move on to a station nearby. Nothing is sent anywhere. */
+  private hideCurrent(): void {
+    if (this.cur < 0) return;
+    sfx.tap();
+    const u = this.st[this.cur].url;
+    this.hidden.add(u); this.favs.delete(u);
+    save(HIDE_KEY, [...this.hidden]); save(FAV_KEY, [...this.favs]);
+    this.engine.stop();
+    toast(t('radioHidden'));
+    this.step();
   }
 
   private toggleFav(): void {
@@ -204,7 +248,7 @@ export class Radio {
   private nearestTo(lat: number, lon: number, skip = new Set<number>()): number {
     let best = 0, bd = Infinity;
     for (let k = 0; k < this.st.length; k++) {
-      if (skip.has(k)) continue;
+      if (skip.has(k) || this.hidden.has(this.st[k].url)) continue;
       const d = angle(lat, lon, this.st[k].lat, this.st[k].lon);
       if (d < bd) { bd = d; best = k; }
     }
@@ -215,7 +259,7 @@ export class Radio {
     if (i < 0 || !scr) { this.tip.classList.add('hidden'); return; }
     const s = this.st[i];
     this.tip.replaceChildren(h('span', { class: 'tip-emoji' }, '📻'),
-      h('span', { class: 'tip-name' }, s.name), h('span', { class: 'tip-sub' }, [countryName(s.cc), ...genres(s.tags).slice(0, 1)].filter(Boolean).join(' · ')));
+      h('span', { class: 'tip-name' }, s.name), h('span', { class: 'tip-sub' }, [countryName(s.cc), ...genres(s.tags).slice(0, 1), s.approx ? t('radioApprox') : ''].filter(Boolean).join(' · ')));
     this.tip.style.transform = `translate(${scr.x.toFixed(1)}px, ${(scr.y - 14).toFixed(1)}px) translate(-50%, -100%)`;
     this.tip.classList.remove('hidden');
   }
@@ -236,19 +280,21 @@ export class Radio {
     this.playBtn.setAttribute('aria-label', t(busy ? 'radioPause' : 'radioPlay'));
     this.playBtn.title = t(busy ? 'radioPause' : 'radioPlay');
     this.favBtn.disabled = !st;
+    (this.el.querySelector('.radio-hide') as HTMLButtonElement).disabled = !st;
     const fav = !!st && this.favs.has(st.url);
     this.favBtn.classList.toggle('on', fav);
     this.favBtn.setAttribute('aria-pressed', String(fav));
     this.favBtn.title = t(fav ? 'radioUnfav' : 'radioFav');
     if (!st) {
       this.nameEl.textContent = t('radioHint');
-      this.subEl.textContent = t('radioCount', { n: fmtNum(this.st.length), c: fmtNum(this.countries) });
+      this.subEl.textContent = t('radioCount', { n: fmtNum(this.st.length), c: fmtNum(this.countries) }) + (this.snapshot ? ' · ' + t('radioAsOf', { d: this.snapshot }) : '');
       return;
     }
     this.nameEl.textContent = st.name;
     if (s === 'connecting') { this.subEl.textContent = t('radioTuning'); return; }
     const bits = [countryName(st.cc), ...genres(st.tags).slice(0, 2)];
     if (st.kbps) bits.push(`${st.kbps} kbps`);
+    if (st.approx) bits.push(t('radioApprox'));
     this.subEl.replaceChildren(s === 'playing' ? h('em', { class: 'radio-live' }, t('radioLive')) : '', h('b', { class: 'radio-cc' }, st.cc), bits.join(' · '));
   }
 
@@ -279,11 +325,11 @@ let inst: Promise<Radio> | null = null;
 
 /** Loads the station list once and builds the radio. */
 export function getRadio(globe: Globe, root: HTMLElement, onActive: (on: boolean) => void): Promise<Radio> {
-  return inst ??= fetch(url('data/radio/stations.json')).then(r => r.json()).then((d: { tags: string[]; s: Row[] }) => {
+  return inst ??= fetch(url('data/radio/stations.json')).then(r => r.json()).then((d: { tags: string[]; s: Row[]; at?: string }) => {
     const st: Station[] = d.s.map(([name, cc, lat, lon, u, f, codec, kbps, tg]) => ({
       name, cc, lat, lon, url: u, hls: !!(f & 1), approx: !!(f & 2), codec, kbps, tags: tg.map(i => d.tags[i]),
     }));
-    const r = new Radio(globe, st, onActive);
+    const r = new Radio(globe, st, onActive, d.at ?? '');
     r.mount(root);
     return r;
   }, e => { inst = null; throw e; });

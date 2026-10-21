@@ -5,6 +5,11 @@
  */
 export type Tier = 'high' | 'medium' | 'low';
 
+/** `?lowfx` / `?lowfx=1` force reduced effects, `?lowfx=0` forces full effects; otherwise follow the OS “reduce motion” setting. */
+export function lowFxFrom(params: URLSearchParams, prefersReduced: boolean): boolean {
+  return params.has('lowfx') ? params.get('lowfx') !== '0' : prefersReduced;
+}
+
 export interface Quality {
   tier: Tier;
   /** Pixel-ratio ceiling (also capped by the device's own ratio) and the floor adaptive resolution may drop to. */

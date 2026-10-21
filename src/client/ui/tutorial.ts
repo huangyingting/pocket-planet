@@ -1,4 +1,4 @@
-import { h, confetti } from './dom.ts';
+import { h, confetti, trapTab } from './dom.ts';
 import { t } from '../lib/i18n.ts';
 import { save } from '../lib/storage.ts';
 
@@ -20,7 +20,8 @@ export function openTutorial(): void {
     if (celebrate) confetti(50);
   };
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') { e.stopPropagation(); finish(false); }
+    if (e.key === 'Tab') trapTab(e, card);
+    else if (e.key === 'Escape') { e.stopPropagation(); finish(false); }
     else if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); go(i + 1); }
     else if (e.key === 'ArrowLeft') go(i - 1);
   };

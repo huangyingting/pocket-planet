@@ -4,7 +4,7 @@ import './intro.css';
 import type { Topology } from 'topojson-specification';
 import { Globe } from './globe/scene.ts';
 import type { SolarUI } from './solar/ui.ts';
-import { detectQuality } from './globe/quality.ts';
+import { detectQuality, lowFxFrom } from './globe/quality.ts';
 import { DEFAULT_H, MAX_H } from './globe/scene.ts';
 import { loadCountries, paintEarth, buildBorderPositions } from './globe/painter.ts';
 import { CATALOGUE, BY_KEY } from '../shared/data/catalogue.ts';
@@ -28,6 +28,7 @@ import { openTutorial } from './ui/tutorial.ts';
 import { openAccount, openGuestbook, syncNow } from './ui/account.ts';
 import { ScaleRail, type RailLevel } from './ui/scales.ts';
 import { initTooltips } from './ui/tooltip.ts';
+import { lazy, withBusy, showLoadError } from './ui/lazy.ts';
 import type { ScaleId } from '../shared/data/cosmos.ts';
 
 declare global { interface Window { __pp?: { ready: boolean; globe: Globe; shell: Shell; itemScreen: (k: string) => { x: number; y: number } | null; solar: () => SolarUI | null } } }
@@ -35,7 +36,7 @@ declare global { interface Window { __pp?: { ready: boolean; globe: Globe; shell
 const params = new URLSearchParams(location.search);
 /** `#solar/jupiter`, `#milkyway/dp_sgr_a`, `#universe` … */
 const SCALE_ROUTES: Record<string, ScaleId> = { solar: 'solar', milkyway: 'galaxy', localgroup: 'group', laniakea: 'laniakea', universe: 'universe' };
-const lowfx = params.has('lowfx') || matchMedia('(prefers-reduced-motion: reduce)').matches && params.get('lowfx') !== '0';
+const lowfx = lowFxFrom(params, matchMedia('(prefers-reduced-motion: reduce)').matches);
 const quality = detectQuality(params, lowfx);
 const app = document.getElementById('app')!;
 const loader = document.getElementById('loader');
@@ -73,6 +74,7 @@ async function boot(): Promise<void> {
   let gaming = false;
   const setGameMode = (on: boolean, names?: boolean) => {
     gaming = on;
+    if (on) navSeq++;
     globe.gameMode = on;
     if (on) { shell.showItem(null); shell.toggleMenu(false); shell.time.toggle(false); radio?.toggle(false); }
     document.body.classList.toggle('gaming', on);
@@ -83,34 +85,50 @@ async function boot(): Promise<void> {
 
   // ---- Earth radio (lazy): station dots on the globe + a player dock ----
   let radio: import('./ui/radio.ts').Radio | null = null;
+  const loadRadio = lazy(() => import('./ui/radio.ts'));
   const toggleRadio = async () => {
     if (gaming || inSolar) return;
-    const m = await import('./ui/radio.ts');
     try {
-      radio = await m.getRadio(globe, app, on => document.getElementById('btn-radio')?.classList.toggle('active', on));
+      const m = await withBusy(loadRadio());
+      radio = await m.getRadio(globe, app, on => { const b = document.getElementById('btn-radio'); b?.classList.toggle('active', on); b?.setAttribute('aria-pressed', String(on)); });
     } catch { toast(t('radioLoadFail')); return; }
+    if (gaming || inSolar || inSky) return;
     if (!radio.active) shell.time.toggle(false);
     radio.toggle();
   };
 
   // ---- Solar System (lazy: its own renderer, loaded on first use) ----
   let solar: SolarUI | null = null;
-  let solarLoad: Promise<SolarUI> | null = null;
   let inSolar = false;
+  /** Bumped by every navigation, so a load that finishes after the user went elsewhere is dropped. */
+  let navSeq = 0;
   let scaleNow: ScaleId = 'solar';
   // Background music follows the level the user is looking at.
   const tune = () => music.setLevel(inSky ? 'sky' : inSolar ? scaleNow : 'earth');
-  const loadSolar = () => solarLoad ??= import('./solar/ui.ts').then(m => (solar = new m.SolarUI(app, { quality, earthCanvas: () => earthCv, exit: leaveSolar, onScale: s => { rail.set(s); scaleNow = s; tune(); }, openSky: () => void openSky(), topSlot: shell.topSlot })));
+  const loadSolarMod = lazy(() => import('./solar/ui.ts'));
+  const loadSolar = async () => solar ??= new (await loadSolarMod()).SolarUI(app, { quality, earthCanvas: () => earthCv, exit: leaveSolar, onScale: s => { rail.set(s); scaleNow = s; tune(); }, openSky: () => void openSky(), topSlot: shell.topSlot });
+  const routeOf = (o: { focus?: string; scale?: ScaleId }) => {
+    const head = Object.keys(SCALE_ROUTES).find(k => SCALE_ROUTES[k] === (o.scale ?? 'solar'))!;
+    return head + (o.focus && o.focus !== 'overview' ? '/' + o.focus : '');
+  };
   const fade = (fn: () => void) => {
     document.body.classList.add('fading');
     setTimeout(() => { fn(); requestAnimationFrame(() => document.body.classList.remove('fading')); }, lowfx ? 0 : 230);
   };
   const enterSolar = async (opts: { focus?: string; scale?: ScaleId } = {}) => {
     if (inSolar || gaming) return;
+    const seq = ++navSeq;
+    let ui: SolarUI;
+    try { ui = await withBusy(loadSolar()); } catch (e) {
+      console.error(e);
+      if (seq === navSeq) showLoadError(t('solarSystem'), () => void enterSolar(opts), routeOf(opts));
+      return;
+    }
+    // the user went elsewhere (back to Earth, a game, another load) while this was loading
+    if (seq !== navSeq || inSolar || gaming) return;
     inSolar = true;
     radio?.suspend(true);
     shell.showItem(null); shell.toggleMenu(false); shell.time.toggle(false);
-    const ui = await loadSolar();
     fade(() => {
       globe.paused = true;
       document.body.classList.add('solar');
@@ -121,6 +139,7 @@ async function boot(): Promise<void> {
   };
   const leaveSolar = (lat: number, lon: number, then?: () => void) => {
     if (!inSolar) return;
+    navSeq++;
     inSolar = false;
     tune();
     if (!inSky) radio?.suspend(false);
@@ -138,18 +157,25 @@ async function boot(): Promise<void> {
   };
 
   // ---- Sky theatre (lazy): eclipses, meteor showers, planets, played out over the globe or the Solar System ----
-  let skyLoad: Promise<typeof import('./sky/index.ts')> | null = null;
+  const loadSky = lazy(() => import('./sky/index.ts'));
   let inSky = false;
   const openSky = async (id?: string) => {
     if (gaming) return;
-    const m = await (skyLoad ??= import('./sky/index.ts'));
+    const seq = ++navSeq;
+    let m: typeof import('./sky/index.ts');
+    try { m = await withBusy(loadSky()); } catch (e) {
+      console.error(e);
+      if (seq === navSeq) showLoadError(t('skyEvents'), () => void openSky(id), 'sky' + (id ? '/' + id : ''));
+      return;
+    }
+    if (seq !== navSeq || gaming) return;
     if (!inSky) { shell.toggleMenu(false); shell.time.toggle(false); }
     inSky = true;
     tune();
     radio?.suspend(true);
     globe.paused = true;
     solar?.view.suspend(true);
-    m.openSky(document.body, {
+    sky = m.openSky(document.body, {
       id, lowfx, dprMax: quality.dprMax, msaa: quality.msaa,
       globe: { lat: globe.lat, lon: globe.lon },
       onClose: () => {
@@ -160,7 +186,7 @@ async function boot(): Promise<void> {
       },
       onSolar: (focus, ms) => {
         if (inSolar && solar) { solar.showAt(ms, focus); return; }
-        void loadSolar().then(ui => { ui.showAt(ms); void enterSolar({ focus }); });
+        void withBusy(loadSolar()).then(ui => { ui.showAt(ms); void enterSolar({ focus }); }, () => showLoadError(t('solarSystem'), () => void enterSolar({ focus }), 'solar/' + (focus ?? '')));
       },
     });
   };
@@ -186,7 +212,7 @@ async function boot(): Promise<void> {
   shell.mount();
   // One ladder for the whole system: universe → … → Solar System → Earth.
   const rail = new ScaleRail((l: RailLevel) => {
-    if (l === 'earth') { if (inSolar) leaveSolar(20, 10); return; }
+    if (l === 'earth') { navSeq++; if (inSolar) leaveSolar(20, 10); return; }
     if (!inSolar) void enterSolar({ scale: l });
     else solar?.goScale(l);
   });
@@ -213,9 +239,16 @@ async function boot(): Promise<void> {
   setSyncer(async () => { await syncNow(true); });
 
   // ---- routing ----
+  let sky: import('./sky/theatre.ts').Theatre | null = null;
   const route = () => {
-    const hsh = decodeURIComponent(location.hash.slice(1));
-    if (!hsh) return;
+    let hsh: string;
+    try { hsh = decodeURIComponent(location.hash.slice(1)).trim(); } catch { hsh = '\u0000'; }
+    if (!hsh) {
+      // back/forward to the bare page: show the Earth
+      if (inSky) sky?.close();
+      if (inSolar) leaveSolar(globe.lat, globe.lon);
+      return;
+    }
     const [head, rest = ''] = hsh.split('/');
     if (head === 'sky') { void openSky(rest || undefined); return; }
     const scale = SCALE_ROUTES[head];
@@ -229,8 +262,12 @@ async function boot(): Promise<void> {
     else if (hsh === 'collection') showCollection();
     else if (HAS_API && hsh === 'guestbook') void openGuestbook();
     else if (HAS_API && (hsh === 'account' || hsh === 'signed-in')) { if (hsh === 'signed-in') toast('👋 ' + t('synced')); openAccount(); }
-    else if (hsh === 'auth-error') toast('⚠️ Link expired');
-    else { const it = BY_KEY.get(hsh); if (it) shell.showItem(it); }
+    else if (hsh === 'auth-error') toast('⚠️ ' + t('linkExpired'));
+    else {
+      const it = BY_KEY.get(hsh);
+      if (it) { if (inSolar) leaveSolar(it.lat, it.lon, () => shell.showItem(it)); else shell.showItem(it); }
+      else { toast('🧭 ' + t('linkUnknown')); history.replaceState(null, '', location.pathname + location.search); }
+    }
   };
   window.addEventListener('hashchange', route);
 

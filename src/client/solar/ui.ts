@@ -3,7 +3,7 @@
  * controls, and one card for bodies, surface features, explorer sites, deep-space objects and whole scales (same card
  * and Wikipedia reader as on the globe). Lazily loaded together with the view on first entry.
  */
-import { h } from '../ui/dom.ts';
+import { h, toast } from '../ui/dom.ts';
 import { icon } from '../ui/icons.ts';
 import { t, lang, onLang, fmtNum } from '../lib/i18n.ts';
 import { sfx } from '../lib/sfx.ts';
@@ -80,7 +80,7 @@ export class SolarUI {
   private crumbs = h('nav', { class: 'solar-crumbs', 'data-testid': 'solar-crumbs', 'aria-label': t('crumbs') });
   private infoMain = h('div', { class: 'info-main', 'aria-live': 'polite' });
   private info = h('aside', { class: 'info solar-info hidden', 'data-testid': 'solar-info' }, this.infoMain);
-  private dock = h('div', { class: 'solar-dock', role: 'toolbar' });
+  private dock = h('div', { class: 'solar-dock', role: 'toolbar', 'aria-label': t('dockLabel') });
   private dateEl = h('span', { class: 'solar-date', 'data-testid': 'solar-date' });
   private speedEl = h('span', { class: 'solar-speed', 'data-testid': 'solar-speed' });
   private playBtn = h('button', { class: 'icon-btn', 'data-testid': 'solar-play' });
@@ -131,7 +131,9 @@ export class SolarUI {
     new ResizeObserver(() => {
       document.body.style.setProperty('--space-dock', bottom.offsetHeight + 'px');
       invalidateUI();
+      this.dockEdges();
     }).observe(bottom);
+    this.dock.addEventListener('scroll', () => this.dockEdges(), { passive: true });
     window.setInterval(() => { if (this.view.isActive && !document.hidden) this.renderReadout(); }, 250);
     this.playBtn.onclick = () => this.setSpeed(this.speedIdx === 0 ? 2 : 0);
     this.cstBtn.onclick = () => { sfx.tap(); this.setCst(!this.view.cst.visible); };
@@ -268,17 +270,30 @@ export class SolarUI {
     const sc = this.view.scale;
     if (sc !== 'solar') {
       const objs = this.view.deep.objectsOf(sc).filter(o => (o.rank ?? 1) >= 2).sort((a, b) => (b.rank ?? 1) - (a.rank ?? 1)).slice(0, 12);
-      this.dock.replaceChildren(...objs.map(o => h('button', { class: 'solar-chip' + (this.sel?.kind === 'deep' && this.sel.o === o ? ' on' : ''), 'data-testid': 'dc-' + o.key, title: tr(o.name, l),
+      this.dock.replaceChildren(...objs.map(o => h('button', { class: 'solar-chip' + (this.sel?.kind === 'deep' && this.sel.o === o ? ' on' : ''), 'data-testid': 'dc-' + o.key, title: tr(o.name, l), 'aria-label': tr(o.name, l),
+        'aria-pressed': String(this.sel?.kind === 'deep' && this.sel.o === o),
         onclick: () => { sfx.tap(); this.view.selectDeep(o.key); } },
         h('span', { class: 'chip-emoji', 'aria-hidden': 'true' }, o.emoji))));
       return;
     }
     this.dock.replaceChildren(...DOCK.map(id => {
       const b = BODY[id];
-      return h('button', { class: 'solar-chip' + (this.view.focusId === id ? ' on' : ''), 'data-testid': 'sp-' + id, title: tr(b.name, l),
+      return h('button', { class: 'solar-chip' + (this.view.focusId === id ? ' on' : ''), 'data-testid': 'sp-' + id, title: tr(b.name, l), 'aria-label': tr(b.name, l),
+        'aria-pressed': String(this.view.focusId === id),
         onclick: () => { sfx.tap(); this.view.select(id); } },
         h('i', { class: 'dot', style: `--c:${dotColor(b)};--s:${DOT_PX[id] ?? 10}px` + (b.rings ? ';--ring:1' : '') }));
     }));
+  }
+
+  /** Fading edges show that the (phone) dock scrolls; the selected chip is kept in view. */
+  private dockEdges(reveal = false): void {
+    const d = this.dock, over = d.scrollWidth - d.clientWidth > 1;
+    d.classList.toggle('more-l', over && d.scrollLeft > 2);
+    d.classList.toggle('more-r', over && d.scrollLeft < d.scrollWidth - d.clientWidth - 2);
+    if (reveal && over) {
+      const on = d.querySelector<HTMLElement>('.on');
+      if (on) d.scrollTo({ left: on.offsetLeft - (d.clientWidth - on.offsetWidth) / 2, behavior: 'smooth' });
+    }
   }
 
   private renderCrumbs(): void {
@@ -293,7 +308,11 @@ export class SolarUI {
       if (this.sel?.kind === 'deep') parts.push(sep(), h('span', { class: 'crumb' }, tr(this.sel.o.name, l)));
       parts.at(-1)?.classList.add('cur');
       this.setCrumbs(parts);
-      for (const c of this.dock.children) c.classList.toggle('on', this.sel?.kind === 'deep' && (c as HTMLElement).dataset.testid === 'dc-' + this.sel.o.key);
+      for (const c of this.dock.children) {
+        const on = this.sel?.kind === 'deep' && (c as HTMLElement).dataset.testid === 'dc-' + this.sel.o.key;
+        c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on));
+      }
+      this.dockEdges(true);
       return;
     }
     parts.push(h('button', { class: 'crumb', 'data-testid': 'crumb-system', onclick: () => this.overview() }, t('solarSystem')));
@@ -305,7 +324,11 @@ export class SolarUI {
     if (this.sel?.kind === 'cst') parts.push(sep(), h('span', { class: 'crumb cur' }, tr(this.sel.c.name, l)));
     parts.at(-1)?.classList.add('cur');
     this.setCrumbs(parts);
-    for (const c of this.dock.children) c.classList.toggle('on', (c as HTMLElement).dataset.testid === 'sp-' + fid);
+    for (const c of this.dock.children) {
+      const on = (c as HTMLElement).dataset.testid === 'sp-' + fid;
+      c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on));
+    }
+    this.dockEdges(true);
   }
 
   /** On a narrow bar the trail scrolls; keep its current (last) step in sight. */
@@ -319,6 +342,7 @@ export class SolarUI {
     for (const el of this.el.querySelectorAll<HTMLElement>('[data-i18n]')) el.textContent = t(el.dataset.i18n!);
     for (const el of this.el.querySelectorAll<HTMLElement>('[data-i18n-tip]')) el.title = t(el.dataset.i18nTip!);
     this.crumbs.setAttribute('aria-label', t('crumbs'));
+    this.dock.setAttribute('aria-label', t('dockLabel'));
     this.el.querySelector('.solar-time')?.setAttribute('aria-label', t('timeSpeed'));
     this.view.root.querySelector('canvas')?.setAttribute('aria-label', t('solarLabel'));
     this.renderDock();
@@ -574,7 +598,8 @@ export class SolarUI {
     if (btn?.firstChild) btn.firstChild.textContent = open ? t('readerClose') : t('readMore');
     if (!open) return;
     if (!this.reader) {
-      const { Reader } = await import('../ui/reader.ts');
+      let Reader: typeof import('../ui/reader.ts').Reader;
+      try { ({ Reader } = await import('../ui/reader.ts')); } catch { toast(t('loadFail', { s: t('readMore') })); void this.toggleReader(false); return; }
       this.reader ??= new Reader({ close: () => void this.toggleReader(false), pick: () => {} });
     }
     if (!this.readerOpen || !this.sel) return;

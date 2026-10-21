@@ -14,6 +14,7 @@ export interface AppOptions {
   baseUrl: string;
   secureCookies: boolean;
   staticDir?: string;
+  /** Delivers the magic link; must reject on failure. Without it (and without devLogin) email sign-in is off. */
   sendMail?: (to: string, link: string) => Promise<void>;
 }
 
@@ -104,13 +105,20 @@ export function createApp(o: AppOptions): express.Express {
   app.get('/api/health', (_req, res) => { res.json({ ok: true }); });
 
   app.post('/api/auth/request', async (req, res) => {
+    if (!o.sendMail && !o.devLogin) return res.status(503).json({ error: 'Email sign-in is not available right now' });
     const email = String(req.body?.email ?? '').trim().toLowerCase();
     if (!EMAIL_RE.test(email) || email.length > 254) return res.status(400).json({ error: 'Please enter a valid email' });
     if (!authLimit(req.ip + ':' + email) || !authLimit(String(req.ip))) return res.status(429).json({ error: 'Too many requests, try again later' });
     const token = randomBytes(24).toString('base64url');
     db.prepare('INSERT INTO login_tokens (hash, email, expires) VALUES (?, ?, ?)').run(sha(token), email, Date.now() + TOKEN_TTL);
     const link = `${o.baseUrl}/api/auth/verify?token=${token}`;
-    if (o.sendMail) await o.sendMail(email, link).catch(() => {});
+    if (o.sendMail) {
+      try { await o.sendMail(email, link); } catch (e) {
+        console.error('[mail] send failed:', (e as Error).message);
+        db.prepare('DELETE FROM login_tokens WHERE hash = ?').run(sha(token));
+        if (!o.devLogin) return res.status(502).json({ error: 'We could not send the email. Please try again later.' });
+      }
+    }
     res.json(o.devLogin ? { ok: true, devLink: link } : { ok: true });
   });
 

@@ -72,7 +72,15 @@ describe('greetings', () => {
 });
 
 describe('render quality tiers', async () => {
-  const { pickTier, AdaptiveResolution } = await import('../../src/client/globe/quality.ts');
+  const { pickTier, AdaptiveResolution, lowFxFrom } = await import('../../src/client/globe/quality.ts');
+  it('lowfx=0 overrides the reduced-motion preference, lowfx forces it on', () => {
+    const p = (s: string) => new URLSearchParams(s);
+    expect(lowFxFrom(p('lowfx=0'), true)).toBe(false);
+    expect(lowFxFrom(p('lowfx'), false)).toBe(true);
+    expect(lowFxFrom(p('lowfx=1'), false)).toBe(true);
+    expect(lowFxFrom(p(''), true)).toBe(true);
+    expect(lowFxFrom(p(''), false)).toBe(false);
+  });
   it('treats phones and small-memory devices as medium, very weak ones as low, and honours ?q / ?lowfx', () => {
     expect(pickTier({ coarse: false, screenMin: 1080, memoryGB: 8, cores: 8 })).toBe('high');
     expect(pickTier({ coarse: true, screenMin: 390, memoryGB: 8, cores: 8 })).toBe('medium');

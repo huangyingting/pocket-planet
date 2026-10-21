@@ -7,10 +7,12 @@
 | Product | [Spec](product/spec.md) | Behaviour and constants per feature, API contract, static pages |
 | Product | [Acceptance criteria](product/acceptance-criteria.md) | Given/When/Then, each mapped to an automated test |
 | Product | [Feature parity](product/feature-parity.md) | Reference vs Pocket Planet, capability by capability |
-| Architecture | [ADRs](architecture/adr.md) | Architecture decision records (ADR-001 to ADR-013) |
+| Architecture | [ADRs](architecture/adr.md) | Architecture decision records (ADR-001 to ADR-032) |
 | Architecture | [Architecture & data model](architecture/architecture-and-data-model.md) | Modules, storage keys, SQLite schema, data flows, security |
 | Planning | [Implementation plan](planning/implementation-plan.md) | Milestones M0–M12 with exit criteria |
 | Planning | [Backlog](planning/backlog.md) | Done tasks T-01…T-24 and open items B-01…B-17 with priority and size |
+
+**Current priorities:** [现状评估与分级改进路线图（2026-10）](planning/improvement-roadmap-2026-10.md) — verified issues, P0–P3 improvements, feature proposals, dependencies and acceptance gates. The original PRD and backlog describe the MVP; they are historical planning, not a current feature inventory.
 
 Suggested reading order: exploration report, PRD, ADRs, architecture, spec, then acceptance criteria.
 

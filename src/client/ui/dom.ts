@@ -17,7 +17,7 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = 
 
 export function $(sel: string, root: ParentNode = document): HTMLElement { return root.querySelector(sel) as HTMLElement; }
 
-// ---- modal stack: Esc closes the top-most, focus is trapped loosely and restored ----
+// ---- modal stack: Esc closes the top-most, Tab/Shift+Tab stay inside it, focus is restored on close ----
 interface ModalRec { el: HTMLElement; onClose?: () => void; prevFocus: Element | null }
 const stack: ModalRec[] = [];
 
@@ -27,10 +27,28 @@ export function openModal(id: string, title: string, body: Node, opts: { onClose
   const panel = h('div', { class: 'modal-panel' + (opts.wide ? ' wide' : '') + (opts.className ? ' ' + opts.className : ''), role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': id + '-title' },
     h('header', { class: 'modal-head' }, h('h2', { id: id + '-title' }, title), closeBtn), h('div', { class: 'modal-body' }, body));
   const wrap = h('div', { class: 'modal', id, onclick: (e: Event) => { if (e.target === wrap) closeModal(id); } }, panel);
+  wrap.addEventListener('keydown', e => trapTab(e, panel));
   document.body.append(wrap);
   stack.push({ el: wrap, onClose: opts.onClose, prevFocus: document.activeElement });
   requestAnimationFrame(() => (panel.querySelector('button:not(.modal-x), input, select, [tabindex]') as HTMLElement | null)?.focus());
   return wrap;
+}
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), audio[controls], video[controls]';
+
+export function focusables(root: ParentNode): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(el => !el.closest('[hidden], [inert]') && el.getClientRects().length > 0);
+}
+
+/** Keep keyboard focus cycling inside `root`. */
+export function trapTab(e: KeyboardEvent, root: HTMLElement): void {
+  if (e.key !== 'Tab') return;
+  const els = focusables(root);
+  if (!els.length) { e.preventDefault(); return; }
+  const first = els[0], last = els.at(-1)!, a = document.activeElement;
+  const inside = a instanceof Node && root.contains(a);
+  if (e.shiftKey && (a === first || !inside)) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && (a === last || !inside)) { e.preventDefault(); first.focus(); }
 }
 
 export function closeModal(id?: string): boolean {

@@ -1,0 +1,120 @@
+import { test, expect, type Page } from '@playwright/test';
+import { openApp } from './helpers.ts';
+
+/** Buttons and links a screen reader would announce without a name (decorative `aria-hidden` content does not count). */
+async function nameless(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const spoken = (el: Element): string => {
+      let out = '';
+      for (const n of el.childNodes) {
+        if (n.nodeType === Node.TEXT_NODE) out += n.textContent ?? '';
+        else if (n instanceof Element && n.getAttribute('aria-hidden') !== 'true' && !(n instanceof SVGElement)) out += n.getAttribute('aria-label') ?? n.getAttribute('alt') ?? spoken(n);
+      }
+      return out.trim();
+    };
+    const visible = (el: Element) => (el as HTMLElement).offsetParent !== null || getComputedStyle(el).position === 'fixed';
+    return [...document.querySelectorAll('button, a[href], [role="button"]')]
+      .filter(el => visible(el) && !el.closest('[aria-hidden="true"], [hidden], .hidden'))
+      .filter(el => !(el.getAttribute('aria-label') || el.getAttribute('aria-labelledby') || spoken(el)))
+      .map(el => el.outerHTML.slice(0, 120));
+  });
+}
+
+test('every visible control has an accessible name (Earth, Solar System, Milky Way, sky)', async ({ page }) => {
+  await openApp(page);
+  expect(await nameless(page)).toEqual([]);
+  await page.goto('/?lowfx=1&notut#solar');
+  await expect(page.locator('body.solar')).toHaveCount(1, { timeout: 90_000 });
+  expect(await nameless(page)).toEqual([]);
+  await page.evaluate(() => { location.hash = '#milkyway'; });
+  await expect(page.locator('[data-testid^="dc-"]').first()).toBeVisible({ timeout: 30_000 });
+  expect(await nameless(page)).toEqual([]);
+  const chip = page.locator('[data-testid^="dc-"]').first();
+  await expect(chip).toHaveAttribute('aria-label', /.+/);
+  await expect(chip).toHaveAttribute('aria-pressed', /true|false/);
+  await page.goto('/?lowfx=1&notut#sky');
+  await expect(page.getByTestId('sky')).toBeVisible({ timeout: 60_000 });
+  expect(await nameless(page)).toEqual([]);
+});
+
+test('keyboard: Tab stays inside a dialog and focus shows the tooltip', async ({ page }) => {
+  await openApp(page);
+  await page.keyboard.press('Control+k');
+  const dlg = page.locator('.modal-panel[role="dialog"]');
+  await expect(dlg).toBeVisible();
+  for (let i = 0; i < 25; i++) {
+    await page.keyboard.press('Tab');
+    expect(await page.evaluate(() => !!document.activeElement?.closest('.modal-panel'))).toBe(true);
+  }
+  await page.keyboard.press('Shift+Tab');
+  expect(await page.evaluate(() => !!document.activeElement?.closest('.modal-panel'))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(dlg).toHaveCount(0);
+  // tab onto a titled toolbar button: the HUD tooltip appears for keyboard users too
+  await page.locator('#btn-time').focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(page.locator('.pp-tip')).toBeVisible({ timeout: 10_000 });
+});
+
+test('a failed Solar System load can be retried', async ({ page }) => {
+  let blocked = 0;
+  await page.route(/\/assets\/ui-[^/]+\.js$/, route => { if (blocked++ === 0) return route.abort(); return route.continue(); });
+  await openApp(page);
+  await page.locator('#btn-solar, [data-testid="rail-solar"]').first().click();
+  await expect(page.getByTestId('load-error')).toBeVisible({ timeout: 30_000 });
+  expect(await page.evaluate(() => document.body.classList.contains('solar'))).toBe(false);
+  // the Earth is still usable
+  await expect(page.locator('#btn-zoom-in')).toBeEnabled();
+  await page.getByTestId('load-retry').click();
+  // a browser may cache the failed module: then the second failure offers a reload that keeps the place
+  const ok = await page.locator('body.solar').waitFor({ state: 'attached', timeout: 30_000 }).then(() => true, () => false);
+  if (!ok) {
+    await expect(page.getByTestId('load-reload')).toBeVisible();
+    await page.getByTestId('load-reload').click();
+    await expect(page.locator('body.solar')).toHaveCount(1, { timeout: 90_000 });
+  }
+  expect(await page.evaluate(() => document.body.classList.contains('solar'))).toBe(true);
+});
+
+test('links: lowfx=0 wins over reduced motion; an unknown hash falls back to the Earth', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await openApp(page, '/?lowfx=0&notut');
+  expect(await page.evaluate(() => document.body.classList.contains('lowfx'))).toBe(false);
+  await page.goto('/?lowfx=1&notut#no-such-thing');
+  await expect.poll(() => page.evaluate(() => !!(window as any).__pp?.ready), { timeout: 90_000 }).toBe(true);
+  await expect(page.locator('#toast')).toContainText(/🧭/);
+  expect(await page.evaluate(() => location.hash)).toBe('');
+  await page.goto('/?lowfx=1&notut#%E0%A4%A');
+  await expect.poll(() => page.evaluate(() => !!(window as any).__pp?.ready), { timeout: 90_000 }).toBe(true);
+});
+
+test('narrow phone: dock chips stay comfortably tappable and scroll @mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto('/?lowfx=1&notut#milkyway');
+  await expect(page.locator('[data-testid^="dc-"]').first()).toBeVisible({ timeout: 90_000 });
+  const m = await page.evaluate(() => {
+    const d = document.querySelector('.solar-dock') as HTMLElement;
+    const b = d.querySelector('button')!.getBoundingClientRect();
+    return { w: b.width, h: b.height, scroll: d.scrollWidth > d.clientWidth, cue: d.classList.contains('more-r') };
+  });
+  expect(m.w).toBeGreaterThanOrEqual(43.5);
+  expect(m.h).toBeGreaterThanOrEqual(43.5);
+  expect(m.scroll).toBe(true);
+  expect(m.cue).toBe(true);
+});
+
+test('radio asks before the first stream; “not now” makes no request', async ({ page }) => {
+  const streams: string[] = [];
+  await openApp(page);
+  page.on('request', r => { if (!r.url().startsWith('http://localhost')) streams.push(r.url()); });
+  await page.locator('#btn-radio').click();
+  await expect(page.getByTestId('radio-bar')).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId('radio-play').click();
+  await expect(page.locator('#radio-consent')).toBeVisible();
+  await page.getByTestId('radio-no').click();
+  await expect(page.locator('#radio-consent')).toHaveCount(0);
+  await page.waitForTimeout(500);
+  expect(streams).toEqual([]);
+  await expect(page.getByTestId('radio-bar')).not.toHaveAttribute('data-state', /connecting|playing/);
+});

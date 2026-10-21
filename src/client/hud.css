@@ -441,3 +441,20 @@ body.q-low :is(.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .brand-
 }
 .pp-tip[hidden] { display: none; }
 @keyframes pp-tip-in { from { opacity: 0; } }
+
+/* ---- scene loading / load failure (global) ---- */
+body.scene-loading { cursor: progress; }
+body.scene-loading::after {
+  content: ""; position: fixed; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px; z-index: 95; pointer-events: none;
+  border: 2px solid rgba(125, 211, 252, .25); border-top-color: var(--hud); border-radius: 50%; animation: pp-spin .8s linear infinite;
+}
+@keyframes pp-spin { to { transform: rotate(360deg); } }
+body.lowfx.scene-loading::after { animation-duration: 2.4s; }
+.load-error {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 96; width: min(360px, calc(100vw - 32px));
+  padding: 16px 18px; color: var(--text); font-family: var(--font-hud); letter-spacing: .02em;
+  border: 1px solid var(--sig-line, rgba(255, 181, 71, .45)); background: var(--pp-cuts, none), rgba(4, 11, 20, 0.96);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+}
+.load-error p { margin: 0 0 12px; line-height: 1.5; }
+.load-error .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }

@@ -102,7 +102,7 @@ function placeholderGroup(): THREE.Group {
   return g;
 }
 
-const isLowFx = () => typeof location !== 'undefined' && new URLSearchParams(location.search).has('lowfx');
+const isLowFx = () => typeof document !== 'undefined' && document.body.classList.contains('lowfx');
 
 function renderOne(p: ActivePreview): void {
   p.group.rotation.y = p.yaw;

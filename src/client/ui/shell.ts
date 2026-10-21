@@ -56,7 +56,7 @@ export class Shell {
   readonly time: TimeMachine;
 
   constructor(private root: HTMLElement, private globe: Globe, private hooks: ShellHooks) {
-    this.time = new TimeMachine(globe, it => this.showItem(it), open => $('#btn-time')?.classList.toggle('active', open));
+    this.time = new TimeMachine(globe, it => this.showItem(it), open => { $('#btn-time')?.classList.toggle('active', open); $('#btn-time')?.setAttribute('aria-pressed', String(open)); });
   }
 
   mount(): void {
@@ -367,7 +367,8 @@ export class Shell {
     if (btn?.firstChild) btn.firstChild.textContent = open ? t('readerClose') : t('readMore');
     if (!open) return;
     if (!this.reader) {
-      const { Reader } = await import('./reader.ts');
+      let Reader: typeof import('./reader.ts').Reader;
+      try { ({ Reader } = await import('./reader.ts')); } catch { toast(t('loadFail', { s: t('readMore') })); void this.toggleReader(false); return; }
       this.reader ??= new Reader({ close: () => void this.toggleReader(false), pick: it => this.showItem(it) });
     }
     if (!this.readerOpen || !this.current) return;

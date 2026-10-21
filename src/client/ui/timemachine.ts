@@ -53,7 +53,7 @@ export class TimeMachine {
       range,
       h('div', { class: 'time-ticks', 'aria-hidden': 'true' }, ...STOPS.map((s, i) => h('span', { class: i === this.idx ? 'on' : '' }, i === 0 ? h('b', { html: icon('dino', 13) }) : s === 'now' ? '•' : ''))),
       fresh.length ? h('div', { class: 'time-new' }, h('span', { class: 'muted' }, t('tmAppear')),
-        ...fresh.map(it => h('button', { class: 'chip chip-ico', title: tr(it.name, l), onclick: () => this.go(it) }, h('span', { class: 'chip-emoji', 'aria-hidden': 'true' }, it.emoji)))) : null,
+        ...fresh.map(it => h('button', { class: 'chip chip-ico', title: tr(it.name, l), 'aria-label': tr(it.name, l), onclick: () => this.go(it) }, h('span', { class: 'chip-emoji', 'aria-hidden': 'true' }, it.emoji)))) : null,
     ].filter((n): n is HTMLDivElement | HTMLInputElement => !!n));
   }
 }
