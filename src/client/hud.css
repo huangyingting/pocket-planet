@@ -530,3 +530,24 @@ body.photo-mode .sky > :not(.sky-cv) { visibility: hidden; }
 body.photo-mode :is(.solar-dock, .solar-hint, .solar-top, .solar-time, .scale-rail) { display: none !important; }
 /* the album opened from the camera in the sky theatre must sit above it */
 body:has(.sky) .modal { z-index: 96; }
+
+/* Compare bench (F03) */
+.cmp { display: grid; gap: 10px; }
+.cmp-tabs, .cmp-scale { display: flex; flex-wrap: wrap; gap: 6px; }
+.cmp-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cmp-pick { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 6px; }
+.cmp-pick .dot { width: 10px; height: 10px; border-radius: 50%; }
+.cmp-pick select { grid-column: 1 / -1; min-width: 0; width: 100%; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--hud-line); background: rgba(8, 16, 28, .9); color: #e6f3fb; font: inherit; font-size: .88rem; }
+.cmp-stage { width: 100%; height: auto; border: 1px solid var(--hud-line); border-radius: 10px; background: radial-gradient(120% 90% at 50% 100%, rgba(40, 70, 100, .35), rgba(6, 10, 18, .9)); }
+.cmp-stage[data-scale="zoom"] { border-style: dashed; border-color: #ffb347; }
+.cmp-ground { stroke: rgba(180, 220, 255, .35); stroke-width: 1; }
+.cmp-lbl { font: 600 12px var(--font-hud); paint-order: stroke; stroke: rgba(4, 8, 14, .85); stroke-width: 3px; }
+.cmp-x { font: 700 14px var(--font-mono); fill: #fff; paint-order: stroke; stroke: rgba(4, 8, 14, .9); stroke-width: 3px; }
+.cmp-badge { font: 700 11px var(--font-hud); fill: #ffb347; letter-spacing: .06em; }
+.cmp-ratio { font-size: 1.05rem; font-weight: 600; margin: 0; }
+.cmp-note { margin: 0; font-size: .88rem; color: #b8d4e6; }
+.cmp-note.warn { color: #ffcf8a; }
+.cmp-open { justify-self: start; margin: 4px 0 2px; }
+@media (max-width: 520px) { .cmp-picks { grid-template-columns: 1fr; } }
+.cmp-stage { max-height: 44vh; }
+.cmp-src { display: flex; gap: 6px; align-items: flex-start; margin: 0; }

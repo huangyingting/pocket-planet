@@ -287,3 +287,28 @@ test('offline use: opt-in saves the shell, the Earth reopens with no network, pa
   expect(await page.evaluate(async () => (await caches.keys()).filter(k => k.startsWith('pp-')).length)).toBe(0);
   expect(await page.evaluate(() => navigator.serviceWorker.getRegistrations().then(r => r.length))).toBe(0);
 });
+
+test('compare bench: one measure per group, true scale vs clearly marked enlarged view', async ({ page }) => {
+  await openApp(page);
+  await page.click('#btn-menu');
+  await page.getByTestId('menu-compare').click();
+  const cmp = page.getByTestId('compare');
+  await expect(cmp).toBeVisible();
+  await expect(page.getByTestId('cmp-ratio')).toContainText(/diameter of Earth is about 3\.7 times that of (the )?Moon/);
+  await expect(page.getByTestId('cmp-stage')).toHaveAttribute('data-scale', 'true');
+  await page.getByTestId('cmp-zoom').click();
+  await expect(page.getByTestId('cmp-stage')).toHaveAttribute('data-scale', 'zoom');
+  await expect(page.getByTestId('cmp-note')).toContainText(/Not true scale.*enlarged ×3\.7/);
+  // a child next to the Burj Khalifa is under a pixel at true scale, and the bench says so
+  await page.getByTestId('cmp-g-tall').click();
+  await page.getByTestId('cmp-true').click();
+  await page.getByTestId('cmp-pick-1').selectOption('child');
+  await expect(page.getByTestId('cmp-ratio')).toContainText(/height of Burj Khalifa is about 637 times/);
+  await expect(page.getByTestId('cmp-note')).toContainText(/less than a pixel/);
+  await page.getByTestId('modal-close').click();
+  // an item card opens the bench with that item already picked
+  await page.evaluate(() => { location.hash = 'an_panda'; });
+  await page.getByTestId('info-compare').click();
+  await expect(page.getByTestId('cmp-g-long')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('cmp-pick-0')).toHaveValue('an_panda');
+});

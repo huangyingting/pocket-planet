@@ -240,6 +240,7 @@ async function boot(): Promise<void> {
   const openTours = () => toursMod(m => m.openTours(tourHost));
 
   // ---- saved views (F02) ----
+  const cmpMod = later(() => import('./ui/compare.ts'), () => t('compare'));
   const bmMod = later(() => import('./ui/bookmarks.ts'), () => t('bookmarks'));
   const currentView = async (): Promise<Bookmark | null> => {
     if (gaming) return null;
@@ -303,6 +304,7 @@ async function boot(): Promise<void> {
     openGames: () => { if (!gaming) gamesMod(m => m.openGames(host)); },
     openTutorial: () => openTutorial(openTours),
     openTours, openBookmarks,
+    openCompare: (id?: string) => cmpMod(m => m.openCompare(id)),
     openAccount: () => account(m => m.openAccount()), openGuestbook: () => account(m => void m.openGuestbook()),
     openSolar: () => void enterSolar(),
     openSky: () => void openSky(),

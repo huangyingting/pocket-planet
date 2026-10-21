@@ -1,0 +1,64 @@
+/**
+ * The compare bench: two things of the same kind, one measurement with a reliable unit. Each group has exactly one
+ * measure (bodies: diameter, never radius; buildings and trees: height; animals and dinosaurs: body length), so the
+ * bench can never set a radius next to a diameter or a height next to a wingspan.
+ */
+import { BODIES } from '../../shared/data/solar.ts';
+import { CATALOGUE } from '../../shared/data/catalogue.ts';
+import type { CatalogueItem, I18n } from '../../shared/data/types.ts';
+
+export type GroupId = 'bodies' | 'tall' | 'long';
+export interface Thing { id: string; name: I18n; emoji: string; /** in the group's unit: km for bodies, metres otherwise */ size: number }
+export interface Group { id: GroupId; unit: 'km' | 'm'; things: Thing[]; /** default pair (ids; English names until resolved) */ pair: [string, string] }
+
+/** Heights here are of the structure or tree itself, not the ground it stands on. */
+const TALL_SUBS = new Set(['skyscraper', 'tower', 'statue', 'pyramid', 'minaret', 'stupa', 'cathedral', 'church', 'mosque', 'monument', 'religious', 'tree']);
+/** Facts that measure something else: elevation of a whole hill, a carving on a cliff, a wingspan. */
+const SKIP = new Set(['Mont-Saint-Michel', 'Mount Rushmore', 'Hanging Temple', 'Rock Churches of Lalibela', 'Itsukushima Shrine', 'Quetzalcoatlus']);
+const CHILD: Thing = { id: 'child', name: { en: 'A child', zh: '一个小朋友' }, emoji: '🧒', size: 1.3 };
+
+const fromItems = (pick: (i: CatalogueItem) => number | undefined): Thing[] =>
+  CATALOGUE.flatMap(i => {
+    const v = SKIP.has(i.name.en) ? undefined : pick(i);
+    return v ? [{ id: i.key, name: i.name, emoji: i.emoji, size: v }] : [];
+  });
+
+let groups: Group[] | null = null;
+export function compareGroups(): Group[] {
+  return groups ??= [
+    { id: 'bodies', unit: 'km', pair: ['Earth', 'Moon'],
+      things: BODIES.map(b => ({ id: b.id, name: b.name, emoji: b.emoji, size: Math.round(b.radiusKm * 2) })) },
+    { id: 'tall', unit: 'm', pair: ['Burj Khalifa', 'Eiffel Tower'],
+      things: [CHILD, ...fromItems(i => (i.type === 'landmark' || i.type === 'plant') && TALL_SUBS.has(i.sub) ? i.facts?.heightM : undefined)] },
+    { id: 'long', unit: 'm', pair: ['Blue whale', 'Tyrannosaurus rex'],
+      things: [CHILD, ...fromItems(i => (i.type === 'animal' || i.type === 'dino') ? i.facts?.lengthM : undefined)] },
+  ].map(g => {
+    g.things.sort((a, b) => b.size - a.size);
+    const byName = (en: string) => g.things.find(t => t.name.en === en)?.id;
+    g.pair = [byName(g.pair[0]) ?? g.things[0].id, byName(g.pair[1]) ?? g.things[1].id];
+    return g as Group;
+  });
+}
+
+/** The group (and thing) a catalogue key or body id belongs to, for opening the bench from a card. */
+export function groupOf(id: string): Group | undefined {
+  return id === 'child' ? undefined : compareGroups().find(g => g.things.some(t => t.id === id));
+}
+
+/** How many times bigger the larger is, rounded for reading aloud: 1 decimal under 10, whole numbers above. */
+export function ratio(a: number, b: number): { big: 0 | 1; times: number } {
+  const big = a >= b ? 0 : 1;
+  const r = big === 0 ? a / b : b / a;
+  return { big, times: r < 10 ? Math.round(r * 10) / 10 : Math.round(r) };
+}
+
+/**
+ * Drawn sizes in pixels for a frame whose largest side is `max`. True scale keeps one ruler for both (the smaller may be
+ * under a pixel and is then flagged); "enlarged" draws both at the same size and reports how much the smaller grew.
+ */
+export function drawn(a: number, b: number, max: number, scale: 'true' | 'zoom'): { px: [number, number]; tiny: [boolean, boolean]; zoom: number } {
+  const top = Math.max(a, b);
+  if (scale === 'zoom') return { px: [max, max], tiny: [false, false], zoom: top / Math.min(a, b) };
+  const px: [number, number] = [a / top * max, b / top * max];
+  return { px, tiny: [px[0] < 2, px[1] < 2], zoom: 1 };
+}

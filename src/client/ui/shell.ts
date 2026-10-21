@@ -20,6 +20,7 @@ import { HAS_API, url } from '../lib/env.ts';
 import { sessionOnly } from '../lib/storage.ts';
 import type { SpaceHit } from '../solar/space-index.ts';
 import { searchAll, type SearchFilter } from '../lib/search.ts';
+import { groupOf } from '../lib/compare.ts';
 import { offlineSupported, offlineOn, offlineInfo, enableOffline, disableOffline, savePack, mb } from '../lib/offline.ts';
 import { classroom, setClassroom, setStill, motion, onClassroom } from '../lib/classroom.ts';
 
@@ -29,7 +30,7 @@ const typeName = (ty: CatalogueItem['type']) => tr(TYPE_META[ty].one, lang());
 const AURA_ORDER: AuraPreset[] = ['waves', 'aurora', 'ember', 'dusk', 'sculpture'];
 
 export interface ShellHooks {
-  openPhoto: () => void; openCollection: () => void; openGames: () => void; openTutorial: () => void; openTours: () => void; openBookmarks: () => void;
+  openPhoto: () => void; openCollection: () => void; openGames: () => void; openTutorial: () => void; openTours: () => void; openBookmarks: () => void; openCompare: (id?: string) => void;
   openAccount: () => void; openGuestbook: () => void;
   openSolar: () => void;
   openSky: () => void;
@@ -313,6 +314,7 @@ export class Shell {
     this.menu.replaceChildren(
       ...earth,
       h('h3', {}, t('mSettings')), h('div', { class: 'grid2' }, sw('sfx', 'sound'), sw('bgm', 'music')),
+      row('ruler', t('compare'), h('button', { class: 'pill', 'data-testid': 'menu-compare', onclick: () => { this.toggleMenu(false); this.hooks.openCompare(); } }, t('open'))),
       row('pin', t('bookmarks'), h('button', { class: 'pill', 'data-testid': 'menu-bookmarks', onclick: () => { this.toggleMenu(false); this.hooks.openBookmarks(); } }, t('open'))),
       row('compass', t('tours'), h('button', { class: 'pill', 'data-testid': 'menu-tours', onclick: () => { this.toggleMenu(false); this.hooks.openTours(); } }, t('open'))),
       h('h3', {}, t('classroom')),
@@ -498,6 +500,7 @@ export class Shell {
         secondary ? h('p', { class: 'alt-name' }, secondary) : null,
         h('p', { class: 'desc' }, tr(it.desc, l)),
         key.length ? h('dl', { class: 'stats-row' }, ...key.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v)))) : null,
+        groupOf(it.key) ? h('button', { class: 'pill cmp-open', 'data-testid': 'info-compare', onclick: () => this.hooks.openCompare(it.key) }, h('span', { html: icon('ruler', 14) }), t('cmpThis')) : null,
         this.dexRow,
         hasMore ? h('details', { class: 'more' },
           h('summary', { html: icon('chevron', 14) }, h('span', {}, t('moreDetails'))),
