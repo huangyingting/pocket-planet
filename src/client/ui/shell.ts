@@ -7,6 +7,8 @@ import { TYPE_META, TYPE_ORDER } from '../../shared/data/typemeta.ts';
 import { CONTINENT_NAMES } from '../../shared/data/iso.ts';
 import { AURA_PRESETS, type AuraPreset, type SurfaceMode, type Globe, type Settings } from '../globe/scene.ts';
 import { createModelPreview } from '../models/preview.ts';
+import { foldable, foldButton } from './fold.ts';
+import { invalidateUI } from './occluders.ts';
 import { icon, TYPE_ICON, type IconName } from './icons.ts';
 import { sfx, callFor, speak } from '../lib/sfx.ts';
 import { music } from '../lib/music.ts';
@@ -105,7 +107,8 @@ export class Shell {
         h('button', { id: 'btn-zoom-in', 'aria-label': t('zoomIn'), html: icon('plus', 17), onclick: () => zoom(true) }),
         this.zoomEl,
         h('button', { id: 'btn-zoom-out', 'aria-label': t('zoomOut'), html: icon('minus', 17), onclick: () => zoom(false) })));
-    this.root.append(top, bottomLeft, bottomRight, this.coordEl, this.info, this.menu, this.rideBar, this.time.el, this.tipEl);
+    foldable(this.info);
+    this.root.append(top, bottomLeft, bottomRight, this.coordEl, this.info, this.menu, this.rideBar, this.time.el, this.tipEl, this.immersiveExit);
     this.renderHints();
     this.renderMenu();
     onClassroom(() => { if (!this.menu.classList.contains('hidden')) this.renderMenu(); });
@@ -117,8 +120,11 @@ export class Shell {
         this.openSearch();
         return;
       }
+      const typing = (e.target as Element | null)?.closest?.('input, textarea, select, [contenteditable]');
+      if (!typing && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'h' && !document.querySelector('.sky, .modal:not(.hidden)')) { this.setImmersive(!this.immersive); return; }
       if (e.key !== 'Escape') return;
       if (closeModal()) return;
+      if (this.immersive) { this.setImmersive(false); return; }
       if (!this.menu.classList.contains('hidden')) { this.toggleMenu(false); return; }
       if (this.globe.ride) { this.exitRide(); return; }
       if (this.readerOpen) { this.toggleReader(false); return; }
@@ -130,6 +136,18 @@ export class Shell {
       const tgt = e.target as Node;
       if (!this.menu.contains(tgt) && !$('#btn-menu').contains(tgt)) this.toggleMenu(false);
     });
+  }
+
+  /** Immersive view: every control steps aside and the scene gets the whole screen; one small button (or H / Esc) brings them back. */
+  private immersiveExit = h('button', { class: 'immersive-exit', 'data-testid': 'immersive-exit', html: icon('eye', 16), onclick: () => this.setImmersive(false) },
+    h('span', {}, t('showUi')));
+  get immersive(): boolean { return document.body.classList.contains('immersive'); }
+  setImmersive(on: boolean): void {
+    if (on) this.toggleMenu(false);
+    document.body.classList.toggle('immersive', on);
+    invalidateUI();
+    if (on) toast(t('hideUiToast'));
+    else this.immersiveExit.blur();
   }
 
   showHover(item: CatalogueItem | null, screen: { x: number; y: number } | null): void {
@@ -203,6 +221,7 @@ export class Shell {
   }
 
   private relabel(): void {
+    this.immersiveExit.querySelector('span')!.textContent = t('showUi');
     document.querySelectorAll<HTMLElement>('[data-i18n]').forEach(el => (el.textContent = t(el.dataset.i18n!)));
     document.title = t('title');
     this.renderHints();
@@ -318,6 +337,7 @@ export class Shell {
       row('telescope', t('tonight'), h('button', { class: 'pill', 'data-testid': 'menu-tonight', onclick: () => { this.toggleMenu(false); this.hooks.openTonight(); } }, t('open'))),
       row('ruler', t('compare'), h('button', { class: 'pill', 'data-testid': 'menu-compare', onclick: () => { this.toggleMenu(false); this.hooks.openCompare(); } }, t('open'))),
       row('pin', t('bookmarks'), h('button', { class: 'pill', 'data-testid': 'menu-bookmarks', onclick: () => { this.toggleMenu(false); this.hooks.openBookmarks(); } }, t('open'))),
+      row('eye', t('hideUi'), h('button', { class: 'pill', 'data-testid': 'menu-immersive', onclick: () => this.setImmersive(true) }, t('hideUiGo'))),
       row('compass', t('tours'), h('button', { class: 'pill', 'data-testid': 'menu-tours', onclick: () => { this.toggleMenu(false); this.hooks.openTours(); } }, t('open'))),
       h('h3', {}, t('classroom')),
       h('p', { class: 'menu-note' }, t('classroomNote')),
@@ -526,6 +546,7 @@ export class Shell {
         createModelPreview(it, { width: 360, height: 208, id: 'info-preview' }),
         h('span', { class: 'type-chip t-' + it.type }, typeName(it.type)),
         h('span', { class: 'info-serial', 'aria-hidden': 'true' }, `#${String(CATALOGUE.indexOf(it) + 1).padStart(4, '0')}`, h('small', {}, ` / ${CATALOGUE.length}`)),
+        foldButton(this.info),
         h('button', { class: 'icon-btn info-x', 'aria-label': t('close'), 'data-testid': 'info-close', html: icon('close', 16), onclick: () => this.showItem(null) }),
         this.heroActions(it),
         it.type !== 'animal' && !it.route ? h('button', { class: 'hero-btn info-zoom-btn', title: t('zoomClose'), html: icon('zoom', 15), onclick: () => this.globe.flyTo(it.lat, it.lon, 0.25) }, h('span', {}, t('zoomClose'))) : null,

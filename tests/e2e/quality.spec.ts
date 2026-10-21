@@ -379,3 +379,30 @@ test('vehicles theme pack: cards say how each moves, label usual speed and flag 
   await expect(page.getByTestId('provenance')).toContainText(/demonstration/);
   await expect(page.getByTestId('info-compare')).toHaveCount(0);
 });
+
+test('more room: cards fold and stay folded, the name unfolds them, H hides every control', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openApp(page);
+  await page.evaluate(() => { location.hash = '#eiffel'; });
+  await expect(page.getByTestId('info-name')).toBeVisible();
+  await page.getByTestId('card-fold').click();
+  const card = page.locator('#info');
+  await expect(card).toHaveClass(/\bmini\b/);
+  expect((await card.boundingBox())!.height).toBeLessThan(90);
+  await expect(page.locator('.br')).toBeVisible();
+  await page.evaluate(() => { location.hash = '#solar/mars'; });
+  await expect(page.locator('body.solar')).toHaveCount(1, { timeout: 60_000 });
+  const solar = page.getByTestId('solar-info');
+  await expect(solar).toHaveClass(/\bmini\b/);
+  await expect(page.locator('.solar-bottom')).toBeVisible();
+  await solar.locator('h2').click();
+  await expect(solar).not.toHaveClass(/\bmini\b/);
+  await page.keyboard.press('h');
+  await expect(page.locator('.topbar')).toBeHidden();
+  await expect(solar).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.topbar')).toBeVisible();
+  await page.keyboard.press('h');
+  await page.getByTestId('immersive-exit').click();
+  await expect(page.locator('.topbar')).toBeVisible();
+});

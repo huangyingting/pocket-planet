@@ -577,3 +577,60 @@ body:has(.sky) .modal { z-index: var(--z-alert); }
 .tour-track svg { flex: none; }
 .tour-record { color: var(--ok, #7fd99a); border-color: color-mix(in srgb, currentColor 45%, transparent); }
 .tour-sketch { color: var(--warn, #f5c46b); border-color: currentColor; border-style: dashed; }
+
+/* ---- folding cards (ui/fold.ts): a folded card is one row — name on the left, buttons on the right ---- */
+:root { --card-mini-h: 64px; }
+.info-min { position: absolute; right: 56px; top: 12px; z-index: 4; border-radius: 0; border-color: var(--hud-line); background: rgba(4, 11, 20, 0.76); backdrop-filter: blur(8px); }
+.info.expanded .info-min { display: none; }
+.info.mini:not(.expanded) { height: var(--card-mini-h); }
+.info.mini .info-hero { position: absolute; top: 0; right: 0; width: 104px; height: var(--card-mini-h); min-height: 0; background: none; border: 0; }
+.info.mini .info-hero > :not(.info-x, .info-min), .info.mini .info-hero::after, .info.mini .info-hero::before { display: none !important; }
+.info.mini :is(.info-x, .info-min) { top: 14px; }
+.info.mini .info-main { overflow: hidden; }
+.info.mini .info-body { height: var(--card-mini-h); padding: 10px 112px 0 18px; cursor: pointer; display: flex; flex-direction: column; justify-content: center; }
+.info.mini .info-body > :not(h2, .alt-name) { display: none !important; }
+.info.mini .info-body :is(h2, .alt-name) { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.info.mini .info-body h2 { font-size: 1.1rem; line-height: 1.3; }
+.info.mini .info-body .alt-name { font-size: .8rem; }
+.info.mini .reader { display: none; }
+.sheet-grip { display: none; }
+@media (max-width: 760px) {
+  /* bottom sheet: a grip to swipe it down to its name (or back up); it opens a little lower than before */
+  .sheet-grip { display: block; position: absolute; left: 50%; top: 0; width: 120px; height: 24px; margin-left: -60px; z-index: 6; touch-action: none; cursor: grab; }
+  .sheet-grip::before { content: ""; position: absolute; left: 50%; top: 8px; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: rgba(224, 242, 254, 0.6); box-shadow: 0 0 6px rgba(0, 0, 0, 0.6); }
+  .info:not(.expanded), .solar-info:not(.expanded) { max-height: 50vh; }
+  .info-hero .model-preview-canvas { aspect-ratio: 360 / 150; }
+  .solar-map { aspect-ratio: 5 / 2; }
+  .info.mini .info-body { padding-top: 12px; }
+  /* a folded sheet hands the bottom controls back, just above it */
+  body:has(.info.mini:not(.hidden)):not(.solar) :is(.br, .bl):not(.viewfinder *) { display: flex; bottom: calc(var(--card-mini-h) + 18px); }
+  body:has(.solar-info.mini:not(.hidden)) .solar-bottom { display: flex; bottom: calc(var(--card-mini-h) + 16px); }
+}
+
+/* ---- short screens (phones held sideways): slimmer top bar, card down the left edge, no hint over the dock ---- */
+@media (max-height: 500px) {
+  .topbar { padding-block: 8px; }
+  .menu { top: 58px; }
+  .brand h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .info:not(.expanded) { top: 62px; max-height: calc(100vh - 70px); }
+  .solar-ui .solar-info:not(.expanded) { max-height: calc(100vh - 70px); }
+  .info-hero .model-preview-canvas { aspect-ratio: 360 / 120; }
+  .solar-map { aspect-ratio: 3 / 1; }
+  .solar-ui .solar-hint { display: none; }
+}
+@media (max-height: 500px) and (min-width: 761px) {
+  .info:not(.expanded), .info-main { width: 320px; }
+  /* the time bar and dock move into the space right of the card instead of running under it */
+  body:has(.solar-info:not(.hidden)) .solar-bottom { left: calc(340px + (100vw - 340px - 76px) / 2); max-width: calc(100vw - 340px - 92px); }
+}
+
+/* ---- immersive view: every control steps aside (H or Esc, or the one button, brings them back) ---- */
+.immersive-exit { display: none; }
+body.immersive .immersive-exit {
+  display: inline-flex; align-items: center; gap: 6px; position: fixed; top: 12px; right: 12px; z-index: var(--z-toast); padding: 7px 12px;
+  font-family: var(--font-hud); font-size: .78rem; letter-spacing: .04em; color: var(--hud-hi); background: rgba(4, 11, 20, 0.6); border: 1px solid var(--hud-line);
+  opacity: .55; transition: opacity .2s;
+}
+body.immersive .immersive-exit:hover, body.immersive .immersive-exit:focus-visible { opacity: 1; }
+body.immersive :is(.topbar, .bl, .br, .scale-rail, .coord-readout, .info, .menu, .time-bar, .radio-bar, .solar-bottom, .solar-hint, .hud-readout, .hints) { display: none !important; }
+body.immersive #app::after { display: none; }

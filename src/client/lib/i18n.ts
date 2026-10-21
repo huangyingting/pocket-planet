@@ -252,6 +252,12 @@ const en: Dict = {
   howMoves: "How it moves:",
   routeDemo: "The route is a demonstration loop, not a real line.",
   speedUsual: "Usual speed",
+  cardFold: "Fold the card",
+  cardUnfold: "Open the card",
+  hideUi: "Hide controls",
+  hideUiGo: "Hide",
+  showUi: "Show controls",
+  hideUiToast: "Controls hidden. Press H or Esc, or the button at the top right, to bring them back.",
 };
 
 const zh: Dict = {
@@ -503,6 +509,12 @@ const zh: Dict = {
   howMoves: "它怎么动起来：",
   routeDemo: "这条路线只是演示用的环线，不是真实线路。",
   speedUsual: "常规速度",
+  cardFold: "收起卡片",
+  cardUnfold: "展开卡片",
+  hideUi: "隐藏界面",
+  hideUiGo: "隐藏",
+  showUi: "显示界面",
+  hideUiToast: "界面已隐藏。按 H 或 Esc 键，或点右上角的按钮即可恢复。",
 };
 
 const DICTS: Record<Lang, Dict> = { en, zh };

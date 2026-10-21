@@ -20,6 +20,7 @@ import { sitesOf, helioAU } from './sites.ts';
 import { deepThumb } from './deep.ts';
 import { fmtLy } from './fmt.ts';
 import { invalidateUI } from '../ui/occluders.ts';
+import { foldable, foldButton } from '../ui/fold.ts';
 import { drawConstellation, constellationText } from './constellations.ts';
 import { SOLAR_SITES } from '../../shared/data/solar-sites.ts';
 import { DEEP_OBJECTS, SCALE_INFO, SCALES, type DeepObject, type DeepKind, type DeepScale, type ScaleId } from '../../shared/data/cosmos.ts';
@@ -80,7 +81,7 @@ export class SolarUI {
   readonly el: HTMLElement;
   private crumbs = h('nav', { class: 'solar-crumbs', 'data-testid': 'solar-crumbs', 'aria-label': t('crumbs') });
   private infoMain = h('div', { class: 'info-main', 'aria-live': 'polite' });
-  private info = h('aside', { class: 'info solar-info hidden', 'data-testid': 'solar-info' }, this.infoMain);
+  private info = h('aside', { class: 'info solar-info hidden', 'data-occludes': true, 'data-testid': 'solar-info' }, this.infoMain);
   private dock = h('div', { class: 'solar-dock', role: 'toolbar', 'aria-label': t('dockLabel') });
   private dateEl = h('span', { class: 'solar-date', 'data-testid': 'solar-date' });
   private speedEl = h('span', { class: 'solar-speed', 'data-testid': 'solar-speed' });
@@ -96,6 +97,7 @@ export class SolarUI {
   private readerOpen = false;
 
   constructor(root: HTMLElement, private host: SolarHost) {
+    foldable(this.info);
     this.view = new SolarView(root, {
       onSelect: s => this.showCard(s),
       onDeepSelect: o => this.showCard(o ? { kind: 'deep', o } : null),
@@ -485,6 +487,7 @@ export class SolarUI {
       h('div', { class: 'info-hero solar-hero' },
         this.hero,
         h('span', { class: 'type-chip' }, (s.kind === 'body' ? t('bk_' + body.kind) : t('fk_' + s.f.kind))),
+        foldButton(this.info),
         h('button', { class: 'icon-btn info-x', 'aria-label': t('close'), 'data-testid': 'solar-info-close', html: icon('close', 16), onclick: () => this.showCard(null) })),
       h('div', { class: 'info-body' },
         h('p', { class: 'eyebrow', html: icon(s.kind === 'body' ? 'planet' : 'pin', 13) }, h('span', {}, eyebrow)),
@@ -575,6 +578,7 @@ export class SolarUI {
       h('div', { class: 'info-hero solar-hero' + (s.kind === 'site' ? ' is-model' : '') },
         hero,
         h('span', { class: 'type-chip' }, chip),
+        foldButton(this.info),
         h('button', { class: 'icon-btn info-x', 'aria-label': t('close'), 'data-testid': 'solar-info-close', html: icon('close', 16), onclick: () => this.showCard(null) })),
       h('div', { class: 'info-body' },
         h('p', { class: 'eyebrow', html: icon(s.kind === 'site' ? 'pin' : 'planet', 13) }, h('span', {}, eyebrow)),
