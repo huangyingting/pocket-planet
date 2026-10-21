@@ -145,6 +145,9 @@ const en: Dict = {
   bmNothing: "There is nothing to save here yet.",
   bmSaved: "Saved",
   linkView: "That link's view could not be restored, so here is the place it points to.",
+  photoNoteEarth: "Models enlarged so you can see them",
+  photoNoteSolar: "Not to scale: planet sizes and distances enlarged",
+  photoNoteDeep: "Positions from star catalogues; objects drawn larger",
 };
 
 const zh: Dict = {
@@ -289,6 +292,9 @@ const zh: Dict = {
   bmNothing: "这里暂时没有可收藏的内容。",
   bmSaved: "已收藏",
   linkView: "无法还原这个链接里的视角，已为你打开它指向的地方。",
+  photoNoteEarth: "模型已放大，方便观看",
+  photoNoteSolar: "非真实比例：行星大小和距离已放大",
+  photoNoteDeep: "位置来自星表；天体画得比实际大",
 };
 
 const DICTS: Record<Lang, Dict> = { en, zh };

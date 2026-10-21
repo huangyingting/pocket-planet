@@ -523,3 +523,10 @@ html.classroom .info-body p, html.classroom .tour-body, html.classroom .solar-in
 .bm-actions { gap: 8px; flex-wrap: wrap; margin: 4px 0 12px; }
 .bm-actions .pill { display: inline-flex; align-items: center; gap: 6px; }
 .bm-list .tour-pick strong { overflow-wrap: anywhere; }
+
+/* Photos from every scene (F06): the camera sits above the sky theatre and hides its chrome */
+body.photo-mode .viewfinder, body.photo-mode .photo-bar { z-index: 95; }
+body.photo-mode .sky > :not(.sky-cv) { visibility: hidden; }
+body.photo-mode :is(.solar-dock, .solar-hint, .solar-top, .solar-time, .scale-rail) { display: none !important; }
+/* the album opened from the camera in the sky theatre must sit above it */
+body:has(.sky) .modal { z-index: 96; }

@@ -649,6 +649,10 @@ export class SolarView {
   get isActive(): boolean { return this.active; }
 
   /** Stop / restart rendering while another full-screen stage (the sky theatre) covers the view. */
+  private shot: ((url: string) => void) | null = null;
+  /** The next rendered frame as a JPEG data URL. */
+  capture(): Promise<string> { return new Promise(res => { this.shot = res; }); }
+
   suspend(on: boolean): void {
     if (!this.active) return;
     cancelAnimationFrame(this.raf);
@@ -981,6 +985,8 @@ export class SolarView {
     this.deep.update(dt);
     this.deep.setScreen(this.sized.w, this.sized.h, this.renderer.getPixelRatio());
     for (const s of xf ? [xf.from, xf.to] : [this.scale]) if (s !== 'solar') this.deep.render(this.renderer, s, weight(s), this.camera.fov);
+    // read the canvas in the same task as the draw (no preserveDrawingBuffer needed)
+    if (this.shot) { const f = this.shot; this.shot = null; f(this.renderer.domElement.toDataURL('image/jpeg', 0.9)); }
     this.labelsEl.hidden = this.featEl.hidden = primary !== 'solar';
     if (primary === 'solar') this.updateLabels();
     this.deep.labels(primary === 'solar' ? null : primary as DeepScale);

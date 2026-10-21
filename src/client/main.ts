@@ -198,6 +198,7 @@ async function boot(): Promise<void> {
         if (!inSolar) radio?.suspend(false);
         if (inSolar) solar?.view.suspend(false); else globe.paused = false;
       },
+      onPhoto: () => openPhoto(),
       onSolar: (focus, ms) => {
         if (inSolar && solar) { solar.showAt(ms, focus); return; }
         void withBusy(loadSolar()).then(ui => { ui.showAt(ms); void enterSolar({ focus }); }, () => showLoadError(t('solarSystem'), () => void enterSolar({ focus }), 'solar/' + (focus ?? '')));
@@ -260,6 +261,27 @@ async function boot(): Promise<void> {
     const where = `${Math.abs(cam.lat).toFixed(1)}°${cam.lat >= 0 ? 'N' : 'S'} ${Math.abs(cam.lon).toFixed(1)}°${cam.lon >= 0 ? 'E' : 'W'}`;
     return { route: '', cam, label: { en: 'Earth · ' + where, zh: '地球 · ' + where }, at };
   };
+  // ---- photos from every scene (F06): each one captures its own canvas and says how faithful the view is ----
+  const photoShot = (): import('./ui/photo.ts').Shot => {
+    if (inSky && sky) { const th = sky; return { capture: () => th.capture(), caption: () => th.caption() }; }
+    if (inSolar && solar) {
+      const v = solar.view;
+      return {
+        capture: () => v.capture(),
+        caption: async () => {
+          const route = parseView(decodeURIComponent(location.hash.slice(1))).route;
+          const { spaceIndex } = await import('./solar/space-index.ts');
+          const all = spaceIndex(), hit = all.find(x => x.hash === route);
+          const head = route.split('/')[0] || 'solar';
+          const level = hit?.level ?? all.find(x => x.hash === head)?.name;
+          const isLevel = !hit || hit.key.startsWith('scale_');
+          return { title: isLevel ? '' : tr(hit!.name, lang()), level: level ? tr(level, lang()) : t('solarSystem'), note: t(head === 'solar' ? 'photoNoteSolar' : 'photoNoteDeep') };
+        },
+      };
+    }
+    return { capture: async () => globe.capture(), caption: () => ({ title: shell.current ? tr(shell.current.name, lang()) : '', level: t('lvEarth'), note: t('photoNoteEarth') }) };
+  };
+  const openPhoto = () => { if (!gaming) photoMod(m => m.openPhotoMode(photoShot())); };
   const openBookmarks = () => bmMod(m => m.openBookmarks({ current: currentView, open: navTo }));
   const startTour = (id: string) => toursMod(m => m.startTour(id, tourHost));
 
@@ -271,7 +293,7 @@ async function boot(): Promise<void> {
     openCollection(it => { closeModal(); closeModal(); shell.showItem(it); }, passport);
   });
   shell = new Shell(app, globe, {
-    openPhoto: () => photoMod(m => m.openPhotoMode(globe, () => shell.current ? tr(shell.current.name, lang()) : '')),
+    openPhoto,
     openCollection: showCollection,
     openGames: () => { if (!gaming) gamesMod(m => m.openGames(host)); },
     openTutorial: () => openTutorial(openTours),

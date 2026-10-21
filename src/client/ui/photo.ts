@@ -2,7 +2,6 @@ import { h, openModal, closeModal, toast } from './dom.ts';
 import { t } from '../lib/i18n.ts';
 import { sfx } from '../lib/sfx.ts';
 import { icon } from './icons.ts';
-import type { Globe } from '../globe/scene.ts';
 
 export interface Photo { id: number; at: number; url: string; place: string }
 const DB = 'pp-photos', STORE = 'photos';
@@ -32,19 +31,71 @@ export const photos = {
   count: () => tx<number>('readonly', s => s.count()).catch(() => 0),
 };
 
-export function openPhotoMode(globe: Globe, place: () => string): void {
+/** What any scene offers the camera: a fresh frame and what the picture shows. */
+export interface Shot {
+  capture: () => Promise<string>;
+  caption: () => Caption | Promise<Caption>;
+}
+/** Title (the object), where in the app it is, and an honest note about scale. */
+export interface Caption { title: string; level: string; note?: string }
+
+/** Draw a caption band under the frame so a saved picture explains itself (a small science postcard). */
+export async function postcard(url: string, c: Caption, when = new Date()): Promise<string> {
+  const img = new Image();
+  img.src = url;
+  await img.decode();
+  const W = img.naturalWidth, H = img.naturalHeight, u = Math.max(1, W / 1280);
+  const band = Math.round(92 * u);
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H + band;
+  const g = cv.getContext('2d');
+  if (!g) return url;
+  g.drawImage(img, 0, 0);
+  g.fillStyle = '#050b14'; g.fillRect(0, H, W, band);
+  g.fillStyle = '#f5b544'; g.fillRect(0, H, Math.round(64 * u), Math.max(2, Math.round(3 * u)));
+  const font = getComputedStyle(document.body).fontFamily || 'system-ui, sans-serif';
+  const pad = Math.round(24 * u);
+  g.textBaseline = 'alphabetic';
+  g.fillStyle = '#f2f6fb';
+  g.font = `600 ${Math.round(26 * u)}px ${font}`;
+  g.fillText(c.title || c.level, pad, H + Math.round(40 * u), W * 0.62);
+  g.fillStyle = '#8fb3cf';
+  g.font = `${Math.round(15 * u)}px ${font}`;
+  const sub = [c.title ? c.level : '', when.toLocaleDateString(document.documentElement.lang === 'zh' ? 'zh-CN' : 'en', { year: 'numeric', month: 'short', day: 'numeric' })].filter(Boolean).join(' · ');
+  g.fillText(sub, pad, H + Math.round(66 * u), W * 0.62);
+  g.textAlign = 'right';
+  if (c.note) { g.fillStyle = '#c9a25a'; g.font = `${Math.round(13 * u)}px ${font}`; g.fillText(c.note, W - pad, H + Math.round(66 * u), W * 0.34); }
+  g.fillStyle = '#5ec8ff';
+  g.font = `600 ${Math.round(14 * u)}px ${font}`;
+  g.fillText('POCKET PLANET', W - pad, H + Math.round(40 * u));
+  return cv.toDataURL('image/jpeg', 0.9);
+}
+
+/** Resolve a pending frame grab, or give up so a paused scene can't hang the shutter. */
+const within = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
+export function openPhotoMode(shot: Shot): void {
   document.body.classList.add('photo-mode');
-  const exit = () => { document.body.classList.remove('photo-mode'); bar.remove(); frame.remove(); };
+  const exit = () => { document.body.classList.remove('photo-mode'); bar.remove(); frame.remove(); document.removeEventListener('keydown', esc, true); };
+  const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); exit(); } };
+  document.addEventListener('keydown', esc, true);
   const frame = h('div', { class: 'viewfinder', 'aria-hidden': 'true' }, h('i', { class: 'c tl' }), h('i', { class: 'c tr' }), h('i', { class: 'c bl' }), h('i', { class: 'c br' }));
+  let busy = false;
   const bar = h('div', { class: 'photo-bar' },
     h('button', { class: 'pill', 'data-testid': 'photo-album', onclick: () => { exit(); void openAlbum(); }, html: icon('image', 16) }, ' ' + t('album')),
     h('button', { class: 'shutter', 'aria-label': t('shutter'), 'data-testid': 'shutter', onclick: async () => {
+      if (busy) return;
+      busy = true;
       sfx.shutter();
       frame.classList.add('flash');
       setTimeout(() => frame.classList.remove('flash'), 300);
-      const url = globe.capture();
-      try { await photos.add({ at: Date.now(), url, place: place() }); toast('📸 ' + t('photoSaved')); }
-      catch { toast('⚠️ ' + t('photoSaveFail'), 4000); }
+      try {
+        const c = await shot.caption();
+        const url = await postcard(await within(shot.capture(), 3000), c);
+        await photos.add({ at: Date.now(), url, place: c.title || c.level });
+        toast('📸 ' + t('photoSaved'));
+      } catch { toast('⚠️ ' + t('photoSaveFail'), 4000); }
+      finally { busy = false; }
     } }),
     h('button', { class: 'pill', 'data-testid': 'photo-exit', onclick: exit }, t('close')));
   document.body.append(frame, bar);

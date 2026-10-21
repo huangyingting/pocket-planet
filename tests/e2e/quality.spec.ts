@@ -229,3 +229,29 @@ test('saved views: a versioned link restores the camera, bad links fall back, bo
   await expect(page.locator('.info:not(.solar-info):not(.hidden)')).toContainText('Eiffel', { timeout: 30_000 });
   await expect.poll(() => page.evaluate(() => location.hash)).toBe('#eiffel');
 });
+
+test('photos from every scene: Solar System and sky theatre save captioned postcards', async ({ page }) => {
+  await openApp(page, '/?lowfx=1&notut#solar/mars');
+  await page.waitForFunction(() => location.hash === '#solar/mars');
+  await page.getByTestId('btn-photo').click();
+  await expect(page.locator('.solar-time')).toBeHidden();
+  await page.getByTestId('shutter').click();
+  await expect(page.locator('#toast')).toContainText(/album/i);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('shutter')).toHaveCount(0);
+  await page.goto('/?lowfx=1&notut#sky');
+  await page.getByTestId('sky-photo').click();
+  await page.getByTestId('shutter').click();
+  await expect(page.locator('#toast')).toContainText(/album/i);
+  await page.getByTestId('photo-album').click();
+  await expect(page.getByTestId('album-grid').locator('img')).toHaveCount(2);
+  const places = await page.evaluate(() => new Promise<string[]>(res => {
+    const r = indexedDB.open('pp-photos');
+    r.onsuccess = () => { const q = r.result.transaction('photos').objectStore('photos').getAll(); q.onsuccess = () => res(q.result.map((p: { place: string }) => p.place)); };
+  }));
+  expect(places[0]).toBe('Mars');
+  expect(places[1]).toMatch(/\d{4}/);
+  // a postcard is taller than the frame: the caption band is drawn under it
+  const [w, h] = await page.getByTestId('album-grid').locator('img').first().evaluate((i: HTMLImageElement) => [i.naturalWidth, i.naturalHeight]);
+  expect(h / w).toBeGreaterThan(800 / 1280);
+});

@@ -83,7 +83,7 @@ export class Shell {
       this.topSlot,
       h('nav', { class: 'tools', 'aria-label': t('tools') },
         tool('btn-find', 'search', 'search', () => this.openSearch(), 'space-only'),
-        tool('btn-photo', 'camera', 'photo', this.hooks.openPhoto, 'earth-only'),
+        tool('btn-photo', 'camera', 'photo', this.hooks.openPhoto),
         tool('btn-collection', 'collection', 'collection', this.hooks.openCollection),
         tool('btn-game', 'game', 'game', this.hooks.openGames, 'earth-only'),
         tool('btn-time', 'clock', 'timeMachine', () => this.time.toggle(), 'earth-only'),

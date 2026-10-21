@@ -28,6 +28,8 @@ export interface TheatreOpts {
   msaa?: boolean;
   onClose: () => void;
   onSolar?: (focus: string, ms: number) => void;
+  /** Open the camera on this view. */
+  onPhoto?: () => void;
 }
 
 const SITE_KEY = 'pp.skyObs';
@@ -83,6 +85,19 @@ export class Theatre {
   private clockEl = h('output', { class: 'sky-clock' });
   private calBtn: HTMLButtonElement;
 
+  private shot: ((url: string) => void) | null = null;
+  /** The next rendered frame as a JPEG data URL. */
+  capture(): Promise<string> { return new Promise(res => { this.shot = res; }); }
+  /** What a photo of the current view shows, and how faithful the view is. */
+  caption(): { title: string; level: string; note: string } {
+    const date = this.ev ? new Date(this.ev.t).toLocaleDateString(lang() === 'zh' ? 'zh-CN' : 'en', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+    return {
+      title: [this.titleEl.textContent, date].filter(Boolean).join(' · '),
+      level: s('theatre') + ' · ' + (VIEW_KEY[this.view] ? s(VIEW_KEY[this.view]) : ''),
+      note: s(this.view === 'ground' ? 'photoNoteGround' : 'photoNoteModel'),
+    };
+  }
+
   constructor(host: HTMLElement, private opts: TheatreOpts) {
     this.siteId = localStorage.getItem(SITE_KEY) ?? 'best';
     this.cv = h('canvas', { class: 'sky-cv', 'data-testid': 'sky-canvas' });
@@ -137,6 +152,7 @@ export class Theatre {
       h('div', { class: 'sky-headr' },
         this.viewsEl,
         h('label', { class: 'sky-site' }, h('span', { html: icon('pin', 16) }), this.siteSel),
+        ...(opts.onPhoto ? [h('button', { class: 'sky-btn sky-btn-sq sky-photo', 'data-testid': 'sky-photo', title: s('photo'), 'aria-label': s('photo'), html: icon('camera', 18), onclick: () => opts.onPhoto!() })] : []),
         this.calBtn));
     const side = h('div', { class: 'sky-side' },
       h('div', { class: 'sky-card' }, h('span', { class: 'sky-card-k' }, s('telemetry')), this.readEl),
@@ -418,6 +434,7 @@ export class Theatre {
       this.ctx.orbit.update(dt);
       this.space.render(this.renderer);
     }
+    if (this.shot) { const f = this.shot; this.shot = null; f(this.renderer.domElement.toDataURL('image/jpeg', 0.9)); }
     if (this.cut) { this.cut = false; this.uiAcc = 1; }
     this.uiAcc += dt;
     if (this.uiAcc >= 0.12) {
