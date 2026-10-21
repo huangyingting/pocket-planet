@@ -126,7 +126,6 @@
 .info-body h2 { font-size: 1.75rem; font-weight: 600; color: #f0f9ff; text-shadow: 0 0 18px rgba(125, 211, 252, 0.25); animation: hud-type .5s var(--ease-out) both .08s; }
 @keyframes hud-type { from { opacity: 0; letter-spacing: .14em; filter: blur(3px); } }
 .eyebrow, .solar-ui .solar-info .eyebrow { font-family: var(--font-data); letter-spacing: .12em; text-transform: uppercase; font-size: .72rem; color: var(--hud-dim); }
-.alt-name, .solar-ui .solar-info .alt-name { font-family: var(--font-hud); letter-spacing: .06em; font-size: .9rem; color: var(--hud-dim); }
 .desc { font-size: 1rem; line-height: 1.72; }
 .stats-row, .solar-ui .solar-info .stats-row { border-color: var(--hud-line); background: linear-gradient(90deg, rgba(125, 211, 252, 0.05), transparent 70%); }
 .stats-row > div, .solar-ui .solar-info .stats-row > div { border-left-color: var(--hud-line); }
@@ -588,10 +587,9 @@ body:has(.sky) .modal { z-index: var(--z-alert); }
 .info.mini :is(.info-x, .info-min) { top: 14px; }
 .info.mini .info-main { overflow: hidden; }
 .info.mini .info-body { height: var(--card-mini-h); padding: 10px 112px 0 18px; cursor: pointer; display: flex; flex-direction: column; justify-content: center; }
-.info.mini .info-body > :not(h2, .alt-name) { display: none !important; }
-.info.mini .info-body :is(h2, .alt-name) { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.info.mini .info-body > :not(h2) { display: none !important; }
+.info.mini .info-body h2 { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .info.mini .info-body h2 { font-size: 1.1rem; line-height: 1.3; }
-.info.mini .info-body .alt-name { font-size: .8rem; }
 .info.mini .reader { display: none; }
 .sheet-grip { display: none; }
 @media (max-width: 760px) {

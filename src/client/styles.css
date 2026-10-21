@@ -519,7 +519,6 @@ a:hover { text-decoration: underline; }
 .info-body { padding: 16px 18px 14px; }
 .eyebrow { display: flex; align-items: center; gap: 5px; margin: 0 0 4px; color: var(--muted); font-size: .8rem; }
 .info-body h2 { margin: 0; font-size: 1.5rem; line-height: 1.2; font-weight: 600; letter-spacing: -0.025em; color: var(--text); }
-.alt-name { margin: 2px 0 0; color: var(--faint); font-size: .82rem; }
 .type-chip {
   display: inline-flex;
   align-items: center;
@@ -1252,7 +1251,6 @@ body:has(.info.expanded:not(.hidden)) .scale-rail { display: none; }
 .solar-ui .solar-hero .type-chip { font-family: var(--font-hud); text-transform: uppercase; letter-spacing: .1em; font-size: .66rem; }
 .solar-ui .solar-info .eyebrow { font-family: var(--font-hud); text-transform: uppercase; letter-spacing: .14em; font-size: .7rem; color: var(--hud-dim); }
 .solar-ui .solar-info .info-body h2 { font-family: var(--font-hud); font-weight: 600; letter-spacing: .01em; color: #f0f9ff; text-shadow: 0 0 18px rgba(125, 211, 252, 0.25); }
-.solar-ui .solar-info .alt-name { font-family: var(--font-hud); letter-spacing: .06em; color: var(--hud-dim); }
 .solar-ui .solar-info .stats-row { border-color: var(--hud-line); background: linear-gradient(90deg, rgba(125, 211, 252, 0.05), transparent 70%); }
 .solar-ui .solar-info .stats-row > div { border-left-color: var(--hud-line); }
 .solar-ui .solar-info .stats-row > div:first-child { padding-left: 8px; }

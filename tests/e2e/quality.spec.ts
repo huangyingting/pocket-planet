@@ -256,38 +256,6 @@ test('photos from every scene: Solar System and sky theatre save captioned postc
   expect(h / w).toBeGreaterThan(800 / 1280);
 });
 
-test('offline use: opt-in saves the shell, the Earth reopens with no network, packs are optional', async ({ page, context }) => {
-  await openApp(page);
-  expect(await page.evaluate(() => navigator.serviceWorker.getRegistrations().then(r => r.length))).toBe(0);
-  await page.click('#btn-menu');
-  await page.getByTestId('set-offline').check({ force: true });
-  await expect(page.getByTestId('offline-status')).toBeVisible({ timeout: 60_000 });
-  await page.getByTestId('pack-sky').click();
-  await expect(page.getByTestId('pack-saved-sky')).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByTestId('pack-space')).toBeVisible();
-
-  await context.setOffline(true);
-  await page.reload();
-  await expect.poll(() => page.evaluate(() => !!(window as any).__pp?.ready), { timeout: 90_000 }).toBe(true);
-  // live radio says it needs the internet instead of failing
-  await page.click('#btn-radio');
-  await expect(page.locator('#toast')).toContainText(/internet/);
-  // the saved sky theatre opens; the unsaved Solar System says it was not saved
-  await page.evaluate(() => { location.hash = 'sky'; });
-  await expect(page.getByTestId('sky')).toBeVisible({ timeout: 30_000 });
-  await page.getByTestId('sky-close').click();
-  await page.evaluate(() => { location.hash = 'solar'; });
-  await expect(page.getByTestId('load-offline')).toBeVisible({ timeout: 30_000 });
-
-  await context.setOffline(false);
-  await page.getByTestId('load-error').getByRole('button', { name: /close/i }).click();
-  await page.click('#btn-menu');
-  await page.getByTestId('offline-clear').click();
-  await expect(page.getByTestId('offline-status')).toHaveCount(0);
-  expect(await page.evaluate(async () => (await caches.keys()).filter(k => k.startsWith('pp-')).length)).toBe(0);
-  expect(await page.evaluate(() => navigator.serviceWorker.getRegistrations().then(r => r.length))).toBe(0);
-});
-
 test('compare bench: one measure per group, true scale vs clearly marked enlarged view', async ({ page }) => {
   await openApp(page);
   await page.click('#btn-menu');
@@ -405,4 +373,12 @@ test('more room: cards fold and stay folded, the name unfolds them, H hides ever
   await page.keyboard.press('h');
   await page.getByTestId('immersive-exit').click();
   await expect(page.locator('.topbar')).toBeVisible();
+});
+
+test('offline use is switched off: no worker is registered and the menu has no switch', async ({ page }) => {
+  await openApp(page);
+  await page.getByTestId('btn-menu').click();
+  await expect(page.getByTestId('reset')).toBeVisible();
+  await expect(page.getByTestId('set-offline')).toHaveCount(0);
+  expect(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length)).toBe(0);
 });

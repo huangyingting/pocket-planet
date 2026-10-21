@@ -1,6 +1,6 @@
 import { classroom, onClassroom, apply as applyClassroom } from './lib/classroom.ts';
 import { parseView, type Bookmark } from './lib/viewlink.ts';
-import { bootOffline } from './lib/offline.ts';
+import { retireOffline } from './lib/offline.ts';
 import './styles.css';
 import './hud.css';
 import './intro.css';
@@ -53,7 +53,7 @@ const loader = document.getElementById('loader');
 async function boot(): Promise<void> {
   if (lowfx) document.body.classList.add('lowfx');
   applyClassroom();
-  bootOffline();
+  retireOffline();
   window.addEventListener('offline', () => toast('📴 ' + t('nowOffline'), 5000));
   document.body.classList.add('q-' + quality.tier);
   initTooltips();

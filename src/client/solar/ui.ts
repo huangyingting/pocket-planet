@@ -446,7 +446,6 @@ export class SolarUI {
     const l = lang();
     const body = BODY[s.kind === 'body' ? s.id : s.f.body];
     const it = this.readable();
-    const alt = l === 'en' ? it.name.zh : it.name.en;
     const stat = (k: string, v: string) => h('div', {}, h('dt', {}, k), h('dd', {}, v));
     let eyebrow: string, key: [string, string][], extra: [string, string][] = [];
     if (s.kind === 'body') {
@@ -492,7 +491,6 @@ export class SolarUI {
       h('div', { class: 'info-body' },
         h('p', { class: 'eyebrow', html: icon(s.kind === 'body' ? 'planet' : 'pin', 13) }, h('span', {}, eyebrow)),
         h('h2', { 'data-testid': 'solar-name' }, tr(it.name, l)),
-        alt ? h('p', { class: 'alt-name' }, alt) : null,
         h('p', { class: 'desc' }, tr(it.desc, l)),
         key.length ? h('dl', { class: 'stats-row' }, ...key.map(([k, v]) => stat(k, v))) : null,
         hasMore ? h('details', { class: 'more' },
@@ -526,7 +524,6 @@ export class SolarUI {
   /** Cards for explorer sites, deep-space objects and whole scales. */
   private renderOtherCard(): void {
     const s = this.sel!, l = lang(), it = this.readable();
-    const alt = l === 'en' ? it.name.zh : it.name.en;
     const stat = (k: string, v: string) => h('div', {}, h('dt', {}, k), h('dd', {}, v));
     const key: [string, string][] = [], extra: [string, string][] = [];
     let eyebrow = '', chip = '', hero: HTMLElement = this.hero, footer: (HTMLElement | null)[] = [], list: HTMLElement | null = null;
@@ -583,7 +580,6 @@ export class SolarUI {
       h('div', { class: 'info-body' },
         h('p', { class: 'eyebrow', html: icon(s.kind === 'site' ? 'pin' : 'planet', 13) }, h('span', {}, eyebrow)),
         h('h2', { 'data-testid': 'solar-name' }, tr(it.name, l)),
-        alt ? h('p', { class: 'alt-name' }, alt) : null,
         h('p', { class: 'desc' }, tr(it.desc, l)),
         key.length ? h('dl', { class: 'stats-row' }, ...key.map(([k, v]) => stat(k, v))) : null,
         hasMore ? h('details', { class: 'more' },
