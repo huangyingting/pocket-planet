@@ -13,7 +13,7 @@ let sendMail: SendMail | undefined;
 if ('send' in mailer) sendMail = mailer.send;
 else if (!prod) sendMail = async (to, link) => { console.log(`[mail] sign-in link for ${to.replace(/(.).*@/, '$1***@')}: ${link}`); };
 else console.error(`[mail] email sign-in is OFF: ${mailer.error}`);
-const db = openDb(process.env.DB_PATH ?? join(root, 'data', 'pocket-planet.db'));
+const db = openDb(process.env.DB_PATH ?? join(root, 'data', 'terrastra.db'));
 const app = createApp({
   db,
   devLogin,
@@ -22,4 +22,4 @@ const app = createApp({
   staticDir: join(root, 'dist'),
   sendMail,
 });
-app.listen(port, () => console.log(`Pocket Planet server on http://localhost:${port}`));
+app.listen(port, () => console.log(`Terrastra server on http://localhost:${port}`));

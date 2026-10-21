@@ -1,7 +1,7 @@
 import type { CatalogueItem } from '../types.ts';
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 // Route items: lat/lon come from the first route point; sea routes are kept off land with extra waypoints.
 export const ROUTES2: CatalogueItem[] = [
   ...many('voyage', [

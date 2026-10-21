@@ -7,7 +7,7 @@ import { backupOf, readBackup, summary } from '../lib/backup-file.ts';
 
 export function exportProgress(): void {
   const blob = new Blob([JSON.stringify(backupOf(store.progress), null, 1)], { type: 'application/json' });
-  const a = h('a', { href: URL.createObjectURL(blob), download: `pocket-planet-progress-${new Date().toISOString().slice(0, 10)}.json` });
+  const a = h('a', { href: URL.createObjectURL(blob), download: `terrastra-progress-${new Date().toISOString().slice(0, 10)}.json` });
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   toast('💾 ' + t('backupSaved'));

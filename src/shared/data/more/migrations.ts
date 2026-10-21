@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 // Route items: lat/lon come from the first route point; sea routes are kept off land with extra waypoints.
 export const MIGRATIONS = many('migration', [
   { key: 'mg_humpback', slug: 'humpback-whales', name: ['Humpback whale migration', '座头鲸迁徙'], lat: 20.55, lon: -157.0,

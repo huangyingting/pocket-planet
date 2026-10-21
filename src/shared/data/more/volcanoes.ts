@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 export const VOLCANOES = many('volcano', [
   { key: 'vo_vesuvius', slug: 'vesuvius', name: ['Mount Vesuvius', '维苏威火山'], lat: 40.821, lon: 14.426, continent: 'europe',
     country: 'IT', tier: 1, emoji: '🌋', sub: 'stratovolcano', model: { kind: 'volcano', hero: 'volcanoes/vo_vesuvius' },

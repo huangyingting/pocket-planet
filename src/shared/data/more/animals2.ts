@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 export const ANIMALS2 = many('animal', [
   { key: 'an_axolotl', slug: 'axolotl', name: ['Axolotl', '美西螈'], lat: 19.26, lon: -99.1, continent: 'north-america', country: 'MX',
     tier: 1, emoji: '🦎', sub: 'amphibian', model: { kind: 'animal', hero: 'animals2/an_axolotl', color: '#f2a7b4' },

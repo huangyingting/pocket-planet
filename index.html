@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Pocket Planet</title>
-  <meta name="description" content="Pocket Planet is a free 3D toy globe for curious kids: spin the Earth, find landmarks and animals, play map games and collect stickers." />
+  <title>Terrastra</title>
+  <meta name="description" content="Terrastra is a free 3D toy globe for curious kids: spin the Earth, find landmarks and animals, play map games and collect stickers." />
   <meta name="theme-color" content="#09090b" />
   <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
   <link rel="preload" href="%BASE_URL%fonts/geist.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="%BASE_URL%fonts/geist-mono.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="%BASE_URL%fonts/chakra-petch-500.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <meta property="og:title" content="Pocket Planet" />
+  <meta property="og:title" content="Terrastra" />
   <meta property="og:description" content="Spin a friendly 3D globe, discover landmarks and animals, and play map games." />
   <meta property="og:type" content="website" />
 </head>
@@ -29,8 +29,8 @@
     </div>
     <div class="intro-core">
       <div class="intro-mark" aria-hidden="true"><i class="r1"></i><i class="r2"></i><i class="r3"></i><b></b></div>
-      <div class="intro-title">POCKET PLANET</div>
-      <p class="intro-sub" id="intro-sub">口袋星球</p>
+      <div class="intro-title">TERRASTRA</div>
+      <p class="intro-sub" id="intro-sub">寰星</p>
       <div class="intro-bar" aria-hidden="true"><i></i></div>
       <p class="intro-msg" id="intro-msg">Waking up the planet…</p>
     </div>
@@ -42,7 +42,7 @@
       var el = document.getElementById('loader'); if (!el) return;
       var l = null; try { l = JSON.parse(localStorage.getItem('pp.lang')); } catch (e) {}
       if (l !== 'en' && l !== 'zh') l = (navigator.language || '').slice(0, 2) === 'zh' ? 'zh' : 'en';
-      document.getElementById('intro-sub').textContent = l === 'zh' ? '口袋星球 · 探索无垠宇宙' : 'A tiny world in an endless sky';
+      document.getElementById('intro-sub').textContent = l === 'zh' ? '寰星 · 探索无垠宇宙' : 'A tiny world in an endless sky';
       document.getElementById('intro-msg').textContent = l === 'zh' ? '正在唤醒星球…' : 'Waking up the planet…';
       var small = Math.min(innerWidth, innerHeight) < 700, layers = el.querySelectorAll('.intro-l'), R = Math.random;
       var tint = function (a) { var w = R(); return w < .12 ? 'rgba(255,214,170,' + a + ')' : w < .3 ? 'rgba(170,200,255,' + a + ')' : 'rgba(235,244,255,' + a + ')'; };
@@ -71,7 +71,7 @@
       el.querySelector('.intro-mw').style.backgroundImage = 'url(' + mw.toDataURL() + ')';
     })();
   </script>
-  <noscript><p class="fatal">Pocket Planet needs JavaScript. Browse the <a href="%BASE_URL%landmarks/">encyclopedia</a> instead.</p></noscript>
+  <noscript><p class="fatal">Terrastra needs JavaScript. Browse the <a href="%BASE_URL%landmarks/">encyclopedia</a> instead.</p></noscript>
   <script type="module" src="/src/client/main.ts"></script>
 </body>
 </html>

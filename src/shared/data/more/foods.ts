@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 // Each dish sits at its city/region of origin (nudged away from nearby landmarks).
 export const FOODS = many('food', [
   { key: 'fd_pizza', slug: 'pizza-margherita', name: ['Pizza Margherita', '玛格丽特披萨'], lat: 40.84, lon: 14.08, continent: 'europe',

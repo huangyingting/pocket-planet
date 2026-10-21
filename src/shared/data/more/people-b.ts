@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 // Famous people: artists, writers, poets and musicians, placed where they were born or did their great work.
 export const PEOPLE_B = many('person', [
   { key: 'pp_libai', slug: 'li-bai', name: ['Li Bai', '李白'], lat: 31.78, lon: 104.75, continent: 'asia', country: 'CN',

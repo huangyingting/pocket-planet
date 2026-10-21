@@ -27,13 +27,13 @@ test('static build works below a sub-path', async ({ page }) => {
   // the generated encyclopedia and its way back into the app
   await page.goto('encyclopedia/');
   await expect(page.locator('h1')).toBeVisible();
-  await page.locator('a[href="/pocket-planet/animals/"]').first().click();
-  await expect(page).toHaveURL(/\/pocket-planet\/animals\/$/);
+  await page.locator('a[href="/terrastra/animals/"]').first().click();
+  await expect(page).toHaveURL(/\/terrastra\/animals\/$/);
   await expect(page.locator('h1')).toBeVisible();
   // an item page under the category, then back into the app at the base path
-  await page.locator('main a[href^="/pocket-planet/animals/"]').first().click();
+  await page.locator('main a[href^="/terrastra/animals/"]').first().click();
   await expect(page.locator('h1')).toBeVisible();
-  const app = page.locator('a[href^="/pocket-planet/?"], a[href^="/pocket-planet/#"]').first();
-  if (await app.count()) await expect(app).toHaveAttribute('href', /^\/pocket-planet\//);
+  const app = page.locator('a[href^="/terrastra/?"], a[href^="/terrastra/#"]').first();
+  if (await app.count()) await expect(app).toHaveAttribute('href', /^\/terrastra\//);
   expect(bad).toEqual([]);
 });

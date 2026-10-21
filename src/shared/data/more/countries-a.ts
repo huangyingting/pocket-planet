@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 // Landmarks for European, Middle Eastern and Asian countries that had none yet.
 export const COUNTRIES_A = many('landmark', [
   { key: 'ca_belem', slug: 'belem-tower', name: ['Belém Tower', '贝伦塔'], lat: 38.6916, lon: -9.216, continent: 'europe',

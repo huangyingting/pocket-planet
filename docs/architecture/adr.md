@@ -1,6 +1,6 @@
-# Architecture Decision Records — "Pocket Planet"
+# Architecture Decision Records — "Terrastra"
 
-Pocket Planet is an original, kid-friendly 3D toy-globe web app whose *capabilities* are comparable to the
+Terrastra is an original, kid-friendly 3D toy-globe web app whose *capabilities* are comparable to the
 reference product studied in [exploration report](../research/exploration-report.md). No code, models, text, images, audio or data files
 from the reference were copied; only publicly observable behaviour and open data sources were used.
 

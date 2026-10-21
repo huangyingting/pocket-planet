@@ -7,7 +7,7 @@ test('home: globe, top bar, zoom readout, hints @mobile', async ({ page }, info)
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await openApp(page);
-  await expect(page.locator('h1')).toHaveText('Pocket Planet');
+  await expect(page.locator('h1')).toHaveText('Terrastra');
   await expect(page.getByTestId('zoom')).toHaveText('×4.0');
   for (const id of ['btn-search', 'btn-photo', 'btn-collection', 'btn-menu', 'level-switch']) await expect(page.getByTestId(id)).toBeVisible();
   if (info.project.name === 'mobile') {
@@ -64,12 +64,12 @@ test('menu: toggles layers & names, language persists', async ({ page }) => {
   await expect.poll(() => page.evaluate(() => (window as any).__pp.globe.settings.surfaceMode)).toBe('minimal');
   await page.getByTestId('mode-realistic').click();
   await page.locator('#lang-select').selectOption('zh');
-  await expect(page.locator('h1')).toHaveText('口袋星球');
+  await expect(page.locator('h1')).toHaveText('寰星');
   await page.reload();
-  await expect(page.locator('h1')).toHaveText('口袋星球', { timeout: 90_000 });
+  await expect(page.locator('h1')).toHaveText('寰星', { timeout: 90_000 });
   await page.getByTestId('btn-menu').click();
   await page.locator('#lang-select').selectOption('en');
-  await expect(page.locator('h1')).toHaveText('Pocket Planet');
+  await expect(page.locator('h1')).toHaveText('Terrastra');
   await page.keyboard.press('Escape');
   await expect(page.locator('#menu')).toBeHidden();
 });
@@ -234,7 +234,7 @@ test('Daily Planet: guesses, hints, share, persisted state', async ({ page }) =>
     await page.getByTestId('daily-submit').click();
   }
   await expect(page.getByTestId('daily-result')).toBeVisible();
-  await expect(page.locator('.share-text')).toContainText('Pocket Planet Daily');
+  await expect(page.locator('.share-text')).toContainText('Terrastra Daily');
   await shot(page, 'desktop_16_daily_done');
   await page.reload();
   await expect.poll(() => page.evaluate(() => !!(window as any).__pp?.ready), { timeout: 90_000 }).toBe(true);

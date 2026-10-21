@@ -1,7 +1,7 @@
 import type { CatalogueItem } from '../types.ts';
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 // Items of several types: concatenate many('<type>', [...]) lists.
 // Festival `season` is the usual start date (month 1–12); moving festivals use a typical Gregorian date.
 export const FUN2: CatalogueItem[] = [

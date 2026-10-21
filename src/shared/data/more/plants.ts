@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 export const PLANTS = many('plant', [
   { key: 'pl_sherman', slug: 'general-sherman', name: ['General Sherman Tree', '谢尔曼将军树'], lat: 36.58, lon: -118.75,
     continent: 'north-america', country: 'US', tier: 1, emoji: '🌲', sub: 'tree', model: { kind: 'plant', hero: 'plants/pl_sherman' },

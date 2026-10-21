@@ -71,7 +71,7 @@ export function finishStats(stats: DailyStats, state: DailyState): DailyStats {
     lastWonDay: state.won ? state.day : stats.lastWonDay, dist };
 }
 
-export function shareText(state: DailyState, title = 'Pocket Planet Daily'): string {
+export function shareText(state: DailyState, title = 'Terrastra Daily'): string {
   const n = state.day + 1;
   const rows = state.guesses.map(g => BAND_EMOJI[g.band] + g.arrow).join('\n');
   return `${title} #${n} ${state.won ? state.guesses.length : 'X'}/${MAX_GUESSES}\n${rows}`;

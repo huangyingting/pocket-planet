@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 // Each dinosaur sits at a famous fossil site where its bones were dug up.
 export const DINOS = many('dino', [
   { key: 'dn_trex', slug: 't-rex', name: ['Tyrannosaurus rex', '霸王龙'], lat: 47.55, lon: -106.75, continent: 'north-america',

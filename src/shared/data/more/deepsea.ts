@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 export const DEEPSEA = many('discovery', [
   { key: 'dc_lostcity', slug: 'lost-city-vents', name: ['Lost City vents', '失落之城热液区'], lat: 30.12, lon: -42.12, continent: 'ocean',
     tier: 2, emoji: '🌋', sub: 'deepsea', model: { kind: 'vent', hero: 'deepsea/dc_lostcity', color: '#7ad7e0' },

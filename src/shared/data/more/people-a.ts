@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 // Famous people: thinkers, scientists, inventors and doctors, placed where they were born or did their great work.
 export const PEOPLE_A = many('person', [
   { key: 'pp_confucius', slug: 'confucius', name: ['Confucius', '孔子'], lat: 35.6, lon: 116.99, continent: 'asia', country: 'CN',

@@ -131,7 +131,7 @@ describe('daily', () => {
     expect(st.dist[1]).toBe(1);
     st = finishStats(st, { day: 12, guesses: [], done: true, won: true });
     expect(st.streak).toBe(1);
-    expect(shareText(s)).toBe('Pocket Planet Daily #11 2/6\n🟥⬆️\n🟩🎯');
+    expect(shareText(s)).toBe('Terrastra Daily #11 2/6\n🟥⬆️\n🟩🎯');
     let lose: DailyState = { day: 0, guesses: [], done: false, won: false };
     for (let i = 0; i < 6; i++) lose = applyGuess(lose, miss);
     expect(lose).toMatchObject({ done: true, won: false });

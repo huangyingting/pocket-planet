@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 export const SPORTS = many('sport', [
   { key: 'sv_olympia', slug: 'ancient-olympia-stadium', name: ['Ancient Olympia Stadium', '古奥林匹亚体育场'], lat: 37.64, lon: 21.63,
     continent: 'europe', country: 'GR', tier: 1, emoji: '🏃', sub: 'running', model: { kind: 'sport', hero: 'sports/sv_olympia' },

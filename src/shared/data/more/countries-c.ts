@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 // One landmark for each of several more countries that had none yet (Europe, Asia, Africa, Caribbean).
 export const COUNTRIES_C = many('landmark', [
   { key: 'cc_malbork', slug: 'malbork-castle', name: ['Malbork Castle', '马尔堡城堡'], lat: 54.04, lon: 19.028, continent: 'europe',

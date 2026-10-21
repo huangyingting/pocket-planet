@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 // Famous people: explorers, travellers, aviators, astronauts, healers, athletes and heroes of nature.
 export const PEOPLE_C = many('person', [
   { key: 'pp_zhenghe', slug: 'zheng-he', name: ['Zheng He', '郑和'], lat: 24.67, lon: 102.6, continent: 'asia', country: 'CN',

@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 // Route items: lat/lon come from the first route point; sea routes are kept off land with extra waypoints.
 export const VOYAGES = many('voyage', [
   { key: 'vy_zhenghe', slug: 'zheng-he-treasure-fleet', name: ['Zheng He\'s treasure fleet', '郑和下西洋'], lat: 31.5, lon: 121.3,

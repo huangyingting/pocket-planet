@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 // Landmarks for African, American and Oceanian countries that had none yet.
 export const COUNTRIES_B = many('landmark', [
   { key: 'cb_deadvlei', slug: 'deadvlei', name: ['Deadvlei & Sossusvlei Dunes', '死亡谷与索苏斯盐沼沙丘'], lat: -24.759, lon: 15.292, continent: 'africa',

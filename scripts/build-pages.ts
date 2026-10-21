@@ -12,7 +12,7 @@ import { icon, TYPE_ICON, type IconName } from '../src/client/ui/icons.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const out = join(root, process.argv[2] ?? 'dist');
-const SITE = (process.env.BASE_URL ?? 'https://pocket-planet.example').replace(/\/$/, '');
+const SITE = (process.env.BASE_URL ?? 'https://terrastra.example').replace(/\/$/, '');
 // Path prefix when hosted below the domain root (GitHub Pages project site: "/<repo>/").
 const BASE = ('/' + (process.env.BASE_PATH ?? '/') + '/').replace(/\/+/g, '/');
 const STATIC = process.env.VITE_STATIC === '1';
@@ -168,7 +168,7 @@ const FILTER_JS = `(function(){var q=document.getElementById('q');if(!q)return;v
 q.addEventListener('input',function(){var v=q.value.trim().toLowerCase(),n=0;cs.forEach(function(c){var on=!v||c.dataset.q.indexOf(v)>=0;c.hidden=!on;n+=on?1:0});em.style.display=n?'none':'block'})})();`;
 
 const MARK = '<span class="mark" aria-hidden="true"></span>';
-const BRAND = T('Pocket Planet', '口袋星球');
+const BRAND = T('Terrastra', '寰星');
 const pad = (n: number, w = 2) => String(n).padStart(w, '0');
 
 function page(path: string, title: string, desc: string, body: string, opts: { jsonld?: object; current?: string; script?: string } = {}): void {
@@ -183,7 +183,7 @@ function page(path: string, title: string, desc: string, body: string, opts: { j
 <div class="lang" role="group" aria-label="Language"><button data-set="en">EN</button><button data-set="zh">中文</button></div>
 <a class="btn" href="/">${icon('globe', 16)}${bi(T('Open globe', '打开地球'))}</a></div></header>
 <main><div class="wrap">${body}</div></main>
-<footer><div class="wrap"><span class="fbrand">${MARK}${bi(T('Pocket Planet — an original 3D planet toy for curious kids.', '口袋星球——为好奇的孩子打造的原创 3D 星球玩具。'))}</span>
+<footer><div class="wrap"><span class="fbrand">${MARK}${bi(T('Terrastra — an original 3D planet toy for curious kids.', '寰星——为好奇的孩子打造的原创 3D 星球玩具。'))}</span>
 <nav aria-label="Site">${FOOT.map(([href, ic, label, key]) => `<a href="${href}"${cur(key)}>${icon(ic, 14)}${bi(label)}</a>`).join('')}</nav></div></footer>
 ${opts.script ? `<script>${opts.script}</script>` : ''}</body></html>`;
   const file = join(out, path, 'index.html');
@@ -220,14 +220,14 @@ const card = (it: CatalogueItem, dir: string, ic: IconName, i: number) => `<li d
 
 const urls: string[] = ['/', '/encyclopedia/', '/about/', '/privacy/'];
 const total = SECTIONS.reduce((n, s) => n + s.items.length, 0);
-page('/encyclopedia/', 'Encyclopedia — Pocket Planet', `Explore ${total} places, animals and wonders on a friendly 3D globe for kids.`,
+page('/encyclopedia/', 'Encyclopedia — Terrastra', `Explore ${total} places, animals and wonders on a friendly 3D globe for kids.`,
   `<p class="eyebrow">${bi(T('Encyclopedia', '百科'))}</p><h1>${bi(T('Explore the planet', '探索地球'))}</h1>
 <p class="sub">${bi(T(`${total} places, animals and wonders — each one has a 3D model waiting on the globe.`, `${total} 个地点、动物和奇观——每一个都在地球上有一个 3D 模型等你发现。`))}</p>
 <h2>${bi(T('Sections', '分类'))}</h2><ul class="cards hub">${SECTIONS.map((s, i) => `<li><a class="card" href="/${s.dir}/"><span class="tile" aria-hidden="true">${icon(s.icon, 22)}</span>
 <span><b>${bi(s.title)}</b><small>${bi(s.hint)}</small><small class="count"><strong>${s.items.length}</strong>${bi(T('entries', '个条目'))}</small></span><i class="idx">${pad(i + 1)}</i></a></li>`).join('')}</ul>`, { current: 'hub' });
 
 for (const [si, s] of SECTIONS.entries()) {
-  page(`/${s.dir}/`, `${s.title.en} — Pocket Planet`, `Explore ${s.items.length} ${s.title.en.toLowerCase()} on a friendly 3D globe for kids.`,
+  page(`/${s.dir}/`, `${s.title.en} — Terrastra`, `Explore ${s.items.length} ${s.title.en.toLowerCase()} on a friendly 3D globe for kids.`,
     `<nav class="crumbs"><a href="/encyclopedia/">${bi(T('Encyclopedia', '百科'))}</a><span>/</span>${pad(si + 1)}</nav>
 <p class="eyebrow">${s.items.length} ${bi(T('entries', '个条目'))}</p><h1>${bi(s.title)}</h1><p class="sub">${bi(s.hint)}</p>
 <label class="search">${icon('search', 16)}<input id="q" type="search" placeholder="Search · 搜索" aria-label="Search"></label>
@@ -243,7 +243,7 @@ for (const [si, s] of SECTIONS.entries()) {
     const prev = s.items[(i - 1 + s.items.length) % s.items.length], next = s.items[(i + 1) % s.items.length];
     const wh = where(it);
     const code = `${pad(si + 1)}·${pad(i + 1, 3)}`;
-    page(path, `${it.name.en} — Pocket Planet`, it.desc.en,
+    page(path, `${it.name.en} — Terrastra`, it.desc.en,
       `<nav class="crumbs"><a href="/encyclopedia/">${bi(T('Encyclopedia', '百科'))}</a><span>/</span><a href="/${s.dir}/">${bi(s.title)}</a><span>/</span>${code}</nav>
 <div class="item"><article>
 <div class="hero" aria-hidden="true"><div class="reticle"><span class="ring r3"></span><span class="ring r4"></span><span class="ring"></span><span class="ring r2"></span><span class="glyph">${icon(s.icon, 72)}</span></div>
@@ -270,9 +270,9 @@ ${near.length ? `<div class="panel"><h3>${bi(T('Nearby', '附近'))}</h3><ul cla
 // About (with the credits, which used to be a separate in-app modal)
 const feat = (ic: IconName, t: Bi, d: Bi) => `<div class="card"><span class="tile" aria-hidden="true">${icon(ic, 22)}</span><span><b>${bi(t)}</b><small>${bi(d)}</small></span></div>`;
 const credit = (name: Bi, role: Bi, lic: string, href?: string) => `<div class="credit"><b>${href ? `<a href="${href}" rel="noopener">${bi(name)}</a>` : bi(name)}</b><span>${bi(role)}</span><em>${esc(lic)}</em></div>`;
-page('/about/', 'About — Pocket Planet', 'What Pocket Planet is, how to use it, and the people and data behind it.', `<div class="prose"><p class="eyebrow">${bi(T('About', '关于'))}</p><h1>${bi(T('About Pocket Planet', '关于口袋星球'))}</h1>
-${bi(T('Pocket Planet is a free 3D planet toy for curious kids and the grown-ups who explore with them. Spin the Earth, zoom in to find landmarks, animals, ships, planes and trains, then keep zooming out — past the Moon and the planets to the Milky Way and the cosmic web.',
-  '口袋星球是一个免费的 3D 星球玩具，送给好奇的孩子和陪他们一起探索的大人。转动地球、放大寻找地标、动物、轮船、飞机和火车；再一路缩小——越过月球和行星，直到银河系和宇宙大尺度结构。'), 'p', 'lead')}</div>
+page('/about/', 'About — Terrastra', 'What Terrastra is, how to use it, and the people and data behind it.', `<div class="prose"><p class="eyebrow">${bi(T('About', '关于'))}</p><h1>${bi(T('About Terrastra', '关于寰星'))}</h1>
+${bi(T('Terrastra is a free 3D planet toy for curious kids and the grown-ups who explore with them. Spin the Earth, zoom in to find landmarks, animals, ships, planes and trains, then keep zooming out — past the Moon and the planets to the Milky Way and the cosmic web.',
+  '寰星是一个免费的 3D 星球玩具，送给好奇的孩子和陪他们一起探索的大人。转动地球、放大寻找地标、动物、轮船、飞机和火车；再一路缩小——越过月球和行星，直到银河系和宇宙大尺度结构。'), 'p', 'lead')}</div>
 <h2>${bi(T('What you can do', '可以做什么'))}</h2><div class="feats">
 ${feat('globe', T(`${total} things on the globe`, `地球上的 ${total} 个条目`), T('Every landmark, animal and journey is a small 3D model drawn in code.', '每个地标、动物和旅程都是用代码绘制的小 3D 模型。'))}
 ${feat('planet', T('Solar System to cosmos', '从太阳系到宇宙'), T('Zoom through the planets, the Milky Way, the Local Group and superclusters.', '缩放穿越行星、银河系、本星系群和超星系团。'))}
@@ -284,7 +284,7 @@ ${STATIC ? bi(T('This edition runs entirely in your browser: your collection, ph
   : bi(T('Everything works without an account. Signing in with an email link simply keeps your collection in sync across devices.', '不登录也能使用全部功能。用邮箱链接登录只是为了在多台设备之间同步收藏。'), 'p')}
 <p><a href="/privacy/">${bi(T('Read the privacy notes →', '查看隐私说明 →'))}</a></p></div>
 <h2>${bi(T('Credits', '致谢'))}</h2><div class="credits">
-${credit(T('Original 3D models', '原创 3D 模型'), T('Every model, planet and nebula is generated procedurally in code — no downloaded meshes or photos.', '所有模型、行星和星云都由代码程序化生成，没有下载任何网格或照片。'), 'Pocket Planet')}
+${credit(T('Original 3D models', '原创 3D 模型'), T('Every model, planet and nebula is generated procedurally in code — no downloaded meshes or photos.', '所有模型、行星和星云都由代码程序化生成，没有下载任何网格或照片。'), 'Terrastra')}
 ${credit(T('three.js', 'three.js'), T('The WebGL 3D engine.', 'WebGL 3D 引擎。'), 'MIT', 'https://threejs.org/')}
 ${credit(T('Natural Earth · world-atlas', 'Natural Earth · world-atlas'), T('Country shapes and borders, decoded with topojson-client.', '国家轮廓与边界，使用 topojson-client 解码。'), 'Public domain · ISC', 'https://www.naturalearthdata.com/')}
 ${credit(T('NASA Visible Earth · GEBCO', 'NASA 可见地球 · GEBCO'), T('Land elevation and ocean depth behind the globe’s mountains, snow lines and sea floor.', '地球上的山脉起伏、雪线和海底深浅所用的陆地高程与海洋深度数据。'), 'Public domain', 'https://visibleearth.nasa.gov/images/73934/topography')}
@@ -296,8 +296,8 @@ ${credit(T('Geist · Chakra Petch', 'Geist · Chakra Petch'), T('Typefaces for r
 <div class="actions"><a class="btn sig" href="/">${icon('globe', 16)}${bi(T('Open the globe', '打开地球'))}</a><a class="btn ghost" href="/encyclopedia/">${icon('book', 16)}${bi(T('Browse the encyclopedia', '浏览百科'))}</a></div>`, { current: 'about' });
 
 const li = (en: string, zh: string) => `<li>${bi(T(en, zh), 'span')}</li>`;
-page('/privacy/', 'Privacy — Pocket Planet', 'How Pocket Planet handles data.', `<div class="prose"><p class="eyebrow">${bi(T('Privacy', '隐私'))}</p><h1>${bi(T('Privacy', '隐私说明'))}</h1>
-${bi(T('Short version: Pocket Planet shows no ads and has no third-party trackers. Your progress and photos stay on your device unless you sign in or share them yourself. A few features — Wikipedia articles and live radio — load content from other websites when you open them.', '简单来说：口袋星球本身不投放广告，也没有第三方追踪。除非你登录或自己分享，你的进度和照片都留在你的设备上。少数功能（维基百科文章、直播电台）会在你打开时从其他网站加载内容。'), 'p', 'lead')}
+page('/privacy/', 'Privacy — Terrastra', 'How Terrastra handles data.', `<div class="prose"><p class="eyebrow">${bi(T('Privacy', '隐私'))}</p><h1>${bi(T('Privacy', '隐私说明'))}</h1>
+${bi(T('Short version: Terrastra shows no ads and has no third-party trackers. Your progress and photos stay on your device unless you sign in or share them yourself. A few features — Wikipedia articles and live radio — load content from other websites when you open them.', '简单来说：寰星本身不投放广告，也没有第三方追踪。除非你登录或自己分享，你的进度和照片都留在你的设备上。少数功能（维基百科文章、直播电台）会在你打开时从其他网站加载内容。'), 'p', 'lead')}
 <h2>${bi(T('The details', '具体说明'))}</h2><ol class="rules">
 ${li('Progress, settings and photos are stored on your device (localStorage and IndexedDB). Photos are only sent somewhere if you use Share or Save yourself. You can export your progress to a file from the menu.', '进度、设置和照片保存在你的设备上（localStorage 和 IndexedDB）。只有你自己点“分享”或“保存”时，照片才会离开这个页面。你可以在菜单中把进度导出为文件。')}
 ${STATIC ? li('This edition has no server: there are no accounts, cookies or uploads. Clearing site data removes everything.', '这个版本没有服务器：没有账户、Cookie 或上传。清除网站数据即可删除一切。')
@@ -307,8 +307,8 @@ ${STATIC ? li('This edition has no server: there are no accounts, cookies or upl
   + li('You can delete your account and server data any time from the Account panel.', '你可以随时在账户面板中删除账户和服务器数据。')}
 ${li('Reading an article in the app loads it directly from Wikipedia (wikipedia.org), which sees your IP address like any website.', '在应用中阅读文章时会直接从维基百科（wikipedia.org）加载，维基百科会像任何网站一样看到你的 IP 地址。')}
 ${li('Listening to the radio connects straight to that station’s own server, which sees your IP address like any website. Stations choose what they broadcast — including news, adverts and talk meant for adults — and we cannot check it. The app asks before the first station plays, shuffle only picks music stations, and you can hide any station on your device. Classroom mode switches live radio and Wikipedia off completely.', '收听电台时会直接连接该电台自己的服务器，它会像任何网站一样看到你的 IP 地址。电台播放什么（包括新闻、广告和面向成人的谈话）由电台决定，我们无法检查。应用会在第一次播放前询问你；随机播放只选音乐电台；你也可以在设备上隐藏任何电台。课堂模式会完全关闭直播电台和维基百科。')}
-${li('Pocket Planet itself shows no ads and uses no third-party trackers or analytics. (Radio stations may broadcast their own adverts.)', '口袋星球本身不投放广告，也不使用第三方追踪或统计工具。（电台可能会播放它们自己的广告。）')}</ol></div>`, { current: 'privacy' });
-page('/404/', 'Not found — Pocket Planet', 'Page not found.', `<div class="prose" style="padding:40px 0"><p class="eyebrow">404</p><h1>${bi(T('Lost in space?', '迷失在太空了吗？'))}</h1>
+${li('Terrastra itself shows no ads and uses no third-party trackers or analytics. (Radio stations may broadcast their own adverts.)', '寰星本身不投放广告，也不使用第三方追踪或统计工具。（电台可能会播放它们自己的广告。）')}</ol></div>`, { current: 'privacy' });
+page('/404/', 'Not found — Terrastra', 'Page not found.', `<div class="prose" style="padding:40px 0"><p class="eyebrow">404</p><h1>${bi(T('Lost in space?', '迷失在太空了吗？'))}</h1>
 ${bi(T('We couldn’t find that page.', '我们找不到这个页面。'), 'p', 'lead')}<div class="actions"><a class="btn sig" href="/">${icon('globe', 16)}${bi(T('Back to the globe', '回到地球'))}</a></div></div>`);
 writeFileSync(join(out, '404.html'), (await import('node:fs')).readFileSync(join(out, '404', 'index.html'), 'utf8'));
 

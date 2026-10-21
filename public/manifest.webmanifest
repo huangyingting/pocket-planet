@@ -1,6 +1,6 @@
 {
-  "name": "Pocket Planet",
-  "short_name": "Pocket Planet",
+  "name": "Terrastra",
+  "short_name": "Terrastra",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

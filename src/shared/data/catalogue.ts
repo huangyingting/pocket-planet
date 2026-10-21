@@ -4,7 +4,7 @@ import { ZH } from './catalogue-zh.ts';
 import { TYPE_ORDER } from './typemeta.ts';
 import { CONTENT_PACKS } from './more/index.ts';
 
-// All descriptions below are original text written for Pocket Planet. Chinese text lives in catalogue-zh.ts.
+// All descriptions below are original text written for Terrastra. Chinese text lives in catalogue-zh.ts.
 type N2 = [en: string, zh: string];
 const n = ([en, zh]: N2) => ({ en, zh });
 const desc = (key: string, en: string) => ({ en, zh: ZH[key]?.d });

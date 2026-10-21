@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 export const CHINA = many('landmark', [
   { key: 'cn_zhangjiajie', slug: 'zhangjiajie', name: ['Zhangjiajie Pillar Mountains', '张家界'], lat: 29.345, lon: 110.47,
     continent: 'asia', country: 'CN', tier: 1, emoji: '🏔️', sub: 'mountain', model: { kind: 'rock', hero: 'china/cn_zhangjiajie', color: '#9a8f7c' },

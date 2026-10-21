@@ -136,7 +136,7 @@ test('progress backup: save a file, then load it back through a preview', async 
   const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('backup-export').click()]);
   const file = await dl.path();
   const saved = JSON.parse(await (await import('node:fs/promises')).readFile(file, 'utf8'));
-  expect(saved.kind).toBe('pocket-planet-progress');
+  expect(saved.kind).toBe('terrastra-progress');
   expect(Object.keys(saved.progress.seen)).toContain('an_lion');
 
   // a bad file changes nothing

@@ -1,4 +1,4 @@
-# Task Backlog: Pocket Planet
+# Task Backlog: Terrastra
 
 > Historical MVP backlog. For the current implementation baseline, verified issues and prioritized improvements, see [现状评估与分级改进路线图（2026-10）](improvement-roadmap-2026-10.md). Several open items below have since shipped or changed scope; the new roadmap includes a reconciliation table.
 

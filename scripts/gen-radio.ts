@@ -24,7 +24,7 @@ interface Raw {
 
 const raw: Raw[] = process.argv[2]
   ? JSON.parse(readFileSync(process.argv[2], 'utf8'))
-  : await (await fetch(API, { headers: { 'User-Agent': 'PocketPlanet-Builder/1.0' } })).json();
+  : await (await fetch(API, { headers: { 'User-Agent': 'Terrastra-Builder/1.0' } })).json();
 
 // fallback pins for stations without coordinates: the country's listed cities, capital first
 const anchor = new Map<string, [number, number][]>();

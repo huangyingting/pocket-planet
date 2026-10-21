@@ -1,4 +1,4 @@
-# Implementation Plan: Pocket Planet
+# Implementation Plan: Terrastra
 
 > Historical MVP plan. For current priorities and status see [the 2026-10 roadmap](improvement-roadmap-2026-10.md).
 

@@ -1,6 +1,6 @@
 # Research: reference product exploration
 
-These are artifacts from exploring [myearthtoy.com](https://myearthtoy.com/) anonymously with Playwright. They are analysed in [`docs/research/exploration-report.md`](../docs/research/exploration-report.md). Nothing here is used by the Pocket Planet build.
+These are artifacts from exploring [myearthtoy.com](https://myearthtoy.com/) anonymously with Playwright. They are analysed in [`docs/research/exploration-report.md`](../docs/research/exploration-report.md). Nothing here is used by the Terrastra build.
 
 ```
 research/

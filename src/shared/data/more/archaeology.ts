@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 // Famous archaeological finds, placed where they came out of the ground. `built` = how old, `year` = when found.
 export const ARCHAEOLOGY = many('discovery', [
   { key: 'ar_tutankhamun', slug: 'tutankhamun-tomb', name: ['Tutankhamun’s tomb', '图坦卡蒙墓'], lat: 25.74, lon: 32.6, continent: 'africa', country: 'EG',

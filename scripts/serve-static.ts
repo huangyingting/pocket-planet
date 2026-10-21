@@ -1,5 +1,5 @@
 /**
- * Serves a static build (`dist`) below a sub-path, the way GitHub Pages does: `/pocket-planet/…`.
+ * Serves a static build (`dist`) below a sub-path, the way GitHub Pages does: `/terrastra/…`.
  * Used by the static smoke tests (playwright.static.config.ts). No API: /api/* is a 404, like Pages.
  */
 import { createServer } from 'node:http';
@@ -7,7 +7,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 
 const PORT = Number(process.env.PORT ?? 8791);
-const BASE = process.env.BASE_PATH ?? '/pocket-planet/';
+const BASE = process.env.BASE_PATH ?? '/terrastra/';
 const ROOT = join(import.meta.dirname, '..', 'dist');
 const TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml',

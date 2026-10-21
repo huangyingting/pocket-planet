@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 export const SPACE = many('space', [
   { key: 'sp_ksc', slug: 'kennedy-space-center', name: ['Kennedy Space Center', '肯尼迪航天中心'], lat: 28.61, lon: -80.6,
     continent: 'north-america', country: 'US', tier: 1, emoji: '🚀', sub: 'launch site', model: { kind: 'space', hero: 'space/sp_ksc' },

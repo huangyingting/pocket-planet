@@ -1,11 +1,11 @@
-# Functional & Technical Specification: Pocket Planet
+# Functional & Technical Specification: Terrastra
 
 Companion to the [PRD](prd.md). The constants listed here are the source of truth and are mirrored in code (file references in brackets).
 
 ## 1. Screen layout
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ Pocket Planet [BETA]                    📷 Photo 📚 Collection 🎯 Game ☰ Menu │  top bar (tools hidden in game mode)
+│ Terrastra [BETA]                    📷 Photo 📚 Collection 🎯 Game ☰ Menu │  top bar (tools hidden in game mode)
 │ ×4.0                                                                         │  zoom readout
 │                                                                ┌───────────┐ │
 │                    ( 3D globe canvas + 2D label canvas )       │ info card │ │  desktop: right card
@@ -62,7 +62,7 @@ A newly earned sticker triggers a toast plus a sound, and is awarded exactly onc
 Camera follows the vehicle (third person by default, first-person toggle). Drag yaws the view and the wheel changes distance (0.5–6). An exit bar is shown, and Esc exits.
 
 ## 8. Photo [`src/client/ui/photo.ts`]
-The viewfinder overlay hides the chrome. On shutter (flash + sound), the scene is re-rendered and exported as a JPEG (quality 0.9) data URL. It is stored in IndexedDB `pp-photos/photos` as `{id, at, url, place}`, where `place` is the name of the open item (or empty). The album grid offers view, download (`pocket-planet-<id>.jpg`), Web Share with a file (when supported) and delete.
+The viewfinder overlay hides the chrome. On shutter (flash + sound), the scene is re-rendered and exported as a JPEG (quality 0.9) data URL. It is stored in IndexedDB `pp-photos/photos` as `{id, at, url, place}`, where `place` is the name of the open item (or empty). The album grid offers view, download (`terrastra-<id>.jpg`), Web Share with a file (when supported) and delete.
 
 ## 9. Games [`src/shared/games/*`, `src/client/ui/games.ts`]
 Entering game mode sets `body.gaming`, closes the card/menu and hides items. For non-practice difficulties it also hides names. The HUD's ✕ quits (Esc only closes dialogs).
@@ -95,7 +95,7 @@ Entering game mode sets `body.gaming`, closes the card/menu and hides items. For
 * Guesses (max 6): type a landmark or city name (datalist, accent-insensitive, any language alias), **or** "📍 Pick on globe" (tap anywhere). Duplicate guesses are ignored.
 * Per guess: distance, 8-way arrow towards target, band 🟩 hit ≤ 200 km · 🟨 ≤ 1000 · 🟧 ≤ 3000 · 🟥 > 3000.
 * Hints after 2 / 4 / 5 misses: continent → country → first two letters of the name.
-* End: reveal (emoji + fly-to), result, share text (`Pocket Planet Daily #N k/6` or `X/6` + emoji rows, no answer), stats (played, streak, best), countdown to local midnight.
+* End: reveal (emoji + fly-to), result, share text (`Terrastra Daily #N k/6` or `X/6` + emoji rows, no answer), stats (played, streak, best), countdown to local midnight.
 * State is persisted per day (`pp.dailyState`), so a reload shows the finished result. Stats `{played, won, streak, maxStreak, lastWonDay, dist[6]}`. The streak continues only if yesterday was won.
 
 ## 10. Tutorial & hints [`src/client/ui/tutorial.ts`]

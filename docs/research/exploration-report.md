@@ -5,7 +5,7 @@
 **Access:** anonymous only. No `.cred` file was provided, so the sign-in-gated flows (dex collecting, ride, games for
 non-free regions, guestbook posting) were observed only up to the sign-in dialog. Everything behind it was
 documented from the public, unminified client bundles (`/js/s1.*.js`, `/js/s2.*.js`) and from network traces.
-No content from the reference (models, text, images, data) is reused in Pocket Planet.
+No content from the reference (models, text, images, data) is reused in Terrastra.
 
 Artifacts (under `research/`; regenerate with `npm run research:crawl` / `research:explore`). The scripts are versioned. The captures (`data/`, `screenshots/`, `raw/`) hold third-party content, so they stay local and are git-ignored:
 
@@ -121,4 +121,4 @@ Static pages: `research/screenshots/static/*` cover about (4 languages), privacy
 | Ride, collecting, reactions, guestbook | ⚠️ bundle | n/a | sign-in gated → bundle analysis |
 | Account sign-in dialog | ✅ | n/a | interactive (no credentials) |
 
-Mobile in-app exploration of the reference was not practical: the 15 MB bundle under SwiftShader exceeded timeouts. The mobile layout of **Pocket Planet** is covered by e2e tests instead.
+Mobile in-app exploration of the reference was not practical: the 15 MB bundle under SwiftShader exceeded timeouts. The mobile layout of **Terrastra** is covered by e2e tests instead.

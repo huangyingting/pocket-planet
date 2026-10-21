@@ -1,7 +1,7 @@
 import type { CatalogueItem } from '../types.ts';
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 // Wave-4 landmarks for countries and regions that had few or none: Africa, Central Asia, the Middle East,
 // Eastern Europe, South America, Micronesia and Borneo.
 export const LANDMARKS4: CatalogueItem[] = [

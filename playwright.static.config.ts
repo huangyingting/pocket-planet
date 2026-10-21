@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-/** Smoke tests against the static (GitHub Pages) build, served below a sub-path. Build first: VITE_STATIC=1 BASE_PATH=/pocket-planet/ npm run build */
+/** Smoke tests against the static (GitHub Pages) build, served below a sub-path. Build first: VITE_STATIC=1 BASE_PATH=/terrastra/ npm run build */
 const PORT = 8791;
 const gl = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 
@@ -11,7 +11,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   use: {
-    baseURL: `http://localhost:${PORT}/pocket-planet/`,
+    baseURL: `http://localhost:${PORT}/terrastra/`,
     headless: !process.env.DISPLAY,
     launchOptions: { args: gl },
     trace: 'retain-on-failure',
@@ -20,8 +20,8 @@ export default defineConfig({
   },
   webServer: {
     command: 'node scripts/serve-static.ts',
-    env: { PORT: String(PORT), BASE_PATH: '/pocket-planet/' },
-    url: `http://localhost:${PORT}/pocket-planet/`,
+    env: { PORT: String(PORT), BASE_PATH: '/terrastra/' },
+    url: `http://localhost:${PORT}/terrastra/`,
     reuseExistingServer: false,
     timeout: 20_000,
   },

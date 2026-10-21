@@ -1,6 +1,6 @@
 import { many } from '../make.ts';
 
-// Original text written for Pocket Planet; every item carries English and Chinese side by side.
+// Original text written for Terrastra; every item carries English and Chinese side by side.
 // `season` is the usual start date (month 1–12); lunar and moving festivals use a typical Gregorian date.
 export const FESTIVALS = many('festival', [
   { key: 'fs_springfestival', slug: 'spring-festival', name: ['Spring Festival (Chinese New Year)', '春节'], lat: 40.2, lon: 116.7,

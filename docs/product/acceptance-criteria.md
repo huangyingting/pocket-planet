@@ -1,4 +1,4 @@
-# Acceptance Criteria: Pocket Planet
+# Acceptance Criteria: Terrastra
 
 Format: Given / When / Then. **Verified by** names the automated test: `e2e:` = `tests/e2e/app.spec.ts` (Playwright,
 screenshots in [`docs/assets/screenshots/`](../assets/screenshots/)), `unit:` = `tests/unit/logic.test.ts`, `api:` = `tests/unit/server.test.ts`.
@@ -44,7 +44,7 @@ screenshots in [`docs/assets/screenshots/`](../assets/screenshots/)), `unit:` = 
 
 ## AC-8 Daily Planet (F9)
 | 8.1 | A guess can be typed **or** picked by tapping the globe (📍); each guess shows distance, arrow and a colour band | e2e: *Daily Planet: guesses, hints, share, persisted state* |
-| 8.2 | Game ends on a hit (≤ 200 km) or after 6 guesses; share text contains "Pocket Planet Daily #N" and no answer | e2e + unit: *game ends on hit or after 6 guesses; stats & streaks; share text* |
+| 8.2 | Game ends on a hit (≤ 200 km) or after 6 guesses; share text contains "Terrastra Daily #N" and no answer | e2e + unit: *game ends on hit or after 6 guesses; stats & streaks; share text* |
 | 8.3 | Reloading on the same day shows the finished result | e2e: same |
 | 8.4 | Hints unlock after 2, 4, 5 misses; the pool is deterministic; the day index follows the local calendar | unit: *hints unlock…*, *pool is deterministic…*, *day index…* |
 

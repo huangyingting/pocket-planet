@@ -1,9 +1,9 @@
 {
-  "name": "pocket-planet",
+  "name": "terrastra",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Pocket Planet: an original 3D toy globe for curious kids",
+  "description": "Terrastra: an original 3D toy globe for curious kids",
   "scripts": {
     "dev": "vite",
     "dev:server": "node --env-file-if-exists=.env --watch src/server/index.ts",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:static": "VITE_STATIC=1 BASE_PATH=/pocket-planet/ npm run build && playwright test -c playwright.static.config.ts",
+    "test:static": "VITE_STATIC=1 BASE_PATH=/terrastra/ npm run build && playwright test -c playwright.static.config.ts",
     "test:all": "npm run typecheck && npm test && npm run build && npm run test:e2e",
     "research:crawl": "cd research && mkdir -p data screenshots/static && node scripts/crawl-static.mjs",
     "research:explore": "cd research && mkdir -p data screenshots/app && node scripts/explore-app.mjs",

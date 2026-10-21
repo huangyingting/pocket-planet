@@ -1,4 +1,4 @@
-# Architecture & Data Model — Pocket Planet
+# Architecture & Data Model — Terrastra
 
 ## 1. Reference architecture (observed)
 
@@ -22,7 +22,7 @@ Browser storage (observed keys): `globe-lang`, `tutorial`, `hint-open`, `names`,
 `animals`, `myst`, `minis`, `vehicles`, `sfx`, `bgm`, `mapStyle`, `dex`, `dexOwner`, `dexst`, `discFound`, `discst`,
 `gameStats`, `quizStats`, `daily`, `stkSort`, `gbnick`, `globe-layout*`, `ed-roads`; IndexedDB `met-photos` (album).
 
-## 2. Pocket Planet architecture (as built)
+## 2. Terrastra architecture (as built)
 
 ```
 ┌──────────────────────────────────── Browser (Vite build, ES modules) ────────────────────────────────────┐

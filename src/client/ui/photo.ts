@@ -67,7 +67,7 @@ export async function postcard(url: string, c: Caption, when = new Date()): Prom
   if (c.note) { g.fillStyle = '#c9a25a'; g.font = `${Math.round(13 * u)}px ${font}`; g.fillText(c.note, W - pad, H + Math.round(66 * u), W * 0.34); }
   g.fillStyle = '#5ec8ff';
   g.font = `600 ${Math.round(14 * u)}px ${font}`;
-  g.fillText('POCKET PLANET', W - pad, H + Math.round(40 * u));
+  g.fillText('TERRASTRA', W - pad, H + Math.round(40 * u));
   return cv.toDataURL('image/jpeg', 0.9);
 }
 
@@ -112,10 +112,10 @@ export async function openAlbum(): Promise<void> {
   }
   openModal('album', t('album'), grid, { wide: true });
   function view(p: Photo) {
-    const dl = h('a', { class: 'pill', href: p.url, download: `pocket-planet-${p.id}.jpg`, html: icon('download', 16) }, ' ' + t('save'));
+    const dl = h('a', { class: 'pill', href: p.url, download: `terrastra-${p.id}.jpg`, html: icon('download', 16) }, ' ' + t('save'));
     const share = navigator.share ? h('button', { class: 'pill', onclick: async () => {
       const blob = await (await fetch(p.url)).blob();
-      await navigator.share({ files: [new File([blob], 'pocket-planet.jpg', { type: blob.type })], title: t('title') }).catch(() => {});
+      await navigator.share({ files: [new File([blob], 'terrastra.jpg', { type: blob.type })], title: t('title') }).catch(() => {});
     }, html: icon('share', 16) }, ' ' + t('share')) : null;
     openModal('photo-view', p.place || t('album'), h('div', { class: 'photo-view' }, h('img', { src: p.url, alt: p.place || t('photoAlt') }),
       h('p', { class: 'muted' }, new Date(p.at).toLocaleString()),
