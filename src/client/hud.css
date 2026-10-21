@@ -81,17 +81,19 @@
 /* idle scanner: a glint that runs along the top edge every few seconds */
 .omnibar::after, .solar-top::after, .tools::after, .menu::after, .info::after, .modal-panel::after {
   content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; pointer-events: none; z-index: 5;
-  background: linear-gradient(90deg, transparent 38%, rgba(224, 242, 254, 0.9) 50%, transparent 62%);
+  background: linear-gradient(90deg, transparent 38%, rgba(224, 242, 254, 0.9) 50%, transparent 62%) no-repeat;
+  background-size: 300% 100%;
   opacity: 0; animation: hud-sweep 8s ease-in-out infinite;
 }
 .omnibar, .solar-top, .tools, .modal-panel { position: relative; }
 .tools::after { animation-delay: 1.6s; }
 .info::after, .menu::after, .modal-panel::after { animation-delay: .5s; }
+/* the glint moves inside the edge (background-position), so scrolling panels never grow a sideways scrollbar */
 @keyframes hud-sweep {
-  0% { transform: translateX(-42%); opacity: 0; }
+  0% { background-position: 92% 0; opacity: 0; }
   6% { opacity: 1; }
-  18% { transform: translateX(42%); opacity: 0; }
-  100% { transform: translateX(42%); opacity: 0; }
+  18% { background-position: 8% 0; opacity: 0; }
+  100% { background-position: 8% 0; opacity: 0; }
 }
 
 /* panels unfold top-down along the slab outline */

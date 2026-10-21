@@ -7,7 +7,7 @@ import { latLonToVec, vecToLatLon, slerpLatLon } from '../../shared/lib/geo.ts';
 import { buildModel, modelReady, setModelDetail, whenModelReady } from '../models/library.ts';
 import { mat } from '../models/prims.ts';
 import { paintNightLights, type CountryInfo } from './painter.ts';
-import { CITIES } from '../../shared/data/cities.ts';
+import { CITIES, cityName } from '../../shared/data/cities.ts';
 import { TYPE_META, type LayerKey } from '../../shared/data/typemeta.ts';
 import { GlobeLayers, RENDER_ORDER, graticuleStep } from './layers.ts';
 import { buildStarField, gmstRad, SPACE_BG } from '../lib/starfield.ts';
@@ -36,7 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
   landmarks: true, animals: true, discoveries: true, vehicles: true,
   dinos: true, foods: true, festivals: true, space: true, plants: true, sports: true, volcanoes: true, migrations: true, voyages: true, people: true,
   tectonics: false, clouds: true, aurora: true, graticule: true,
-  sfx: true, bgm: false,
+  sfx: true, bgm: true,
   auraPreset: 'waves', surfaceMode: 'realistic',
 };
 
@@ -1229,7 +1229,7 @@ export class Globe {
         const minPop = z < 3 ? Infinity : z < 5 ? 12 : z < 8 ? 4 : z < 15 ? 1.2 : 0;
         for (const [name, , la, lo, pop, cap] of CITIES) {
           if (pop < minPop && !(cap && z >= 6)) continue;
-          push(name, cap ? 'lb-city lb-cap' : 'lb-city', la, lo, pop + (cap ? 5 : 0));
+          push(cityName(name, this.lang), cap ? 'lb-city lb-cap' : 'lb-city', la, lo, pop + (cap ? 5 : 0));
         }
       }
       if (z < 12) for (const [, n, la, lo] of OCEANS) push(n[this.lang] ?? n.en, 'lb-ocean', la, lo, 2000);
@@ -1238,7 +1238,7 @@ export class Globe {
     const boxes: [number, number, number, number][] = [];
     let used = 0;
     for (const l of out) {
-      const w = l.text.length * (l.cls === 'lb-country' ? 8 : 6.5) + 10, h = 16;
+      const w = (l.text.length + (l.text.match(/[\u3000-\u9fff]/g)?.length ?? 0) * 0.8) * (l.cls === 'lb-country' ? 8 : 6.5) + 10, h = 16;
       const cx = l.corner ? l.x + w / 2 + 2 : l.x, cy = l.corner ? l.y - h / 2 - 1 : l.y;
       const bx: [number, number, number, number] = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2];
       if (boxes.some(b => bx[0] < b[2] && bx[2] > b[0] && bx[1] < b[3] && bx[3] > b[1])) continue;

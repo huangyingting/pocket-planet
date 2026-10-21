@@ -303,12 +303,17 @@ export class Shell {
     const sel = h('select', { id: 'lang-select', 'aria-label': t('language') }, ...LANGS.map(l => h('option', { value: l, selected: l === lang() }, LANG_LABEL[l])));
     sel.addEventListener('change', () => setLang(sel.value as Lang));
     const row = (ic: IconName, label: string, ctl: Node) => h('div', { class: 'menu-row' }, h('span', { class: 'sw-emoji', html: icon(ic, 16) }), h('span', { class: 'grow' }, label), ctl);
-    this.menu.replaceChildren(
+    // Globe options belong to the Earth scene only; in space the menu keeps just the app-wide settings.
+    const earth = this.space ? [] : [
       h('h3', {}, t('surfaceMode')), modeRow,
       h('h3', {}, t('auraPreset')), auraRow,
       h('h3', {}, t('mMap')), h('div', { class: 'grid2' }, sw('terrain', 'mountain'), sw('names', 'tag'), sw('borders', 'globe'), sw('shadows', 'contrast')),
       h('h3', {}, t('mGlobe')), h('div', { class: 'grid2' }, ...TYPE_ORDER.filter(ty => BY_TYPE[ty].length).map(ty => sw(TYPE_META[ty].layer, TYPE_ICON[ty]))),
       h('h3', {}, t('mLayers')), h('div', { class: 'grid2' }, sw('graticule', 'grid'), sw('tectonics', 'plates'), sw('clouds', 'cloud'), sw('aurora', 'aurora')),
+    ];
+    this.menu.classList.toggle('menu-space', this.space);
+    this.menu.replaceChildren(
+      ...earth,
       h('h3', {}, t('mSettings')), h('div', { class: 'grid2' }, sw('sfx', 'sound'), sw('bgm', 'music')),
       row('language', t('language'), sel),
       row('reset', t('reset'), h('button', { class: 'pill', 'data-testid': 'reset', onclick: () => { if (confirm(t('resetConfirm'))) { resetSettings(); this.globe.flyTo(25, 40, 2.2); } } }, t('resetBtn'))),

@@ -38,3 +38,35 @@ export const CITIES: City[] = [
   ['Brisbane','AU',-27.47,153.03,2.6,false],['Darwin','AU',-12.46,130.84,0.15,false],['Canberra','AU',-35.28,149.13,0.46,true],['Auckland','NZ',-36.85,174.76,1.7,false],
   ['Wellington','NZ',-41.29,174.78,0.4,true],['Port Moresby','PG',-9.44,147.18,0.4,true],['Suva','FJ',-18.14,178.44,0.2,true],['Nuuk','GL',64.18,-51.72,0.02,false],
 ];
+
+/** Chinese names for the city labels (standard Xinhua forms). */
+export const CITY_ZH: Record<string, string> = {
+  'Tokyo': '东京', 'Delhi': '德里', 'Shanghai': '上海', 'São Paulo': '圣保罗', 'Mexico City': '墨西哥城', 'Cairo': '开罗', 'Mumbai': '孟买',
+  'Beijing': '北京', 'Dhaka': '达卡', 'Osaka': '大阪', 'New York': '纽约', 'Karachi': '卡拉奇', 'Buenos Aires': '布宜诺斯艾利斯',
+  'Istanbul': '伊斯坦布尔', 'Kolkata': '加尔各答', 'Manila': '马尼拉', 'Lagos': '拉各斯', 'Rio de Janeiro': '里约热内卢', 'Kinshasa': '金沙萨',
+  'Moscow': '莫斯科', 'Los Angeles': '洛杉矶', 'Lahore': '拉合尔', 'Bengaluru': '班加罗尔', 'Paris': '巴黎', 'Bogotá': '波哥大',
+  'Jakarta': '雅加达', 'Lima': '利马', 'Bangkok': '曼谷', 'Seoul': '首尔', 'Nagoya': '名古屋', 'Chicago': '芝加哥', 'London': '伦敦',
+  'Tehran': '德黑兰', 'Ho Chi Minh City': '胡志明市', 'Hong Kong': '香港', 'Luanda': '罗安达', 'Baghdad': '巴格达', 'Riyadh': '利雅得',
+  'Santiago': '圣地亚哥', 'Madrid': '马德里', 'Toronto': '多伦多', 'Singapore': '新加坡', 'Khartoum': '喀土穆', 'Dar es Salaam': '达累斯萨拉姆',
+  'Nairobi': '内罗毕', 'Johannesburg': '约翰内斯堡', 'Sydney': '悉尼', 'Melbourne': '墨尔本', 'Berlin': '柏林', 'Rome': '罗马', 'Athens': '雅典',
+  'Kyiv': '基辅', 'Addis Ababa': '亚的斯亚贝巴', 'Algiers': '阿尔及尔', 'Casablanca': '卡萨布兰卡', 'Accra': '阿克拉', 'Dakar': '达喀尔',
+  'Abidjan': '阿比让', 'Cape Town': '开普敦', 'Kampala': '坎帕拉', 'Antananarivo': '塔那那利佛', 'Washington': '华盛顿', 'Ottawa': '渥太华',
+  'Vancouver': '温哥华', 'San Francisco': '旧金山', 'Seattle': '西雅图', 'Miami': '迈阿密', 'Houston': '休斯敦', 'Denver': '丹佛',
+  'Anchorage': '安克雷奇', 'Honolulu': '檀香山', 'Havana': '哈瓦那', 'Guatemala City': '危地马拉城', 'Panama City': '巴拿马城', 'Caracas': '加拉加斯',
+  'Quito': '基多', 'La Paz': '拉巴斯', 'Asunción': '亚松森', 'Montevideo': '蒙得维的亚', 'Brasília': '巴西利亚', 'Manaus': '马瑙斯',
+  'Reykjavík': '雷克雅未克', 'Dublin': '都柏林', 'Lisbon': '里斯本', 'Amsterdam': '阿姆斯特丹', 'Brussels': '布鲁塞尔', 'Vienna': '维也纳',
+  'Prague': '布拉格', 'Warsaw': '华沙', 'Budapest': '布达佩斯', 'Bucharest': '布加勒斯特', 'Stockholm': '斯德哥尔摩', 'Oslo': '奥斯陆',
+  'Helsinki': '赫尔辛基', 'Copenhagen': '哥本哈根', 'Bern': '伯尔尼', 'Barcelona': '巴塞罗那', 'Milan': '米兰', 'Munich': '慕尼黑',
+  'Saint Petersburg': '圣彼得堡', 'Novosibirsk': '新西伯利亚', 'Vladivostok': '符拉迪沃斯托克', 'Yakutsk': '雅库茨克', 'Murmansk': '摩尔曼斯克',
+  'Ankara': '安卡拉', 'Jerusalem': '耶路撒冷', 'Amman': '安曼', 'Dubai': '迪拜', 'Doha': '多哈', 'Muscat': '马斯喀特', 'Kabul': '喀布尔',
+  'Tashkent': '塔什干', 'Astana': '阿斯塔纳', 'Almaty': '阿拉木图', 'Ulaanbaatar': '乌兰巴托', 'Kathmandu': '加德满都', 'Colombo': '科伦坡',
+  'Chennai': '金奈', 'Hyderabad': '海得拉巴', 'Yangon': '仰光', 'Hanoi': '河内', 'Phnom Penh': '金边', 'Kuala Lumpur': '吉隆坡', 'Taipei': '台北',
+  'Busan': '釜山', 'Pyongyang': '平壤', 'Sapporo': '札幌', 'Fukuoka': '福冈', 'Chengdu': '成都', 'Guangzhou': '广州', 'Shenzhen': '深圳',
+  'Wuhan': '武汉', 'Harbin': '哈尔滨', 'Ürümqi': '乌鲁木齐', 'Lhasa': '拉萨', 'Perth': '珀斯', 'Brisbane': '布里斯班', 'Darwin': '达尔文',
+  'Canberra': '堪培拉', 'Auckland': '奥克兰', 'Wellington': '惠灵顿', 'Port Moresby': '莫尔斯比港', 'Suva': '苏瓦', 'Nuuk': '努克',
+};
+
+/** A city's display name in the given language. */
+export function cityName(name: string, lang: string): string {
+  return lang === 'zh' ? CITY_ZH[name] ?? name : name;
+}

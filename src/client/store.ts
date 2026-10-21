@@ -15,6 +15,13 @@ export const store = {
   me: null as Me | null,
 };
 
+// Music was off by default before it became per-level; saved settings carried that default, so turn it on once.
+if (!load<boolean>('bgm2', false)) {
+  store.settings.bgm = true;
+  save('settings', store.settings);
+  save('bgm2', true);
+}
+
 export function subscribe(fn: Listener): () => void { subs.add(fn); return () => subs.delete(fn); }
 function emit(): void { for (const fn of subs) fn(); }
 

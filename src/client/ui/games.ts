@@ -3,7 +3,7 @@ import { h, openModal, closeModal, toast, confetti } from './dom.ts';
 import { t, lang, countryName, fmtNum } from '../lib/i18n.ts';
 import { store, updateProgress } from '../store.ts';
 import { CATALOGUE, LANDMARKS } from '../../shared/data/catalogue.ts';
-import { CITIES } from '../../shared/data/cities.ts';
+import { CITIES, CITY_ZH, cityName } from '../../shared/data/cities.ts';
 import { CONTINENT_NAMES } from '../../shared/data/iso.ts';
 import { tr, type CatalogueItem } from '../../shared/data/types.ts';
 import { sfx } from '../lib/sfx.ts';
@@ -204,7 +204,7 @@ interface Guessable { key: string; label: string; lat: number; lon: number; alia
 function guessables(): Guessable[] {
   const l = lang();
   const out: Guessable[] = LANDMARKS.map(i => ({ key: i.key, label: tr(i.name, l), lat: i.lat, lon: i.lon, aliases: Object.values(i.name).map(s => s!.toLowerCase()) }));
-  for (const [name, cc, lat, lon] of CITIES) out.push({ key: 'city:' + name, label: `${name} (${countryName(cc, l)})`, lat, lon, aliases: [name.toLowerCase()] });
+  for (const [name, cc, lat, lon] of CITIES) out.push({ key: 'city:' + name, label: `${cityName(name, l)} (${countryName(cc, l)})`, lat, lon, aliases: [name.toLowerCase(), ...(CITY_ZH[name] ? [CITY_ZH[name]] : [])] });
   return out;
 }
 

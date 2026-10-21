@@ -369,8 +369,10 @@ a:hover { text-decoration: underline; }
   top: 66px;
   right: 20px;
   width: min(360px, calc(100vw - 24px));
-  max-height: calc(100vh - 90px);
-  overflow: auto;
+  /* stop above the bottom-right camera buttons */
+  max-height: max(300px, calc(100dvh - 66px - 250px));
+  overflow: hidden auto;
+  overscroll-behavior: contain;
   background: rgba(16, 16, 20, 0.92);
   backdrop-filter: blur(24px) saturate(140%);
   border: 1px solid var(--line);

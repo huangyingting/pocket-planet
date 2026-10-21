@@ -83,6 +83,8 @@ const MOODS: Record<MusicLevel, Mood> = {
 const FADE = 4;
 const LOOKAHEAD = 1.2;
 const VOLUME = 0.85;
+/** Per-mood loudness trim (dB), measured so every level sits near -21 dBFS RMS. */
+const TRIM: Record<MusicLevel, number> = { earth: 8.5, sky: 6, solar: 10, galaxy: 8, group: 4, laniakea: 8.5, universe: 3 };
 
 const hz = (root: number, semi: number) => root * Math.pow(2, semi / 12);
 
@@ -101,7 +103,7 @@ class Player {
     this.bus.connect(out.dry);
     const vs = a.createGain(); vs.gain.value = m.verb; this.bus.connect(vs).connect(out.verb);
     this.next = a.currentTime + 0.1;
-    this.bus.gain.setTargetAtTime(1, a.currentTime, FADE / 3);
+    this.bus.gain.setTargetAtTime(Math.pow(10, TRIM[level] / 20), a.currentTime, FADE / 3);
     this.tick();
     this.timer = window.setInterval(() => this.tick(), 300);
   }
