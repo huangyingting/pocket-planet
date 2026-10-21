@@ -312,3 +312,32 @@ test('compare bench: one measure per group, true scale vs clearly marked enlarge
   await expect(page.getByTestId('cmp-g-long')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('cmp-pick-0')).toHaveValue('an_panda');
 });
+
+test('narration: user-started, highlights the sentence being read, stoppable, text stays readable', async ({ page }) => {
+  // a stand-in speech engine (headless browsers have no voices): records what is said and plays each line for 300 ms
+  await page.addInitScript(() => {
+    const said: string[] = []; (window as any).__said = said;
+    let q: any[] = [], timer = 0;
+    const next = () => { const u = q.shift(); if (!u) return; said.push(u.text); u.onstart?.(); timer = window.setTimeout(() => { u.onend?.(); next(); }, 300); };
+    (window as any).SpeechSynthesisUtterance = class { text: string; lang = ''; rate = 1; voice = null; onstart: any; onend: any; onerror: any; constructor(t: string) { this.text = t; } };
+    Object.defineProperty(window, 'speechSynthesis', { value: {
+      getVoices: () => [], speak: (u: any) => { q.push(u); if (q.length === 1 && !timer) next(); },
+      cancel: () => { clearTimeout(timer); timer = 0; const old = q; q = []; old.forEach(u => u.onerror?.({ error: 'canceled' })); },
+    } });
+  });
+  await openApp(page);
+  expect(await page.evaluate(() => (window as any).__said.length)).toBe(0);
+  await page.evaluate(() => { location.hash = 'eiffel'; });
+  const btn = page.getByTestId('info-listen');
+  await btn.click();
+  await expect(btn).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('info-desc').locator('.say.now')).toHaveCount(1);
+  expect((await page.evaluate(() => (window as any).__said))[0]).toMatch(/Eiffel Tower/);
+  await btn.click();
+  await expect(btn).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.say.now')).toHaveCount(0);
+  // played to the end it resets by itself
+  await btn.click();
+  await expect(btn).toHaveAttribute('aria-pressed', 'false', { timeout: 15_000 });
+  await expect(page.getByTestId('info-desc')).not.toBeEmpty();
+});

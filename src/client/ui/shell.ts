@@ -21,6 +21,7 @@ import { sessionOnly } from '../lib/storage.ts';
 import type { SpaceHit } from '../solar/space-index.ts';
 import { searchAll, type SearchFilter } from '../lib/search.ts';
 import { groupOf } from '../lib/compare.ts';
+import { narrate, narrationSupported, splitSentences, stopNarration, type Narration } from '../lib/narrate.ts';
 import { offlineSupported, offlineOn, offlineInfo, enableOffline, disableOffline, savePack, mb } from '../lib/offline.ts';
 import { classroom, setClassroom, setStill, motion, onClassroom } from '../lib/classroom.ts';
 
@@ -385,6 +386,7 @@ export class Shell {
     this.current = item;
     this.globe.select(item?.key ?? null);
     if (!item) {
+      stopNarration();
       this.toggleReader(false);
       this.info.classList.add('hidden');
       if (prev && decodeURIComponent(location.hash.slice(1)) === prev.key) history.replaceState(null, '', location.pathname + location.search);
@@ -425,6 +427,32 @@ export class Shell {
   }
 
   private dexRow = h('div', { class: 'dex-row' });
+  private narration: Narration | null = null;
+
+  /** Reads the name, description and fun fact aloud on request, highlighting each sentence as it is spoken. */
+  private toggleNarration(it: CatalogueItem, btn: HTMLButtonElement, segs: { el: HTMLElement; text: string; lead: Node[] }[]): void {
+    if (this.narration) { this.narration.stop(); return; }
+    const l = lang();
+    const spans: HTMLElement[] = [];
+    for (const seg of segs) {
+      const parts = splitSentences(seg.text).map(x => h('span', { class: 'say' }, x + (l === 'zh' ? '' : ' ')));
+      seg.el.replaceChildren(...seg.lead, ...parts);
+      spans.push(...parts);
+    }
+    const set = (on: boolean) => {
+      btn.setAttribute('aria-pressed', String(on));
+      btn.replaceChildren(h('span', { html: icon(on ? 'pause' : 'sound', 14) }), on ? t('listenStop') : t('listen'));
+    };
+    const name = tr(it.name, l);
+    this.narration = narrate([name + (l === 'zh' ? '。' : '.'), ...spans.map(x => x.textContent!.trim())], l, {
+      sentence: i => spans.forEach((x, j) => {
+        x.classList.toggle('now', j === i - 1);
+        if (j === i - 1) { x.closest('details')?.setAttribute('open', ''); x.scrollIntoView({ block: 'nearest' }); }
+      }),
+      end: () => { this.narration = null; spans.forEach(x => x.classList.remove('now')); set(false); },
+    });
+    if (this.narration) set(true); else toast(t('noSpeech'));
+  }
 
   private renderDexRow(): void {
     const it = this.current;
@@ -485,6 +513,13 @@ export class Shell {
     if (!it.route) extra.push([t('latitude'), coordStr]);
     const hasMore = true;
     this.renderDexRow();
+    stopNarration();
+    const descP = h('p', { class: 'desc', 'data-testid': 'info-desc' }, tr(it.desc, l));
+    const funLead = (): Node[] => [h('b', {}, t('funFact')), document.createTextNode(' ')];
+    const funP = it.funFact ? h('p', { class: 'fun' }, ...funLead(), tr(it.funFact, l)) : null;
+    const listen: HTMLButtonElement | null = narrationSupported() ? h('button', { class: 'pill pill-sm info-listen', 'data-testid': 'info-listen', 'aria-pressed': 'false',
+      onclick: () => this.toggleNarration(it, listen!, [{ el: descP, text: tr(it.desc, l), lead: [] }, ...(funP ? [{ el: funP, text: tr(it.funFact, l), lead: funLead() }] : [])]) },
+      h('span', { html: icon('sound', 14) }), t('listen')) : null;
     this.infoMain.replaceChildren(
       h('div', { class: 'info-hero', 'data-type': it.type },
         createModelPreview(it, { width: 360, height: 208, id: 'info-preview' }),
@@ -498,13 +533,14 @@ export class Shell {
         where ? h('p', { class: 'eyebrow', html: icon('pin', 13) }, h('span', {}, where)) : null,
         h('h2', { 'data-testid': 'info-name' }, tr(it.name, l)),
         secondary ? h('p', { class: 'alt-name' }, secondary) : null,
-        h('p', { class: 'desc' }, tr(it.desc, l)),
+        descP,
+        listen,
         key.length ? h('dl', { class: 'stats-row' }, ...key.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v)))) : null,
         groupOf(it.key) ? h('button', { class: 'pill cmp-open', 'data-testid': 'info-compare', onclick: () => this.hooks.openCompare(it.key) }, h('span', { html: icon('ruler', 14) }), t('cmpThis')) : null,
         this.dexRow,
         hasMore ? h('details', { class: 'more' },
           h('summary', { html: icon('chevron', 14) }, h('span', {}, t('moreDetails'))),
-          it.funFact ? h('p', { class: 'fun' }, h('b', {}, t('funFact')), ' ', tr(it.funFact, l)) : null,
+          funP,
           it.habitat ? h('p', { class: 'meta' }, t('habitat') + ': ' + tr(it.habitat, l)) : null,
           extra.length ? h('dl', { class: 'facts' }, ...extra.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v)))) : null,
           h('p', { class: 'meta prov', 'data-testid': 'provenance' }, t('modelNote') + ' ' + t(it.route ? 'routeNote' : it.type === 'animal' ? 'rangeNote' : ['landmark', 'volcano', 'space', 'discovery'].includes(it.type) ? 'placeNote' : 'repNote'))) : null,

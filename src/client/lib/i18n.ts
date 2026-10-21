@@ -186,6 +186,8 @@ const en: Dict = {
   cmpSame: "They have about the same {m}.",
   cmpSource: "Diameters are from the planet cards (twice the mean radius); heights and lengths from each item's card.",
   cmpThis: "Compare",
+  listen: "Listen",
+  listenStop: "Stop",
 };
 
 const zh: Dict = {
@@ -371,6 +373,8 @@ const zh: Dict = {
   cmpSame: "它们的{m}差不多。",
   cmpSource: "直径取自天体卡片（平均半径的两倍）；高度和体长取自各条目卡片。",
   cmpThis: "对比",
+  listen: "听讲解",
+  listenStop: "停止",
 };
 
 const DICTS: Record<Lang, Dict> = { en, zh };
