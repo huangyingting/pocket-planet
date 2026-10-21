@@ -1,5 +1,6 @@
 import { classroom, onClassroom, apply as applyClassroom } from './lib/classroom.ts';
 import { parseView, type Bookmark } from './lib/viewlink.ts';
+import { bootOffline } from './lib/offline.ts';
 import './styles.css';
 import './hud.css';
 import './intro.css';
@@ -31,7 +32,7 @@ import type { ScaleId } from '../shared/data/cosmos.ts';
 /** Panels not needed for the first screen load on first use (their chunks stay out of the entry). */
 const later = <M,>(load: () => Promise<M>, what: () => string) => {
   const get = lazy(load);
-  return (use: (m: M) => void) => void withBusy(get()).then(use, () => toast('⚠️ ' + t('loadFail', { s: what() })));
+  return (use: (m: M) => void) => void withBusy(get()).then(use, () => toast('⚠️ ' + t('loadFail', { s: what() }) + (navigator.onLine ? '' : ' ' + t('offlineMissing')), navigator.onLine ? 2600 : 5000));
 };
 const gamesMod = later(() => import('./ui/games.ts'), () => t('game'));
 const collectionMod = later(() => Promise.all([import('./ui/collection.ts'), import('./ui/passport.ts')]), () => t('collection'));
@@ -52,6 +53,8 @@ const loader = document.getElementById('loader');
 async function boot(): Promise<void> {
   if (lowfx) document.body.classList.add('lowfx');
   applyClassroom();
+  bootOffline();
+  window.addEventListener('offline', () => toast('📴 ' + t('nowOffline'), 5000));
   document.body.classList.add('q-' + quality.tier);
   initTooltips();
   document.documentElement.lang = lang();
@@ -101,6 +104,8 @@ async function boot(): Promise<void> {
   const loadRadio = lazy(() => import('./ui/radio.ts'));
   const toggleRadio = async () => {
     if (gaming || inSolar || classroom()) return;
+    // live radio can never work offline; say so instead of a failed connection
+    if (!navigator.onLine && !radio?.active) { toast('📡 ' + t('radioOffline'), 4000); return; }
     try {
       const m = await withBusy(loadRadio());
       radio = await m.getRadio(globe, app, on => { const b = document.getElementById('btn-radio'); b?.classList.toggle('active', on); b?.setAttribute('aria-pressed', String(on)); });

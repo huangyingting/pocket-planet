@@ -20,6 +20,7 @@ import { HAS_API, url } from '../lib/env.ts';
 import { sessionOnly } from '../lib/storage.ts';
 import type { SpaceHit } from '../solar/space-index.ts';
 import { searchAll, type SearchFilter } from '../lib/search.ts';
+import { offlineSupported, offlineOn, offlineInfo, enableOffline, disableOffline, savePack, mb } from '../lib/offline.ts';
 import { classroom, setClassroom, setStill, motion, onClassroom } from '../lib/classroom.ts';
 
 export const DEX_ZOOM = 10;
@@ -318,6 +319,7 @@ export class Shell {
       h('p', { class: 'menu-note' }, t('classroomNote')),
       h('div', { class: 'grid2' }, flag('set-classroom', 'bulb', 'classroom', classroom(), v => { setClassroom(v); if (v) this.toggleReader(false); }),
         ...(classroom() ? [flag('set-still', 'pause', 'pauseMotion', motion.still, setStill)] : [])),
+      ...this.offlineSection(flag, row),
       row('language', t('language'), sel),
       row('download', t('backup'), h('span', { class: 'row' },
         h('button', { class: 'pill', 'data-testid': 'backup-export', onclick: () => void import('./backup.ts').then(m => m.exportProgress(), () => toast('⚠️ ' + t('loadFail', { s: t('backup') }))) }, t('backupExport')),
@@ -329,6 +331,43 @@ export class Shell {
       h('footer', { class: 'menu-links' },
         ...([['about/', 'about', 'bulb'], ['encyclopedia/', 'encyclopedia', 'book'], ['privacy/', 'privacy', 'eye']] as const).map(([href, key, ic]) =>
           h('a', { href: url(href), 'data-testid': 'menu-link-' + key }, h('span', { class: 'ml-ico', html: icon(ic, 15) }), h('span', {}, t(key))))));
+  }
+
+  /** Optional offline use: one switch, then the optional packs, the space used and a clear button. */
+  private offlineSection(flag: (id: string, ic: IconName, label: string, val: boolean, set: (v: boolean) => void) => HTMLElement,
+    row: (ic: IconName, label: string, ctl: Node) => HTMLElement): Node[] {
+    if (!offlineSupported()) return [];
+    const on = offlineOn();
+    const rerender = () => { if (!this.menu.classList.contains('hidden')) this.renderMenu(); };
+    const box = h('div', { class: 'offline-box', 'data-testid': 'offline-box' });
+    if (on) {
+      box.append(h('p', { class: 'menu-note' }, t('offlineChecking')));
+      void offlineInfo().then(inf => {
+        box.replaceChildren(
+          h('p', { class: 'menu-note', 'data-testid': 'offline-status' }, t('offlineStatus', { v: inf.version, mb: inf.usage == null ? '?' : mb(inf.usage) })),
+          ...inf.packs.map(p => row(p.id === 'space' ? 'planet' : p.id === 'sky' ? 'eclipse' : 'landmark', `${t(('pack_' + p.id) as 'pack_space')} · ${mb(p.bytes)} MB`,
+            p.saved ? h('span', { class: 'meta', 'data-testid': 'pack-saved-' + p.id }, '✓ ' + t('offlineSaved'))
+              : h('button', { class: 'pill', 'data-testid': 'pack-' + p.id, onclick: async (e: Event) => {
+                const b = e.currentTarget as HTMLButtonElement;
+                b.disabled = true; b.textContent = t('offlineSavingShort');
+                try { await savePack(p.id); toast('✓ ' + t('offlineSaved')); } catch { toast('⚠️ ' + t('offlineFail'), 4000); }
+                rerender();
+              } }, t('offlineSave')))),
+          row('trash', t('offlineClear'), h('button', { class: 'pill', 'data-testid': 'offline-clear', onclick: async () => {
+            await disableOffline().catch(() => {}); toast(t('offlineCleared')); rerender();
+          } }, t('offlineClearBtn'))));
+      }, () => box.replaceChildren(h('p', { class: 'menu-warn', role: 'status' }, t('offlineFail'))));
+    }
+    return [
+      h('h3', {}, t('offlineTitle')),
+      h('p', { class: 'menu-note' }, t('offlineNote')),
+      h('div', { class: 'grid2' }, flag('set-offline', 'download', 'offlineUse', on, v => {
+        if (!v) { void disableOffline().catch(() => {}).then(() => { toast(t('offlineCleared')); rerender(); }); return; }
+        toast(t('offlineSavingShort'));
+        void enableOffline().then(() => { toast('✓ ' + t('offlineReady')); rerender(); }, () => { toast('⚠️ ' + t('offlineFail'), 4000); void disableOffline().catch(() => {}).then(rerender); });
+      })),
+      box,
+    ];
   }
 
   applySettings(s: Settings): void {

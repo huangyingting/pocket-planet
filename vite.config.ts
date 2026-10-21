@@ -6,6 +6,8 @@ export default defineConfig({
   server: { port: 5173, proxy: { '/api': 'http://localhost:8787' } },
   build: {
     target: 'es2022',
+    // read by scripts/build-offline.ts to split the app shell from optional offline packs
+    manifest: true,
     chunkSizeWarningLimit: 1200,
     // three.js changes rarely: keep it in its own long-cached chunk, separate from app code.
     rollupOptions: { output: { manualChunks: id => (id.includes('/node_modules/three/') ? 'three' : undefined) } },
