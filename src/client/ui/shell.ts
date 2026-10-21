@@ -492,7 +492,7 @@ export class Shell {
     if (f.lengthM) chips.push([t('length'), f.lengthM >= 10000 ? nf(Math.round(f.lengthM / 1000), ' km') : nf(f.lengthM, ' m')]);
     if (f.depthM) chips.push([t('depth'), nf(f.depthM, ' m')]);
     if (f.weightKg) chips.push([t('weight'), f.weightKg >= 1000 ? nf(Math.round(f.weightKg / 100) / 10, ' t') : nf(f.weightKg, ' kg')]);
-    if (f.speedKmh) chips.push([t('speed'), nf(f.speedKmh, ' km/h')]);
+    if (f.speedKmh) chips.push([t(it.type === 'vehicle' ? 'speedUsual' : 'speed'), nf(f.speedKmh, ' km/h')]);
     if (f.lifespanY) chips.push([t('lifespan'), nf(f.lifespanY, l === 'en' ? ' yrs' : '')]);
     if (it.diet) chips.push([t('diet'), t(it.diet)]);
     if (it.status) chips.push([t('status'), t(it.status)]);
@@ -542,9 +542,10 @@ export class Shell {
         hasMore ? h('details', { class: 'more' },
           h('summary', { html: icon('chevron', 14) }, h('span', {}, t('moreDetails'))),
           funP,
+          it.how ? h('p', { class: 'fun how', 'data-testid': 'info-how' }, h('b', {}, t('howMoves')), ' ', tr(it.how, l)) : null,
           it.habitat ? h('p', { class: 'meta' }, t('habitat') + ': ' + tr(it.habitat, l)) : null,
           extra.length ? h('dl', { class: 'facts' }, ...extra.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v)))) : null,
-          h('p', { class: 'meta prov', 'data-testid': 'provenance' }, t('modelNote') + ' ' + t(it.route ? 'routeNote' : it.type === 'animal' ? 'rangeNote' : ['landmark', 'volcano', 'space', 'discovery'].includes(it.type) ? 'placeNote' : 'repNote'))) : null,
+          h('p', { class: 'meta prov', 'data-testid': 'provenance' }, t('modelNote') + ' ' + t(it.route ? (it.route.line === 'demo' ? 'routeDemo' : 'routeNote') : it.type === 'animal' ? 'rangeNote' : ['landmark', 'volcano', 'space', 'discovery'].includes(it.type) ? 'placeNote' : 'repNote'))) : null,
         h('div', { class: 'info-footer' },
           it.type !== 'vehicle' ? h('div', { class: 'reactions' }, react('like', 'heart'), react('visited', 'flag')) : null,
           it.route ? h('button', { class: 'cta cta-sm', 'data-testid': 'ride', html: icon('ride', 16), onclick: () => void this.startRide(it) }, h('span', {}, t('ride'))) : null,

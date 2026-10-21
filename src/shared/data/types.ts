@@ -37,6 +37,8 @@ export interface Route {
   mode: 'loop' | 'pingpong';
   /** degrees of arc per second at ×1 */
   speed: number;
+  /** 'demo' = an illustrative loop, not a real line; omitted = simplified from a real route */
+  line?: 'demo';
 }
 
 export interface CatalogueItem {
@@ -58,6 +60,8 @@ export interface CatalogueItem {
   status?: 'LC' | 'NT' | 'VU' | 'EN' | 'CR';
   habitat?: I18n;
   funFact?: I18n;
+  /** vehicles: how it moves (what pushes it along) */
+  how?: I18n;
   route?: Route;
   /** extra km of allowance for very large sites in the location game */
   area?: number;

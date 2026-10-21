@@ -184,7 +184,7 @@ const en: Dict = {
   cmpTiny: "{name} is less than a pixel at true scale — that is how small it really is next to the other.",
   cmpRatio: "The {m} of {a} is about {n} times that of {b}.",
   cmpSame: "They have about the same {m}.",
-  cmpSource: "Diameters are from the planet cards (twice the mean radius); heights and lengths from each item's card.",
+  cmpSource: "Diameters are from the planet cards (twice the mean radius); heights, lengths and speeds from each item's card. Animal speeds are short top-speed dashes; vehicle speeds are usual cruising or operating speeds.",
   cmpThis: "Compare",
   listen: "Listen",
   listenStop: "Stop",
@@ -247,6 +247,11 @@ const en: Dict = {
   tourSketch: "Schematic: a simplified picture, not real tracking data.",
   tourUtc: "{d} UTC",
   tourMet: "{d} UTC · mission time T+{met}",
+  cmp_fast: "Animals & vehicles",
+  cmpM_fast: "speed",
+  howMoves: "How it moves:",
+  routeDemo: "The route is a demonstration loop, not a real line.",
+  speedUsual: "Usual speed",
 };
 
 const zh: Dict = {
@@ -430,7 +435,7 @@ const zh: Dict = {
   cmpTiny: "在真实比例下，{name}还不到一个像素——它和另一个相比就是这么小。",
   cmpRatio: "{a}的{m}约是{b}的 {n} 倍。",
   cmpSame: "它们的{m}差不多。",
-  cmpSource: "直径取自天体卡片（平均半径的两倍）；高度和体长取自各条目卡片。",
+  cmpSource: "直径取自天体卡片（平均半径的两倍）；高度、体长和速度取自各条目卡片。动物速度是短距离冲刺的最高速度，交通工具是平常的巡航或运营速度。",
   cmpThis: "对比",
   listen: "听讲解",
   listenStop: "停止",
@@ -493,6 +498,11 @@ const zh: Dict = {
   tourSketch: "示意：简化的画面，不是真实追踪数据。",
   tourUtc: "{d}（UTC）",
   tourMet: "{d}（UTC）· 任务时间 T+{met}",
+  cmp_fast: "动物与交通工具",
+  cmpM_fast: "速度",
+  howMoves: "它怎么动起来：",
+  routeDemo: "这条路线只是演示用的环线，不是真实线路。",
+  speedUsual: "常规速度",
 };
 
 const DICTS: Record<Lang, Dict> = { en, zh };

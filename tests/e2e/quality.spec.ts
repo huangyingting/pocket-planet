@@ -311,6 +311,9 @@ test('compare bench: one measure per group, true scale vs clearly marked enlarge
   await page.getByTestId('info-compare').click();
   await expect(page.getByTestId('cmp-g-long')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('cmp-pick-0')).toHaveValue('an_panda');
+  // C01 vehicles pack: speed is its own group (animals next to vehicles, in km/h)
+  await page.getByTestId('cmp-g-fast').click();
+  await expect(page.getByTestId('cmp-ratio')).toContainText(/speed of Bullet train is about 2\.6 times that of Cheetah/);
 });
 
 test('narration: user-started, highlights the sentence being read, stoppable, text stays readable', async ({ page }) => {
@@ -361,4 +364,18 @@ test('tonight from my city: hand-picked city, peak vs local view, says there is 
     await ev.click();
     await expect(page.getByTestId('sky')).toBeVisible({ timeout: 30_000 });
   }
+});
+
+test('vehicles theme pack: cards say how each moves, label usual speed and flag demo routes', async ({ page }) => {
+  await openApp(page);
+  await page.evaluate(() => { location.hash = '#vh_bullet'; });
+  await expect(page.getByTestId('info-name')).toContainText(/Bullet/);
+  await expect(page.locator('.stats-row')).toContainText(/Usual speed/i);
+  await page.locator('details.more summary').click();
+  await expect(page.getByTestId('info-how')).toContainText(/pantograph/);
+  await expect(page.getByTestId('provenance')).toContainText(/simplified from the real path/);
+  await page.evaluate(() => { location.hash = '#vh_balloon'; });
+  await expect(page.getByTestId('info-name')).toContainText(/balloon/i);
+  await expect(page.getByTestId('provenance')).toContainText(/demonstration/);
+  await expect(page.getByTestId('info-compare')).toHaveCount(0);
 });

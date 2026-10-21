@@ -23,7 +23,8 @@ export function openCompare(start?: string): void {
   let pair: [string, string] = start && groupOf(start) ? [start, g.pair[0] === start ? g.pair[1] : g.pair[0]] : [...g.pair];
   let scale: 'true' | 'zoom' = 'true';
 
-  const fmt = (th: Thing) => fmtNum(th.size) + (g.unit === 'km' ? (lang() === 'zh' ? ' 公里' : ' km') : (lang() === 'zh' ? ' 米' : ' m'));
+  const fmt = (th: Thing) => fmtNum(th.size) + (g.unit === 'km' ? (lang() === 'zh' ? ' 公里' : ' km') : g.unit === 'kmh' ? (lang() === 'zh' ? ' 公里/时' : ' km/h') : (lang() === 'zh' ? ' 米' : ' m'));
+  const bars = () => g.id === 'long' || g.id === 'fast';
   const tabs = h('div', { class: 'cmp-tabs', role: 'group', 'aria-label': t('compare') });
   const pickers = h('div', { class: 'cmp-picks' });
   const scales = h('div', { class: 'cmp-scale', role: 'group' });
@@ -46,7 +47,7 @@ export function openCompare(start?: string): void {
     const m = t('cmpM_' + g.id);
     const r = ratio(a.size, b.size);
     ratioP.textContent = r.times < 1.05 ? t('cmpSame', { m }) : t('cmpRatio', { m, a: name(r.big ? b : a), b: name(r.big ? a : b), n: fmtNum(r.times) });
-    const d = drawn(a.size, b.size, g.id === 'long' ? 440 : MAX, scale);
+    const d = drawn(a.size, b.size, bars() ? 440 : MAX, scale);
     const small = r.big ? a : b;
     const tiny = d.tiny[0] ? a : d.tiny[1] ? b : null;
     note.className = 'cmp-note' + (scale === 'zoom' ? ' warn' : '');
@@ -55,7 +56,7 @@ export function openCompare(start?: string): void {
     stage.setAttribute('aria-label', `${ratioP.textContent} ${note.textContent}`);
     stage.setAttribute('data-scale', scale);
 
-    const kids: SVGElement[] = g.id === 'long' ? [] : [s('line', { x1: 10, x2: W - 10, y1: BASE, y2: BASE, class: 'cmp-ground' })];
+    const kids: SVGElement[] = bars() ? [] : [s('line', { x1: 10, x2: W - 10, y1: BASE, y2: BASE, class: 'cmp-ground' })];
     const label = (x: number, y: number, th: Thing, i: number, anchor = 'middle') =>
       kids.push(s('text', { x, y, 'text-anchor': anchor, class: 'cmp-lbl', fill: COL[i] }, `${th.emoji} ${name(th)} · ${fmt(th)}`));
     [a, b].forEach((th, i) => {

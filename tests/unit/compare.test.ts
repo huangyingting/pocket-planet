@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { compareGroups, groupOf, ratio, drawn } from '../../src/client/lib/compare.ts';
 import { BODY } from '../../src/shared/data/solar.ts';
+import { BY_KEY } from '../../src/shared/data/catalogue.ts';
 
 describe('compare bench', () => {
   const g = Object.fromEntries(compareGroups().map(x => [x.id, x]));
@@ -25,5 +26,16 @@ describe('compare bench', () => {
     const d = drawn(1392684, 2377, 200, 'true');
     expect(d.tiny).toEqual([false, true]);
     expect(drawn(1392684, 2377, 200, 'zoom').px).toEqual([200, 200]);
+  });
+
+  it('speed puts animals next to vehicles in km/h, and leaves out guessed dinosaur speeds', () => {
+    const g = compareGroups().find(x => x.id === 'fast')!;
+    expect(g.unit).toBe('kmh');
+    expect(g.pair).toEqual(['an_cheetah', 'vh_bullet']);
+    const ids = g.things.map(x => x.id);
+    expect(ids).toContain('vh_jumbo');
+    expect(ids.filter(id => id !== 'walker').map(id => BY_KEY.get(id)?.type).every(ty => ty === 'animal' || ty === 'vehicle')).toBe(true);
+    expect(groupOf('vh_balloon')).toBeUndefined();
+    expect(groupOf('vh_ktx')?.id).toBe('fast');
   });
 });
