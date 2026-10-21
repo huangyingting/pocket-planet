@@ -7,7 +7,8 @@ import { buildPool, dayIndex, puzzleFor, evaluate, applyGuess, finishStats, hint
 import { emptyProgress, mergeProgress, isProgress } from '../../src/shared/lib/progress.ts';
 import { newlyEarned } from '../../src/shared/lib/stickers.ts';
 import { CATALOGUE, BY_KEY, BY_SLUG, LANDMARKS } from '../../src/shared/data/catalogue.ts';
-import { EN_KEYS, hasKey, t } from '../../src/client/lib/i18n.ts';
+import { EN_KEYS, ZH_KEYS, hasKey, t } from '../../src/client/lib/i18n.ts';
+import { SKY_TEXT } from '../../src/client/sky/text.ts';
 import { haversineKm as hk } from '../../src/shared/lib/geo.ts';
 import { buildModel } from '../../src/client/models/kit.ts';
 import { heroBuilder, loadHeroesFor, PACK_IDS } from '../../src/client/models/heroes/index.ts';
@@ -216,6 +217,15 @@ describe('catalogue & i18n integrity', () => {
   it('Chinese dictionary covers every English key', () => {
     const missing = EN_KEYS.filter(k => !hasKey(k, 'zh'));
     expect(missing).toEqual([]);
+  });
+  it('keeps the two dictionaries in parity: same keys, same {placeholders}', () => {
+    expect(ZH_KEYS.filter(k => !hasKey(k, 'en'))).toEqual([]);
+    const vars = (x: string) => [...x.matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort().join(',');
+    // deliberate: Chinese counts in 万 ({w}) where English counts millions ({n}); the caller passes both
+    const UNIT_SWAP = new Set(['myaAgo']);
+    const bad = EN_KEYS.filter(k => !UNIT_SWAP.has(k) && vars(t(k, undefined, 'en')) !== vars(t(k, undefined, 'zh')));
+    const badSky = Object.entries(SKY_TEXT).filter(([, p]) => !p.en || !p.zh || vars(p.en) !== vars(p.zh)).map(([k]) => k);
+    expect([...bad, ...badSky]).toEqual([]);
   });
   it('interpolates variables and falls back to English', () => {
     expect(t('round', { r: 2, n: 10 }, 'en')).toBe('Round 2 / 10');

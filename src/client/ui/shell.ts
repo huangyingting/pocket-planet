@@ -11,10 +11,14 @@ import { createModelPreview } from '../models/preview.ts';
 import { icon, TYPE_ICON, type IconName } from './icons.ts';
 import { sfx, callFor, speak } from '../lib/sfx.ts';
 import { music } from '../lib/music.ts';
-import { GREETINGS } from '../../shared/data/greetings.ts';
+import type { GREETINGS as Greetings } from '../../shared/data/greetings.ts';
+// fetched next to the entry instead of inside it: only the "Say hello" button needs it
+let GREETINGS: typeof Greetings | null = null;
+const greetingsReady = import('../../shared/data/greetings.ts').then(m => { GREETINGS = m.GREETINGS; }, () => {});
 import { TimeMachine } from './timemachine.ts';
 import { api } from '../lib/api.ts';
 import { HAS_API, url } from '../lib/env.ts';
+import { sessionOnly } from '../lib/storage.ts';
 import type { SpaceHit } from '../solar/space-index.ts';
 
 export const DEX_ZOOM = 10;
@@ -316,6 +320,10 @@ export class Shell {
       ...earth,
       h('h3', {}, t('mSettings')), h('div', { class: 'grid2' }, sw('sfx', 'sound'), sw('bgm', 'music')),
       row('language', t('language'), sel),
+      row('download', t('backup'), h('span', { class: 'row' },
+        h('button', { class: 'pill', 'data-testid': 'backup-export', onclick: () => void import('./backup.ts').then(m => m.exportProgress(), () => toast('⚠️ ' + t('loadFail', { s: t('backup') }))) }, t('backupExport')),
+        h('button', { class: 'pill', 'data-testid': 'backup-import', onclick: () => void import('./backup.ts').then(m => m.importProgress(), () => toast('⚠️ ' + t('loadFail', { s: t('backup') }))) }, t('backupImport')))),
+      ...(sessionOnly() ? [h('p', { class: 'menu-warn', role: 'status' }, t('sessionOnly'))] : []),
       row('reset', t('reset'), h('button', { class: 'pill', 'data-testid': 'reset', onclick: () => { if (confirm(t('resetConfirm'))) { resetSettings(); this.globe.flyTo(25, 40, 2.2); } } }, t('resetBtn'))),
       ...(HAS_API ? [row('user', store.me ? t('signedInAs', { e: store.me.handle ?? store.me.email }) : t('account'), h('button', { class: 'pill', 'data-testid': 'menu-account', onclick: () => { this.toggleMenu(false); this.hooks.openAccount(); } }, store.me ? t('account') : t('signIn'))),
       row('chat', t('guestbook'), h('button', { class: 'pill', 'data-testid': 'menu-guestbook', onclick: () => { this.toggleMenu(false); this.hooks.openGuestbook(); } }, t('open')))] : []),
@@ -435,7 +443,7 @@ export class Shell {
     const secondary = l !== 'en' ? it.name.en : it.name.zh;
     const key = chips.slice(0, 3), extra = chips.slice(3);
     if (!it.route) extra.push([t('latitude'), coordStr]);
-    const hasMore = extra.length > 0 || Boolean(it.funFact) || Boolean(it.habitat);
+    const hasMore = true;
     this.renderDexRow();
     this.infoMain.replaceChildren(
       h('div', { class: 'info-hero', 'data-type': it.type },
@@ -457,7 +465,8 @@ export class Shell {
           h('summary', { html: icon('chevron', 14) }, h('span', {}, t('moreDetails'))),
           it.funFact ? h('p', { class: 'fun' }, h('b', {}, t('funFact')), ' ', tr(it.funFact, l)) : null,
           it.habitat ? h('p', { class: 'meta' }, t('habitat') + ': ' + tr(it.habitat, l)) : null,
-          extra.length ? h('dl', { class: 'facts' }, ...extra.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v)))) : null) : null,
+          extra.length ? h('dl', { class: 'facts' }, ...extra.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v)))) : null,
+          h('p', { class: 'meta prov', 'data-testid': 'provenance' }, t('modelNote') + ' ' + t(it.route ? 'routeNote' : it.type === 'animal' ? 'rangeNote' : ['landmark', 'volcano', 'space', 'discovery'].includes(it.type) ? 'placeNote' : 'repNote'))) : null,
         h('div', { class: 'info-footer' },
           it.type !== 'vehicle' ? h('div', { class: 'reactions' }, react('like', 'heart'), react('visited', 'flag')) : null,
           it.route ? h('button', { class: 'cta cta-sm', 'data-testid': 'ride', html: icon('ride', 16), onclick: () => void this.startRide(it) }, h('span', {}, t('ride'))) : null,
@@ -469,7 +478,13 @@ export class Shell {
   /** "Say hello" (local greeting via speech) and "Hear it" (procedural animal call) buttons over the model. */
   private heroActions(it: CatalogueItem): HTMLElement | null {
     const l = lang();
-    const g = it.country && it.type !== 'animal' && it.type !== 'dino' && it.type !== 'migration' ? GREETINGS[it.country] : undefined;
+    const greets = !!it.country && it.type !== 'animal' && it.type !== 'dino' && it.type !== 'migration';
+    if (greets && !GREETINGS) {
+      const slot = h('div', { hidden: true });
+      void greetingsReady.then(() => { if (slot.isConnected && GREETINGS) slot.replaceWith(this.heroActions(it) ?? ''); });
+      return slot;
+    }
+    const g = greets ? GREETINGS?.[it.country!] : undefined;
     const call = callFor(it);
     if (!g && !call) return null;
     const btn = (id: string, ic: IconName, label: string, fn: () => void) =>

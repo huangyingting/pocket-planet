@@ -104,7 +104,8 @@ export class Calendar {
           h('button', { class: 'sky-btn sky-btn-sq', 'aria-label': '−1', html: icon('collapse', 18), onclick: () => this.go(-1) }),
           this.yearEl,
           h('button', { class: 'sky-btn sky-btn-sq', 'aria-label': '+1', html: icon('chevron', 18), onclick: () => this.go(1) }))),
-      this.chips, this.list);
+      this.chips, this.list,
+      h('p', { class: 'skycal-tz' }, s('calTz', { z: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' })));
     this.render();
   }
 

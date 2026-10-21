@@ -1,5 +1,7 @@
 # Implementation Plan: Pocket Planet
 
+> Historical MVP plan. For current priorities and status see [the 2026-10 roadmap](improvement-roadmap-2026-10.md).
+
 Milestones are ordered by dependency. Each one ends with an automated check. Status reflects this release.
 
 | # | Milestone | Deliverables | Exit check | Status |

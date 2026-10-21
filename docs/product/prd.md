@@ -1,5 +1,7 @@
 # PRD: Pocket Planet
 
+> Historical product baseline (MVP). The current state, verified issues and priorities live in [the 2026-10 roadmap](../planning/improvement-roadmap-2026-10.md).
+
 ## 1. Summary
 Pocket Planet is a free, original 3D toy globe for curious kids aged roughly 5–12 and the grown-ups playing with them.
 Children spin a cartoon Earth, discover landmarks, animals, secret places and moving vehicles, collect them, and

@@ -16,20 +16,26 @@ import { tr } from '../shared/data/types.ts';
 import { STICKERS } from '../shared/lib/stickers.ts';
 import { api } from './lib/api.ts';
 import { HAS_API, url } from './lib/env.ts';
-import { load } from './lib/storage.ts';
+import { load, onSessionOnly } from './lib/storage.ts';
 import { mergeProgress } from '../shared/lib/progress.ts';
 import { sfx } from './lib/sfx.ts';
 import { music } from './lib/music.ts';
-import { openPassport } from './ui/passport.ts';
-import { openCollection } from './ui/collection.ts';
-import { openPhotoMode } from './ui/photo.ts';
-import { openGames, openDaily } from './ui/games.ts';
 import { openTutorial } from './ui/tutorial.ts';
-import { openAccount, openGuestbook, syncNow } from './ui/account.ts';
 import { ScaleRail, type RailLevel } from './ui/scales.ts';
 import { initTooltips } from './ui/tooltip.ts';
 import { lazy, withBusy, showLoadError } from './ui/lazy.ts';
 import type { ScaleId } from '../shared/data/cosmos.ts';
+
+/** Panels not needed for the first screen load on first use (their chunks stay out of the entry). */
+const later = <M,>(load: () => Promise<M>, what: () => string) => {
+  const get = lazy(load);
+  return (use: (m: M) => void) => void withBusy(get()).then(use, () => toast('⚠️ ' + t('loadFail', { s: what() })));
+};
+const gamesMod = later(() => import('./ui/games.ts'), () => t('game'));
+const collectionMod = later(() => Promise.all([import('./ui/collection.ts'), import('./ui/passport.ts')]), () => t('collection'));
+const photoMod = later(() => import('./ui/photo.ts'), () => t('photo'));
+const accountMod = lazy(() => import('./ui/account.ts'));
+const account = (use: (m: typeof import('./ui/account.ts')) => void) => void withBusy(accountMod()).then(use, () => toast('⚠️ ' + t('loadFail', { s: t('account') })));
 
 declare global { interface Window { __pp?: { ready: boolean; globe: Globe; shell: Shell; itemScreen: (k: string) => { x: number; y: number } | null; solar: () => SolarUI | null } } }
 
@@ -47,6 +53,10 @@ async function boot(): Promise<void> {
   initTooltips();
   document.documentElement.lang = lang();
   document.title = t('title');
+  // a deep link into another scene: fetch that scene's code alongside the Earth's, not after it
+  const linkHead = location.hash.slice(1).split('/')[0];
+  if (linkHead === 'sky') void import('./sky/index.ts').catch(() => {});
+  else if (SCALE_ROUTES[linkHead]) void import('./solar/ui.ts').catch(() => {});
   const topo = (await (await fetch(url('data/countries-110m.json'))).json()) as Topology;
   await Promise.race([document.fonts?.ready, new Promise(r => setTimeout(r, 150))]);
   const countries = loadCountries(topo);
@@ -191,17 +201,19 @@ async function boot(): Promise<void> {
     });
   };
 
-  const passport = () => openPassport({
-    here: () => shell.current ? [shell.current.lat, shell.current.lon] : [globe.lat, globe.lon],
-    travel: (it, from) => { shell.showItem(it); if (Math.abs(from[0] - it.lat) + Math.abs(from[1] - it.lon) > 2) globe.showFlightArc(from, [it.lat, it.lon]); },
+  const showCollection = () => collectionMod(([{ openCollection }, { openPassport }]) => {
+    const passport = () => openPassport({
+      here: () => shell.current ? [shell.current.lat, shell.current.lon] : [globe.lat, globe.lon],
+      travel: (it, from) => { shell.showItem(it); if (Math.abs(from[0] - it.lat) + Math.abs(from[1] - it.lon) > 2) globe.showFlightArc(from, [it.lat, it.lon]); },
+    });
+    openCollection(it => { closeModal(); closeModal(); shell.showItem(it); }, passport);
   });
-  const showCollection = () => openCollection(it => { closeModal(); closeModal(); shell.showItem(it); }, passport);
   shell = new Shell(app, globe, {
-    openPhoto: () => openPhotoMode(globe, () => shell.current ? tr(shell.current.name, lang()) : ''),
+    openPhoto: () => photoMod(m => m.openPhotoMode(globe, () => shell.current ? tr(shell.current.name, lang()) : '')),
     openCollection: showCollection,
-    openGames: () => { if (!gaming) openGames(host); },
+    openGames: () => { if (!gaming) gamesMod(m => m.openGames(host)); },
     openTutorial,
-    openAccount, openGuestbook: () => void openGuestbook(),
+    openAccount: () => account(m => m.openAccount()), openGuestbook: () => account(m => void m.openGuestbook()),
     openSolar: () => void enterSolar(),
     openSky: () => void openSky(),
     openRadio: () => void toggleRadio(),
@@ -236,7 +248,8 @@ async function boot(): Promise<void> {
     toast(t('sticker_unlocked', { s: `${st.emoji} ${tr(st.name, lang())}` }), 3500);
     confetti(30); sfx.good();
   });
-  setSyncer(async () => { await syncNow(true); });
+  onSessionOnly(() => toast('⚠️ ' + t('sessionOnly'), 6000));
+  setSyncer(async () => { await (await accountMod()).syncNow(true); });
 
   // ---- routing ----
   let sky: import('./sky/theatre.ts').Theatre | null = null;
@@ -257,11 +270,11 @@ async function boot(): Promise<void> {
       if (!inSolar) void enterSolar({ focus, scale }); else solar?.goTo(focus, scale);
       return;
     }
-    if (hsh === 'daily') openDaily(host);
-    else if (hsh === 'placeit' || hsh === 'quiz' || hsh === 'games') openGames(host);
+    if (hsh === 'daily') gamesMod(m => m.openDaily(host));
+    else if (hsh === 'placeit' || hsh === 'quiz' || hsh === 'games') gamesMod(m => m.openGames(host));
     else if (hsh === 'collection') showCollection();
-    else if (HAS_API && hsh === 'guestbook') void openGuestbook();
-    else if (HAS_API && (hsh === 'account' || hsh === 'signed-in')) { if (hsh === 'signed-in') toast('👋 ' + t('synced')); openAccount(); }
+    else if (HAS_API && hsh === 'guestbook') account(m => void m.openGuestbook());
+    else if (HAS_API && (hsh === 'account' || hsh === 'signed-in')) { if (hsh === 'signed-in') toast('👋 ' + t('synced')); account(m => m.openAccount()); }
     else if (hsh === 'auth-error') toast('⚠️ ' + t('linkExpired'));
     else {
       const it = BY_KEY.get(hsh);
@@ -286,7 +299,7 @@ async function boot(): Promise<void> {
     try {
       const { progress } = await api.getProgress();
       if (progress) replaceProgress(mergeProgress(store.progress, progress));
-      await syncNow(true);
+      await (await accountMod()).syncNow(true);
     } catch { /* offline */ }
   });
 

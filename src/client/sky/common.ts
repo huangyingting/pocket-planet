@@ -139,12 +139,31 @@ export function bodyTexture(id: 'moon' | 'earth', w = 1024): Promise<THREE.DataT
   return p;
 }
 
-/** Clock time at a UTC offset (hours), as "HH:MM (UTC+8)", optionally with the date. */
-export function localClock(ms: number, off: number, withDate = false, l: 'en' | 'zh' = 'en'): string {
+/** UTC offset (hours) of an IANA time zone at a moment, daylight saving included. */
+export function zoneOffset(zone: string, ms: number): number {
+  try {
+    const v = new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'longOffset' }).formatToParts(ms).find(p => p.type === 'timeZoneName')?.value ?? '';
+    const m = /GMT([+\-\u2212])(\d{1,2})(?::(\d\d))?/.exec(v);
+    return m ? (m[1] === '+' ? 1 : -1) * (+m[2] + +(m[3] ?? 0) / 60) : 0;
+  } catch { return 0; }
+}
+
+const offLabel = (off: number) => {
+  const a = Math.abs(off), h = Math.floor(a + 1e-9), m = Math.round((a - h) * 60);
+  return `UTC${off >= 0 ? '+' : '−'}${h}${m ? ':' + String(m).padStart(2, '0') : ''}`;
+};
+
+/** Clock time at a UTC offset (hours), as "HH:MM (UTC+8)", optionally with the date; `est` marks a sun-time guess ("≈UTC+8"), not a legal zone. */
+export function localClock(ms: number, off: number, withDate = false, l: 'en' | 'zh' = 'en', est = false): string {
   const d = new Date(ms + off * 3600_000);
   const hh = String(d.getUTCHours()).padStart(2, '0'), mm = String(d.getUTCMinutes()).padStart(2, '0');
-  const tz = `UTC${off >= 0 ? '+' : '−'}${Math.abs(off)}`.replace('.5', ':30');
+  const tz = (est ? '≈' : '') + offLabel(off);
   if (!withDate) return `${hh}:${mm} (${tz})`;
   const date = l === 'zh' ? `${d.getUTCMonth() + 1}月${d.getUTCDate()}日` : d.toLocaleDateString('en', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   return `${date} ${hh}:${mm} (${tz})`;
+}
+
+/** A place's clock: real zones follow daylight saving at that moment; places without one show an estimated sun time. */
+export function siteClock(ms: number, site: { tz: number; zone?: string; est?: boolean }, withDate = false, l: 'en' | 'zh' = 'en'): string {
+  return localClock(ms, site.zone ? zoneOffset(site.zone, ms) : site.tz, withDate, l, !site.zone && !!site.est);
 }

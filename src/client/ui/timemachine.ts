@@ -48,7 +48,7 @@ export class TimeMachine {
       h('div', { class: 'time-head' },
         h('span', { class: 'time-ico', html: icon('clock', 16) }),
         h('strong', { class: 'time-year', 'data-testid': 'time-year' }, stopLabel(stop)),
-        h('span', { class: 'muted' }, t('tmCount', { n: shown })),
+        h('span', { class: 'muted', title: t('tmNote') }, t('tmCount', { n: shown })),
         h('button', { class: 'icon-btn', 'aria-label': t('close'), 'data-testid': 'time-close', html: icon('close', 15), onclick: () => this.toggle(false) })),
       range,
       h('div', { class: 'time-ticks', 'aria-hidden': 'true' }, ...STOPS.map((s, i) => h('span', { class: i === this.idx ? 'on' : '' }, i === 0 ? h('b', { html: icon('dino', 13) }) : s === 'now' ? '•' : ''))),

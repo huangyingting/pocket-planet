@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import type { Quality } from './quality.ts';
 import type { CatalogueItem } from '../../shared/data/types.ts';
 import { TYPE_META } from '../../shared/data/typemeta.ts';
-import { PLATE_BOUNDARIES, BOUNDARY_COLORS } from '../../shared/data/plates.ts';
 import { latLonToVec } from '../../shared/lib/geo.ts';
 import { isHappening } from '../../shared/lib/season.ts';
 
@@ -221,17 +220,28 @@ export class Tectonics {
   private shared = { uTime: { value: 0 }, uWidth: { value: 0.004 } };
   private mat: THREE.ShaderMaterial;
 
+  private built = false;
+
   constructor() {
-    const paths: RibbonPath[] = PLATE_BOUNDARIES.map(b => ({ pts: densify(b.pts, false), color: new THREE.Color(BOUNDARY_COLORS[b.kind]), closed: false }));
     this.mat = ribbonMaterial(this.shared, { dash: 0.05, flow: 0.12, dashMix: 0.55 });
-    this.root = new THREE.Mesh(ribbonGeometry(paths, 1.0025), this.mat);
+    // the boundary data loads the first time the layer is switched on
+    this.root = new THREE.Mesh(new THREE.BufferGeometry(), this.mat);
     this.root.name = 'tectonics';
     this.root.renderOrder = RENDER_ORDER.overlay;
     this.root.raycast = noRaycast;
     this.root.visible = false;
   }
 
-  setVisible(on: boolean): void { this.root.visible = on; }
+  setVisible(on: boolean): void {
+    this.root.visible = on;
+    if (!on || this.built) return;
+    this.built = true;
+    void import('../../shared/data/plates.ts').then(({ PLATE_BOUNDARIES, BOUNDARY_COLORS }) => {
+      const paths: RibbonPath[] = PLATE_BOUNDARIES.map(b => ({ pts: densify(b.pts, false), color: new THREE.Color(BOUNDARY_COLORS[b.kind]), closed: false }));
+      this.root.geometry.dispose();
+      this.root.geometry = ribbonGeometry(paths, 1.0025);
+    }, () => { this.built = false; });
+  }
 
   update(time: number, camAlt: number): void {
     if (!this.root.visible) return;

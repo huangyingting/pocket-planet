@@ -223,3 +223,17 @@ describe('sky events', () => {
     expect(ev.map((e) => e.id)).toEqual(['transit-mercury-2032-11-13', 'transit-mercury-2039-11-07']);
   });
 });
+
+describe('sky clocks', async () => {
+  const { zoneOffset, siteClock } = await import('../../src/client/sky/common.ts');
+  it('follows daylight saving, half-hour zones and date lines', () => {
+    expect(zoneOffset('America/New_York', Date.parse('2026-01-15T12:00Z'))).toBe(-5);
+    expect(zoneOffset('America/New_York', Date.parse('2026-07-15T12:00Z'))).toBe(-4);
+    expect(zoneOffset('Asia/Kolkata', Date.parse('2026-07-15T12:00Z'))).toBe(5.5);
+    expect(zoneOffset('Australia/Sydney', Date.parse('2026-01-15T12:00Z'))).toBe(11);
+    // 23:30 UTC on 31 Dec is already New Year in Beijing
+    expect(siteClock(Date.parse('2026-12-31T23:30Z'), { tz: 8, zone: 'Asia/Shanghai' }, true, 'en')).toBe('Jan 1 07:30 (UTC+8)');
+    expect(siteClock(Date.parse('2026-07-01T12:00Z'), { tz: 5.5, zone: 'Asia/Kolkata' })).toBe('17:30 (UTC+5:30)');
+    expect(siteClock(Date.parse('2026-07-01T12:00Z'), { tz: -6, est: true })).toBe('06:00 (≈UTC−6)');
+  });
+});

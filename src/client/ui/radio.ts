@@ -147,7 +147,7 @@ export class Radio {
     if (away === this.parked) return;
     this.parked = away;
     if (away) {
-      this.wasPlaying = this.engine.status === 'playing' || this.engine.status === 'connecting';
+      this.wasPlaying = this.busy();
       if (this.wasPlaying) this.engine.stop();
     } else if (this.wasPlaying && this.on && this.cur >= 0) {
       this.wasPlaying = false;
@@ -191,8 +191,7 @@ export class Radio {
 
   private togglePlay(): void {
     sfx.tap();
-    const s = this.engine.status;
-    if (s === 'playing' || s === 'connecting') { this.engine.stop(); return; }
+    if (this.busy()) { this.engine.stop(); return; }
     void this.tune(this.cur >= 0 ? this.cur : this.nearestTo(this.globe.lat, this.globe.lon));
   }
 
@@ -264,9 +263,13 @@ export class Radio {
     this.tip.classList.remove('hidden');
   }
 
+  /** Sound is on its way or playing (connecting, playing, catching up). */
+  private busy(): boolean { const s = this.engine.status; return s === 'playing' || s === 'connecting' || s === 'buffering'; }
+
   private status(s: RadioStatus): void {
-    music.duck(s === 'playing' || s === 'connecting');
-    if (s !== 'playing' && s !== 'connecting' && !this.parked) { this.dots.playing = -1; this.globe.beacon = null; }
+    music.duck(this.busy());
+    if (s === 'error' && this.engine.dropped && !this.parked) toast(t('radioDropped'));
+    if (!this.busy() && !this.parked) { this.dots.playing = -1; this.globe.beacon = null; }
     else if (this.cur >= 0) this.dots.playing = this.cur;
     this.globe.markDirty();
     this.render();
@@ -275,7 +278,8 @@ export class Radio {
   private render(): void {
     const s = this.engine.status, st = this.cur >= 0 ? this.st[this.cur] : null;
     this.el.dataset.state = s;
-    const busy = s === 'playing' || s === 'connecting';
+    const busy = this.busy();
+    this.eq.title = s === 'playing' && !this.engine.analysed ? t('radioBeat') : '';
     this.playBtn.innerHTML = icon(busy ? 'pause' : 'play', 18);
     this.playBtn.setAttribute('aria-label', t(busy ? 'radioPause' : 'radioPlay'));
     this.playBtn.title = t(busy ? 'radioPause' : 'radioPlay');
@@ -292,6 +296,7 @@ export class Radio {
     }
     this.nameEl.textContent = st.name;
     if (s === 'connecting') { this.subEl.textContent = t('radioTuning'); return; }
+    if (s === 'buffering') { this.subEl.textContent = t('radioBuffering'); return; }
     const bits = [countryName(st.cc), ...genres(st.tags).slice(0, 2)];
     if (st.kbps) bits.push(`${st.kbps} kbps`);
     if (st.approx) bits.push(t('radioApprox'));

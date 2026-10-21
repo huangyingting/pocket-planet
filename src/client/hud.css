@@ -458,3 +458,7 @@ body.lowfx.scene-loading::after { animation-duration: 2.4s; }
 }
 .load-error p { margin: 0 0 12px; line-height: 1.5; }
 .load-error .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.menu-warn { margin: 6px 0; padding: 8px 10px; font-size: 12px; line-height: 1.4; color: #ffd38a; background: rgba(255, 170, 60, .1); border-left: 2px solid #ffb44a; }
+.backup-preview table { width: 100%; margin: 10px 0 14px; border-collapse: collapse; }
+.backup-preview th, .backup-preview td { padding: 4px 8px; text-align: left; font-weight: 400; }
+.backup-preview td { font-variant-numeric: tabular-nums; }

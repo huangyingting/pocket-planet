@@ -118,3 +118,38 @@ test('radio asks before the first stream; “not now” makes no request', async
   expect(streams).toEqual([]);
   await expect(page.getByTestId('radio-bar')).not.toHaveAttribute('data-state', /connecting|playing/);
 });
+
+test('item cards say where the data comes from', async ({ page }) => {
+  await openApp(page, '/?lowfx=1&notut#an_lion');
+  await expect(page.getByTestId('info-name')).toHaveText('Lion');
+  await page.locator('#info details.more summary').click();
+  await expect(page.getByTestId('provenance')).toBeVisible();
+  await expect(page.getByTestId('provenance')).not.toHaveText('');
+});
+
+test('progress backup: save a file, then load it back through a preview', async ({ page }) => {
+  await openApp(page, '/?lowfx=1&notut#an_lion');
+  await expect(page.getByTestId('info-name')).toHaveText('Lion');
+  await page.keyboard.press('Escape');
+  await page.locator('#btn-menu').click();
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('backup-export').click()]);
+  const file = await dl.path();
+  const saved = JSON.parse(await (await import('node:fs/promises')).readFile(file, 'utf8'));
+  expect(saved.kind).toBe('pocket-planet-progress');
+  expect(Object.keys(saved.progress.seen)).toContain('an_lion');
+
+  // a bad file changes nothing
+  await page.getByTestId('backup-import').click();
+  await page.getByTestId('backup-file').setInputFiles({ name: 'x.json', mimeType: 'application/json', buffer: Buffer.from('{"nope":1}') });
+  await expect(page.getByTestId('backup-preview')).toHaveCount(0);
+
+  // a good file from another device merges after the preview
+  saved.progress.seen.an_tiger = Date.now();
+  if (!(await page.getByTestId('backup-import').isVisible())) await page.locator('#btn-menu').click();
+  await page.getByTestId('backup-import').click();
+  await page.getByTestId('backup-file').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(saved)) });
+  await expect(page.getByTestId('backup-preview')).toBeVisible();
+  await page.getByTestId('backup-merge').click();
+  await expect(page.getByTestId('backup-preview')).toHaveCount(0);
+  expect(await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('pp.progress') ?? '{}').seen ?? {}))).toContain('an_tiger');
+});

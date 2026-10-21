@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:static": "VITE_STATIC=1 BASE_PATH=/pocket-planet/ npm run build && playwright test -c playwright.static.config.ts",
     "test:all": "npm run typecheck && npm test && npm run build && npm run test:e2e",
     "research:crawl": "cd research && mkdir -p data screenshots/static && node scripts/crawl-static.mjs",
     "research:explore": "cd research && mkdir -p data screenshots/app && node scripts/explore-app.mjs",

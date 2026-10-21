@@ -10,6 +10,7 @@ import { glowCanvas } from './cosmos-paint.ts';
 import { textW, underUI } from '../ui/occluders.ts';
 
 type Bi = Record<Lang, string>;
+const SIM: Bi = { en: 'simulated', zh: '模拟演示' };
 export interface TransientKind {
   name: Bi;
   /** Peak size on screen, CSS px. */
@@ -133,7 +134,8 @@ export class Transients {
       const a = this.level(e), p = this.tmp;
       let show = a > 0.25 && p.z < 1 && Math.abs(p.x) < 1 && Math.abs(p.y) < 1;
       if (show) {
-        const nm = tr(e.k.name, l);
+        // procedurally timed and sped up, not a live observation: say so on the tag itself
+        const nm = `${tr(e.k.name, l)} · ${tr(SIM, l)}`;
         if (e.tag.textContent !== nm) e.tag.textContent = nm;
         const x = (p.x + 1) / 2 * W + 10, y = (1 - p.y) / 2 * H - 22, w = textW(e.tag.textContent, 7) + 14;
         show = x + w < W - 4 && y > 4 && !underUI(x, y, w, 18) && !boxes.some(([bx, by, bw]) => x < bx + bw && x + w > bx && Math.abs(by - y - 9) < 18);

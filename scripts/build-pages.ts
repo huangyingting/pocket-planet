@@ -43,7 +43,7 @@ const where = (it: CatalogueItem): Bi => {
 const coord = (la: number, lo: number) => `${Math.abs(la).toFixed(2)}°${la >= 0 ? 'N' : 'S'}, ${Math.abs(lo).toFixed(2)}°${lo >= 0 ? 'E' : 'W'}`;
 const wikiUrl = (l: 'en' | 'zh', title: string) => `https://${l}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}${l === 'zh' ? '?variant=zh-cn' : ''}`;
 
-const FONT = (f: string, file: string, w: string, range = '') => `@font-face{font-family:"${f}";src:url("/fonts/${file}") format("woff2");font-weight:${w};font-display:swap${range ? `;unicode-range:${range}` : ''}}`;
+const FONT = (f: string, file: string, w: string, range = '') => `@font-face{font-family:"${f}";src:url("${BASE}fonts/${file}") format("woff2");font-weight:${w};font-display:swap${range ? `;unicode-range:${range}` : ''}}`;
 const LATIN = 'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215';
 /* Same "Astrolabe" identity as the app (src/client/hud.css): cut-corner slabs with hairline cuts, ice-cyan ink,
    one amber signal for what is current, Chakra Petch display / Geist Mono data / Geist reading, blueprint grid + stars. */

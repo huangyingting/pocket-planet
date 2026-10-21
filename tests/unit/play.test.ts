@@ -111,3 +111,17 @@ describe('sub-category names', () => {
     expect(subName('old-town', 'en')).toBe('Old town');
   });
 });
+
+describe('progress backup file', async () => {
+  const { backupOf, readBackup, summary } = await import('../../src/client/lib/backup-file.ts');
+  const { emptyProgress } = await import('../../src/shared/lib/progress.ts');
+  it('round-trips, and rejects anything that is not a backup', () => {
+    const p = emptyProgress();
+    p.seen = { eiffel: 1, panda: 2 }; p.stickers = { first: 3 };
+    const back = readBackup(JSON.stringify(backupOf(p, 5)));
+    expect(back && summary(back)).toEqual({ seen: 2, found: 0, stickers: 1, likes: 0 });
+    expect(readBackup('not json')).toBeNull();
+    expect(readBackup(JSON.stringify(p))).toBeNull();
+    expect(readBackup(JSON.stringify({ kind: 'pocket-planet-progress', v: 1, progress: { v: 2 } }))).toBeNull();
+  });
+});

@@ -259,3 +259,4 @@
 .sky.narrow .skycal { top: auto; bottom: 0; right: 0; left: 0; width: auto; height: 72%; transform: translateY(100%); }
 .sky.narrow.cal-open .skycal { transform: none; }
 .sky.narrow.cal-open .sky-side { transform: none; }
+.skycal-tz { margin: 0; padding: 6px 12px 8px; font-size: 11px; color: var(--muted, #8aa); opacity: .8; }

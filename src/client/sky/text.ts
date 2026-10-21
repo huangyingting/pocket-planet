@@ -39,7 +39,7 @@ const S = {
   durationAnn: { en: 'Ring of fire', zh: '环食持续' },
   pathWidth: { en: 'Path width', zh: '食带宽度' },
   localTime: { en: 'Local time', zh: '当地时间' },
-  rate: { en: 'Meteors per hour', zh: '每小时流星' },
+  rate: { en: 'Meteors per hour (dark-sky estimate)', zh: '每小时流星（理想暗夜估算）' },
   radiant: { en: 'Radiant', zh: '辐射点' },
   parent: { en: 'Comes from', zh: '母体' },
   speed: { en: 'Speed', zh: '速度' },
@@ -55,6 +55,7 @@ const S = {
   seesNone: { en: 'not visible', zh: '看不到' },
   seesUp: { en: 'visible', zh: '可以看到' },
   utc: { en: 'UTC', zh: '世界时' },
+  calTz: { en: 'Dates and times in your device time zone ({z})', zh: '日期和时间按你设备的时区（{z}）' },
   // kinds
   k_solar_total: { en: 'Total solar eclipse', zh: '日全食' },
   k_solar_annular: { en: 'Annular solar eclipse', zh: '日环食' },
@@ -109,7 +110,7 @@ const S = {
   cap_equinox: { en: 'Equinox: the Sun is over the equator and day and night are nearly equal everywhere.', zh: '春分 / 秋分：太阳直射赤道，全世界昼夜几乎等长。' },
   cap_solstice: { en: 'Solstice: the Sun is over a tropic: the longest day in one hemisphere, the shortest in the other.', zh: '夏至 / 冬至：太阳直射回归线，一个半球白昼最长，另一个半球白昼最短。' },
   cap_season: { en: "Earth's axis is tilted 23.4°. As we circle the Sun, the hemispheres take turns leaning toward it: that's why we have seasons.", zh: '地轴倾斜了 23.4°。地球绕太阳公转时，南北半球轮流朝向太阳——这就是四季的由来。' },
-  cap_opposition: { en: 'Opposition: Earth passes between the Sun and {p}. It is at its closest and brightest, and up all night.', zh: '冲日：地球从太阳和{p}之间穿过。这时它离我们最近、最亮，整夜都能看见。' },
+  cap_opposition: { en: 'Opposition: Earth passes between the Sun and {p}. Around now it is near its closest and brightest, and up all night.', zh: '冲日：地球从太阳和{p}之间穿过。这段时间前后它通常离我们较近、最亮，整夜都能看见。' },
   cap_conjunction: { en: 'Conjunction: two worlds line up in our sky. They only look close; in space they are hundreds of millions of kilometres apart.', zh: '相合：两个天体在天空中排成一线。它们只是看起来很近，实际上相距上亿公里。' },
   cap_elongation: { en: 'Greatest elongation: {p} is as far from the Sun as it gets in our sky. The best time to spot it.', zh: '大距：{p}在天空中离太阳最远的时候，是观察它的最好时机。' },
   cap_transit: { en: '{p} passes in front of the Sun as a tiny black dot. Only ever watch through a proper solar filter!', zh: '{p}从太阳正前方经过，像一个小黑点。一定要用专业的太阳滤镜观看！' },
@@ -122,7 +123,7 @@ const S = {
   bestFrom: { en: 'Best from {r}', zh: '最佳观测地：{r}' },
   theatre: { en: 'Sky theatre', zh: '天象剧场' },
   telemetry: { en: 'TELEMETRY', zh: '实时数据' },
-  zhr: { en: 'ZHR {n}', zh: '每小时最多约 {n} 颗' },
+  zhr: { en: 'ZHR {n} (ideal dark sky)', zh: '理想暗夜参考流量 ZHR {n}' },
   fromMoon: { en: 'From the Moon', zh: '月球上看' },
   model: { en: 'How it works', zh: '原理' },
   earth: { en: 'Earth', zh: '地球' },
@@ -147,11 +148,11 @@ const S = {
   cm_solar_near: { en: 'This New Moon falls near a node, where the tilted orbit crosses Earth’s: Sun, Moon and Earth line up and the Moon’s shadow lands on Earth. Inside the dark core: totality. Tap “From the ground” to stand in it.', zh: '这次新月恰好在“交点”附近（月球轨道穿过黄道面的地方）：太阳、月亮、地球排成一线，月影落在了地球上。站在影子中心的人看到日全食。点「地面看」身临其境。' },
   cm_lunar_far: { en: 'At Full Moon, the Moon is on Earth’s night side. Because its orbit is tilted, it usually passes above or below Earth’s long shadow.', zh: '满月时，月亮在地球背对太阳的一侧。因为轨道是倾斜的，它通常从地球长长的影子上方或下方经过。' },
   cm_lunar_near: { en: 'This time the Full Moon is near a node: it sails into Earth’s shadow (red cone: umbra, blue: penumbra). That is a lunar eclipse, seen by everyone on Earth’s night side.', zh: '这一次满月正好在交点附近：月亮驶进了地球的影子（红色锥体是本影，蓝色是半影）。这就是月食——地球上所有处在夜晚的人都能看到。' },
-  cm_phase: { en: 'The Moon makes no light: the Sun always lights half of it (see the small moons). As it circles Earth every 29.5 days we see more or less of that lit half: the phases.', zh: '月亮自己不发光，太阳总是照亮它的一半（看轨道上的小月亮）。它每 29.5 天绕地球一圈，我们看到的亮面时多时少，这就是月相。' },
+  cm_phase: { en: 'The Moon makes no light: the Sun always lights half of it (see the small moons). It circles Earth in 27.3 days, but Earth moves along its own orbit meanwhile, so lining up with the Sun again takes 29.5 days: one cycle of phases, as we see more or less of that lit half.', zh: '月亮自己不发光，太阳总是照亮它的一半（看轨道上的小月亮）。它约 27.3 天绕地球一圈；可同时地球也在绕太阳走，所以要约 29.5 天才回到和太阳同样的相对位置，完成一轮月相：我们看到的亮面时多时少。' },
   cm_super: { en: 'The Moon’s orbit is an oval: about 357,000 km at perigee, 406,000 km at apogee. A Full Moon near perigee is a supermoon.', zh: '月球轨道是椭圆：近地点约 35.7 万公里，远地点约 40.6 万公里。满月恰好碰上近地点，就是“超级月亮”。' },
   cm_season: { en: 'Earth’s axis is tilted 23.4° and always points the same way (to Polaris). In June the north leans toward the Sun: summer up north. In December it’s the south’s turn. At the equinoxes the Sun is over the equator.', zh: '地轴倾斜 23.4°，而且始终指向同一个方向（北极星）。6 月北半球倒向太阳，是北半球的夏天；12 月轮到南半球。春分、秋分时，阳光直射赤道。' },
   cm_perihelion: { en: 'Earth is closest to the Sun in early January: northern winter! Seasons come from the tilt, not the distance.', zh: '地球在 1 月初离太阳最近——那时北半球却是冬天！四季来自地轴倾斜，而不是距离远近。' },
-  cm_opposition: { en: 'Earth, on its faster inside lane, overtakes {p}: Sun, Earth and {p} line up. {p} is opposite the Sun in our sky, closest and brightest.', zh: '地球在内圈跑得更快，正在“超车”{p}：太阳、地球、{p}排成一条直线。{p}在天空中与太阳相对，离我们最近、最亮。' },
+  cm_opposition: { en: 'Earth, on its faster inside lane, overtakes {p}: Sun, Earth and {p} line up. {p} is opposite the Sun in our sky and, within a few days of this, near its closest and brightest.', zh: '地球在内圈跑得更快，正在“超车”{p}：太阳、地球、{p}排成一条直线。{p}在天空中与太阳相对，前后几天通常离我们较近、也最亮。' },
   cm_elongation: { en: '{p} orbits inside Earth’s orbit, so it never strays far from the Sun in our sky. Our line of sight now just grazes its orbit: the widest angle it can reach.', zh: '{p}在地球轨道内侧运行，所以在天空中总在太阳附近。此刻我们的视线恰好与它的轨道相切，这是它能离开太阳的最大角度。' },
   cm_conjunction: { en: 'Seen from Earth, both lines of sight point almost the same way, so they look side by side. In space they are far apart.', zh: '从地球看过去，两条视线几乎指向同一个方向，所以它们在天上挨在一起。实际上在太空中它们相距很远。' },
   cm_transit: { en: '{p}’s orbit is tilted, so it usually passes above or below the Sun. Only when Earth, {p} and the Sun line up at a node does it cross the Sun’s face.', zh: '{p}的轨道是倾斜的，通常从太阳上方或下方经过。只有地球、{p}和太阳恰好在交点处排成一线时，它才会从太阳表面穿过。' },
@@ -167,34 +168,36 @@ const S = {
 } satisfies Record<string, Pair>;
 
 export type SkyKey = keyof typeof S;
+/** Raw bilingual table, for the parity test. */
+export const SKY_TEXT: Record<string, Pair> = S;
 export function s(key: SkyKey, vars?: Record<string, string | number>): string {
   let v: string = S[key][lang()];
   if (vars) for (const [k, x] of Object.entries(vars)) v = v.replaceAll('{' + k + '}', String(x));
   return v;
 }
 
-/** Observing sites to pick from (plus "best spot" and "where the globe faces"); `tz` = standard UTC offset (no DST). */
-export const SITES: { id: string; name: Pair; lat: number; lon: number; tz: number }[] = [
-  { id: 'beijing', name: { en: 'Beijing', zh: '北京' }, lat: 39.9, lon: 116.4, tz: 8 },
-  { id: 'shanghai', name: { en: 'Shanghai', zh: '上海' }, lat: 31.23, lon: 121.47, tz: 8 },
-  { id: 'hongkong', name: { en: 'Hong Kong', zh: '香港' }, lat: 22.32, lon: 114.17, tz: 8 },
-  { id: 'taipei', name: { en: 'Taipei', zh: '台北' }, lat: 25.03, lon: 121.56, tz: 8 },
-  { id: 'chengdu', name: { en: 'Chengdu', zh: '成都' }, lat: 30.66, lon: 104.07, tz: 8 },
-  { id: 'lhasa', name: { en: 'Lhasa', zh: '拉萨' }, lat: 29.65, lon: 91.1, tz: 8 },
-  { id: 'urumqi', name: { en: 'Ürümqi', zh: '乌鲁木齐' }, lat: 43.83, lon: 87.62, tz: 8 },
-  { id: 'singapore', name: { en: 'Singapore', zh: '新加坡' }, lat: 1.35, lon: 103.82, tz: 8 },
-  { id: 'tokyo', name: { en: 'Tokyo', zh: '东京' }, lat: 35.68, lon: 139.69, tz: 9 },
-  { id: 'sydney', name: { en: 'Sydney', zh: '悉尼' }, lat: -33.87, lon: 151.21, tz: 10 },
-  { id: 'delhi', name: { en: 'Delhi', zh: '新德里' }, lat: 28.61, lon: 77.21, tz: 5.5 },
-  { id: 'cairo', name: { en: 'Cairo', zh: '开罗' }, lat: 30.04, lon: 31.24, tz: 2 },
-  { id: 'madrid', name: { en: 'Madrid', zh: '马德里' }, lat: 40.42, lon: -3.7, tz: 1 },
-  { id: 'london', name: { en: 'London', zh: '伦敦' }, lat: 51.51, lon: -0.13, tz: 0 },
-  { id: 'reykjavik', name: { en: 'Reykjavík', zh: '雷克雅未克' }, lat: 64.15, lon: -21.94, tz: 0 },
-  { id: 'newyork', name: { en: 'New York', zh: '纽约' }, lat: 40.71, lon: -74.01, tz: -5 },
-  { id: 'dallas', name: { en: 'Dallas', zh: '达拉斯' }, lat: 32.78, lon: -96.8, tz: -6 },
-  { id: 'losangeles', name: { en: 'Los Angeles', zh: '洛杉矶' }, lat: 34.05, lon: -118.24, tz: -8 },
-  { id: 'saopaulo', name: { en: 'São Paulo', zh: '圣保罗' }, lat: -23.55, lon: -46.63, tz: -3 },
-  { id: 'capetown', name: { en: 'Cape Town', zh: '开普敦' }, lat: -33.92, lon: 18.42, tz: 2 },
+/** Observing sites to pick from (plus "best spot" and "where the globe faces"); `tz` = standard UTC offset, `zone` = IANA zone (daylight saving applied at the event). */
+export const SITES: { id: string; name: Pair; lat: number; lon: number; tz: number; zone: string }[] = [
+  { id: 'beijing', name: { en: 'Beijing', zh: '北京' }, lat: 39.9, lon: 116.4, tz: 8, zone: 'Asia/Shanghai' },
+  { id: 'shanghai', name: { en: 'Shanghai', zh: '上海' }, lat: 31.23, lon: 121.47, tz: 8, zone: 'Asia/Shanghai' },
+  { id: 'hongkong', name: { en: 'Hong Kong', zh: '香港' }, lat: 22.32, lon: 114.17, tz: 8, zone: 'Asia/Hong_Kong' },
+  { id: 'taipei', name: { en: 'Taipei', zh: '台北' }, lat: 25.03, lon: 121.56, tz: 8, zone: 'Asia/Taipei' },
+  { id: 'chengdu', name: { en: 'Chengdu', zh: '成都' }, lat: 30.66, lon: 104.07, tz: 8, zone: 'Asia/Shanghai' },
+  { id: 'lhasa', name: { en: 'Lhasa', zh: '拉萨' }, lat: 29.65, lon: 91.1, tz: 8, zone: 'Asia/Shanghai' },
+  { id: 'urumqi', name: { en: 'Ürümqi', zh: '乌鲁木齐' }, lat: 43.83, lon: 87.62, tz: 8, zone: 'Asia/Shanghai' },
+  { id: 'singapore', name: { en: 'Singapore', zh: '新加坡' }, lat: 1.35, lon: 103.82, tz: 8, zone: 'Asia/Singapore' },
+  { id: 'tokyo', name: { en: 'Tokyo', zh: '东京' }, lat: 35.68, lon: 139.69, tz: 9, zone: 'Asia/Tokyo' },
+  { id: 'sydney', name: { en: 'Sydney', zh: '悉尼' }, lat: -33.87, lon: 151.21, tz: 10, zone: 'Australia/Sydney' },
+  { id: 'delhi', name: { en: 'Delhi', zh: '新德里' }, lat: 28.61, lon: 77.21, tz: 5.5, zone: 'Asia/Kolkata' },
+  { id: 'cairo', name: { en: 'Cairo', zh: '开罗' }, lat: 30.04, lon: 31.24, tz: 2, zone: 'Africa/Cairo' },
+  { id: 'madrid', name: { en: 'Madrid', zh: '马德里' }, lat: 40.42, lon: -3.7, tz: 1, zone: 'Europe/Madrid' },
+  { id: 'london', name: { en: 'London', zh: '伦敦' }, lat: 51.51, lon: -0.13, tz: 0, zone: 'Europe/London' },
+  { id: 'reykjavik', name: { en: 'Reykjavík', zh: '雷克雅未克' }, lat: 64.15, lon: -21.94, tz: 0, zone: 'Atlantic/Reykjavik' },
+  { id: 'newyork', name: { en: 'New York', zh: '纽约' }, lat: 40.71, lon: -74.01, tz: -5, zone: 'America/New_York' },
+  { id: 'dallas', name: { en: 'Dallas', zh: '达拉斯' }, lat: 32.78, lon: -96.8, tz: -6, zone: 'America/Chicago' },
+  { id: 'losangeles', name: { en: 'Los Angeles', zh: '洛杉矶' }, lat: 34.05, lon: -118.24, tz: -8, zone: 'America/Los_Angeles' },
+  { id: 'saopaulo', name: { en: 'São Paulo', zh: '圣保罗' }, lat: -23.55, lon: -46.63, tz: -3, zone: 'America/Sao_Paulo' },
+  { id: 'capetown', name: { en: 'Cape Town', zh: '开普敦' }, lat: -33.92, lon: 18.42, tz: 2, zone: 'Africa/Johannesburg' },
 ];
 
 /** Very coarse "where on Earth" for a point, for captions like "best from North America". */

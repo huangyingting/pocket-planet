@@ -51,13 +51,21 @@ Set these in `.env` (template: [`.env.example`](.env.example)) or export them.
 | `DEV_LOGIN` | — | `1` returns magic links in the API response, even in production (testing only!) |
 | `BASE_URL` | `http://localhost:$PORT` | origin used in magic links and the CSRF origin check |
 | `INSECURE_COOKIES` | — | `1` drops the `Secure` cookie flag in production (plain-HTTP staging) |
+| `MAIL_FROM` | — | sender address for sign-in mail; required with either transport below |
+| `MAIL_API_URL` | — | HTTP email API taking `{ from, to, subject, text, html }` JSON (Resend-style); takes precedence over SMTP |
+| `MAIL_API_KEY` | — | bearer token for `MAIL_API_URL` |
+| `SMTP_URL` | — | `smtps://user:pass@host:465` (implicit TLS) or `smtp://user:pass@host:587` (STARTTLS required) |
+| `SMTP_CA_FILE` | — | PEM file to trust a private CA (e.g. an internal relay) |
+
+Without a mail transport, production sign-in is unavailable (the API says so); in development the link is logged.
 
 ## Tests
 ```bash
 npm run typecheck
 npm test                                           # 38 unit + API tests
 npx playwright install chromium                    # first time only
-xvfb-run -a -s "-screen 0 1920x1080x24" npm run test:e2e   # 13 scenarios, desktop + mobile
+xvfb-run -a -s "-screen 0 1920x1080x24" npm run test:e2e   # desktop + mobile scenarios
+npm run test:static                                # static Pages build served under /pocket-planet/ + smoke test (also in CI)
 ```
 The e2e config builds nothing. It starts `node src/server/index.ts` on port 8790 with a temporary DB and `DEV_LOGIN=1`, so run `npm run build` first. On machines without a GPU, Chromium uses SwiftShader. The tests pass `?lowfx=1`, and a full run takes about 3 minutes. Screenshots are written to [`docs/assets/screenshots/`](docs/assets/screenshots/). `npm run test:all` runs typecheck, unit tests, build and e2e in sequence.
 
@@ -113,6 +121,6 @@ mkdir -p /tmp/site && ln -sfn "$PWD/dist" /tmp/site/pocket-planet && python3 -m 
 `npm run build && npm start` serves the SPA, the static pages and the API from one process.
 
 ## Production notes
-* **Mail**: `createApp({ sendMail })` is the hook for delivering magic links. `src/server/index.ts` only logs the link (with a masked email) in development and is a no-op in production (backlog B-12), so production sign-in needs an SMTP or provider implementation.
+* **Mail**: set `MAIL_FROM` plus `MAIL_API_URL` or `SMTP_URL` (see the table above) to deliver magic links; a failed send is reported to the user rather than hidden.
 * Put the server behind TLS and keep `NODE_ENV=production`. Back up the SQLite file (B-16). Add a CSP header (B-13).
 * Cookies: the session cookie is `httpOnly` and `SameSite=Lax`; the visitor cookie is used only for anonymous reactions.

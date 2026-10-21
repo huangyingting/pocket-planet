@@ -9,13 +9,14 @@ import { h, trapTab } from '../ui/dom.ts';
 import { icon } from '../ui/icons.ts';
 import { lang } from '../lib/i18n.ts';
 import { s, SITES, type SkyKey } from './text.ts';
-import { localClock } from './common.ts';
+import { siteClock, zoneOffset } from './common.ts';
 import { GroundSky } from './ground.ts';
 import { SpaceScene } from './space.ts';
 import { ModelScene } from './model.ts';
 import { LookControls, OrbitControls } from './controls.ts';
 import { buildAct, bodyName, type Act, type Ctx, type Frame, type Site, type Timing, type View } from './acts.ts';
 import { Calendar, findEvent, nextHighlight, countdown } from './panel.ts';
+import { AdaptiveResolution } from '../globe/quality.ts';
 
 export interface TheatreOpts {
   id?: string;
@@ -47,6 +48,7 @@ export class Theatre {
   private cal: Calendar;
   private act!: Act;
   private ev!: SkyEvent;
+  private adapt: AdaptiveResolution | null = null;
   private view: View = 'ground';
   private t = 0;
   private playing = true;
@@ -86,6 +88,8 @@ export class Theatre {
     this.cv = h('canvas', { class: 'sky-cv', 'data-testid': 'sky-canvas' });
     this.renderer = new THREE.WebGLRenderer({ canvas: this.cv, antialias: opts.msaa ?? !opts.lowfx, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, opts.dprMax ?? 1.75, opts.lowfx ? 1 : 2));
+    // the same frame-time budget as the Earth and the Solar System: drop resolution on a struggling phone, win it back later
+    if (!opts.lowfx) this.adapt = new AdaptiveResolution(Math.min(0.75, this.renderer.getPixelRatio()), this.renderer.getPixelRatio());
     this.renderer.setClearColor(0x000000);
     this.ground = new GroundSky(this.labels);
     this.space = new SpaceScene();
@@ -165,13 +169,15 @@ export class Theatre {
 
   // ------------------------------------------------------------------------------------------------ state
 
-  private pick(): Site | null {
+  /** The chosen site, with its UTC offset as it is at `at` (daylight saving included). */
+  private pick(at = this.ev?.t ?? Date.now()): Site | null {
     if (this.siteId === 'globe' && this.opts.globe) {
       const g = this.opts.globe;
-      return { id: 'globe', name: s('globeSpot'), lat: g.lat, lon: g.lon, tz: Math.round(g.lon / 15) };
+      // an arbitrary point has no known legal time zone: sun time, marked as an estimate
+      return { id: 'globe', name: s('globeSpot'), lat: g.lat, lon: g.lon, tz: Math.round(g.lon / 15), est: true };
     }
     const x = SITES.find(y => y.id === this.siteId);
-    return x ? { id: x.id, name: tr(x.name, lang()), lat: x.lat, lon: x.lon, tz: x.tz } : null;
+    return x ? { id: x.id, name: tr(x.name, lang()), lat: x.lat, lon: x.lon, tz: zoneOffset(x.zone, at), zone: x.zone } : null;
   }
 
   /** Stage an event (`keep` = same event, new site: keep the moment and the view if possible). */
@@ -179,7 +185,7 @@ export class Theatre {
     const prevT = this.t, prevView = this.view;
     this.ev = ev;
     this.ground.reset();
-    this.act = buildAct(ev, this.pick());
+    this.act = buildAct(ev, this.pick(ev.t));
     const a = this.act;
     this.ground.obs = { lat: a.site.lat, lon: a.site.lon };
     if (a.model) {
@@ -372,8 +378,11 @@ export class Theatre {
 
   private loop = (now: number): void => {
     this.raf = requestAnimationFrame(this.loop);
-    const dt = Math.min(0.1, (now - this.last) / 1000);
+    const frameMs = now - this.last;
+    const dt = Math.min(0.1, frameMs / 1000);
     this.last = now;
+    const dpr = this.adapt?.sample(frameMs);
+    if (dpr) { this.renderer.setPixelRatio(dpr); this.resize(); }
     const a = this.tm;
     if (!a) return;
     let rate = 0;
@@ -431,7 +440,7 @@ export class Theatre {
     if (document.activeElement !== this.range) this.range.value = String(Math.round(k * 1000));
     this.fillEl.style.width = `${k * 100}%`;
     const site = this.act.site;
-    this.clockEl.textContent = a.days ? localClock(ms, site.tz, true, lang()) : localClock(ms, site.tz, false, lang());
+    this.clockEl.textContent = siteClock(ms, site, !!a.days, lang());
     if (this.capEl.textContent !== fr.caption) {
       this.capEl.textContent = fr.caption;
       this.capEl.classList.remove('flash'); void this.capEl.offsetWidth; this.capEl.classList.add('flash');

@@ -15,12 +15,18 @@ function db(): Promise<IDBDatabase> {
     r.onerror = () => rej(r.error);
   });
 }
+/** Resolves once the transaction has committed (not just when the request succeeded). */
 async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   const d = await db();
-  return new Promise((res, rej) => { const q = fn(d.transaction(STORE, mode).objectStore(STORE)); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+  return new Promise((res, rej) => {
+    const x = d.transaction(STORE, mode), q = fn(x.objectStore(STORE));
+    x.oncomplete = () => res(q.result);
+    x.onerror = x.onabort = () => rej(x.error ?? q.error);
+  });
 }
 export const photos = {
-  all: () => tx<Photo[]>('readonly', s => s.getAll() as IDBRequest<Photo[]>).then(a => a.sort((x, y) => y.at - x.at)).catch(() => [] as Photo[]),
+  /** Rejects when the album can't be read (not the same as an empty album). */
+  all: () => tx<Photo[]>('readonly', s => s.getAll() as IDBRequest<Photo[]>).then(a => a.sort((x, y) => y.at - x.at)),
   add: (p: Omit<Photo, 'id'>) => tx('readwrite', s => s.add(p)),
   del: (id: number) => tx('readwrite', s => s.delete(id)),
   count: () => tx<number>('readonly', s => s.count()).catch(() => 0),
@@ -37,19 +43,21 @@ export function openPhotoMode(globe: Globe, place: () => string): void {
       frame.classList.add('flash');
       setTimeout(() => frame.classList.remove('flash'), 300);
       const url = globe.capture();
-      await photos.add({ at: Date.now(), url, place: place() });
-      toast('📸 ' + t('photoSaved'));
+      try { await photos.add({ at: Date.now(), url, place: place() }); toast('📸 ' + t('photoSaved')); }
+      catch { toast('⚠️ ' + t('photoSaveFail'), 4000); }
     } }),
     h('button', { class: 'pill', 'data-testid': 'photo-exit', onclick: exit }, t('close')));
   document.body.append(frame, bar);
 }
 
 export async function openAlbum(): Promise<void> {
-  const list = await photos.all();
+  let list: Photo[] = [], failed = false;
+  try { list = await photos.all(); } catch { failed = true; }
   const grid = h('div', { class: 'album-grid', 'data-testid': 'album-grid' });
-  if (!list.length) grid.append(h('p', { class: 'muted' }, t('noPhotos')));
+  if (failed) grid.append(h('p', { class: 'muted', role: 'alert' }, t('albumFail')));
+  else if (!list.length) grid.append(h('p', { class: 'muted' }, t('noPhotos')));
   for (const p of list) {
-    grid.append(h('button', { class: 'thumb', onclick: () => view(p) }, h('img', { src: p.url, alt: p.place || 'Globe photo', loading: 'lazy' })));
+    grid.append(h('button', { class: 'thumb', onclick: () => view(p) }, h('img', { src: p.url, alt: p.place || t('photoAlt'), loading: 'lazy' })));
   }
   openModal('album', t('album'), grid, { wide: true });
   function view(p: Photo) {
@@ -58,8 +66,8 @@ export async function openAlbum(): Promise<void> {
       const blob = await (await fetch(p.url)).blob();
       await navigator.share({ files: [new File([blob], 'pocket-planet.jpg', { type: blob.type })], title: t('title') }).catch(() => {});
     }, html: icon('share', 16) }, ' ' + t('share')) : null;
-    openModal('photo-view', p.place || t('album'), h('div', { class: 'photo-view' }, h('img', { src: p.url, alt: p.place || 'Globe photo' }),
+    openModal('photo-view', p.place || t('album'), h('div', { class: 'photo-view' }, h('img', { src: p.url, alt: p.place || t('photoAlt') }),
       h('p', { class: 'muted' }, new Date(p.at).toLocaleString()),
-      h('div', { class: 'row' }, dl, share, h('button', { class: 'pill danger', onclick: async () => { await photos.del(p.id); closeModal('photo-view'); closeModal('album'); void openAlbum(); }, html: icon('trash', 16) }, ' ' + t('del')))), { wide: true });
+      h('div', { class: 'row' }, dl, share, h('button', { class: 'pill danger', onclick: async () => { try { await photos.del(p.id); } catch { toast('⚠️ ' + t('albumFail')); return; } closeModal('photo-view'); closeModal('album'); void openAlbum(); }, html: icon('trash', 16) }, ' ' + t('del')))), { wide: true });
   }
 }

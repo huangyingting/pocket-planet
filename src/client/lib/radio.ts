@@ -6,10 +6,14 @@
  */
 import { audioCtx } from './sfx.ts';
 
-export type RadioStatus = 'idle' | 'connecting' | 'playing' | 'error';
+/** `buffering` = was playing, the stream is catching up; `error` after `playing` means the station dropped (see `dropped`). */
+export type RadioStatus = 'idle' | 'connecting' | 'playing' | 'buffering' | 'error';
 
 const CORS_WAIT = 8500;
 const PLAIN_WAIT = 12000;
+/** A stream stuck this long while playing is reconnected; this many times before giving up. */
+const STALL_WAIT = 15000;
+const RECONNECTS = 2;
 
 type HlsLike = { destroy(): void; loadSource(u: string): void; attachMedia(m: HTMLMediaElement): void; on(ev: string, fn: (e: unknown, d: { fatal?: boolean }) => void): void };
 
@@ -17,6 +21,8 @@ export class RadioEngine {
   status: RadioStatus = 'idle';
   /** True when levels come from the real signal (CORS stream through WebAudio). */
   analysed = false;
+  /** The last `error` came from a station that had been playing and then dropped out. */
+  dropped = false;
   onStatus: (s: RadioStatus) => void = () => {};
   private el: HTMLAudioElement | null = null;
   private node: MediaElementAudioSourceNode | null = null;
@@ -28,6 +34,7 @@ export class RadioEngine {
   private vol = 0.8;
   private hiss: { src: AudioBufferSourceNode; g: GainNode } | null = null;
   private smooth = [0, 0, 0];
+  private stall = 0;
 
   get volume(): number { return this.vol; }
   setVolume(v: number): void {
@@ -39,9 +46,13 @@ export class RadioEngine {
   }
 
   /** Tunes in. Resolves true once audio is actually playing, false on failure or if another tune() took over. */
-  async play(url: string, hls: boolean): Promise<boolean> {
-    const my = ++this.token;
+  play(url: string, hls: boolean): Promise<boolean> {
+    return this.connect(++this.token, url, hls, 0);
+  }
+
+  private async connect(my: number, url: string, hls: boolean, retry: number): Promise<boolean> {
     this.teardown();
+    this.dropped = false;
     this.set('connecting');
     this.startHiss();
     const isHls = hls || /\.m3u8(\?|$)/i.test(url);
@@ -50,13 +61,45 @@ export class RadioEngine {
     if (!ok && my === this.token && !(isHls && !this.nativeHls())) ok = await this.attempt(my, url, isHls, false);
     if (my !== this.token) return false;
     this.stopHiss();
-    this.set(ok ? 'playing' : 'error');
-    if (!ok) this.teardown();
-    return ok;
+    if (!ok) { this.teardown(); this.dropped = retry > 0; this.set('error'); return false; }
+    this.set('playing');
+    this.watch(my, url, hls, retry);
+    return true;
+  }
+
+  /** Keeps following a stream after it started: buffering, stalls, drop-outs and the end of the stream. */
+  private watch(my: number, url: string, hls: boolean, retry: number): void {
+    const el = this.el;
+    if (!el) return;
+    const live = () => my === this.token && this.el === el;
+    const clear = () => { window.clearTimeout(this.stall); this.stall = 0; };
+    const drop = () => {
+      if (!live()) return;
+      clear();
+      // the user stopping (token bump) always wins over a pending reconnect
+      if (retry < RECONNECTS) void this.connect(my, url, hls, retry + 1);
+      else { this.teardown(); this.dropped = true; this.set('error'); }
+    };
+    const wait = () => {
+      if (!live() || this.status !== 'playing') return;
+      this.set('buffering');
+      clear();
+      this.stall = window.setTimeout(drop, STALL_WAIT);
+    };
+    const resume = () => { if (!live()) return; clear(); this.set('playing'); };
+    el.addEventListener('waiting', wait);
+    el.addEventListener('stalled', wait);
+    el.addEventListener('playing', resume);
+    el.addEventListener('error', drop);
+    el.addEventListener('ended', drop);
+    // the browser paused it by itself (another app took the audio, a headset was unplugged…)
+    el.addEventListener('pause', () => { if (live() && this.status !== 'idle') { clear(); this.set('buffering'); this.stall = window.setTimeout(drop, STALL_WAIT); } });
   }
 
   stop(): void {
     this.token++;
+    window.clearTimeout(this.stall);
+    this.dropped = false;
     this.stopHiss();
     this.teardown();
     this.set('idle');
@@ -65,7 +108,7 @@ export class RadioEngine {
   /** Bass / mid / treble, 0..1, smoothed. Without a real signal, a gentle made-up pulse while playing. */
   levels(t: number): [number, number, number] {
     let b = 0, m = 0, h = 0;
-    if (this.status === 'playing') {
+    if (this.status === 'playing' || this.status === 'buffering') {
       if (this.analyser && this.bins) {
         this.analyser.getByteFrequencyData(this.bins);
         const avg = (lo: number, hi: number) => { let s = 0; for (let i = lo; i < hi; i++) s += this.bins![i]; return s / ((hi - lo) * 255); };
@@ -141,6 +184,7 @@ export class RadioEngine {
   }
 
   private teardown(): void {
+    window.clearTimeout(this.stall);
     this.hls?.destroy();
     this.hls = null;
     if (this.el) {

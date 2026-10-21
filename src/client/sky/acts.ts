@@ -11,7 +11,7 @@ import { SHOWERS } from '../../shared/data/showers.ts';
 import { lang } from '../lib/i18n.ts';
 import { tr } from '../../shared/data/types.ts';
 import { s, SITES, regionOf } from './text.ts';
-import { localClock, eqVec, D2R } from './common.ts';
+import { siteClock, eqVec, D2R } from './common.ts';
 import { PLANETS, type GroundSky } from './ground.ts';
 import type { SpaceScene } from './space.ts';
 import type { ModelScene, ModelSetup } from './model.ts';
@@ -19,7 +19,8 @@ import type { LookControls, OrbitControls } from './controls.ts';
 import { findRoot } from '../../shared/lib/astro/ephem.ts';
 
 export type View = 'model' | 'ground' | 'space' | 'moon';
-export interface Site { id: string; name: string; lat: number; lon: number; tz: number }
+/** `tz` = UTC offset (hours) around the event; `zone` = IANA zone for exact local clocks; `est` = no real zone, `tz` is a sun-time guess. */
+export interface Site { id: string; name: string; lat: number; lon: number; tz: number; zone?: string; est?: boolean }
 export interface Ctx {
   ground: GroundSky; space: SpaceScene; model: ModelScene;
   look: LookControls; orbit: OrbitControls; morbit: OrbitControls; user: boolean;
@@ -68,7 +69,7 @@ const deg = (x: number, d = 1) => `${x.toFixed(d)}°`;
 const tzOf = (lon: number) => Math.round(lon / 15);
 
 /** Best spot as a site. */
-const spot = (p: GeoPoint): Site => ({ id: 'best', name: s('bestSpot'), lat: p.lat, lon: p.lon, tz: tzOf(p.lon) });
+const spot = (p: GeoPoint): Site => ({ id: 'best', name: s('bestSpot'), lat: p.lat, lon: p.lon, tz: tzOf(p.lon), est: true });
 
 export function eventTitle(ev: SkyEvent): string {
   switch (ev.kind) {
@@ -213,7 +214,7 @@ function solarAct(ev: SkyEvent, pick: Site | null): Act {
     },
     frame(ms, view, c) {
       if (view === 'model') return eclipseModelFrame(ms, ev.t, false);
-      const read: [string, string][] = [[s('localTime'), localClock(ms, site.tz, false, lang())]];
+      const read: [string, string][] = [[s('localTime'), siteClock(ms, site, false, lang())]];
       if (view === 'space') {
         read.push([s('magnitude'), e.magnitude.toFixed(3)]);
         if (e.durationS) read.push([e.type === 'annular' ? s('durationAnn') : s('duration'), fmtDur(e.durationS)]);
@@ -281,7 +282,7 @@ function lunarAct(ev: SkyEvent, pick: Site | null): Act {
     },
     frame(ms, view, c) {
       if (view === 'model') return eclipseModelFrame(ms, l.t, true);
-      const read: [string, string][] = [[s('localTime'), localClock(ms, site.tz, false, lang())]];
+      const read: [string, string][] = [[s('localTime'), siteClock(ms, site, false, lang())]];
       read.push([s('magnitude'), l.umbralMagnitude > 0 ? l.umbralMagnitude.toFixed(2) : l.penumbralMagnitude.toFixed(2)]);
       if (l.u2 && l.u3) read.push([s('duration'), fmtDur((l.u3 - l.u2) / 1000)]);
       const inUmbra = l.u1 !== undefined && ms > l.u1 && ms < (l.u4 ?? 0);
@@ -306,8 +307,9 @@ function lunarAct(ev: SkyEvent, pick: Site | null): Act {
 
 function meteorAct(ev: SkyEvent, pick: Site | null): Act {
   const sh = SHOWERS.find(x => x.key === ev.shower)!;
-  const site = pick ?? { ...SITES[0], id: 'best', name: s('bestSpot'), ...(sh.dec < -10 ? { lat: -31.95, lon: 115.86 } : {}) };
-  if (!pick && sh.dec < -10) site.tz = 8;
+  const site: Site = pick ?? (sh.dec < -10
+    ? { id: 'best', name: s('bestSpot'), lat: -31.95, lon: 115.86, tz: 8, zone: 'Australia/Perth' }
+    : { ...SITES[0], id: 'best', name: s('bestSpot') });
   // the night of the peak: 20:00 local → 06:00 next morning
   const mid = localMidnight(ev.t, site.tz);
   const t0 = (ev.t - mid < 12 * H ? mid - DAY : mid) + 20 * H, t1 = t0 + 10 * H;
@@ -341,7 +343,7 @@ function meteorAct(ev: SkyEvent, pick: Site | null): Act {
       return {
         caption: st.day > 0.2 ? s('cap_meteor_tip') : s('cap_meteor'),
         read: [
-          [s('localTime'), localClock(ms, site.tz, false, lang())],
+          [s('localTime'), siteClock(ms, site, false, lang())],
           [s('rate'), `~${rateNow}`],
           [s('radiant'), deg(rad?.alt ?? 0, 0)],
           [s('speed'), `${sh.speedKms} km/s`],
@@ -401,7 +403,7 @@ function moonAct(ev: SkyEvent, pick: Site | null): Act {
         };
       }
       const read: [string, string][] = [
-        [s(isNew ? 'utc' : 'localTime'), isNew ? new Date(ms).toISOString().slice(0, 16).replace('T', ' ') : localClock(ms, site.tz, false, lang())],
+        [s(isNew ? 'utc' : 'localTime'), isNew ? new Date(ms).toISOString().slice(0, 16).replace('T', ' ') : siteClock(ms, site, false, lang())],
         [s('illum'), pct(ph.illumination)],
         [s('distance'), `${Math.round(m.distKm).toLocaleString()} km`],
       ];
@@ -461,7 +463,7 @@ function seasonAct(ev: SkyEvent, pick: Site | null): Act {
         };
       }
       const read: [string, string][] = [
-        [s('localTime'), localClock(ms, site.tz, false, lang())],
+        [s('localTime'), siteClock(ms, site, false, lang())],
         [lang() === 'zh' ? '太阳直射' : 'Sun overhead at', `${Math.abs(sg.dec).toFixed(1)}°${sg.dec >= 0 ? (lang() === 'zh' ? '北纬' : 'N') : (lang() === 'zh' ? '南纬' : 'S')}`],
         [s('dayLength', { p: site.name }), `${Math.floor(dayLen / H)}h ${Math.round((dayLen % H) / 60_000)}m`],
       ];
@@ -554,7 +556,7 @@ function planetAct(ev: SkyEvent, pick: Site | null): Act {
       const az = a.az + (((b.az - a.az + 540) % 360) - 180) / 2, alt = (a.alt + b.alt) / 2;
       track(c, az, c.look.targetFov > 20 ? Math.max(alt * 0.6, Math.min(alt, 18)) : alt);
       const g = isPlanet(main) ? planetGeo(main, ms) : null;
-      const read: [string, string][] = [[s('localTime'), localClock(ms, site.tz, true, lang())]];
+      const read: [string, string][] = [[s('localTime'), siteClock(ms, site, true, lang())]];
       if (g) read.push([s('elongation'), deg(Math.abs(g.elong), 0)], [s('distance'), `${g.distAu.toFixed(2)} AU`]);
       if (ev.kind === 'conjunction' && ids.length > 1) {
         const v = (id: string) => id === 'moon' ? (() => { const m = moonGeo(ms); return eqVec(m.ra, m.dec); })() : (() => { const p = planetGeo(id as PlanetId, ms); return eqVec(p.ra, p.dec); })();
@@ -582,7 +584,7 @@ function transitAct(ev: SkyEvent): Act {
   const sg = sunGeo(ev.t);
   // the subsolar point: where the Sun is overhead at mid-transit
   const lon = ((sg.ra - gast(ev.t) + 540) % 360) - 180;
-  const site: Site = { id: 'best', name: s('bestSpot'), lat: sg.dec, lon, tz: tzOf(lon) };
+  const site: Site = { id: 'best', name: s('bestSpot'), lat: sg.dec, lon, tz: tzOf(lon), est: true };
   const t0 = ingress - 25 * 60_000, t1 = egress + 25 * 60_000;
   return {
     title: eventTitle(ev), views: ['model', 'ground'], view: 'model', site,
@@ -606,7 +608,7 @@ function transitAct(ev: SkyEvent): Act {
       track(c, st.sunAz, st.sunAlt);
       return {
         caption: s('cap_transit', { p: bodyName(id) }),
-        read: [[s('utc'), new Date(ms).toISOString().slice(11, 16)], [s('localTime'), localClock(ms, site.tz, false, lang())], [s('sunAlt'), deg(st.sunAlt)]],
+        read: [[s('utc'), new Date(ms).toISOString().slice(11, 16)], [s('localTime'), siteClock(ms, site, false, lang())], [s('sunAlt'), deg(st.sunAlt)]],
       };
     },
   };

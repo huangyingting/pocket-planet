@@ -95,6 +95,34 @@ const en: Dict = {
   radioHidden: "Hidden on this device. Here’s another station.",
   radioApprox: "location approximate",
   radioAsOf: "list from {d}",
+  tmNote: "Filters by the year each place was built or each thing appeared. Borders, coastlines and the map stay as today.",
+  modelNote: "The 3D model is a simplified representation, not to scale.",
+  placeNote: "The pin marks the real location.",
+  rangeNote: "The pin is one typical place where it lives, not a single animal.",
+  routeNote: "The route line is simplified from the real path.",
+  repNote: "The pin marks one representative place.",
+  radioDropped: "The station stopped sending sound. Press play to try again, or pick another.",
+  radioBuffering: "Catching up with the stream…",
+  radioBeat: "Decorative beat: this station doesn’t let us measure its sound",
+  backup: "Back up progress",
+  backupExport: "Save file",
+  backupImport: "Load file",
+  backupSaved: "Progress saved as a file. Keep it somewhere safe. Photos are not included.",
+  backupBad: "That file isn’t a Pocket Planet progress backup. Nothing was changed.",
+  backupMerge: "The file will be added to what you have now. Nothing is removed.",
+  backupMergeBtn: "Merge",
+  backupDone: "Progress merged.",
+  bkNow: "Now",
+  bkAfter: "After",
+  bk_seen: "Cards opened",
+  bk_found: "Collected",
+  bk_stickers: "Stickers",
+  bk_likes: "Liked",
+  cancel: "Cancel",
+  sessionOnly: "This browser isn’t letting us save. Your progress lasts until you close this page; use Back up progress to keep it.",
+  photoSaveFail: "The photo couldn’t be saved on this device.",
+  albumFail: "The album couldn’t be opened on this device. Your photos may still be there; try again later.",
+  photoAlt: "Photo of the globe",
 };
 
 const zh: Dict = {
@@ -189,6 +217,34 @@ const zh: Dict = {
   radioHidden: "已在这台设备上隐藏，换一个电台。",
   radioApprox: "位置为估计",
   radioAsOf: "目录更新于 {d}",
+  tmNote: "按建成或出现的年代筛选。国界、海岸线和地图仍是今天的样子。",
+  modelNote: "3D 模型是简化的示意，不按真实比例。",
+  placeNote: "图钉标在真实位置。",
+  rangeNote: "图钉是它常见栖息地中的一个代表位置，不是某只动物的具体位置。",
+  routeNote: "路线是根据真实路径简化后的示意。",
+  repNote: "图钉标的是一个有代表性的地点。",
+  radioDropped: "电台的声音中断了。按播放再试一次，或者换一个电台。",
+  radioBuffering: "信号缓冲中…",
+  radioBeat: "装饰性的节奏动画：这个电台不允许分析它的真实声音",
+  backup: "备份进度",
+  backupExport: "保存文件",
+  backupImport: "载入文件",
+  backupSaved: "进度已保存为文件，请妥善保管。照片不包含在内。",
+  backupBad: "这不是口袋星球的进度备份文件，没有做任何更改。",
+  backupMerge: "文件里的进度会合并到现在的进度里，不会删除任何内容。",
+  backupMergeBtn: "合并",
+  backupDone: "进度已合并。",
+  bkNow: "现在",
+  bkAfter: "合并后",
+  bk_seen: "打开过的卡片",
+  bk_found: "已收集",
+  bk_stickers: "贴纸",
+  bk_likes: "喜欢",
+  cancel: "取消",
+  sessionOnly: "这个浏览器不允许保存数据。你的进度只保留到关闭页面为止；可以用“备份进度”保存下来。",
+  photoSaveFail: "照片没能保存在这台设备上。",
+  albumFail: "这台设备上的相册打不开。照片可能还在，请稍后再试。",
+  photoAlt: "地球照片",
 };
 
 const DICTS: Record<Lang, Dict> = { en, zh };
@@ -219,6 +275,7 @@ export function t(key: string, vars?: Record<string, string | number>, l: Lang =
 
 export function hasKey(key: string, l: Lang): boolean { return key in DICTS[l]; }
 export const EN_KEYS = Object.keys(en);
+export const ZH_KEYS = Object.keys(zh);
 
 const regionNames = new Map<Lang, Intl.DisplayNames>();
 export function countryName(a2: string | undefined, l: Lang = current): string {

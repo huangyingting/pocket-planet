@@ -1107,6 +1107,17 @@ body:has(.info:not(.hidden)) .bl { display: none; }
 .sr-step.on i::after { width: 8px; height: 8px; }
 body.gaming .scale-rail, body.fading .scale-rail { opacity: 0; pointer-events: none; }
 body:has(.info.expanded:not(.hidden)) .scale-rail { display: none; }
+/* Tablet widths and phones held sideways: the tool row needs room, so the search box flexes instead of the brand wrapping under it. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .topbar { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .omnibar { width: auto; min-width: 0; }
+  .brand h1 { white-space: nowrap; }
+}
+/* Short landscape screens: the scale rail would run into the zoom stack, so it moves beside it and tightens. */
+@media (max-height: 500px) and (min-width: 761px) {
+  .scale-rail { top: 74px; transform: none; right: 80px; padding: 2px; }
+  .sr-step { height: 24px; }
+}
 @media (max-width: 960px) {
   .omni-kbd { display: none; }
   .omnibar { width: min(320px, 36vw); }
