@@ -6,7 +6,7 @@
 import { load, save } from './storage.ts';
 
 const listeners = new Set<() => void>();
-const fromLink = new URLSearchParams(location.search).get('class');
+const fromLink = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('class');
 let on = fromLink === '1' ? true : fromLink === '0' ? false : load<boolean>('classroom', false);
 
 /** Ambient motion switch read by the render loops (camera moves still work). */
