@@ -10,6 +10,7 @@ import { VEHICLE_BUILDERS } from './vehicles.ts';
 import { DISCOVERY_BUILDERS } from './discoveries.ts';
 import { ICON_BUILDERS } from './icons.ts';
 import { heroBuilder, heroReady, whenHeroReady } from './heroes/index.ts';
+import { PBR_ATTR, useVertexPbr } from './pbr.ts';
 
 export { mat };
 const B: Record<string, Builder> = {
@@ -967,20 +968,21 @@ const FALLBACK: Builder = (gp, r) => { cyl(gp, r.color ?? '#ffcc33', 0, 0, 0, 0.
 Object.assign(B, ANIMAL_BUILDERS, NATURE_BUILDERS, VEHICLE_BUILDERS, DISCOVERY_BUILDERS);
 export const KINDS = Object.keys(B);
 
-// Shared vertex-colored materials for baked static meshes: smooth/flat × matte/metal.
+// Shared vertex-colored materials for baked static meshes: smooth or flat; roughness / metalness ride per vertex.
 const bakedMats = new Map<string, THREE.MeshStandardMaterial>();
-function bakedMat(flat: boolean, metal: boolean): THREE.MeshStandardMaterial {
-  const k = `${flat}:${metal}`;
+function bakedMat(flat: boolean): THREE.MeshStandardMaterial {
+  const k = `${flat}`;
   let m = bakedMats.get(k);
   if (!m) {
-    m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: metal ? 0.38 : 0.66, metalness: metal ? 0.55 : 0.04, flatShading: flat });
+    // roughness / metalness come per vertex (see pbr.ts); these only seed the material
+    m = useVertexPbr(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.66, metalness: 0.04, flatShading: flat }));
     bakedMats.set(k, m);
   }
   return m;
 }
 
 /** Triangle soup; `parts` holds the first vertex of every source mesh (for per-part simplification). */
-interface Bucket { pos: number[]; norm: number[]; col: number[]; parts?: number[] }
+interface Bucket { pos: number[]; norm: number[]; col: number[]; pbr: number[]; parts?: number[] }
 
 // Cosine-weighted hemisphere ray set (z-up) for the ambient-occlusion bake.
 const AO_DIRS: THREE.Vector3[] = (() => {
@@ -1082,10 +1084,10 @@ function soupArea(pos: number[], v0: number, v1: number): number {
 
 /** Vertex clustering of vertices [s0, s1) of a soup on a grid of `cell` (origin x0,y0,z0) × 6 normal directions. */
 function clusterPart(b: Bucket, s0: number, s1: number, x0: number, y0: number, z0: number, cell: number, withColor: boolean): Bucket {
-  const out: Bucket = { pos: [], norm: [], col: [] };
+  const out: Bucket = { pos: [], norm: [], col: [], pbr: [] };
   const ids = new Map<number, number>();
   const vert = new Int32Array(s1 - s0);
-  const acc: number[] = []; // per cluster: x y z nx ny nz r g b count
+  const acc: number[] = []; // per cluster: x y z nx ny nz r g b count roughness metalness
   for (let i = s0; i < s1; i++) {
     const x = b.pos[i * 3], y = b.pos[i * 3 + 1], z = b.pos[i * 3 + 2];
     const nx = b.norm[i * 3], ny = b.norm[i * 3 + 1], nz = b.norm[i * 3 + 2];
@@ -1096,22 +1098,24 @@ function clusterPart(b: Bucket, s0: number, s1: number, x0: number, y0: number, 
     }
     const key = ((Math.floor((x - x0) / cell) * 128 + Math.floor((y - y0) / cell)) * 128 + Math.floor((z - z0) / cell)) * 6 + d;
     let c = ids.get(key);
-    if (c === undefined) { c = ids.size; ids.set(key, c); acc.push(0, 0, 0, 0, 0, 0, 0, 0, 0, 0); }
-    const o = c * 10;
+    if (c === undefined) { c = ids.size; ids.set(key, c); acc.push(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0); }
+    const o = c * 12;
     acc[o] += x; acc[o + 1] += y; acc[o + 2] += z;
     acc[o + 3] += nx; acc[o + 4] += ny; acc[o + 5] += nz;
     if (withColor) { acc[o + 6] += b.col[i * 3]; acc[o + 7] += b.col[i * 3 + 1]; acc[o + 8] += b.col[i * 3 + 2]; }
     acc[o + 9]++;
+    acc[o + 10] += b.pbr[i * 2]; acc[o + 11] += b.pbr[i * 2 + 1];
     vert[i - s0] = c;
   }
   const seen = new Set<number>();
   const nc = ids.size;
   const push = (c: number) => {
-    const o = c * 10, k = acc[o + 9];
+    const o = c * 12, k = acc[o + 9];
     out.pos.push(acc[o] / k, acc[o + 1] / k, acc[o + 2] / k);
     const l = Math.hypot(acc[o + 3], acc[o + 4], acc[o + 5]) || 1;
     out.norm.push(acc[o + 3] / l, acc[o + 4] / l, acc[o + 5] / l);
     if (withColor) out.col.push(acc[o + 6] / k, acc[o + 7] / k, acc[o + 8] / k);
+    out.pbr.push(acc[o + 10] / k, acc[o + 11] / k);
   };
   for (let t = 0; t + 2 < s1 - s0; t += 3) {
     const a = vert[t], b2 = vert[t + 1], c = vert[t + 2];
@@ -1134,12 +1138,13 @@ function clusterPart(b: Bucket, s0: number, s1: number, x0: number, y0: number, 
  * retried with half-size cells and otherwise kept as it is.
  */
 function clusterLod(b: Bucket, R: number, withColor: boolean): Bucket {
-  const out: Bucket = { pos: [], norm: [], col: [] };
+  const out: Bucket = { pos: [], norm: [], col: [], pbr: [] };
   const n = b.pos.length / 3;
   const starts = b.parts?.length ? b.parts : [0];
   const copy = (v0: number, v1: number) => {
     for (let k = v0 * 3; k < v1 * 3; k++) { out.pos.push(b.pos[k]); out.norm.push(b.norm[k]); }
     if (withColor) for (let k = v0 * 3; k < v1 * 3; k++) out.col.push(b.col[k]);
+    for (let k = v0 * 2; k < v1 * 2; k++) out.pbr.push(b.pbr[k]);
   };
   for (let pi = 0; pi < starts.length; pi++) {
     const s0 = starts[pi], s1 = pi + 1 < starts.length ? starts[pi + 1] : n;
@@ -1160,6 +1165,7 @@ function clusterLod(b: Bucket, R: number, withColor: boolean): Bucket {
         for (const v of part.pos) out.pos.push(v);
         for (const v of part.norm) out.norm.push(v);
         for (const v of part.col) out.col.push(v);
+        for (const v of part.pbr) out.pbr.push(v);
         done = true;
         break;
       }
@@ -1173,8 +1179,8 @@ function clusterLod(b: Bucket, R: number, withColor: boolean): Bucket {
 export const LOD_DETAIL = 0.045;
 
 /**
- * Merges static child meshes of a built model group into a few vertex-colored meshes (smooth/flat × matte/metal),
- * baking ambient occlusion, while preserving animated sub-groups (`spin`, `flap`). Remaining emissive/transparent
+ * Merges static child meshes of a built model group into a few vertex-colored meshes (smooth / flat) that keep each
+ * part's roughness and metalness per vertex, baking ambient occlusion, while preserving animated sub-groups (`spin`, `flap`). Remaining emissive/transparent
  * static meshes that share a material are merged too, so a model costs only a handful of draw calls.
  *
  * Level of detail: every merged geometry holds the full-detail triangles (large parts, then small parts with
@@ -1194,7 +1200,7 @@ export function bakeStaticMeshes(gp: THREE.Group): void {
     return geo.boundingSphere!.radius * mesh.matrixWorld.getMaxScaleOnAxis() < R * LOD_DETAIL;
   };
   type Pair = { main: Bucket; detail: Bucket };
-  const newPair = (): Pair => ({ main: { pos: [], norm: [], col: [] }, detail: { pos: [], norm: [], col: [] } });
+  const newPair = (): Pair => ({ main: { pos: [], norm: [], col: [], pbr: [] }, detail: { pos: [], norm: [], col: [], pbr: [] } });
   const buckets = new Map<string, Pair>();
   const toRemove: THREE.Mesh[] = [];
   // other static meshes (emissive / transparent), grouped by material for merging
@@ -1204,7 +1210,7 @@ export function bakeStaticMeshes(gp: THREE.Group): void {
   const tmpC = new THREE.Color();
   const normMat = new THREE.Matrix3();
 
-  const append = (b: Bucket, mesh: THREE.Mesh, color: THREE.Color | null) => {
+  const append = (b: Bucket, mesh: THREE.Mesh, color: THREE.Color | null, rough: number, metal: number) => {
     let g0 = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry;
     if (!g0.getAttribute('normal')) { g0 = g0 === mesh.geometry ? g0.clone() : g0; g0.computeVertexNormals(); }
     const pAttr = g0.getAttribute('position');
@@ -1219,6 +1225,7 @@ export function bakeStaticMeshes(gp: THREE.Group): void {
       tmpN.fromBufferAttribute(nAttr, vi).applyMatrix3(normMat).normalize();
       b.pos.push(tmpV.x, tmpV.y, tmpV.z);
       b.norm.push(tmpN.x, tmpN.y, tmpN.z);
+      b.pbr.push(rough, metal);
       if (color) {
         if (cAttr) tmpC.fromBufferAttribute(cAttr as THREE.BufferAttribute, vi).multiply(color);
         else tmpC.copy(color);
@@ -1236,10 +1243,10 @@ export function bakeStaticMeshes(gp: THREE.Group): void {
       const mesh = obj as THREE.Mesh;
       const m = mesh.material as THREE.MeshStandardMaterial;
       if (m && !Array.isArray(m) && !m.transparent && (!m.emissive || m.emissive.getHex() === 0)) {
-        const key = `${m.flatShading}:${m.metalness > 0.3}`;
+        const key = `${m.flatShading}`;
         let b = buckets.get(key);
         if (!b) { b = newPair(); buckets.set(key, b); }
-        append(isDetail(mesh) ? b.detail : b.main, mesh, m.color);
+        append(isDetail(mesh) ? b.detail : b.main, mesh, m.color, m.roughness ?? 0.66, m.metalness ?? 0);
         toRemove.push(mesh);
       } else if (m && !Array.isArray(m) && mesh.parent === gp && !mesh.geometry.morphAttributes.position) {
         let l = extra.get(m);
@@ -1258,15 +1265,16 @@ export function bakeStaticMeshes(gp: THREE.Group): void {
   for (const b of list) for (let i = 1; i < b.pos.length; i += 3) lo = Math.min(lo, b.pos[i]);
   bakeAO(list, Math.min(minY, lo));
 
-  const toGeo = ({ main, detail }: Pair, withColor: boolean) => {
+  const toGeo = ({ main, detail }: Pair, withColor: boolean, withPbr = true) => {
     const near = main.pos.length + detail.pos.length;
     const far = main.pos.length ? clusterLod(main, R, withColor) : null;
     const useFar = far && far.pos.length < main.pos.length * 0.8;
-    const cat = (k: 'pos' | 'norm' | 'col') => main[k].concat(detail[k], useFar ? far[k] : []);
+    const cat = (k: 'pos' | 'norm' | 'col' | 'pbr') => main[k].concat(detail[k], useFar ? far[k] : []);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(cat('pos'), 3));
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(cat('norm'), 3));
     if (withColor) geo.setAttribute('color', new THREE.Float32BufferAttribute(cat('col'), 3));
+    if (withPbr) geo.setAttribute(PBR_ATTR, new THREE.BufferAttribute(Uint8Array.from(cat('pbr'), v => Math.round(Math.min(1, Math.max(0, v)) * 255)), 2, true));
     if (useFar) geo.userData.lod = [near / 3, far.pos.length / 3];
     else if (detail.pos.length && main.pos.length) geo.userData.lod = [0, main.pos.length / 3];
     geo.setDrawRange(0, near / 3);
@@ -1275,8 +1283,7 @@ export function bakeStaticMeshes(gp: THREE.Group): void {
   };
   for (const [key, b] of buckets) {
     if (!b.main.pos.length && !b.detail.pos.length) continue;
-    const [flat, metal] = key.split(':').map(s => s === 'true');
-    const mesh = new THREE.Mesh(toGeo(b, true), bakedMat(flat, metal));
+    const mesh = new THREE.Mesh(toGeo(b, true), bakedMat(key === 'true'));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     gp.add(mesh);
@@ -1291,8 +1298,8 @@ export function bakeStaticMeshes(gp: THREE.Group): void {
     const vc = !!(m as THREE.MeshStandardMaterial).vertexColors;
     if (vc && meshes.some(x => !x.geometry.getAttribute('color'))) continue;
     const pair = newPair();
-    for (const x of meshes) append(isDetail(x) ? pair.detail : pair.main, x, null);
-    const merged = new THREE.Mesh(toGeo(pair, vc), m);
+    for (const x of meshes) append(isDetail(x) ? pair.detail : pair.main, x, null, 0, 0);
+    const merged = new THREE.Mesh(toGeo(pair, vc, false), m);
     const first = meshes[0];
     merged.renderOrder = first.renderOrder;
     merged.castShadow = first.castShadow;

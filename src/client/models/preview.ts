@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { currentQuality } from '../globe/quality.ts';
 import type { CatalogueItem } from '../../shared/data/types.ts';
 import { buildModel, modelReady, whenModelReady } from './library.ts';
+import { outdoorEnvironment } from './environment.ts';
 import { h } from '../ui/dom.ts';
 
 interface ActivePreview {
@@ -26,14 +27,30 @@ const activePreviews = new Set<ActivePreview>();
 /** Configures the shared 3-point studio lighting rig used by every miniature turntable preview. */
 export function setupStudio(renderer: THREE.WebGLRenderer, scene: THREE.Scene): void {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  const key = new THREE.DirectionalLight(0xfffbeb, 2.75);
+  const key = new THREE.DirectionalLight(0xfffbeb, 3.0);
   key.position.set(2.8, 4.2, 3.4);
   const fill = new THREE.DirectionalLight(0xc7d2fe, 0.9);
   fill.position.set(-3.2, 1.8, -2.0);
   const rimLight = new THREE.DirectionalLight(0xfde68a, 0.9);
   rimLight.position.set(0.5, 2.5, -3.5);
-  const amb = new THREE.HemisphereLight(0xe0f2fe, 0x0f172a, 1.3);
+  const amb = new THREE.HemisphereLight(0xe0f2fe, 0x0f172a, 0.3);
   scene.add(key, fill, rimLight, amb);
+  scene.environment = outdoorEnvironment(renderer);
+  scene.environmentIntensity = 0.55;
+  // filmic roll-off keeps pale stone and sunlit tops from clipping to flat white (only models live in this scene)
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.toneMappingExposure = 0.95;
+  if (currentQuality().tier !== 'low') {
+    // the turntable model is normalised to ~1 unit, so one small fixed shadow box covers it
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    const c = key.shadow.camera;
+    c.left = c.bottom = -1; c.right = c.top = 1; c.near = 2; c.far = 10;
+    key.shadow.normalBias = 0.006;
+    key.shadow.intensity = 0.85;
+  }
 }
 
 function ensureRenderer(w: number, hPx: number): THREE.WebGLRenderer | null {
@@ -90,6 +107,10 @@ function buildPreviewScene(item: CatalogueItem): THREE.Group {
   model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
   wrap.userData.fitH = size.y * scale;
   wrap.userData.fitW = Math.hypot(size.x, size.z) * scale;
+  model.traverse(o => {
+    const m = (o as THREE.Mesh).material as THREE.Material | undefined;
+    if ((o as THREE.Mesh).isMesh && m && !Array.isArray(m)) o.castShadow = o.receiveShadow = !m.transparent;
+  });
   wrap.add(contactShadow(), model);
   return wrap;
 }

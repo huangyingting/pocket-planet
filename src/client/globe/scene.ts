@@ -8,6 +8,7 @@ import { tr } from '../../shared/data/types.ts';
 import { latLonToVec, vecToLatLon, slerpLatLon } from '../../shared/lib/geo.ts';
 import { buildModel, modelReady, setModelDetail, whenModelReady } from '../models/library.ts';
 import { mat } from '../models/prims.ts';
+import { outdoorEnvironment, orientEnvironment } from '../models/environment.ts';
 import { paintNightLights, type CountryInfo } from './painter.ts';
 import { CITIES, cityName } from '../../shared/data/cities.ts';
 import { TYPE_META, type LayerKey } from '../../shared/data/typemeta.ts';
@@ -44,6 +45,11 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export const DEFAULT_H = 2.2;
 export const MIN_H = 0.07;
+/** Environment (image-based) light strength on the models. */
+const ENV_INTENSITY = 0.4;
+/** Real-time model shadows are drawn only below this camera height, where models are big enough to show them. */
+const SHADOW_MAX_H = 0.6;
+const SHADOW_STRENGTH = 0.72;
 export const MAX_H = 4.5;
 export const TIER_ZOOM = [0, 0, 4.3, 5.3];
 // zoom readout: ×4.0 at the default altitude, proportional to 1/altitude.
@@ -487,6 +493,7 @@ export class Globe {
 
     this.loadRelief();
     this.scene.add(this.earth, this.itemsRoot, this.pinsRoot, this.flightArcGroup, this.sun, this.sun.target, this.fillLight, this.fillLight.target, this.ambient, this.selRing);
+    this.setupModelLighting();
     this.addAtmosphere();
     this.addStars();
     this.layers = new GlobeLayers(r, this.scene, items, this.earthUniforms.uSunDir.value, this.lowfx, q);
@@ -718,7 +725,11 @@ export class Globe {
     const wrap = new THREE.Group();
     wrap.add(obj);
     const anim: THREE.Object3D[] = [];
-    obj.traverse(o => { if (o.name === 'spin' || o.name === 'flap') anim.push(o); });
+    obj.traverse(o => {
+      if (o.name === 'spin' || o.name === 'flap') anim.push(o);
+      const m = (o as THREE.Mesh).material as THREE.Material | undefined;
+      if ((o as THREE.Mesh).isMesh && m && !Array.isArray(m)) o.castShadow = o.receiveShadow = !m.transparent;
+    });
     const p: Placed = { item, obj: wrap, seg: 0, t: 0, pts: item.route ? item.route.pts.map(x => [x[0], x[1]] as [number, number]) : [], heading: new THREE.Vector3(),
       n: new THREE.Vector3(...latLonToVec(item.lat, item.lon)), anim, radius: obj.userData.radius ?? 0.6, far: false, slot: this.plinthSlot(item), cull: false };
     if (item.route) {
@@ -732,10 +743,45 @@ export class Globe {
     this.placed.set(item.key, p);
   }
 
+  /** Image-based light for the models, plus real-time shadows from the key light where the tier allows. */
+  private setupModelLighting(): void {
+    this.scene.environment = outdoorEnvironment(this.renderer);
+    this.scene.environmentIntensity = ENV_INTENSITY;
+    const n = this.quality.shadowMap;
+    if (!n) return;
+    const r = this.renderer;
+    r.shadowMap.enabled = true;
+    r.shadowMap.type = THREE.PCFSoftShadowMap;
+    r.shadowMap.autoUpdate = false;
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.set(n, n);
+    this.sun.shadow.intensity = 0;
+  }
+
+  /** Fits the key light's shadow box to the area around `centre` (half-size `half`), or switches shadows off. */
+  private frameShadows(centre: THREE.Vector3 | null, half: number, keyDir: THREE.Vector3): void {
+    const sh = this.sun.shadow;
+    if (!this.quality.shadowMap) return;
+    const on = !!centre && this.settings.shadows;
+    sh.intensity = on ? SHADOW_STRENGTH : 0;
+    this.renderer.shadowMap.needsUpdate = on;
+    if (!on) return;
+    const c = sh.camera as THREE.OrthographicCamera;
+    const d = half * 3;
+    this.sun.position.copy(centre).addScaledVector(keyDir, d);
+    this.sun.target.position.copy(centre);
+    this.sun.target.updateMatrixWorld();
+    c.left = c.bottom = -half; c.right = c.top = half;
+    c.near = d * 0.2; c.far = d * 2;
+    c.updateProjectionMatrix();
+    sh.normalBias = (2 * half / this.quality.shadowMap) * 1.5;
+    sh.bias = -0.0005;
+  }
+
   applySettings(s: Settings): void {
     this.settings = { ...DEFAULT_SETTINGS, ...s };
-    this.sun.intensity = this.settings.shadows ? 2.4 : 0.9;
-    this.ambient.intensity = this.settings.shadows ? 0.75 : 2.1;
+    this.sun.intensity = this.settings.shadows ? 2.6 : 0.9;
+    this.ambient.intensity = this.settings.shadows ? 0.18 : 1.3;
     this.labelsEl.style.display = this.settings.names ? '' : 'none';
     if (this.borderLines) {
       this.borderLines.visible = this.settings.borders;
@@ -1257,9 +1303,15 @@ export class Globe {
     const camRight = new THREE.Vector3().crossVectors(camUp, cam).normalize();
     const keyDir = cam.clone().multiplyScalar(0.55).add(camRight.clone().multiplyScalar(0.58)).add(camUp.clone().multiplyScalar(0.60)).normalize();
     const fillDir = cam.clone().multiplyScalar(0.45).add(camRight.clone().multiplyScalar(-0.72)).add(camUp.clone().multiplyScalar(-0.35)).normalize();
-    this.sun.position.copy(keyDir.multiplyScalar(10));
     this.fillLight.position.copy(fillDir.multiplyScalar(10));
     this.ambient.position.copy(camUp.multiplyScalar(10));
+    // the environment's sky sits above the models in view: the ridden one, or the ground at the view centre
+    const rideP = this.ride ? this.placed.get(this.ride.key) : undefined;
+    const ground = rideP ? rideP.obj.position.clone() : new THREE.Vector3(...latLonToVec(this.lat, this.lon));
+    orientEnvironment(this.scene, ground.clone().normalize());
+    const near = rideP ? this.modelScale(rideP.item) * 6 : this.h < SHADOW_MAX_H ? this.h * 1.5 : 0;
+    if (near) this.frameShadows(ground, near, keyDir);
+    else { this.sun.position.copy(keyDir).multiplyScalar(10); this.sun.target.position.set(0, 0, 0); this.sun.target.updateMatrixWorld(); this.frameShadows(null, 0, keyDir); }
 
     // Update AuraFM Earth & Atmosphere shader uniforms
     const tSec = this.clock * 0.001;

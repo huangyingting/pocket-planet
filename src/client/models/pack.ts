@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PBR_ATTR, vertexPbrOf } from './pbr.ts';
 
 /**
  * Compact, transferable form of a built model so it can be produced in a Web Worker and rebuilt on the main thread.
@@ -138,7 +139,7 @@ function unpackGeo(pg: PackedGeo): THREE.BufferGeometry {
 export function unpackModel(pm: PackedModel): THREE.Group {
   const geos = pm.geos.map(unpackGeo), mats = pm.mats.map(unpackMat);
   const build = (n: PackedNode): THREE.Object3D => {
-    const o = n.k === 2 ? new THREE.Mesh(geos[n.g!], mats[n.mt!]) : n.k === 1 ? new THREE.Group() : new THREE.Object3D();
+    const o = n.k === 2 ? new THREE.Mesh(geos[n.g!], geos[n.g!].getAttribute(PBR_ATTR) ? vertexPbrOf(mats[n.mt!]) : mats[n.mt!]) : n.k === 1 ? new THREE.Group() : new THREE.Object3D();
     if (n.n) o.name = n.n;
     if (n.m) { o.matrix.fromArray(n.m); o.matrix.decompose(o.position, o.quaternion, o.scale); }
     if (n.ud) o.userData = n.ud;

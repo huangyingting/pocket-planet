@@ -34,17 +34,19 @@ export interface Quality {
   maxMoving: number;
   /** Time budget (ms) per frame for placing newly built models. */
   drainMs: number;
+  /** Shadow-map size for real-time model shadows (0 = off; the soft contact shadow under each model stays). */
+  shadowMap: 0 | 1024 | 2048;
   /** Frame-rate cap while nothing is being dragged / flown / ridden (0 = render every display frame). */
   idleFps: number;
 }
 
 export const QUALITY: Record<Tier, Quality> = {
   high: { tier: 'high', dprMax: 2, dprMin: 1, msaa: true, mapW: 2048, nightW: 2048, reliefW: 4096, cloudW: 2048, cloudSeg: 128, auroraN: 384,
-    earthSeg: [96, 96], stars: 1400, lodPx: 60, maxShown: 400, maxMoving: 400, drainMs: 10, idleFps: 0 },
+    earthSeg: [96, 96], stars: 1400, lodPx: 60, maxShown: 400, maxMoving: 400, drainMs: 10, idleFps: 0, shadowMap: 2048 },
   medium: { tier: 'medium', dprMax: 1.5, dprMin: 0.85, msaa: false, mapW: 2048, nightW: 1024, reliefW: 2048, cloudW: 1024, cloudSeg: 96, auroraN: 256,
-    earthSeg: [80, 64], stars: 800, lodPx: 90, maxShown: 48, maxMoving: 16, drainMs: 6, idleFps: 30 },
+    earthSeg: [80, 64], stars: 800, lodPx: 90, maxShown: 48, maxMoving: 16, drainMs: 6, idleFps: 30, shadowMap: 0 },
   low: { tier: 'low', dprMax: 1, dprMin: 0.75, msaa: false, mapW: 512, nightW: 1024, reliefW: 1024, cloudW: 512, cloudSeg: 64, auroraN: 160,
-    earthSeg: [64, 48], stars: 400, lodPx: 110, maxShown: 36, maxMoving: 12, drainMs: 6, idleFps: 30 },
+    earthSeg: [64, 48], stars: 400, lodPx: 110, maxShown: 36, maxMoving: 12, drainMs: 6, idleFps: 30, shadowMap: 0 },
 };
 
 export interface DeviceHints {
