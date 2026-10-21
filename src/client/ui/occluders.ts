@@ -1,11 +1,12 @@
 /**
  * Screen rectangles taken by the chrome (top bar, scale rail, bottom docks, the open card…). Scene labels skip any spot
  * that would land under one of them, so a name never hides behind a button or the other way round.
+ *
+ * A panel opts in with the attribute `data-occludes` (`h('div', { 'data-occludes': true })`); hidden panels measure
+ * 0×0 and drop out on their own. Only chrome whose visibility is a state class rather than `display: none` is listed by
+ * selector below.
  */
-const SEL = [
-  '.topbar > .brand', '.topbar > .tools', '.top-center > :not(.hidden)', '.scale-rail', '.br', '.bl', '.solar-bottom',
-  '.info:not(.hidden)', '.menu:not(.hidden)', '.hud-readout', '.solar-hint:not(.gone)', '.tour-card',
-].join(',');
+const SEL = ['[data-occludes]', '.top-center > :not(.hidden)', '.solar-hint:not(.gone)'].join(',');
 let cache: DOMRect[] = [];
 let at = -1e9;
 let sig = '';

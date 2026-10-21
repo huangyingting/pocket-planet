@@ -20,7 +20,7 @@ export class ScaleRail {
   private cur: RailLevel = 'earth';
 
   constructor(go: (l: RailLevel) => void) {
-    this.el = h('nav', { class: 'scale-rail', 'data-testid': 'scale-rail', 'aria-label': t('scales') });
+    this.el = h('nav', { class: 'scale-rail', 'data-occludes': true, 'data-testid': 'scale-rail', 'aria-label': t('scales') });
     for (const l of RAIL) {
       const b = h('button', { class: 'sr-step sr-' + l, 'data-testid': 'rail-' + l, 'aria-label': t('sc_' + l),
         onclick: () => { if (l !== this.cur) { sfx.tap(); go(l); } } },

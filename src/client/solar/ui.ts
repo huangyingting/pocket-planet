@@ -89,7 +89,7 @@ export class SolarUI {
   private hint = h('p', { class: 'solar-hint' });
   private top: HTMLElement;
   /** Telemetry in the HUD corner: target, coordinates/field of view, range. */
-  private readout = h('dl', { class: 'hud-readout', 'aria-hidden': 'true' });
+  private readout = h('dl', { class: 'hud-readout', 'data-occludes': true, 'aria-hidden': 'true' });
   private sel: Sel | null = null;
   private speedIdx = 2;
   private reader: Reader | null = null;
@@ -112,7 +112,7 @@ export class SolarUI {
       this.crumbs);
     this.el = h('div', { class: 'solar-ui hidden', 'data-testid': 'solar-ui' },
       this.info,
-      h('div', { class: 'solar-bottom' },
+      h('div', { class: 'solar-bottom', 'data-occludes': true },
         h('div', { class: 'solar-time', role: 'group', 'aria-label': t('timeSpeed') },
           this.playBtn,
           h('button', { class: 'icon-btn', 'data-testid': 'solar-slower', 'data-i18n-tip': 'slower', title: t('slower'), html: icon('collapse', 15), onclick: () => this.setSpeed(Math.max(1, this.speedIdx - 1)) }),

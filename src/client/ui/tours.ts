@@ -181,7 +181,7 @@ export function startTour(id: string, host: TourHost): void {
   const steps = tour.steps();
   let i = 0;
   const ring = h('div', { class: 'tour-spot', 'aria-hidden': 'true' });
-  const card = h('section', { class: 'tour-card', 'data-testid': 'tour', 'aria-labelledby': 'tour-title' });
+  const card = h('section', { class: 'tour-card', 'data-occludes': true, 'data-testid': 'tour', 'aria-labelledby': 'tour-title' });
   const root = h('div', { class: 'tour' }, ring, card);
   let spotTimer = 0;
   const place = () => {

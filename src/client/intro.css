@@ -1,7 +1,7 @@
 /* ---- Opening sky: fly through endless stars, then warp down to the Earth ----
    Everything moves with transform/opacity only, so it stays smooth while the app boots on the main thread. */
 .intro {
-  position: fixed; inset: 0; z-index: 100; overflow: hidden; display: grid; place-items: center;
+  position: fixed; inset: 0; z-index: var(--z-loader, 100); overflow: hidden; display: grid; place-items: center;
   color: #e0f2fe; font-family: var(--font-hud); transition: opacity .7s ease .45s;
 }
 .intro::before { content: ""; position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% 55%, #050d1a 0%, #02060d 50%, #000103 100%); transition: opacity .6s ease .1s; }

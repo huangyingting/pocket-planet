@@ -50,10 +50,10 @@ export class Shell {
   private coordLon = h('b', {}, '');
   private coordEl = h('div', { class: 'coord-readout', 'aria-hidden': 'true' }, h('i', { class: 'coord-reticle' }), this.coordLat, h('span', { class: 'coord-sep' }), this.coordLon);
   private infoMain = h('div', { class: 'info-main', 'aria-live': 'polite' });
-  private info = h('aside', { id: 'info', class: 'info hidden', 'data-testid': 'info' }, this.infoMain);
+  private info = h('aside', { id: 'info', class: 'info hidden', 'data-occludes': true, 'data-testid': 'info' }, this.infoMain);
   private reader: import('./reader.ts').Reader | null = null;
   private readerOpen = false;
-  private menu = h('div', { id: 'menu', class: 'menu hidden', role: 'dialog', 'aria-label': t('menu') });
+  private menu = h('div', { id: 'menu', class: 'menu hidden', 'data-occludes': true, role: 'dialog', 'aria-label': t('menu') });
   private hints = h('div', { class: 'hints hidden', id: 'hints' });
   private rideBar = h('div', { class: 'ride-bar hidden', 'data-testid': 'ride-bar' });
   private tipEl = h('div', { id: 'tip', class: 'globe-tip hidden', 'aria-hidden': 'true' });
@@ -79,12 +79,12 @@ export class Shell {
           h('kbd', { class: 'omni-kbd', 'aria-hidden': 'true' }, '⌘K')),
         h('button', { class: 'omni-btn', id: 'btn-random', title: t('randomHop'), 'aria-label': t('randomHop'), html: icon('shuffle', 17), onclick: () => { sfx.tap(); this.randomHop(); } })));
     const top = h('header', { class: 'topbar' },
-      h('div', { class: 'brand' },
+      h('div', { class: 'brand', 'data-occludes': true },
         h('span', { class: 'brand-mark', 'aria-hidden': 'true' }),
         h('h1', { 'data-i18n': 'title' }, t('title')),
         h('span', { class: 'class-badge', 'data-testid': 'class-badge', 'data-i18n': 'classroom' }, t('classroom'))),
       this.topSlot,
-      h('nav', { class: 'tools', 'aria-label': t('tools') },
+      h('nav', { class: 'tools', 'data-occludes': true, 'aria-label': t('tools') },
         tool('btn-find', 'search', 'search', () => this.openSearch(), 'space-only'),
         tool('btn-photo', 'camera', 'photo', this.hooks.openPhoto),
         tool('btn-collection', 'collection', 'collection', this.hooks.openCollection),
@@ -95,10 +95,10 @@ export class Shell {
         tool('btn-sky', 'eclipse', 'skyEvents', this.hooks.openSky),
         h('span', { class: 'tools-sep', 'aria-hidden': 'true' }),
         tool('btn-menu', 'menu', 'menu', () => this.toggleMenu())));
-    const bottomLeft = h('div', { class: 'bl' }, this.hints,
+    const bottomLeft = h('div', { class: 'bl', 'data-occludes': true }, this.hints,
       h('button', { class: 'round-btn help', id: 'btn-help', 'aria-label': t('help'), 'aria-expanded': 'false', html: icon('help', 19), onclick: () => this.toggleHints() }));
     const zoom = (inward: boolean) => { if (!this.hooks.zoom?.(inward)) this.globe.zoomBy(inward ? 1.6 : 1 / 1.6); };
-    const bottomRight = h('div', { class: 'br' },
+    const bottomRight = h('div', { class: 'br', 'data-occludes': true },
       h('button', { class: 'round-btn', 'aria-label': t('fullscreen'), title: t('fullscreen'), html: icon('expand', 17), onclick: () => this.fullscreen() }),
       h('button', { class: 'round-btn space-only', 'data-testid': 'btn-overview', 'aria-label': t('overviewScale'), title: t('overviewScale'), html: icon('sun', 17), onclick: () => { sfx.tap(); this.hooks.overview?.(); } }),
       h('div', { class: 'zoom-ctl' },

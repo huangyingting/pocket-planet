@@ -4,7 +4,7 @@
    the active view, contact marks you can jump to). Data in Geist Mono, titles in Chakra Petch. */
 
 .sky {
-  position: fixed; inset: 0; z-index: 80; background: #000; color: #dbeafe; overflow: hidden; overflow: clip;
+  position: fixed; inset: 0; z-index: var(--z-sky, 80); background: #000; color: #dbeafe; overflow: hidden; overflow: clip;
   font-family: var(--font); opacity: 0; transition: opacity .45s var(--ease-out);
   --cut: 10px; --edge: var(--hud-line);
   --pp-clip: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
