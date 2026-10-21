@@ -100,8 +100,8 @@ export class Theatre {
       h('span', { html: icon('planet', 18) }), h('span', {}, s('openSolar')));
     this.playBtn = h('button', { class: 'sky-btn sky-btn-sq sky-play', 'data-testid': 'sky-play', onclick: () => this.setPlaying(!this.playing) });
     this.calBtn = h('button', {
-      class: 'sky-btn sky-calbtn', 'data-testid': 'sky-cal', 'aria-expanded': 'false', onclick: () => this.toggleCal(),
-    }, h('span', { html: icon('calendar', 18) }), h('span', {}, s('list')));
+      class: 'sky-btn sky-btn-sq sky-calbtn', 'data-testid': 'sky-cal', 'aria-expanded': 'false', title: s('list'), html: icon('calendar', 18), onclick: () => this.toggleCal(),
+    });
     this.cal = new Calendar(() => this.pick(), e => { this.load(e); if (matchMedia('(max-width: 820px)').matches) this.toggleCal(false); });
 
     this.siteSel.append(
@@ -124,26 +124,26 @@ export class Theatre {
       if (!this.ctx.user) this.cut = true;
     });
 
-    const back = h('button', { class: 'sky-btn sky-btn-sq sky-back', 'data-testid': 'sky-close', 'aria-label': s('close'), html: icon('close', 20), onclick: () => this.close() });
+    const back = h('button', { class: 'sky-btn sky-btn-sq sky-back', 'data-testid': 'sky-close', title: s('close'), html: icon('close', 20), onclick: () => this.close() });
     const head = h('header', { class: 'sky-head' },
       back,
       h('div', { class: 'sky-titles' },
-        h('span', { class: 'sky-kicker' }, h('i', { 'aria-hidden': 'true' }), s('theatre'), h('em', {}, 'SKY·THEATRE')),
+        h('span', { class: 'sky-kicker' }, h('i', { 'aria-hidden': 'true' }), s('theatre'), lang() === 'zh' ? null : h('em', {}, 'SKY·THEATRE')),
         this.titleEl, this.dateEl),
       h('div', { class: 'sky-headr' },
         this.viewsEl,
         h('label', { class: 'sky-site' }, h('span', { html: icon('pin', 16) }), this.siteSel),
         this.calBtn));
     const side = h('div', { class: 'sky-side' },
-      h('div', { class: 'sky-card' }, h('span', { class: 'sky-card-k' }, 'TELEMETRY'), this.readEl),
+      h('div', { class: 'sky-card' }, h('span', { class: 'sky-card-k' }, s('telemetry')), this.readEl),
       this.solarBtn);
     const story = h('div', { class: 'sky-story' }, this.noticeEl, this.capEl, this.noteEl);
     const time = h('footer', { class: 'sky-time' },
       this.playBtn,
       h('div', { class: 'sky-speed', role: 'group', 'aria-label': s('simSpeed') },
-        h('button', { class: 'sky-btn sky-btn-sq', 'aria-label': s('slower'), title: s('slower'), html: icon('minus', 16), onclick: () => this.setRate(-1) }),
+        h('button', { class: 'sky-btn sky-btn-sq', title: s('slower'), html: icon('minus', 16), onclick: () => this.setRate(-1) }),
         this.rateEl,
-        h('button', { class: 'sky-btn sky-btn-sq', 'aria-label': s('faster'), title: s('faster'), html: icon('plus', 16), onclick: () => this.setRate(1) })),
+        h('button', { class: 'sky-btn sky-btn-sq', title: s('faster'), html: icon('plus', 16), onclick: () => this.setRate(1) })),
       h('div', { class: 'sky-track' }, h('div', { class: 'sky-rail' }, this.fillEl), this.marksEl, this.range),
       this.clockEl);
     const frame = h('div', { class: 'sky-frame', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'));
@@ -204,8 +204,8 @@ export class Theatre {
     }, s(VIEW_KEY[v]))));
     this.viewsEl.hidden = a.views.length < 2;
     this.zoomEl.replaceChildren(
-      h('button', { class: 'sky-btn sky-zbtn', 'data-z': 'tele', onclick: () => this.zoomTo('tele') }, h('span', { html: icon('telescope', 18) }), h('span', {}, s('tele'))),
-      h('button', { class: 'sky-btn sky-zbtn', 'data-z': 'eye', onclick: () => this.zoomTo('eye') }, h('span', { html: icon('eye', 18) }), h('span', {}, s('eye'))));
+      h('button', { class: 'sky-btn sky-btn-sq sky-zbtn', 'data-z': 'tele', title: s('tele'), html: icon('telescope', 18), onclick: () => this.zoomTo('tele') }),
+      h('button', { class: 'sky-btn sky-btn-sq sky-zbtn', 'data-z': 'eye', title: s('eye'), html: icon('eye', 18), onclick: () => this.zoomTo('eye') }));
     this.buildMarks();
     this.rateIx = 3;
     this.setRate(0);

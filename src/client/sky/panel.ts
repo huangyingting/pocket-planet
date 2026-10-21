@@ -65,7 +65,7 @@ export function seenFrom(e: SkyEvent, site: Site | null): string {
   }
   if (e.kind === 'meteor-shower') {
     const sh = SHOWERS.find(x => x.key === e.shower);
-    return sh ? `ZHR ${sh.zhr} · ${s('parent')} ${lang() === 'zh' ? sh.parent.zh : sh.parent.en}` : '';
+    return sh ? `${s('zhr', { n: sh.zhr })} · ${s('parent')} ${lang() === 'zh' ? sh.parent.zh : sh.parent.en}` : '';
   }
   if (e.kind === 'conjunction') return `${s('separation')} ${(e.value ?? 0).toFixed(1)}°`;
   if (e.kind === 'elongation') return `${s('elongation')} ${(e.value ?? 0).toFixed(0)}°`;
@@ -99,7 +99,7 @@ export class Calendar {
     this.list = h('ol', { class: 'skycal-list', style: 'position:relative' });
     this.el = h('aside', { class: 'skycal', 'aria-label': s('list') },
       h('header', { class: 'skycal-head' },
-        h('span', { class: 'skycal-kicker' }, 'EPHEMERIS · ' + s('list')),
+        h('span', { class: 'skycal-kicker' }, (lang() === 'zh' ? '' : 'EPHEMERIS · ') + s('list')),
         h('div', { class: 'skycal-years' },
           h('button', { class: 'sky-btn sky-btn-sq', 'aria-label': '−1', html: icon('collapse', 18), onclick: () => this.go(-1) }),
           this.yearEl,

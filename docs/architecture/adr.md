@@ -736,3 +736,27 @@ Above the Solar System the scenes were also static apart from rigid disc spin.
 - \+ Every level has its own sound with no download cost. The radio is lazy-loaded: code, the station list (~150 KB gzipped) and `hls.js` load only on first use.
 - − Some streams are not CORS-enabled and play without a real analyser. Stream availability depends on third parties.
 - − The station list is a snapshot. Re-run `node scripts/gen-radio.ts` to refresh it.
+
+## ADR-032: HUD tooltip and icon-only bottom bars
+
+**Context.**
+- The bottom bars showed an icon plus a name for every control (11 planets, 12 deep-sky objects, "Now", "Constellations"). On desktop the Solar dock was about 840 px wide; on phones it scrolled.
+- The browser's own `title` tooltip ignores the HUD look and cannot be styled.
+
+**Decision.**
+- **`ui/tooltip.ts`** (`initTooltips()`, called at boot) replaces the native tooltip app-wide and copies its behaviour.
+  - A MutationObserver moves every `title` to `data-tip`, now and later, so the native tooltip never shows. Icon-only elements also get the text as `aria-label`, and it is kept in sync when the title changes (for example on a language switch).
+  - Shows 500 ms after the mouse rests, just under the pointer, and stays put. Moving to another titled element within 400 ms shows its tooltip at once.
+  - Hides when the pointer leaves, and on pointer-down, key, wheel, or a scroll of the hovered element; it then stays hidden until the pointer leaves that element.
+  - Mouse only: touch and pen never show it. `title=""` switches off an ancestor's tooltip.
+- **Bottom bars are icon-only, with the name in `title`:**
+  - Solar dock: tinted spheres sized on a rough ladder (not to scale), Saturn and Uranus with rings.
+  - Deep dock: the object's emoji.
+  - Solar time bar: "back to today" and constellation toggles.
+  - Sky theatre: zoom (telescope/naked eye) and calendar buttons.
+  - Earth time machine: "New here" chips.
+  - On phones the dock chips share the width, so all 11 worlds or 12 objects fit without scrolling.
+
+**Consequences.**
+- \+ Desktop Solar dock ~460 px instead of ~840 px; the time-machine panel loses a line.
+- − Names are not visible on touch devices until the item is tapped; the info card that opens then shows them.

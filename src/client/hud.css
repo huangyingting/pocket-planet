@@ -376,8 +376,9 @@ body:is(.time-travel, .riding, .gaming, .photo-mode) .coord-readout { display: n
 .solar-ui .cst-toggle.on { color: #fff3df; background: var(--sig-fill); box-shadow: inset 0 0 0 1px var(--sig-line); }
 .solar-ui .solar-time .icon-btn, .solar-ui .cst-toggle, .solar-ui .tag-chip { border-radius: 0; }
 .solar-ui .solar-hint::before { content: ""; display: inline-block; width: 3px; height: .85em; margin-right: .6em; vertical-align: -.08em; background: var(--sig); transform: skewX(-22deg); }
-.dot { filter: grayscale(1) brightness(1.15) contrast(1.1); }
-.solar-chip.on .dot, .solar-chip:hover .dot { filter: grayscale(1) brightness(1.5) drop-shadow(0 0 4px rgba(224, 242, 254, 0.8)); }
+/* muted, not grey: without names on the dock the worlds are told apart by tint and size */
+.dot { filter: saturate(.55) brightness(1.05); }
+.solar-chip.on .dot, .solar-chip:hover .dot { filter: saturate(.85) brightness(1.25) drop-shadow(0 0 5px color-mix(in srgb, var(--c) 70%, transparent)); }
 body.solar .sb-label.on::before, body.solar .sb-label.on::after { color: var(--sig); }
 body.solar .sb-label.k-dwarf, body.solar .sb-label.k-star { color: rgba(224, 242, 254, 0.88); }
 body.solar .sb-label.k-comet { color: var(--hud-dim); }
@@ -390,7 +391,6 @@ body.solar .sb-label.k-comet { color: var(--hud-dim); }
 .sr-step { --sc: #bae6fd !important; }
 .sr-step.on i { box-shadow: 0 0 0 1.5px var(--sig), 0 0 12px rgba(255, 181, 71, 0.6); }
 .sr-step.on span { color: #fff3df; }
-.solar-chip { font-size: .9rem; }
 .solar-crumbs .crumb { font-size: .86rem; }
 .solar-speed { font-size: .9rem; }
 .solar-hint { font-size: .9rem; }
@@ -429,3 +429,15 @@ body.q-low :is(.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .brand-
   :is(.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .brand-mark)::after, :is(.type-chip, .brand-mark)::before, .coord-reticle::after { animation: none; }
 }
 .game-card:has(.gc-badge)::after { content: none; }
+
+/* ---- tooltip (replaces the native title tooltip; see ui/tooltip.ts) ---- */
+.pp-tip {
+  position: fixed; left: 0; top: 0; z-index: 2147483000; pointer-events: none;
+  max-width: min(320px, calc(100vw - 8px)); padding: 5px 9px;
+  font-size: 12.5px; line-height: 1.35; letter-spacing: .01em; color: #e0f2fe;
+  background: rgba(4, 10, 18, 0.96); border: 1px solid var(--hud-line); box-shadow: inset 0 -1px 0 var(--sig), 0 6px 18px rgba(0, 0, 0, 0.55);
+  white-space: pre-line; overflow-wrap: anywhere;
+  animation: pp-tip-in .1s ease-out;
+}
+.pp-tip[hidden] { display: none; }
+@keyframes pp-tip-in { from { opacity: 0; } }

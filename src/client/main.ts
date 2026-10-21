@@ -27,6 +27,7 @@ import { openGames, openDaily } from './ui/games.ts';
 import { openTutorial } from './ui/tutorial.ts';
 import { openAccount, openGuestbook, syncNow } from './ui/account.ts';
 import { ScaleRail, type RailLevel } from './ui/scales.ts';
+import { initTooltips } from './ui/tooltip.ts';
 import type { ScaleId } from '../shared/data/cosmos.ts';
 
 declare global { interface Window { __pp?: { ready: boolean; globe: Globe; shell: Shell; itemScreen: (k: string) => { x: number; y: number } | null; solar: () => SolarUI | null } } }
@@ -42,6 +43,7 @@ const loader = document.getElementById('loader');
 async function boot(): Promise<void> {
   if (lowfx) document.body.classList.add('lowfx');
   document.body.classList.add('q-' + quality.tier);
+  initTooltips();
   document.documentElement.lang = lang();
   document.title = t('title');
   const topo = (await (await fetch(url('data/countries-110m.json'))).json()) as Topology;

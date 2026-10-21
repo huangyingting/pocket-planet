@@ -49,6 +49,8 @@ export interface SolarHost {
 const DOCK: BodyId[] = ['sun', 'mercury', 'venus', 'earth', 'mars', 'ceres', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
 const SPEED_KEYS = ['spPause', 'spReal', 'spHour', 'spDay', 'spMonth', 'spYear'];
 const DOT: Partial<Record<BodyId, string>> = { mercury: '#a8a29e', ceres: '#8b857d', moon: '#c9c5bd', io: '#e8d36a', europa: '#d9cbb0', ganymede: '#a39a8c', callisto: '#6f665c', enceladus: '#eef4f8', triton: '#d8c8c0', charon: '#a99f97' };
+/** Dock icon sizes: a rough size ladder (not to scale) so the worlds stay recognisable without their names. */
+const DOT_PX: Partial<Record<BodyId, number>> = { sun: 20, jupiter: 18, saturn: 15, uranus: 13, neptune: 13, earth: 12, venus: 12, mars: 10, mercury: 8, ceres: 6, pluto: 6 };
 const dotColor = (b: SolarBody) => DOT[b.id] ?? b.glow ?? '#9ca3af';
 const EMPTY = { en: '', zh: '' };
 
@@ -75,14 +77,14 @@ export function fmtDur(hours: number): string {
 export class SolarUI {
   readonly view: SolarView;
   readonly el: HTMLElement;
-  private crumbs = h('nav', { class: 'solar-crumbs', 'data-testid': 'solar-crumbs', 'aria-label': 'breadcrumb' });
+  private crumbs = h('nav', { class: 'solar-crumbs', 'data-testid': 'solar-crumbs', 'aria-label': t('crumbs') });
   private infoMain = h('div', { class: 'info-main', 'aria-live': 'polite' });
   private info = h('aside', { class: 'info solar-info hidden', 'data-testid': 'solar-info' }, this.infoMain);
   private dock = h('div', { class: 'solar-dock', role: 'toolbar' });
   private dateEl = h('span', { class: 'solar-date', 'data-testid': 'solar-date' });
   private speedEl = h('span', { class: 'solar-speed', 'data-testid': 'solar-speed' });
   private playBtn = h('button', { class: 'icon-btn', 'data-testid': 'solar-play' });
-  private cstBtn = h('button', { class: 'pill pill-sm cst-toggle', 'data-testid': 'solar-cst', html: icon('sparkle', 14) }, h('span', { 'data-i18n': 'cst_toggle' }, t('cst_toggle')));
+  private cstBtn = h('button', { class: 'icon-btn cst-toggle', 'data-testid': 'solar-cst', 'data-i18n-tip': 'cst_toggle', title: t('cst_toggle'), html: icon('sparkle', 15) });
   private hint = h('p', { class: 'solar-hint' });
   private top: HTMLElement;
   /** Telemetry in the HUD corner: target, coordinates/field of view, range. */
@@ -112,11 +114,11 @@ export class SolarUI {
       h('div', { class: 'solar-bottom' },
         h('div', { class: 'solar-time', role: 'group', 'aria-label': t('timeSpeed') },
           this.playBtn,
-          h('button', { class: 'icon-btn', 'aria-label': '−', 'data-testid': 'solar-slower', html: icon('collapse', 15), onclick: () => this.setSpeed(Math.max(1, this.speedIdx - 1)) }),
+          h('button', { class: 'icon-btn', 'data-testid': 'solar-slower', 'data-i18n-tip': 'slower', title: t('slower'), html: icon('collapse', 15), onclick: () => this.setSpeed(Math.max(1, this.speedIdx - 1)) }),
           this.speedEl,
-          h('button', { class: 'icon-btn', 'aria-label': '+', 'data-testid': 'solar-faster', html: icon('chevron', 15), onclick: () => this.setSpeed(Math.min(SPEEDS.length - 1, this.speedIdx + 1)) }),
+          h('button', { class: 'icon-btn', 'data-testid': 'solar-faster', 'data-i18n-tip': 'faster', title: t('faster'), html: icon('chevron', 15), onclick: () => this.setSpeed(Math.min(SPEEDS.length - 1, this.speedIdx + 1)) }),
           this.dateEl,
-          h('button', { class: 'pill pill-sm', 'data-testid': 'solar-now', 'data-i18n': 'now', onclick: () => { this.view.resetTime(); this.renderDate(this.view.simMs); } }, t('now')),
+          h('button', { class: 'icon-btn', 'data-testid': 'solar-now', 'data-i18n-tip': 'now', title: t('now'), html: icon('reset', 15), onclick: () => { this.view.resetTime(); this.renderDate(this.view.simMs); } }),
           this.cstBtn),
         this.dock),
       this.hint,
@@ -132,7 +134,6 @@ export class SolarUI {
     }).observe(bottom);
     window.setInterval(() => { if (this.view.isActive && !document.hidden) this.renderReadout(); }, 250);
     this.playBtn.onclick = () => this.setSpeed(this.speedIdx === 0 ? 2 : 0);
-    this.cstBtn.setAttribute('aria-label', t('cst_toggle'));
     this.cstBtn.onclick = () => { sfx.tap(); this.setCst(!this.view.cst.visible); };
     this.setCst(localStorage.getItem('pp.cst') !== '0');
     this.renderDock();
@@ -250,7 +251,7 @@ export class SolarUI {
     this.speedEl.textContent = t(SPEED_KEYS[i]);
     this.speedEl.dataset.idx = String(i);
     this.playBtn.innerHTML = icon(i === 0 ? 'play' : 'pause', 15);
-    this.playBtn.setAttribute('aria-label', i === 0 ? t('spDay') : t('spPause'));
+    this.playBtn.title = i === 0 ? t('spDay') : t('spPause');
     this.renderDate(this.view.simMs);
   }
 
@@ -269,14 +270,14 @@ export class SolarUI {
       const objs = this.view.deep.objectsOf(sc).filter(o => (o.rank ?? 1) >= 2).sort((a, b) => (b.rank ?? 1) - (a.rank ?? 1)).slice(0, 12);
       this.dock.replaceChildren(...objs.map(o => h('button', { class: 'solar-chip' + (this.sel?.kind === 'deep' && this.sel.o === o ? ' on' : ''), 'data-testid': 'dc-' + o.key, title: tr(o.name, l),
         onclick: () => { sfx.tap(); this.view.selectDeep(o.key); } },
-        h('span', { class: 'chip-emoji', 'aria-hidden': 'true' }, o.emoji), h('span', {}, tr(o.name, l)))));
+        h('span', { class: 'chip-emoji', 'aria-hidden': 'true' }, o.emoji))));
       return;
     }
     this.dock.replaceChildren(...DOCK.map(id => {
       const b = BODY[id];
       return h('button', { class: 'solar-chip' + (this.view.focusId === id ? ' on' : ''), 'data-testid': 'sp-' + id, title: tr(b.name, l),
         onclick: () => { sfx.tap(); this.view.select(id); } },
-        h('i', { class: 'dot', style: `--c:${dotColor(b)}` + (b.rings ? ';--ring:1' : '') }), h('span', {}, tr(b.name, l)));
+        h('i', { class: 'dot', style: `--c:${dotColor(b)};--s:${DOT_PX[id] ?? 10}px` + (b.rings ? ';--ring:1' : '') }));
     }));
   }
 
@@ -315,8 +316,10 @@ export class SolarUI {
 
   private relabel(): void {
     this.view.relabel();
-    this.cstBtn.setAttribute('aria-label', t('cst_toggle'));
     for (const el of this.el.querySelectorAll<HTMLElement>('[data-i18n]')) el.textContent = t(el.dataset.i18n!);
+    for (const el of this.el.querySelectorAll<HTMLElement>('[data-i18n-tip]')) el.title = t(el.dataset.i18nTip!);
+    this.crumbs.setAttribute('aria-label', t('crumbs'));
+    this.el.querySelector('.solar-time')?.setAttribute('aria-label', t('timeSpeed'));
     this.view.root.querySelector('canvas')?.setAttribute('aria-label', t('solarLabel'));
     this.renderDock();
     this.renderCrumbs();

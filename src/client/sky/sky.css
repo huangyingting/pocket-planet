@@ -100,7 +100,7 @@
 /* ---- zoom presets (left) ---- */
 .sky-zoom { position: absolute; left: 22px; top: 50%; transform: translateY(-50%); display: grid; gap: 8px; }
 .sky-zoom[hidden] { display: none; }
-.sky-zbtn { flex-direction: column; gap: 6px; width: 76px; min-height: 68px; padding: 8px 4px; font-size: 12px; }
+
 
 /* ---- caption ---- */
 .sky-story { position: absolute; left: 22px; bottom: 112px; width: min(460px, calc(100% - 44px)); display: grid; gap: 8px; pointer-events: none; }
@@ -243,8 +243,6 @@
 .sky.narrow .sky-seg { flex: 1; padding: 0 6px; }
 .sky.narrow .sky-site { flex: 1; }
 .sky.narrow .sky-select { max-width: none; width: 100%; }
-.sky.narrow .sky-calbtn span:last-child { display: none; }
-.sky.narrow .sky-calbtn { width: 44px; padding: 0; }
 .sky.narrow .sky-side { left: 8px; right: 8px; top: auto; bottom: 150px; width: auto; }
 .sky.narrow .sky-card { padding: 8px 12px 10px; }
 .sky.narrow .sky-card-k { display: none; }
@@ -254,7 +252,6 @@
 .sky.narrow .sky-story { left: 8px; right: 8px; width: auto; bottom: auto; top: 178px; }
 .sky.narrow .sky-cap { font-size: 13.5px; padding: 10px 12px 11px 14px; }
 .sky.narrow .sky-zoom { left: auto; right: 8px; top: 50%; }
-.sky.narrow .sky-zbtn { width: 60px; min-height: 56px; font-size: 11px; }
 .sky.narrow .sky-hint { display: none; }
 .sky.narrow .sky-time { left: 8px; right: 8px; bottom: 8px; flex-wrap: wrap; gap: 8px; padding: 8px; }
 .sky.narrow .sky-track { order: -1; flex: 1 1 100%; }

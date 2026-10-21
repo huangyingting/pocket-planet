@@ -121,6 +121,8 @@ const S = {
   r_atlantic: { en: 'the Atlantic', zh: '大西洋' }, r_indian: { en: 'the Indian Ocean', zh: '印度洋' },
   bestFrom: { en: 'Best from {r}', zh: '最佳观测地：{r}' },
   theatre: { en: 'Sky theatre', zh: '天象剧场' },
+  telemetry: { en: 'TELEMETRY', zh: '实时数据' },
+  zhr: { en: 'ZHR {n}', zh: '每小时最多约 {n} 颗' },
   fromMoon: { en: 'From the Moon', zh: '月球上看' },
   model: { en: 'How it works', zh: '原理' },
   earth: { en: 'Earth', zh: '地球' },

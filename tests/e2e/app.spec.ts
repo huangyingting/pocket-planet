@@ -362,6 +362,16 @@ test('solar system: zoom out from Earth, visit Mars and a feature, land back on 
   await expect.poll(() => page.evaluate(() => localStorage.getItem('pp.cst'))).not.toBeNull();
   await cst.click();
   await expect(cst).toHaveAttribute('aria-pressed', String(on));
+  if (!mobile) {
+    // Icon-only dock: names come from the HUD tooltip, which stands in for the native title one.
+    expect(await page.locator('[title]').count()).toBe(0);
+    await expect(page.getByTestId('sp-mars')).toHaveAttribute('aria-label', 'Mars');
+    await page.getByTestId('sp-mars').hover();
+    await expect(page.locator('.pp-tip')).toHaveText('Mars');
+    await page.mouse.down();
+    await expect(page.locator('.pp-tip')).toBeHidden();
+    await page.mouse.up();
+  }
 
   await page.getByTestId('sp-mars').click();
   await expect(page.getByTestId('solar-name')).toHaveText('Mars');

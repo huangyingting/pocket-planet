@@ -7,7 +7,7 @@ import { DEFAULT_H } from '../globe/scene.ts';
 import { StationDots } from '../globe/stations.ts';
 import { RadioEngine, type RadioStatus } from '../lib/radio.ts';
 import { music } from '../lib/music.ts';
-import { t, countryName, fmtNum, onLang } from '../lib/i18n.ts';
+import { t, countryName, fmtNum, onLang, lang } from '../lib/i18n.ts';
 import { url } from '../lib/env.ts';
 import { load, save } from '../lib/storage.ts';
 import { h, toast } from './dom.ts';
@@ -15,6 +15,34 @@ import { icon } from './icons.ts';
 import { sfx } from '../lib/sfx.ts';
 import * as THREE from 'three';
 import { latLonToVec } from '../../shared/lib/geo.ts';
+
+// Station tags are free text in many languages; in Chinese show only the ones that map to a known genre.
+const GENRE_ZH: [RegExp, string][] = [
+  [/christmas|navidad/, '圣诞音乐'], [/anime|j-?pop|k-?pop/, '日韩流行'], [/bollywood|hindi|bhojpuri|tamil|bangla|south india/, '印度音乐'],
+  [/arab|middle east|quran/, '阿拉伯音乐'], [/afro|african/, '非洲音乐'],
+  [/christian|gospel|catholic|bible|religio|islam|orthodox|cristian|evangel|worship/, '宗教'],
+  [/sport|soccer|football|futebol|deporte/, '体育'], [/business|econom|financ/, '财经'],
+  [/news|noticia|notícia|новости|actualidad|information|información|\binfo\b|politic|политика/, '新闻'],
+  [/talk|speech|entrevista|interview/, '谈话'], [/comedy|humor|humour/, '喜剧'],
+  [/classical|opera|choral|baroque|symphon|clásica|klassik/, '古典'], [/jazz|bebop|big band|swing/, '爵士'], [/blues/, '蓝调'],
+  [/metal|punk|hardcore|grunge/, '重金属'], [/rock/, '摇滚'], [/hip.?hop|\brap\b|trap|urban|urbano/, '嘻哈'], [/r&b|rnb|soul|funk/, '节奏布鲁斯'],
+  [/reggae|dancehall|ska/, '雷鬼'],
+  [/latin|salsa|cumbia|merengue|bachata|reggaet|raggaet|bolero|vallenato|balada|bossa|sertanejo|\bmpb\b|tropical|tango|español/, '拉丁'],
+  [/country/, '乡村'], [/folk|traditional|tradicional/, '民谣'],
+  [/dance|edm|house|techno|trance|club|electro|dnb|drum|hardstyle|breakbeat|disco|dj/, '电子舞曲'],
+  [/ambient|chill|lounge|relax|downtempo|meditation|easy listening|smooth|instrumental|acoustic|nature|sleep/, '轻音乐'],
+  [/[0-9]0'?s|[0-9]0er|19[0-9]0|oldies|retro|classic|decades|flashback|nostalgi|old time|clasico/, '怀旧金曲'],
+  [/hits|top ?40|\btop\b|contemporary|mainstream|chart/, '热门金曲'], [/indie|alternative/, '独立音乐'], [/pop/, '流行'],
+  [/film|movie|soundtrack|cinema/, '电影原声'], [/kids|children|infantil/, '儿童'],
+  [/cultur|education|documentar|science|history/, '文化'], [/entertain|entreten|variety|eclectic|general/, '综合'],
+  [/world|international|multicultural/, '世界音乐'], [/public|community|local|regional|national|pública/, '公共电台'],
+];
+function genres(tags: string[]): string[] {
+  if (lang() !== 'zh') return tags;
+  const out: string[] = [];
+  for (const tg of tags) { const g = GENRE_ZH.find(([re]) => re.test(tg))?.[1]; if (g && !out.includes(g)) out.push(g); }
+  return out;
+}
 
 interface Station { name: string; cc: string; lat: number; lon: number; url: string; hls: boolean; approx: boolean; codec: string; kbps: number; tags: string[] }
 type Row = [string, string, number, number, string, number, string, number, number[]];
@@ -187,7 +215,7 @@ export class Radio {
     if (i < 0 || !scr) { this.tip.classList.add('hidden'); return; }
     const s = this.st[i];
     this.tip.replaceChildren(h('span', { class: 'tip-emoji' }, '📻'),
-      h('span', { class: 'tip-name' }, s.name), h('span', { class: 'tip-sub' }, [countryName(s.cc), ...s.tags.slice(0, 1)].filter(Boolean).join(' · ')));
+      h('span', { class: 'tip-name' }, s.name), h('span', { class: 'tip-sub' }, [countryName(s.cc), ...genres(s.tags).slice(0, 1)].filter(Boolean).join(' · ')));
     this.tip.style.transform = `translate(${scr.x.toFixed(1)}px, ${(scr.y - 14).toFixed(1)}px) translate(-50%, -100%)`;
     this.tip.classList.remove('hidden');
   }
@@ -219,7 +247,7 @@ export class Radio {
     }
     this.nameEl.textContent = st.name;
     if (s === 'connecting') { this.subEl.textContent = t('radioTuning'); return; }
-    const bits = [countryName(st.cc), ...st.tags.slice(0, 2)];
+    const bits = [countryName(st.cc), ...genres(st.tags).slice(0, 2)];
     if (st.kbps) bits.push(`${st.kbps} kbps`);
     this.subEl.replaceChildren(s === 'playing' ? h('em', { class: 'radio-live' }, t('radioLive')) : '', h('b', { class: 'radio-cc' }, st.cc), bits.join(' · '));
   }
