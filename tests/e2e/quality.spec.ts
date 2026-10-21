@@ -394,3 +394,18 @@ test('offline use is switched off: no worker is registered and the menu has no s
   await expect(page.getByTestId('set-offline')).toHaveCount(0);
   expect(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length)).toBe(0);
 });
+
+test('models draw without WebGL errors on the high tier (real-time shadows on)', async ({ page }) => {
+  await openApp(page, '/?notut&q=high');
+  // count draw calls the GPU rejects (e.g. a sampler/texture mismatch silently drops a model)
+  await page.evaluate(() => {
+    const r = (window as any).__pp.globe.renderer, gl = r.getContext(), draw = r.renderBufferDirect.bind(r);
+    (window as any).__glErr = 0;
+    r.renderBufferDirect = (...a: unknown[]) => { gl.getError(); draw(...a); if (gl.getError()) (window as any).__glErr++; };
+  });
+  expect(await page.evaluate(() => (window as any).__pp.globe.renderer.shadowMap.enabled)).toBe(true);
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => (window as any).__pp.globe.flyTo(48.86, 2.29, 0.25, 10));
+  await page.waitForTimeout(3000);
+  expect(await page.evaluate(() => (window as any).__glErr)).toBe(0);
+});

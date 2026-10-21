@@ -43,7 +43,7 @@ export function setupStudio(renderer: THREE.WebGLRenderer, scene: THREE.Scene): 
   if (currentQuality().tier !== 'low') {
     // the turntable model is normalised to ~1 unit, so one small fixed shadow box covers it
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
     const c = key.shadow.camera;

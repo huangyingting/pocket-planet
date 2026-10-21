@@ -803,7 +803,7 @@ const petronas: Builder = (gp, r) => {
 // ---------------------------------------------------------------------------------------------------------
 // Great Wall at Jinshanling/Mutianyu — crenellated wall riding a mountain ridge with watchtowers
 const greatwall: Builder = (gp, r) => {
-  const WC = r.color ?? '#b9a37e', brick = shade(WC, 0.86), walk = mix(WC, '#8f8a80', 0.45);
+  const WC = mix(r.color ?? '#b9a37e', '#e4dac6', 0.4), brick = shade(WC, 0.84), walk = mix(WC, '#8f8a80', 0.45);
   const curve = new THREE.CatmullRomCurve3([[-0.4, 0.19], [-0.3, 0.07], [-0.18, 0.15], [-0.02, 0.0], [0.12, -0.12], [0.27, -0.03], [0.36, -0.15], [0.42, -0.08]].map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal');
   const N = 260, path = curve.getSpacedPoints(N);
   const ridgeH = (u: number) => 0.15 + 0.15 * Math.sin(u * 9.5 + 0.4) ** 2 + 0.03 * Math.sin(u * 23 + 2);
@@ -831,13 +831,15 @@ const greatwall: Builder = (gp, r) => {
   const wy = path.map(q => 0.035 + hf(q.x, q.z));
   for (let it = 0; it < 2; it++) for (let k = 1; k < N; k++) wy[k] = (wy[k - 1] + wy[k] * 2 + wy[k + 1]) / 4;
   island(gp, 0.5, hf, '#4f7a3a', (x, y, z, _nx, ny) => {
-    const g = fbm(x * 11, y * 6, z * 11), f = fbm(x * 30 + 5, y * 30, z * 30);
+    const g = fbm(x * 11, y * 6, z * 11), f = fbm(x * 30 + 5, y * 30, z * 30), dw = near(x, z)[0];
+    // bare, trampled rock along the wall so the stonework reads against the forest
+    if (dw < 0.034) return mix(f > 0.5 ? '#8f8670' : '#a39a82', '#5f7a44', sstep(0.02, 0.034, dw));
     if (ny < 0.5 && g > 0.45) return hash3(Math.floor(x * 70), Math.floor(y * 70), Math.floor(z * 70)) > 0.4 ? '#8a8578' : '#6f6a60';
     if (ny < 0.68 && f > 0.66) return '#9a8660';
     return mix(mix('#3a6a30', '#62903f', g), '#2a5226', sstep(0.45, 0.7, f) * 0.8);
   }, { rings: 36, segs: 100, side: strataSide(EARTH) });
   // Wall body: lofted section (outer battlement parapet, walkway, low inner parapet)
-  const HW = 0.012, WH = 0.018, PH = 0.007, PT = 0.0028;
+  const HW = 0.017, WH = 0.026, PH = 0.009, PT = 0.0036;
   const rings: V3[][] = [];
   const dirs: [number, number][] = [];
   for (let k = 0; k <= N; k++) {
@@ -855,13 +857,14 @@ const greatwall: Builder = (gp, r) => {
   // Merlons along the outer parapet
   for (let k = 2; k < N - 1; k += 3) {
     const q = path[k], [dx, dz] = dirs[k];
-    box(gp, WC, q.x + dz * (HW - PT / 2), wy[k] + WH + PH, q.z - dx * (HW - PT / 2), 0.006, 0.006, PT + 0.001, -Math.atan2(dz, dx));
+    box(gp, WC, q.x + dz * (HW - PT / 2), wy[k] + WH + PH, q.z - dx * (HW - PT / 2), 0.0075, 0.0075, PT + 0.001, -Math.atan2(dz, dx));
   }
   // Watchtowers (two-storey brick towers with arched windows, crenellated roofs, two with tiled pavilions)
   const towers = [0.1, 0.27, 0.45, 0.62, 0.8, 0.94];
   for (const [ti, u] of towers.entries()) {
     const k = Math.round(u * N), q = path[k], [dx, dz] = dirs[k], ry = -Math.atan2(dz, dx);
     const tg = grp(gp, q.x, q.z, ry, wy[k] - 0.02);
+    tg.scale.setScalar(1.35);
     const W = 0.044, D = 0.04, H = 0.062;
     box(tg, shade(WC, 0.95), 0, 0, 0, W, H, D);
     box(tg, shade(WC, 0.8), 0, 0, 0, W + 0.004, 0.026, D + 0.004);
@@ -886,7 +889,7 @@ const greatwall: Builder = (gp, r) => {
   // Mixed forest on the slopes, keeping the wall corridor clear
   scatter(190, 41, (x, z, i) => {
     const [d] = near(x, z);
-    if (d < 0.03) return;
+    if (d < 0.042) return;
     const y = 0.035 + hf(x, z), c = i % 17 === 0 ? '#b7893f' : i % 23 === 0 ? '#a34a2a' : ['#2f5a2e', '#3d6b36', '#4a7a3e', '#355e30'][i % 4];
     lowball(gp, c, x, y + 0.004, z, 0.022 + hash3(i, 5, 5) * 0.012, 0.016, 0.022);
   }, 0.47);

@@ -21,6 +21,8 @@ export function mat(color: string, opts: MatOpts = {}): THREE.MeshStandardMateri
       flatShading: opts.flat ?? true,
       vertexColors: opts.vc ?? false,
     });
+    // no explicit finish: the baker infers one from the colour (see inferPbr)
+    if (opts.rough === undefined && opts.metal === undefined) m.userData.autoPbr = true;
     if (opts.emissive) { m.emissive = new THREE.Color(opts.emissive); m.emissiveIntensity = 0.85; }
     if (opts.transparent !== undefined) { m.transparent = true; m.opacity = opts.transparent; }
     mats.set(k, m);

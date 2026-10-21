@@ -10,7 +10,7 @@ import { VEHICLE_BUILDERS } from './vehicles.ts';
 import { DISCOVERY_BUILDERS } from './discoveries.ts';
 import { ICON_BUILDERS } from './icons.ts';
 import { heroBuilder, heroReady, whenHeroReady } from './heroes/index.ts';
-import { PBR_ATTR, useVertexPbr } from './pbr.ts';
+import { PBR_ATTR, inferPbr, useVertexPbr } from './pbr.ts';
 
 export { mat };
 const B: Record<string, Builder> = {
@@ -1246,7 +1246,8 @@ export function bakeStaticMeshes(gp: THREE.Group): void {
         const key = `${m.flatShading}`;
         let b = buckets.get(key);
         if (!b) { b = newPair(); buckets.set(key, b); }
-        append(isDetail(mesh) ? b.detail : b.main, mesh, m.color, m.roughness ?? 0.66, m.metalness ?? 0);
+        const [rough, metal] = m.userData.autoPbr && !mesh.geometry.getAttribute('color') ? inferPbr(m.color) : [m.roughness ?? 0.66, m.metalness ?? 0];
+        append(isDetail(mesh) ? b.detail : b.main, mesh, m.color, rough, metal);
         toRemove.push(mesh);
       } else if (m && !Array.isArray(m) && mesh.parent === gp && !mesh.geometry.morphAttributes.position) {
         let l = extra.get(m);

@@ -605,15 +605,26 @@ export class Globe {
     return this.shadowTex;
   }
 
-  /** Builds a soft ground contact shadow and subtle micro-collar under each 3D miniature on the globe. */
+  /** Soft contact-shadow decal; each instance's colour (red channel) scales its opacity. */
+  private shadowMaterial(): THREE.MeshBasicMaterial {
+    const m = new THREE.MeshBasicMaterial({ map: this.getShadowTexture(), transparent: true, depthWrite: false });
+    m.onBeforeCompile = sh => {
+      sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#ifdef USE_COLOR\n  diffuseColor.a *= vColor.r;\n#endif');
+    };
+    m.customProgramCacheKey = () => 'shadow-alpha';
+    return m;
+  }
+
   /** Reserves a plinth slot for an item (or -1 when its type has none). */
   private plinthSlot(item: CatalogueItem): number {
     const meta = TYPE_META[item.type];
-    if (item.route || !meta.plinth) return -1;
+    // travellers get a ground shadow only (size -1); orbiting craft are far above any surface
+    const ground = !!item.route && item.route.kind !== 'orbit';
+    if (!ground && (item.route || !meta.plinth)) return -1;
     let b = this.plinths;
     if (!b || b.used === b.shadow.count) {
       const cap = Math.max(256, (b?.used ?? 0) * 2);
-      const shadowMat = (b?.shadow.material as THREE.Material) ?? new THREE.MeshBasicMaterial({ map: this.getShadowTexture(), transparent: true, depthWrite: false });
+      const shadowMat = (b?.shadow.material as THREE.Material) ?? this.shadowMaterial();
       const ringMat = (b?.ring.material as THREE.Material) ?? new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false });
       const shadow = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), shadowMat, cap);
       const ring = new THREE.InstancedMesh(new THREE.RingGeometry(0.92, 1.0, 28).rotateX(-Math.PI / 2), ringMat, cap);
@@ -624,9 +635,11 @@ export class Globe {
         m.matrixAutoUpdate = false;
       }
       const zero = new THREE.Matrix4().makeScale(0, 0, 0);
-      for (let i = 0; i < cap; i++) { shadow.setMatrixAt(i, zero); ring.setMatrixAt(i, zero); ring.setColorAt(i, new THREE.Color()); }
+      const white = new THREE.Color();
+      for (let i = 0; i < cap; i++) { shadow.setMatrixAt(i, zero); ring.setMatrixAt(i, zero); ring.setColorAt(i, white); shadow.setColorAt(i, white); }
       if (b) {
         shadow.instanceMatrix.array.set(b.shadow.instanceMatrix.array);
+        shadow.instanceColor!.array.set(b.shadow.instanceColor!.array);
         ring.instanceMatrix.array.set(b.ring.instanceMatrix.array);
         ring.instanceColor!.array.set(b.ring.instanceColor!.array);
         this.itemsRoot.remove(b.shadow, b.ring);
@@ -637,7 +650,7 @@ export class Globe {
       this.itemsRoot.add(shadow, ring);
     }
     const slot = b.used++;
-    b.size[slot] = meta.plinth;
+    b.size[slot] = ground ? -1 : meta.plinth;
     b.ring.setColorAt(slot, new THREE.Color(meta.color));
     b.ring.instanceColor!.needsUpdate = true;
     return slot;
@@ -649,15 +662,27 @@ export class Globe {
     if (!b) return;
     const m = new THREE.Matrix4(), k = new THREE.Matrix4();
     const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+    const gp = new THREE.Vector3(), sc = new THREE.Vector3(), col = new THREE.Color();
     for (const p of this.placed.values()) {
       if (p.slot < 0) continue;
       if (!p.obj.visible) { b.shadow.setMatrixAt(p.slot, zero); b.ring.setMatrixAt(p.slot, zero); continue; }
       p.obj.updateMatrix();
       const r = b.size[p.slot];
+      if (r < 0) {
+        // ground shadow of a traveller: dropped straight down to the surface, wider and fainter the higher it flies
+        const lift = Math.max(0, p.obj.position.length() - 1) / Math.max(1e-6, p.obj.scale.x);
+        const w = p.radius * 1.5 * (1 + lift * 0.35) * p.obj.scale.x;
+        m.compose(gp.copy(p.obj.position).normalize().multiplyScalar(1.0004), p.obj.quaternion, sc.set(w, 1, w));
+        b.shadow.setMatrixAt(p.slot, m);
+        b.shadow.setColorAt(p.slot, col.setScalar(Math.max(0.18, 0.85 - lift * 0.3)));
+        b.ring.setMatrixAt(p.slot, zero);
+        continue;
+      }
       b.shadow.setMatrixAt(p.slot, m.copy(p.obj.matrix).multiply(k.makeScale(r * 2.5, 1, r * 2.5).setPosition(0, 0.004, 0)));
       b.ring.setMatrixAt(p.slot, m.copy(p.obj.matrix).multiply(k.makeScale(r, 1, r).setPosition(0, 0.006, 0)));
     }
     b.shadow.instanceMatrix.needsUpdate = b.ring.instanceMatrix.needsUpdate = true;
+    b.shadow.instanceColor!.needsUpdate = true;
   }
 
 
@@ -751,7 +776,7 @@ export class Globe {
     if (!n) return;
     const r = this.renderer;
     r.shadowMap.enabled = true;
-    r.shadowMap.type = THREE.PCFSoftShadowMap;
+    r.shadowMap.type = THREE.PCFShadowMap;
     r.shadowMap.autoUpdate = false;
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(n, n);
@@ -764,7 +789,9 @@ export class Globe {
     if (!this.quality.shadowMap) return;
     const on = !!centre && this.settings.shadows;
     sh.intensity = on ? SHADOW_STRENGTH : 0;
-    this.renderer.shadowMap.needsUpdate = on;
+    // until a shadow map exists three binds a placeholder that shadow-sampler arrays reject (r186), which drops every
+    // lit model's draw call, so the map is rendered at least once even while shadows are off
+    this.renderer.shadowMap.needsUpdate = on || !sh.map;
     if (!on) return;
     const c = sh.camera as THREE.OrthographicCamera;
     const d = half * 3;
