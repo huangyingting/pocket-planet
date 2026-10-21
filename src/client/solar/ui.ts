@@ -1,5 +1,5 @@
 /**
- * UI for everything beyond the globe: breadcrumb + back button, the dock (planets, or a scale's key objects), time
+ * UI for everything beyond the globe: the dock (planets, or a scale's key objects), time
  * controls, and one card for bodies, surface features, explorer sites, deep-space objects and whole scales (same card
  * and Wikipedia reader as on the globe). Lazily loaded together with the view on first entry.
  */
@@ -23,7 +23,7 @@ import { invalidateUI } from '../ui/occluders.ts';
 import { foldable, foldButton } from '../ui/fold.ts';
 import { drawConstellation, constellationText } from './constellations.ts';
 import { SOLAR_SITES } from '../../shared/data/solar-sites.ts';
-import { DEEP_OBJECTS, SCALE_INFO, SCALES, type DeepObject, type DeepKind, type DeepScale, type ScaleId } from '../../shared/data/cosmos.ts';
+import { DEEP_OBJECTS, SCALE_INFO, type DeepObject, type DeepKind, type DeepScale, type ScaleId } from '../../shared/data/cosmos.ts';
 import type { CatalogueItem } from '../../shared/data/types.ts';
 
 type Sel = SolarSelection | { kind: 'deep'; o: DeepObject } | { kind: 'scale'; id: ScaleId };
@@ -44,8 +44,6 @@ export interface SolarHost {
   onScale?: (s: ScaleId) => void;
   /** Open the sky-events theatre. */
   openSky?: () => void;
-  /** The global top bar's centre slot, where back + breadcrumbs live (falls back to this UI's own layer). */
-  topSlot?: HTMLElement;
 }
 
 const DOCK: BodyId[] = ['sun', 'mercury', 'venus', 'earth', 'mars', 'ceres', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
@@ -79,7 +77,6 @@ export function fmtDur(hours: number): string {
 export class SolarUI {
   readonly view: SolarView;
   readonly el: HTMLElement;
-  private crumbs = h('nav', { class: 'solar-crumbs', 'data-testid': 'solar-crumbs', 'aria-label': t('crumbs') });
   private infoMain = h('div', { class: 'info-main', 'aria-live': 'polite' });
   private info = h('aside', { class: 'info solar-info hidden', 'data-occludes': true, 'data-testid': 'solar-info' }, this.infoMain);
   private dock = h('div', { class: 'solar-dock', role: 'toolbar', 'aria-label': t('dockLabel') });
@@ -88,7 +85,6 @@ export class SolarUI {
   private playBtn = h('button', { class: 'icon-btn', 'data-testid': 'solar-play' });
   private cstBtn = h('button', { class: 'icon-btn cst-toggle', 'data-testid': 'solar-cst', 'data-i18n-tip': 'cst_toggle', title: t('cst_toggle'), html: icon('sparkle', 15) });
   private hint = h('p', { class: 'solar-hint' });
-  private top: HTMLElement;
   /** Telemetry in the HUD corner: target, coordinates/field of view, range. */
   private readout = h('dl', { class: 'hud-readout', 'data-occludes': true, 'aria-hidden': 'true' });
   private sel: Sel | null = null;
@@ -102,16 +98,12 @@ export class SolarUI {
       onSelect: s => this.showCard(s),
       onDeepSelect: o => this.showCard(o ? { kind: 'deep', o } : null),
       onScale: s => this.scaleChanged(s),
-      onView: () => this.renderCrumbs(),
+      onView: () => this.syncDock(),
       onEnterEarth: (lat, lon) => this.host.exit(lat, lon),
       onTime: ms => this.renderDate(ms),
       onTexture: id => { if (this.sel && this.bodyOf(this.sel) === id) this.drawHero(); },
     }, host.quality);
     this.view.root.querySelector('canvas')?.setAttribute('aria-label', t('solarLabel'));
-    this.top = h('div', { class: 'solar-top' },
-      h('button', { class: 'solar-back', 'data-testid': 'solar-back', title: t('backToEarth'), html: icon('globe', 16), onclick: () => { sfx.tap(); this.backToEarth(); } },
-        h('span', { 'data-i18n': 'backToEarth' }, t('backToEarth'))),
-      this.crumbs);
     this.el = h('div', { class: 'solar-ui hidden', 'data-testid': 'solar-ui' },
       this.info,
       h('div', { class: 'solar-bottom', 'data-occludes': true },
@@ -129,7 +121,6 @@ export class SolarUI {
         h('i', { class: 'hc c-tl' }), h('i', { class: 'hc c-tr' }), h('i', { class: 'hc c-bl' }), h('i', { class: 'hc c-br' }),
         h('i', { class: 'hud-cross' }), this.readout));
     root.append(this.el);
-    (host.topSlot ?? this.el).append(this.top);
     const bottom = this.el.querySelector<HTMLElement>('.solar-bottom')!;
     new ResizeObserver(() => {
       document.body.style.setProperty('--space-dock', bottom.offsetHeight + 'px');
@@ -199,7 +190,7 @@ export class SolarUI {
     if (opts.from) { this.view.show({ from: opts.from }); this.showCard(null); }
     else { this.view.show(); this.goTo(opts.focus ?? '', opts.scale); }
     this.renderDock();
-    this.renderCrumbs();
+    this.syncDock();
     this.renderDate(this.view.simMs);
     this.host.onScale?.(this.view.scale);
   }
@@ -220,7 +211,7 @@ export class SolarUI {
     else if (feat) v.selectFeature(feat);
     else if (focus in BODY) v.select(focus as BodyId);
     else if (want === 'solar') this.overview();
-    this.renderCrumbs();
+    this.syncDock();
   }
 
   /** Show the system at a given instant (sky-theatre hand-off), time paused so the alignment stays put. */
@@ -299,57 +290,26 @@ export class SolarUI {
     }
   }
 
-  private renderCrumbs(): void {
-    const l = lang();
-    const v = this.view, fid = v.focusId, sc = v.scale;
-    const sep = () => h('span', { class: 'sep', 'aria-hidden': 'true' }, '›');
-    const up = SCALES[SCALES.indexOf(sc) - 1];
-    const parts: HTMLElement[] = [];
-    if (up) parts.push(h('button', { class: 'crumb crumb-up', 'data-testid': 'crumb-up', onclick: () => { sfx.tap(); v.goScale(up, 'up'); } }, t('sc_' + up)), sep());
-    if (sc !== 'solar') {
-      parts.push(h('button', { class: 'crumb', 'data-testid': 'crumb-scale', onclick: () => this.overview() }, t('sc_' + sc)));
-      if (this.sel?.kind === 'deep') parts.push(sep(), h('span', { class: 'crumb' }, tr(this.sel.o.name, l)));
-      parts.at(-1)?.classList.add('cur');
-      this.setCrumbs(parts);
-      for (const c of this.dock.children) {
-        const on = this.sel?.kind === 'deep' && (c as HTMLElement).dataset.testid === 'dc-' + this.sel.o.key;
-        c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on));
-      }
-      this.dockEdges(true);
-      return;
-    }
-    parts.push(h('button', { class: 'crumb', 'data-testid': 'crumb-system', onclick: () => this.overview() }, t('solarSystem')));
-    const far = this.sel?.kind === 'site' && this.sel.s.helio;
-    const chain: BodyId[] = (fid === 'sun' && !this.sel) || far ? [] : BODY[fid].parent && BODY[fid].parent !== 'sun' ? [BODY[fid].parent!, fid] : [fid];
-    for (const id of chain) parts.push(sep(), h('button', { class: 'crumb', onclick: () => this.view.select(id) }, tr(BODY[id].name, l)));
-    if (this.sel?.kind === 'feature') parts.push(sep(), h('span', { class: 'crumb cur' }, tr(this.sel.f.name, l)));
-    if (this.sel?.kind === 'site') parts.push(sep(), h('span', { class: 'crumb cur' }, tr(this.sel.s.name, l)));
-    if (this.sel?.kind === 'cst') parts.push(sep(), h('span', { class: 'crumb cur' }, tr(this.sel.c.name, l)));
-    parts.at(-1)?.classList.add('cur');
-    this.setCrumbs(parts);
+  /** Highlights the dock chip of whatever is in focus. */
+  private syncDock(): void {
+    const sc = this.view.scale;
     for (const c of this.dock.children) {
-      const on = (c as HTMLElement).dataset.testid === 'sp-' + fid;
+      const id = (c as HTMLElement).dataset.testid;
+      const on = sc === 'solar' ? id === 'sp-' + this.view.focusId : this.sel?.kind === 'deep' && id === 'dc-' + this.sel.o.key;
       c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on));
     }
     this.dockEdges(true);
-  }
-
-  /** On a narrow bar the trail scrolls; keep its current (last) step in sight. */
-  private setCrumbs(parts: HTMLElement[]): void {
-    this.crumbs.replaceChildren(...parts);
-    this.crumbs.scrollLeft = this.crumbs.scrollWidth;
   }
 
   private relabel(): void {
     this.view.relabel();
     for (const el of this.el.querySelectorAll<HTMLElement>('[data-i18n]')) el.textContent = t(el.dataset.i18n!);
     for (const el of this.el.querySelectorAll<HTMLElement>('[data-i18n-tip]')) el.title = t(el.dataset.i18nTip!);
-    this.crumbs.setAttribute('aria-label', t('crumbs'));
     this.dock.setAttribute('aria-label', t('dockLabel'));
     this.el.querySelector('.solar-time')?.setAttribute('aria-label', t('timeSpeed'));
     this.view.root.querySelector('canvas')?.setAttribute('aria-label', t('solarLabel'));
     this.renderDock();
-    this.renderCrumbs();
+    this.syncDock();
     this.setSpeed(this.speedIdx);
     if (this.sel) this.renderCard();
     this.reader?.relang();
@@ -358,7 +318,7 @@ export class SolarUI {
   // ---------- card ----------
   private showCard(sel: Sel | null): void {
     this.sel = sel;
-    this.renderCrumbs();
+    this.syncDock();
     const base = '#' + SCALE_HASH[this.view.scale];
     if (!sel) {
       void this.toggleReader(false);
@@ -511,6 +471,7 @@ export class SolarUI {
             h('i', { class: 'dot', style: `--c:${dotColor(m)}` }), h('span', {}, tr(m.name, l)))))) : null,
         h('div', { class: 'info-footer' },
           s.kind === 'feature' ? h('button', { class: 'pill pill-sm', 'data-testid': 'solar-back-body', onclick: () => this.view.select(body.id) }, t('backTo', { p: tr(body.name, l) })) : null,
+          s.kind === 'body' && body.parent && body.parent !== 'sun' ? h('button', { class: 'pill pill-sm', 'data-testid': 'solar-back-body', onclick: () => this.view.select(body.parent!) }, t('backTo', { p: tr(BODY[body.parent].name, l) })) : null,
           s.kind === 'body' && s.id === 'earth' ? h('button', { class: 'cta cta-sm', 'data-testid': 'solar-enter-earth', html: icon('globe', 16), onclick: () => this.backToEarth() }, h('span', {}, t('enterEarth'))) : null,
           h('button', { class: 'read-more', 'data-testid': 'solar-read-more', 'aria-expanded': String(this.readerOpen), onclick: () => { sfx.tap(); void this.toggleReader(); } },
             h('span', {}, this.readerOpen ? t('readerClose') : t('readMore')), h('span', { html: icon('book', 14) })))));

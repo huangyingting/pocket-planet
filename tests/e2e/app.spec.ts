@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { openApp, flyTo, clickItem, shot } from './helpers.ts';
 
 test.describe.configure({ mode: 'serial' });
@@ -9,7 +9,14 @@ test('home: globe, top bar, zoom readout, hints @mobile', async ({ page }, info)
   await openApp(page);
   await expect(page.locator('h1')).toHaveText('Pocket Planet');
   await expect(page.getByTestId('zoom')).toHaveText('×4.0');
-  for (const id of ['btn-photo', 'btn-collection', 'btn-game', 'btn-menu']) await expect(page.getByTestId(id)).toBeVisible();
+  for (const id of ['btn-search', 'btn-photo', 'btn-collection', 'btn-menu', 'level-switch']) await expect(page.getByTestId(id)).toBeVisible();
+  if (info.project.name === 'mobile') {
+    // narrow phones: the Earth's own tools move from the top bar into the menu tiles
+    await expect(page.getByTestId('btn-game')).toBeHidden();
+    await page.getByTestId('btn-menu').click();
+    await expect(page.getByTestId('menu-game')).toBeVisible();
+    await page.keyboard.press('Escape');
+  } else await expect(page.getByTestId('btn-game')).toBeVisible();
   await expect(page.locator('canvas.globe-canvas')).toBeVisible();
   await page.locator('#btn-help').click();
   await expect(page.locator('#hints')).toBeVisible();
@@ -345,7 +352,7 @@ test('solar system: zoom out from Earth, visit Mars and a feature, land back on 
   const mobile = info.project.name === 'mobile';
   // Wheeling on past the widest globe view opens the Solar System.
   await page.mouse.move(400, 400);
-  if (mobile) await page.getByTestId('btn-solar').click();
+  if (mobile) await level(page, 'solar');
   else for (let i = 0; i < 60 && !(await page.evaluate(() => document.body.classList.contains('solar'))); i++) {
     await page.mouse.wheel(0, 120); await page.waitForTimeout(80);
   }
@@ -382,7 +389,7 @@ test('solar system: zoom out from Earth, visit Mars and a feature, land back on 
   const featName = (await feat.textContent())!.replace(/^\S+\s*/u, '').trim();
   await feat.click();
   await expect(page.getByTestId('solar-name')).toContainText(featName.slice(0, 4));
-  await expect(page.getByTestId('solar-crumbs')).toContainText('Mars');
+  await expect(page.getByTestId('solar-back-body')).toContainText('Mars');
   await page.waitForTimeout(2200);
   await shot(page, `${info.project.name}_32_solar_feature`);
   await page.getByTestId('solar-read-more').click();
@@ -392,7 +399,8 @@ test('solar system: zoom out from Earth, visit Mars and a feature, land back on 
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('solar-info')).toBeHidden();
 
-  await page.getByTestId('crumb-system').click();
+  // picking the current level again returns to its overview
+  await level(page, 'solar');
   await page.waitForTimeout(2200);
   await shot(page, `${info.project.name}_33_solar_overview`);
   await page.getByTestId('sp-earth').click();
@@ -408,15 +416,22 @@ test('solar system: zoom out from Earth, visit Mars and a feature, land back on 
   expect(errors).toEqual([]);
 });
 
+const level = async (page: Page, l: string) => { await page.getByTestId('level-switch').click(); await page.getByTestId('rail-' + l).click(); };
+
 test('scale ladder: rail climbs from Earth to the universe and back @mobile', async ({ page }, info) => {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await openApp(page);
   await expect(page.getByTestId('rail-earth')).toHaveClass(/on/);
 
-  await page.getByTestId('rail-galaxy').click();
+  // the switcher shows only the current level; the others sit in its popup list
+  await expect(page.getByTestId('level-switch')).toContainText('Earth');
+  await expect(page.getByTestId('level-list')).toBeHidden();
+  await level(page, 'galaxy');
+  await expect(page.getByTestId('level-list')).toBeHidden();
   await expect(page).toHaveURL(/#milkyway$/, { timeout: 30_000 });
-  if (info.project.name === 'mobile') await page.getByTestId('crumb-scale').click();
+  await expect(page.getByTestId('level-switch')).toContainText('Milky Way');
+  if (info.project.name === 'mobile') await level(page, 'galaxy');
   await expect(page.getByTestId('solar-name')).toHaveText('Milky Way');
   await expect(page.getByTestId('rail-galaxy')).toHaveClass(/on/);
   await page.waitForTimeout(2000);
@@ -426,17 +441,17 @@ test('scale ladder: rail climbs from Earth to the universe and back @mobile', as
   await expect(page.getByTestId('solar-name')).toHaveText('Orion Nebula');
   await expect(page).toHaveURL(/#milkyway\/dp_orion_nebula$/);
 
-  await page.getByTestId('rail-universe').click();
+  await level(page, 'universe');
   await expect(page).toHaveURL(/#universe$/);
   await page.waitForTimeout(2000);
   await shot(page, `${info.project.name}_35_universe`);
   await page.goto('/?lowfx=1&notut#localgroup/dp_m31');
   await expect(page.getByTestId('solar-name')).toHaveText('Andromeda Galaxy', { timeout: 30_000 });
 
-  await page.getByTestId('rail-solar').click();
+  await level(page, 'solar');
   await expect(page).toHaveURL(/#solar/);
-  await expect(page.getByTestId('crumb-system')).toBeVisible();
-  await page.getByTestId('rail-earth').click();
+  await expect(page.getByTestId('sp-sun')).toBeVisible();
+  await level(page, 'earth');
   await expect(page.locator('body')).not.toHaveClass(/solar/, { timeout: 20_000 });
   await expect(page.getByTestId('rail-earth')).toHaveClass(/on/);
   expect(errors).toEqual([]);

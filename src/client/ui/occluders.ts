@@ -6,7 +6,7 @@
  * 0×0 and drop out on their own. Only chrome whose visibility is a state class rather than `display: none` is listed by
  * selector below.
  */
-const SEL = ['[data-occludes]', '.top-center > :not(.hidden)', '.solar-hint:not(.gone)'].join(',');
+const SEL = ['[data-occludes]', '.solar-hint:not(.gone)'].join(',');
 let cache: DOMRect[] = [];
 let at = -1e9;
 let sig = '';

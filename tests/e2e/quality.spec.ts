@@ -61,7 +61,8 @@ test('a failed Solar System load can be retried', async ({ page }) => {
   let blocked = 0;
   await page.route(/\/assets\/ui-[^/]+\.js$/, route => { if (blocked++ === 0) return route.abort(); return route.continue(); });
   await openApp(page);
-  await page.locator('#btn-solar, [data-testid="rail-solar"]').first().click();
+  await page.getByTestId('level-switch').click();
+  await page.getByTestId('rail-solar').click();
   await expect(page.getByTestId('load-error')).toBeVisible({ timeout: 30_000 });
   expect(await page.evaluate(() => document.body.classList.contains('solar'))).toBe(false);
   // the Earth is still usable
@@ -167,6 +168,17 @@ test('search: catalogue numbers and Chinese aliases, each result says its level'
   await expect(page.locator('.search-grid .dex-card').first().locator('small')).toContainText('Earth');
   await first.click();
   await expect(page).toHaveURL(/#localgroup\/dp_m31|#forbidden/);
+});
+
+test('search button opens the search window; its random hop jumps somewhere and closes it', async ({ page }) => {
+  await openApp(page);
+  await expect(page.locator('#btn-search')).toHaveAccessibleName(/Search/);
+  await page.click('#btn-search');
+  await expect(page.locator('.search-modal input')).toBeFocused();
+  const before = page.url();
+  await page.getByTestId('btn-random').click();
+  await expect(page.locator('.search-modal')).toHaveCount(0);
+  await expect.poll(() => page.url()).not.toBe(before);
 });
 
 test('classroom mode: link turns it on for the visit, hides third-party content, pauses motion', async ({ page }) => {

@@ -58,8 +58,8 @@ export class Shell {
   private hints = h('div', { class: 'hints hidden', id: 'hints' });
   private rideBar = h('div', { class: 'ride-bar hidden', 'data-testid': 'ride-bar' });
   private tipEl = h('div', { id: 'tip', class: 'globe-tip hidden', 'aria-hidden': 'true' });
-  /** Top-centre slot: the search bar on Earth, back + breadcrumbs in space. */
-  readonly topSlot = h('div', { class: 'top-center' });
+  /** Holds the level switcher (Earth, Solar System … Universe), next to the brand on every level. */
+  readonly levelSlot = h('div', { class: 'level-slot' });
   private space = false;
   current: CatalogueItem | null = null;
   readonly time: TimeMachine;
@@ -73,26 +73,23 @@ export class Shell {
     const tool = (id: string, ico: IconName, key: string, fn: () => void, cls = '') =>
       h('button', { class: 'tool' + (cls ? ' ' + cls : ''), id, 'data-testid': id, title: t(key), html: icon(ico, 19), onclick: () => { sfx.tap(); fn(); } },
         h('span', { class: 'sr-only', 'data-i18n': key }, t(key)));
-    this.topSlot.append(
-      h('div', { class: 'omnibar', role: 'search' },
-        h('button', { class: 'omni-search', id: 'btn-search', 'aria-label': t('search'), html: icon('search', 17), onclick: () => { sfx.tap(); this.openSearch(); } },
-          h('span', { class: 'omni-placeholder', 'data-i18n': 'searchPlaceholder' }, t('searchPlaceholder')),
-          h('kbd', { class: 'omni-kbd', 'aria-hidden': 'true' }, '⌘K')),
-        h('button', { class: 'omni-btn', id: 'btn-random', title: t('randomHop'), 'aria-label': t('randomHop'), html: icon('shuffle', 17), onclick: () => { sfx.tap(); this.randomHop(); } })));
     const top = h('header', { class: 'topbar' },
-      h('div', { class: 'brand', 'data-occludes': true },
-        h('span', { class: 'brand-mark', 'aria-hidden': 'true' }),
-        h('h1', { 'data-i18n': 'title' }, t('title')),
-        h('span', { class: 'class-badge', 'data-testid': 'class-badge', 'data-i18n': 'classroom' }, t('classroom'))),
-      this.topSlot,
+      h('div', { class: 'top-left' },
+        h('div', { class: 'brand', 'data-occludes': true },
+          h('span', { class: 'brand-mark', 'aria-hidden': 'true' }),
+          h('h1', { 'data-i18n': 'title' }, t('title')),
+          h('span', { class: 'class-badge', 'data-testid': 'class-badge', 'data-i18n': 'classroom' }, t('classroom'))),
+        this.levelSlot),
+      // Scene tools (only where they make sense) come first, then the tools every level shares, then the menu.
       h('nav', { class: 'tools', 'data-occludes': true, 'aria-label': t('tools') },
-        tool('btn-find', 'search', 'search', () => this.openSearch(), 'space-only'),
+        h('span', { class: 'tool-group local earth-only' },
+          tool('btn-game', 'game', 'game', this.hooks.openGames),
+          tool('btn-time', 'clock', 'timeMachine', () => this.time.toggle()),
+          tool('btn-radio', 'radio', 'radio', () => this.hooks.openRadio?.()),
+          h('span', { class: 'tools-sep', 'aria-hidden': 'true' })),
+        tool('btn-search', 'search', 'searchKbd', () => this.openSearch()),
         tool('btn-photo', 'camera', 'photo', this.hooks.openPhoto),
         tool('btn-collection', 'collection', 'collection', this.hooks.openCollection),
-        tool('btn-game', 'game', 'game', this.hooks.openGames, 'earth-only'),
-        tool('btn-time', 'clock', 'timeMachine', () => this.time.toggle(), 'earth-only'),
-        tool('btn-radio', 'radio', 'radio', () => this.hooks.openRadio?.(), 'earth-only'),
-        tool('btn-solar', 'planet', 'solarSystem', this.hooks.openSolar, 'earth-only'),
         tool('btn-sky', 'eclipse', 'skyEvents', this.hooks.openSky),
         h('span', { class: 'tools-sep', 'aria-hidden': 'true' }),
         tool('btn-menu', 'menu', 'menu', () => this.toggleMenu())));
@@ -215,7 +212,8 @@ export class Shell {
       )
     );
     renderList();
-    openModal('search', t('search'), h('div', { class: 'search-modal' }, input, filterBar, listEl), { wide: true });
+    const random = h('button', { class: 'pill search-random', 'data-testid': 'btn-random', title: t('randomHop'), html: icon('shuffle', 15), onclick: () => { sfx.tap(); closeModal(); this.randomHop(); } }, h('span', {}, t('randomHop')));
+    openModal('search', t('search'), h('div', { class: 'search-modal' }, h('div', { class: 'search-row' }, input, random), filterBar, listEl), { wide: true });
     setTimeout(() => input.focus(), 40);
   }
 
@@ -283,13 +281,13 @@ export class Shell {
           updateSettings({ [key]: input.checked });
         }
       });
-      return h('label', { class: 'switch-card' }, h('span', { class: 'sw-emoji', html: icon(ic, 16) }), h('span', { class: 'sw-label' }, t(key)), input, h('span', { class: 'sw-track', 'aria-hidden': 'true' }));
+      return h('label', { class: 'switch-card sw-chip' }, input, h('span', { class: 'sw-emoji', html: icon(ic, 15) }), h('span', { class: 'sw-label' }, t(key)));
     };
     /** A switch that is not a globe setting (classroom mode, pause motion). */
-    const flag = (id: string, ic: IconName, label: string, val: boolean, set: (v: boolean) => void) => {
+    const flag = (id: string, ic: IconName, label: string, val: boolean, set: (v: boolean) => void, tip?: string) => {
       const input = h('input', { type: 'checkbox', role: 'switch', 'data-testid': id, checked: val });
       input.addEventListener('change', () => { sfx.tap(); set(input.checked); });
-      return h('label', { class: 'switch-card' }, h('span', { class: 'sw-emoji', html: icon(ic, 16) }), h('span', { class: 'sw-label' }, t(label)), input, h('span', { class: 'sw-track', 'aria-hidden': 'true' }));
+      return h('label', { class: 'switch-card sw-chip', title: tip }, input, h('span', { class: 'sw-emoji', html: icon(ic, 15) }), h('span', { class: 'sw-label' }, t(label)));
     };
     const curMode: SurfaceMode = s.surfaceMode ?? (s.terrain ? 'realistic' : 'political');
     const modeRow = h('div', { class: 'seg-row' },
@@ -320,36 +318,51 @@ export class Shell {
     );
     const sel = h('select', { id: 'lang-select', 'aria-label': t('language') }, ...LANGS.map(l => h('option', { value: l, selected: l === lang() }, LANG_LABEL[l])));
     sel.addEventListener('change', () => setLang(sel.value as Lang));
-    const row = (ic: IconName, label: string, ctl: Node) => h('div', { class: 'menu-row' }, h('span', { class: 'sw-emoji', html: icon(ic, 16) }), h('span', { class: 'grow' }, label), ctl);
     // Globe options belong to the Earth scene only; in space the menu keeps just the app-wide settings.
     const earth = this.space ? [] : [
       h('h3', {}, t('surfaceMode')), modeRow,
       h('h3', {}, t('auraPreset')), auraRow,
-      h('h3', {}, t('mMap')), h('div', { class: 'grid2' }, sw('terrain', 'mountain'), sw('names', 'tag'), sw('borders', 'globe'), sw('shadows', 'contrast')),
-      h('h3', {}, t('mGlobe')), h('div', { class: 'grid2' }, ...TYPE_ORDER.filter(ty => BY_TYPE[ty].length).map(ty => sw(TYPE_META[ty].layer, TYPE_ICON[ty]))),
-      h('h3', {}, t('mLayers')), h('div', { class: 'grid2' }, sw('graticule', 'grid'), sw('tectonics', 'plates'), sw('clouds', 'cloud'), sw('aurora', 'aurora')),
+      h('h3', {}, t('mMap')), h('div', { class: 'chip-wrap' }, sw('terrain', 'mountain'), sw('names', 'tag'), sw('borders', 'globe'), sw('shadows', 'contrast')),
+      h('h3', {}, t('mGlobe')), h('div', { class: 'chip-wrap' }, ...TYPE_ORDER.filter(ty => BY_TYPE[ty].length).map(ty => sw(TYPE_META[ty].layer, TYPE_ICON[ty]))),
+      h('h3', {}, t('mLayers')), h('div', { class: 'chip-wrap' }, sw('graticule', 'grid'), sw('tectonics', 'plates'), sw('clouds', 'cloud'), sw('aurora', 'aurora')),
     ];
     this.menu.classList.toggle('menu-space', this.space);
+    // Activities as one row of tiles; the short label sits under the icon, the full name is the tooltip.
+    const tile = (id: string, ic: IconName, short: string, full: string, fn: () => void, cls = '') =>
+      h('button', { class: 'menu-tile' + (cls ? ' ' + cls : ''), 'data-testid': id, title: t(full), onclick: () => { sfx.tap(); fn(); } },
+        h('span', { class: 'mt-ico', html: icon(ic, 20) }), h('span', { class: 'mt-label' }, t(short)));
+    const away = (fn: () => void) => () => { this.toggleMenu(false); fn(); };
+    const small = (id: string, ic: IconName, label: string, fn: () => void) =>
+      h('button', { class: 'pill pill-sm', 'data-testid': id, html: icon(ic, 14), onclick: fn }, h('span', {}, label));
     this.menu.replaceChildren(
+      h('div', { class: 'menu-tiles' },
+        // on narrow phones the scene tools leave the top bar and live here
+        ...(this.space ? [] : [
+          tile('menu-game', 'game', 'game', 'game', away(this.hooks.openGames), 'tile-dup'),
+          tile('menu-time', 'clock', 'timeMachine', 'timeMachine', away(() => this.time.toggle()), 'tile-dup'),
+          tile('menu-radio', 'radio', 'tileRadio', 'radio', away(() => this.hooks.openRadio?.()), 'tile-dup'),
+          tile('menu-sky', 'eclipse', 'tileSky', 'skyEvents', away(this.hooks.openSky), 'tile-dup')]),
+        tile('menu-tours', 'compass', 'tours', 'tours', away(this.hooks.openTours)),
+        tile('menu-tonight', 'telescope', 'tileTonight', 'tonight', away(this.hooks.openTonight)),
+        tile('menu-compare', 'ruler', 'tileCompare', 'compare', away(this.hooks.openCompare)),
+        tile('menu-bookmarks', 'pin', 'tileBookmarks', 'bookmarks', away(this.hooks.openBookmarks)),
+        tile('menu-immersive', 'eye', 'hideUi', 'hideUi', () => this.setImmersive(true))),
       ...earth,
-      h('h3', {}, t('mSettings')), h('div', { class: 'grid2' }, sw('sfx', 'sound'), sw('bgm', 'music')),
-      row('telescope', t('tonight'), h('button', { class: 'pill', 'data-testid': 'menu-tonight', onclick: () => { this.toggleMenu(false); this.hooks.openTonight(); } }, t('open'))),
-      row('ruler', t('compare'), h('button', { class: 'pill', 'data-testid': 'menu-compare', onclick: () => { this.toggleMenu(false); this.hooks.openCompare(); } }, t('open'))),
-      row('pin', t('bookmarks'), h('button', { class: 'pill', 'data-testid': 'menu-bookmarks', onclick: () => { this.toggleMenu(false); this.hooks.openBookmarks(); } }, t('open'))),
-      row('eye', t('hideUi'), h('button', { class: 'pill', 'data-testid': 'menu-immersive', onclick: () => this.setImmersive(true) }, t('hideUiGo'))),
-      row('compass', t('tours'), h('button', { class: 'pill', 'data-testid': 'menu-tours', onclick: () => { this.toggleMenu(false); this.hooks.openTours(); } }, t('open'))),
-      h('h3', {}, t('classroom')),
-      h('p', { class: 'menu-note' }, t('classroomNote')),
-      h('div', { class: 'grid2' }, flag('set-classroom', 'bulb', 'classroom', classroom(), v => { setClassroom(v); if (v) this.toggleReader(false); }),
+      h('h3', {}, t('mSettings')),
+      h('div', { class: 'chip-wrap' }, sw('sfx', 'sound'), sw('bgm', 'music'),
+        flag('set-classroom', 'bulb', 'classroom', classroom(), v => { setClassroom(v); if (v) this.toggleReader(false); }, t('classroomNote')),
         ...(classroom() ? [flag('set-still', 'pause', 'pauseMotion', motion.still, setStill)] : [])),
-      row('language', t('language'), sel),
-      row('download', t('backup'), h('span', { class: 'row' },
-        h('button', { class: 'pill', 'data-testid': 'backup-export', onclick: () => void import('./backup.ts').then(m => m.exportProgress(), () => toast('⚠️ ' + t('loadFail', { s: t('backup') }))) }, t('backupExport')),
-        h('button', { class: 'pill', 'data-testid': 'backup-import', onclick: () => void import('./backup.ts').then(m => m.importProgress(), () => toast('⚠️ ' + t('loadFail', { s: t('backup') }))) }, t('backupImport')))),
+      h('div', { class: 'menu-line' }, h('span', { class: 'sw-emoji', html: icon('language', 15) }), h('span', { class: 'grow' }, t('language')), sel),
+      h('div', { class: 'menu-line' }, h('span', { class: 'sw-emoji', html: icon('download', 15) }), h('span', { class: 'grow' }, t('backup')),
+        small('backup-export', 'download', t('backupExport'), () => void import('./backup.ts').then(m => m.exportProgress(), () => toast('⚠️ ' + t('loadFail', { s: t('backup') })))),
+        small('backup-import', 'upload', t('backupImport'), () => void import('./backup.ts').then(m => m.importProgress(), () => toast('⚠️ ' + t('loadFail', { s: t('backup') }))))),
       ...(sessionOnly() ? [h('p', { class: 'menu-warn', role: 'status' }, t('sessionOnly'))] : []),
-      row('reset', t('reset'), h('button', { class: 'pill', 'data-testid': 'reset', onclick: () => { if (confirm(t('resetConfirm'))) { resetSettings(); this.globe.flyTo(25, 40, 2.2); } } }, t('resetBtn'))),
-      ...(HAS_API ? [row('user', store.me ? t('signedInAs', { e: store.me.handle ?? store.me.email }) : t('account'), h('button', { class: 'pill', 'data-testid': 'menu-account', onclick: () => { this.toggleMenu(false); this.hooks.openAccount(); } }, store.me ? t('account') : t('signIn'))),
-      ...(classroom() ? [] : [row('chat', t('guestbook'), h('button', { class: 'pill', 'data-testid': 'menu-guestbook', onclick: () => { this.toggleMenu(false); this.hooks.openGuestbook(); } }, t('open')))])] : []),
+      h('div', { class: 'menu-line' }, h('span', { class: 'sw-emoji', html: icon('reset', 15) }), h('span', { class: 'grow' }, t('reset')),
+        small('reset', 'reset', t('resetBtn'), () => { if (confirm(t('resetConfirm'))) { resetSettings(); this.globe.flyTo(25, 40, 2.2); } })),
+      ...(HAS_API ? [h('div', { class: 'menu-line' }, h('span', { class: 'sw-emoji', html: icon('user', 15) }),
+        h('span', { class: 'grow' }, store.me ? t('signedInAs', { e: store.me.handle ?? store.me.email }) : t('account')),
+        small('menu-account', 'user', store.me ? t('account') : t('signIn'), away(this.hooks.openAccount)),
+        ...(classroom() ? [] : [small('menu-guestbook', 'chat', t('guestbook'), away(this.hooks.openGuestbook))]))] : []),
       h('footer', { class: 'menu-links' },
         ...([['about/', 'about', 'bulb'], ['encyclopedia/', 'encyclopedia', 'book'], ['privacy/', 'privacy', 'eye']] as const).map(([href, key, ic]) =>
           h('a', { href: url(href), 'data-testid': 'menu-link-' + key }, h('span', { class: 'ml-ico', html: icon(ic, 15) }), h('span', {}, t(key))))));

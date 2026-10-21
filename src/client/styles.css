@@ -268,54 +268,6 @@ a:hover { text-decoration: underline; }
   color: var(--text);
   text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6);
 }
-.omnibar {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  width: min(440px, 42vw);
-  background: var(--panel);
-  backdrop-filter: blur(20px) saturate(140%);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 3px;
-  box-shadow: var(--shadow);
-}
-.omni-search {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: transparent;
-  border: 0;
-  border-radius: 9px;
-  padding: 7px 10px;
-  color: var(--faint);
-  font-size: 0.9rem;
-  text-align: left;
-}
-.omni-search:hover { color: var(--muted); }
-.omni-placeholder { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.omni-kbd {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--faint);
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  padding: 1px 6px;
-}
-.omni-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  display: grid;
-  place-items: center;
-  padding: 0;
-}
-.omni-btn:hover { background: var(--hover); color: var(--text); }
 .tools {
   justify-self: end;
   display: flex;
@@ -673,7 +625,7 @@ a:hover { text-decoration: underline; }
   box-shadow: var(--shadow);
 }
 .ride-bar .tip { color: var(--muted); font-size: .8rem; }
-body.riding .topbar .tools, body.riding .topbar .omnibar, body.riding .bl { visibility: hidden; }
+body.riding .topbar .tools, body.riding .bl { visibility: hidden; }
 
 /* ---- time machine ---- */
 .time-bar {
@@ -921,7 +873,7 @@ body.photo-mode .topbar, body.photo-mode .bl, body.photo-mode .br, body.photo-mo
 .game-hud p { margin: 2px 0; font-size: 0.82rem; }
 .hint-text { display: block; color: var(--accent); font-size: 0.8rem; font-family: var(--font-mono); }
 .result b { color: var(--accent); font-size: 1.05rem; }
-body.gaming .topbar .tools, body.gaming .topbar .omnibar, body.gaming .info { display: none !important; }
+body.gaming .topbar .tools, body.gaming .info { display: none !important; }
 .results { text-align: center; }
 .big-score { font-size: 3rem; margin: 6px 0; color: var(--accent); font-family: var(--font-mono); font-weight: 650; } .big-score small { font-size: 1rem; color: var(--muted); }
 .record { color: var(--good); font-size: 1.15rem; }
@@ -996,8 +948,7 @@ body.gaming .topbar .tools, body.gaming .topbar .omnibar, body.gaming .info { di
 body.fading #app { opacity: 0; }
 body.solar #globe { visibility: hidden; }
 /* One chrome for every level: global parts stay put; `earth-only` / `space-only` parts swap in place. */
-body.solar .topbar .omnibar, body.solar .earth-only, body.solar #info, body.solar .coord-readout, body.solar .zoom-readout,
-body.solar .time-bar, body.solar .ride-bar, body.solar .globe-tip, body:not(.solar) .space-only, body:not(.solar) .solar-top { display: none !important; }
+body.solar .earth-only, body.solar #info, body.solar .coord-readout, body.solar .zoom-readout, body.solar .time-bar, body.solar .ride-bar, body.solar .globe-tip, body:not(.solar) .space-only { display: none !important; }
 /* A card on the left covers the help corner; it comes back when the card closes. */
 body:has(.info:not(.hidden)) .bl { display: none; }
 .solar-stage { position: absolute; inset: 0; background: #020306; }
@@ -1025,16 +976,6 @@ body:has(.info:not(.hidden)) .bl { display: none; }
 .kind-cap, .kind-lake, .kind-geyser { --k: #7dd3fc; }
 .kind-storm, .kind-spot, .kind-ring { --k: #f472b6; }
 .kind-plain, .kind-region { --k: #a5b4fc; }
-.top-center { justify-self: center; display: flex; justify-content: center; min-width: 0; max-width: 100%; }
-.solar-top { display: flex; align-items: center; gap: 2px; min-width: 0; max-width: min(680px, 100%); padding: 3px; background: var(--panel);
-  backdrop-filter: blur(20px) saturate(140%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
-.solar-back { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 12px; border: 0; background: transparent; color: var(--muted); flex: none; white-space: nowrap; }
-.solar-back:hover { background: var(--hover); color: var(--text); }
-.solar-crumbs { display: flex; align-items: center; gap: 2px; min-width: 0; height: 42px; padding: 0 6px; border-left: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
-.solar-crumbs .crumb { background: none; border: 0; color: var(--muted); font-size: .86rem; padding: 4px 7px; border-radius: 7px; white-space: nowrap; }
-.solar-crumbs button.crumb:hover { color: var(--text); background: var(--hover); }
-.solar-crumbs .crumb.cur { color: var(--text); font-weight: 600; }
-.solar-crumbs .sep { color: var(--faint); }
 .solar-bottom { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 6; max-width: calc(100vw - 176px); }
 .solar-dock, .solar-time { display: flex; align-items: center; gap: 3px; padding: 5px; background: var(--panel); backdrop-filter: blur(20px) saturate(140%);
   border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); max-width: 100%; }
@@ -1103,48 +1044,22 @@ body:has(.info:not(.hidden)) .bl { display: none; }
 .dl-label.home.flip { padding: 4px 22px 4px 10px; translate: calc(-100% + 11px) -11px; }
 .dl-label.home.flip::before { left: auto; right: 6px; }
 .solar-ui.deep .solar-time { display: none; }
-.solar-crumbs .crumb-up { color: var(--faint); }
 
 /* ---- scale rail: universe … Earth ---- */
-.scale-rail { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); z-index: 8; display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
-  padding: 6px 4px; }
-.scale-rail::before { content: ""; position: absolute; right: 17px; top: 18px; bottom: 18px; width: 1px; background: linear-gradient(var(--line-strong), var(--line)); }
-.sr-step { position: relative; display: flex; align-items: center; justify-content: flex-end; gap: 10px; height: 30px; padding: 0 6px 0 10px; border: 0; background: none;
-  color: var(--faint); font-family: var(--font-display); font-size: .78rem; font-weight: 500; cursor: pointer; border-radius: 9px; }
-.sr-step span { opacity: 0; transform: translateX(6px); transition: opacity .18s, transform .18s; white-space: nowrap; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9); }
-.sr-step i { position: relative; width: 14px; height: 14px; border-radius: 50%; flex: none; display: grid; place-items: center; background: #0b0c10;
-  box-shadow: 0 0 0 1px var(--line-strong); }
-.sr-step i::after { content: ""; width: var(--d, 6px); height: var(--d, 6px); border-radius: 50%; background: var(--sc, #a1a1aa); }
 .sr-universe { --sc: #f0abfc; --d: 9px; } .sr-laniakea { --sc: #c4b5fd; --d: 8px; } .sr-group { --sc: #a5b4fc; --d: 7px; }
 .sr-galaxy { --sc: #93c5fd; --d: 6px; } .sr-solar { --sc: #fcd34d; --d: 6px; } .sr-earth { --sc: #38bdf8; --d: 6px; }
-.scale-rail:hover .sr-step span, .sr-step:focus-visible span, .sr-step.on span { opacity: 1; transform: none; }
-.sr-step:hover { color: var(--text); }
-.sr-step.on { color: var(--text); font-weight: 600; }
-.sr-step.on i { box-shadow: 0 0 0 1.5px var(--sc), 0 0 12px color-mix(in srgb, var(--sc) 60%, transparent); }
-.sr-step.on i::after { width: 8px; height: 8px; }
-body.gaming .scale-rail, body.fading .scale-rail { opacity: 0; pointer-events: none; }
-body:has(.info.expanded:not(.hidden)) .scale-rail { display: none; }
 /* Tablet widths and phones held sideways: the tool row needs room, so the search box flexes instead of the brand wrapping under it. */
 @media (min-width: 761px) and (max-width: 1100px) {
   .topbar { grid-template-columns: auto minmax(0, 1fr) auto; }
-  .omnibar { width: auto; min-width: 0; }
-  .brand h1 { white-space: nowrap; }
+    .brand h1 { white-space: nowrap; }
 }
 /* Short landscape screens: the scale rail would run into the zoom stack, so it moves beside it and tightens. */
-@media (max-height: 500px) and (min-width: 761px) {
-  .scale-rail { top: 74px; transform: none; right: 80px; padding: 2px; }
-  .sr-step { height: 24px; }
-}
-@media (max-width: 960px) {
-  .omni-kbd { display: none; }
-  .omnibar { width: min(320px, 36vw); }
-}
+
+
 @media (max-width: 760px) {
   .topbar { grid-template-columns: auto 1fr auto; padding: 10px; gap: 8px; }
   .brand h1 { font-size: 1rem; white-space: nowrap; }
-  .omnibar { width: auto; }
-  .omni-placeholder { font-size: .84rem; }
-  .info { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 58vh; border-radius: 18px; }
+      .info { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 58vh; border-radius: 18px; }
   .info-main { width: 100%; }
   .info.expanded { width: auto; top: 8px; height: auto; max-height: none; }
   .info.expanded .info-main { display: none; }
@@ -1158,10 +1073,7 @@ body:has(.info.expanded:not(.hidden)) .scale-rail { display: none; }
   .hud-main { flex-wrap: wrap; }
 }
 @media (max-width: 520px) {
-  .omni-search { padding: 7px 8px; }
-  .omni-placeholder { display: none; }
-  .omnibar { justify-self: end; }
-  .topbar { grid-template-columns: auto 1fr auto; }
+        .topbar { grid-template-columns: auto 1fr auto; }
   .brand { gap: 7px; }
   .brand h1 { font-size: .92rem; }
   .brand-mark { width: 20px; height: 20px; }
@@ -1171,12 +1083,7 @@ body:has(.info.expanded:not(.hidden)) .scale-rail { display: none; }
   .brand h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 @media (max-width: 760px) {
-  body.solar .top-center { justify-self: stretch; }
-  .solar-top { flex: 1; max-width: none; }
-  .solar-back span { display: none; }
-  .solar-back { width: 40px; justify-content: center; padding: 0; }
-  .solar-crumbs { flex: 1; }
-  .solar-bottom { left: 8px; right: 8px; bottom: 8px; transform: none; max-width: none; align-items: stretch; }
+            .solar-bottom { left: 8px; right: 8px; bottom: 8px; transform: none; max-width: none; align-items: stretch; }
   /* Comfortable touch targets: the dock scrolls (with fading edges as a cue) rather than shrinking the chips. */
   .solar-dock .solar-chip { flex: 0 0 44px; width: 44px; height: 44px; scroll-snap-align: center; }
   .solar-dock { justify-content: safe center; gap: 2px; scroll-snap-type: x proximity; overscroll-behavior-x: contain; }
@@ -1189,33 +1096,16 @@ body:has(.info.expanded:not(.hidden)) .scale-rail { display: none; }
   body.solar .bl { bottom: calc(var(--space-dock, 96px) + 16px); }
   .solar-hint { bottom: calc(var(--space-dock, 96px) + 76px); max-width: calc(100vw - 24px); white-space: normal; text-align: center; border-radius: 14px; }
   /* Only this level's root and the current step fit next to the toolbar (the scale rail covers going up). */
-  .solar-crumbs .crumb-up, .solar-crumbs .sep:not(:has(+ .cur)),
-  .solar-crumbs .crumb:not(.cur):not([data-testid="crumb-system"]):not([data-testid="crumb-scale"]) { display: none; }
-  .solar-crumbs .crumb { min-width: 0; overflow: hidden; text-overflow: ellipsis; letter-spacing: .03em; padding-inline: 4px; }
-  .solar-crumbs { overflow: hidden; }
-  .solar-crumbs .crumb:not(.cur) { flex: 0 1 auto; min-width: 3.4em; }
-  .solar-crumbs .crumb.cur { flex: 0 0 auto; max-width: calc(100% - 4.6em); }
-  .solar-info { max-height: 58vh; }
+            .solar-info { max-height: 58vh; }
   .solar-info.expanded { height: auto; }
   body:has(.solar-info:not(.hidden)) .solar-bottom, body:has(.solar-info:not(.hidden)) .solar-hint { display: none; }
   .sb-label { font-size: 11.5px; }
-  .scale-rail { right: 4px; top: 66px; transform: none; padding: 2px; }
-  .scale-rail::before { right: 15px; }
-  .sr-step { height: 26px; }
-  .scale-rail:hover .sr-step span { opacity: 0; }
-  .sr-step.on span { opacity: 1; font-size: .72rem; }
-}
+          }
 /* ---- Sci-fi HUD theme for the space views (scoped to .solar-ui / body.solar); a light echo on the globe ---- */
 .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info, .solar-ui .solar-hint {
   border-radius: 3px; border: 1px solid var(--hud-line); background: var(--hud-corners), var(--hud-panel);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 28px rgba(56, 189, 248, 0.07) inset, 0 14px 40px rgba(0, 0, 0, 0.5);
 }
-.solar-back { font-family: var(--font-hud); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; color: var(--hud-hi); border-radius: 0; }
-.solar-back:hover { background: rgba(14, 40, 62, 0.85); color: #fff; }
-.solar-crumbs { border-left-color: var(--hud-line); }
-.solar-crumbs .crumb { font-family: var(--font-hud); text-transform: uppercase; letter-spacing: .07em; font-size: .78rem; border-radius: 2px; color: var(--hud-dim); }
-.solar-crumbs button.crumb:hover { background: rgba(125, 211, 252, 0.1); color: var(--hud-hi); }
-.solar-crumbs .crumb.cur { color: var(--hud-hi); text-shadow: 0 0 10px rgba(125, 211, 252, 0.55); }
 .solar-ui .solar-chip { font-family: var(--font-hud); letter-spacing: .03em; border-radius: 2px; color: #cfe8f6; }
 .solar-ui .solar-chip:hover { background: rgba(125, 211, 252, 0.1); color: #fff; }
 .solar-ui .solar-chip.on { background: rgba(125, 211, 252, 0.16); color: var(--hud-hi); box-shadow: 0 0 0 1px var(--hud) inset, 0 0 14px rgba(125, 211, 252, 0.35); }
@@ -1296,20 +1186,13 @@ body.solar .dl-label.home { border-radius: 2px; font-family: var(--font-hud); te
 body:has(.solar-info.expanded:not(.hidden)) .hud-frame, body:has(.solar-info:not(.hidden)) .hud-readout { display: none; }
 
 /* Scale rail: name + size readout as HUD ticks (also shown on the globe). */
-.sr-step span { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
-.sr-step b { font-family: var(--font-hud); font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
-.sr-step.on b { font-weight: 600; color: var(--hud-hi); }
-.sr-step small { font-family: var(--font-hud); font-size: .62rem; letter-spacing: .05em; color: var(--hud-dim); font-weight: 500; }
-.scale-rail::before { background: linear-gradient(var(--hud-line), rgba(125, 211, 252, 0.08)); }
-.sr-step i { box-shadow: 0 0 0 1px var(--hud-line); }
 .brand h1 { font-family: var(--font-hud); letter-spacing: .03em; }
 .zoom-readout { font-family: var(--font-hud); }
 @media (max-width: 760px) {
   .hud-readout, .hud-cross { display: none; }
   .hud-frame { inset: 4px; }
   .hud-frame .hc { width: 16px; height: 16px; }
-  .sr-step small { display: none; }
-}
+  }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0s !important; transition: none !important; } }
 body.lowfx *, body.lowfx *::before, body.lowfx *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; animation-duration: 0s !important; transition: none !important; }
 /* Phones / low-end: panels are ~90% opaque anyway, and re-blurring the live globe behind them every frame is costly on mobile GPUs. */

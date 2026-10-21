@@ -72,9 +72,9 @@ export const TOURS: Tour[] = [
       { title: ['Our neighbours', '我们的邻居'], run: x => x.go('localgroup/dp_m31'),
         body: ['The Milky Way belongs to the Local Group, with the Andromeda and Triangulum galaxies and dozens of dwarf galaxies. Andromeda is about 2.5 million light-years away and moving toward us.',
           '银河系属于本星系群，同伴有仙女星系、三角星系和几十个矮星系。仙女星系离我们约 250 万光年，正在向我们靠近。'] },
-      { title: ['Your turn', '轮到你了'], run: () => {}, spot: '.scale-rail',
-        body: ['Use the ladder on the right to jump between levels, or go back to Earth with one tap. Every name you see can be tapped.',
-          '用右边的阶梯在各个层级之间跳转，或者一键回到地球。你看到的每个名字都可以点开。'] },
+      { title: ['Your turn', '轮到你了'], run: () => {}, spot: '.level-switch',
+        body: ['Use the level button at the top left to jump between levels, or go back to Earth. Every name you see can be tapped.',
+          '点左上角的层级按钮，可以在各个层级之间跳转，也可以回到地球。你看到的每个名字都可以点开。'] },
     ],
   },
   {

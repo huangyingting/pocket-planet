@@ -35,11 +35,7 @@
 * { scrollbar-color: rgba(125, 211, 252, 0.3) transparent; }
 
 /* ---- the slab: shared geometry for everything that carries the cut-corner silhouette ---- */
-.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .tour-card, .photo-bar, .hints,
-.zoom-ctl, .round-btn, .toast,
-.solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info, .solar-ui .solar-hint,
-.hub-card, .game-card, .dex-card, .near-card, .diff, .opt, .reader-continue,
-.cta, .pill, .seg button, .react, .read-more, .hero-btn, .switch-card {
+.tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .tour-card, .photo-bar, .hints, .zoom-ctl, .round-btn, .toast, .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info, .solar-ui .solar-hint, .hub-card, .game-card, .dex-card, .near-card, .diff, .opt, .reader-continue, .cta, .pill, .seg button, .react, .read-more, .hero-btn, .switch-card, .lv-cur, .lv-list {
   --cut: 12px; --edge: var(--hud-line);
   --pp-clip: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
   --pp-cuts:
@@ -54,8 +50,7 @@
 .pill-sm { --cut: 5px; }
 
 /* panels: hairline cuts, amber signal tab on the top edge, ruler ticks on the bottom edge */
-.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .tour-card, .photo-bar, .hints,
-.solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info {
+.tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .tour-card, .photo-bar, .hints, .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info, .lv-cur, .lv-list {
   --pp-bg: var(--hud-panel);
   border: 1px solid var(--hud-line); box-shadow: inset 0 0 32px rgba(56, 189, 248, 0.05);
   background:
@@ -79,13 +74,13 @@
 }
 
 /* idle scanner: a glint that runs along the top edge every few seconds */
-.omnibar::after, .solar-top::after, .tools::after, .menu::after, .info::after, .modal-panel::after {
+.tools::after, .menu::after, .info::after, .modal-panel::after {
   content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; pointer-events: none; z-index: 5;
   background: linear-gradient(90deg, transparent 38%, rgba(224, 242, 254, 0.9) 50%, transparent 62%) no-repeat;
   background-size: 300% 100%;
   opacity: 0; animation: hud-sweep 8s ease-in-out infinite;
 }
-.omnibar, .solar-top, .tools, .modal-panel { position: relative; }
+.tools, .modal-panel { position: relative; }
 .tools::after { animation-delay: 1.6s; }
 .info::after, .menu::after, .modal-panel::after { animation-delay: .5s; }
 /* the glint moves inside the edge (background-position), so scrolling panels never grow a sideways scrollbar */
@@ -144,12 +139,9 @@
 .hud-top { font-family: var(--font-hud); letter-spacing: .05em; }
 
 /* ---- controls: bigger targets ---- */
-.omni-search { font-size: .98rem; }
-.omni-kbd { font-family: var(--font-data); border-color: var(--hud-line); color: var(--hud-dim); border-radius: 0; }
-.omni-btn { width: 42px; height: 42px; border-radius: 0; }
 .tool { border-radius: 0; }
 .tools-sep { height: 22px; background: var(--hud-line); transform: skewX(-22deg); }
-.tools .ico, .omnibar .ico, .zoom-ctl .ico, .round-btn .ico { width: 22px; height: 22px; }
+.tools .ico, .zoom-ctl .ico, .round-btn .ico { width: 22px; height: 22px; }
 .zoom-ctl { width: 48px; }
 .zoom-ctl button { height: 46px; border-radius: 0; }
 .zoom-readout { border-color: var(--hud-line); color: var(--hud-dim); font-size: .7rem; }
@@ -185,19 +177,16 @@
 :focus-visible { outline-color: var(--sig); }
 
 /* hover / press: glow on the glyph, a quick flash + squeeze on press */
-.tool, .omni-btn, .zoom-ctl button, .round-btn, .icon-btn, .pill, .react, .read-more, .hero-btn, .solar-chip, .tag-chip, .seg button, .reader-toc button, .cta {
+.tool, .zoom-ctl button, .round-btn, .icon-btn, .pill, .react, .read-more, .hero-btn, .solar-chip, .tag-chip, .seg button, .reader-toc button, .cta {
   transition: --edge .2s, background-color .18s, border-color .18s, color .18s, box-shadow .18s, transform .12s;
 }
-.tool:hover, .omni-btn:hover, .zoom-ctl button:hover, .round-btn:hover, .icon-btn:hover, .pill:hover:not([disabled]), .react:hover, .read-more:hover, .hero-btn:hover,
-.seg button:hover, .reader-toc button:hover, .tag-chip:hover {
+.tool:hover, .zoom-ctl button:hover, .round-btn:hover, .icon-btn:hover, .pill:hover:not([disabled]), .react:hover, .read-more:hover, .hero-btn:hover, .seg button:hover, .reader-toc button:hover, .tag-chip:hover {
   --edge: var(--hud-hi); color: var(--hud-hi); background-color: var(--hud-fill-hi);
 }
-.tool:hover .ico, .omni-btn:hover .ico, .zoom-ctl button:hover .ico, .round-btn:hover .ico, .icon-btn:hover .ico, .pill:hover .ico, .react:hover .ico, .read-more:hover .ico, .hero-btn:hover .ico,
-.tool.active .ico {
+.tool:hover .ico, .zoom-ctl button:hover .ico, .round-btn:hover .ico, .icon-btn:hover .ico, .pill:hover .ico, .react:hover .ico, .read-more:hover .ico, .hero-btn:hover .ico, .tool.active .ico {
   filter: drop-shadow(0 0 5px rgba(125, 211, 252, 0.85));
 }
-.tool:active, .omni-btn:active, .zoom-ctl button:active, .round-btn:active, .icon-btn:active, .pill:active, .react:active, .read-more:active, .hero-btn:active, .cta:active:not([disabled]),
-.solar-chip:active, .seg button:active { transform: scale(.94); }
+.tool:active, .zoom-ctl button:active, .round-btn:active, .icon-btn:active, .pill:active, .react:active, .read-more:active, .hero-btn:active, .cta:active:not([disabled]), .solar-chip:active, .seg button:active { transform: scale(.94); }
 .tool.active, .tool[aria-pressed="true"], .tool[aria-expanded="true"] { color: var(--hud-hi); background-color: var(--hud-fill-hi); box-shadow: inset 0 -2px 0 var(--sig); }
 .round-btn.help[aria-expanded="true"] { --edge: var(--sig); border-color: var(--sig-line); }
 
@@ -365,10 +354,6 @@ body.photo-mode #app::after { display: none; }
 body:is(.time-travel, .riding, .gaming, .photo-mode) .coord-readout { display: none; }
 
 /* ---- space views ---- */
-.solar-back { font-family: var(--font-data); text-transform: uppercase; letter-spacing: .1em; font-size: .76rem; color: var(--hud-hi); }
-.solar-crumbs .crumb { font-family: var(--font-data); letter-spacing: .1em; font-size: .76rem; border-radius: 0; }
-.solar-crumbs .crumb.cur { color: #fff3df; text-shadow: 0 0 10px rgba(255, 181, 71, 0.4); box-shadow: inset 0 -2px 0 var(--sig); }
-.solar-crumbs .sep { color: var(--hud-line); }
 .solar-ui .solar-chip { border-radius: 0; }
 .solar-ui .solar-chip.on { background: var(--sig-fill); color: #fff3df; box-shadow: inset 0 -2px 0 var(--sig), inset 0 0 0 1px var(--sig-line); }
 .solar-ui .cst-toggle.on { color: #fff3df; background: var(--sig-fill); box-shadow: inset 0 0 0 1px var(--sig-line); }
@@ -386,25 +371,19 @@ body.solar .sb-label.k-comet { color: var(--hud-dim); }
 .dl-label { --c: #bae6fd !important; }
 .dl-label.home { color: var(--hud-hi); border-color: var(--hud-line); }
 .dl-label.home::before { background: var(--sig); }
-.sr-step { --sc: #bae6fd !important; }
-.sr-step.on i { box-shadow: 0 0 0 1.5px var(--sig), 0 0 12px rgba(255, 181, 71, 0.6); }
-.sr-step.on span { color: #fff3df; }
-.solar-crumbs .crumb { font-size: .86rem; }
 .solar-speed { font-size: .9rem; }
 .solar-hint { font-size: .9rem; }
 
 /* ---- phones ---- */
 @media (max-width: 760px) {
-  .omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .tour-card, .photo-bar, .hints,
-  .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info { --cut: 10px; }
+  .tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .tour-card, .photo-bar, .hints, .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info { --cut: 10px; }
   body:not(.solar) #app::after { inset: 4px; }
   .coord-readout { bottom: 26px; font-size: .7rem; gap: 8px; }
   .coord-reticle { display: none; }
 }
 @media (max-width: 520px) {
   :root { --tool-w: 38px; --tool-h: 40px; }
-  .omni-btn { width: 38px; height: 40px; }
-  .tools .ico, .omnibar .ico { width: 21px; height: 21px; }
+    .tools .ico { width: 21px; height: 21px; }
   .modal-panel { --cut: 0px; }
 }
 /* Narrow phones: nine tools plus search need the whole row, so the brand is kept for screen readers only
@@ -412,7 +391,7 @@ body.solar .sb-label.k-comet { color: var(--hud-dim); }
 @media (max-width: 440px) {
   .topbar { grid-template-columns: 1fr auto; }
   .brand { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .omnibar .omni-btn, .tools-sep { display: none; }
+  .tools-sep { display: none; }
   :root { --tool-w: 34px; }
 }
 @media (max-width: 380px) {
@@ -422,9 +401,9 @@ body.solar .sb-label.k-comet { color: var(--hud-dim); }
 }
 
 /* ---- calm modes ---- */
-body.q-low :is(.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .brand-mark)::after, body.q-low :is(.type-chip, .brand-mark)::before, body.q-low .coord-reticle::after { animation: none; }
+body.q-low :is(.tools, .menu, .info, .modal-panel, .brand-mark)::after, body.q-low :is(.type-chip, .brand-mark)::before, body.q-low .coord-reticle::after { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  :is(.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .brand-mark)::after, :is(.type-chip, .brand-mark)::before, .coord-reticle::after { animation: none; }
+  :is(.tools, .menu, .info, .modal-panel, .brand-mark)::after, :is(.type-chip, .brand-mark)::before, .coord-reticle::after { animation: none; }
 }
 .game-card:has(.gc-badge)::after { content: none; }
 
@@ -513,7 +492,7 @@ body:has(.sky) .tour .tour-card.tour-card { left: 22px; right: auto; top: 112px;
 html.classroom { font-size: 112.5%; }
 html.classroom .class-badge { display: inline-block; padding: 2px 8px; font-family: var(--font-hud); font-size: .7rem; letter-spacing: .08em; text-transform: uppercase;
   color: var(--accent-ink, #000); background: var(--amber, #ffb44a); }
-html.classroom #btn-radio, html.classroom #btn-random, html.classroom .read-more, html.classroom .radio-bar { display: none !important; }
+html.classroom #btn-radio, html.classroom .read-more, html.classroom .radio-bar { display: none !important; }
 html.classroom .info-body p, html.classroom .tour-body, html.classroom .solar-info p { line-height: 1.65; }
 .menu-note { margin: 0 0 8px; font-size: .8rem; line-height: 1.45; color: var(--muted); }
 
@@ -525,7 +504,7 @@ html.classroom .info-body p, html.classroom .tour-body, html.classroom .solar-in
 /* Photos from every scene (F06): the camera sits above the sky theatre and hides its chrome */
 body.photo-mode .viewfinder, body.photo-mode .photo-bar { z-index: var(--z-top); }
 body.photo-mode .sky > :not(.sky-cv) { visibility: hidden; }
-body.photo-mode :is(.solar-dock, .solar-hint, .solar-top, .solar-time, .scale-rail) { display: none !important; }
+body.photo-mode :is(.solar-dock, .solar-hint, .solar-time, .level-switch) { display: none !important; }
 /* the album opened from the camera in the sky theatre must sit above it */
 body:has(.sky) .modal { z-index: var(--z-alert); }
 
@@ -630,5 +609,81 @@ body.immersive .immersive-exit {
   opacity: .55; transition: opacity .2s;
 }
 body.immersive .immersive-exit:hover, body.immersive .immersive-exit:focus-visible { opacity: 1; }
-body.immersive :is(.topbar, .bl, .br, .scale-rail, .coord-readout, .info, .menu, .time-bar, .radio-bar, .solar-bottom, .solar-hint, .hud-readout, .hints) { display: none !important; }
+body.immersive :is(.topbar, .bl, .br, .coord-readout, .info, .menu, .time-bar, .radio-bar, .solar-bottom, .solar-hint, .hud-readout, .hints) { display: none !important; }
 body.immersive #app::after { display: none; }
+
+/* ---- one top bar for every level: brand + level switcher on the left, tools on the right ---- */
+.topbar { display: flex; align-items: flex-start; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.level-slot { min-width: 0; }
+.level-switch { position: relative; z-index: 2; }
+/* the open list must cover the scene cards below the top bar */
+.topbar:has(.level-switch.open) { z-index: var(--z-menu); }
+.lv-cur, .lv-item { display: flex; align-items: center; gap: 10px; border: 0; color: var(--text-2); text-align: left; cursor: pointer; }
+.lv-cur { position: relative; height: calc(var(--tool-h) + 8px); padding: 0 12px 0 14px; min-width: 0; --cut: 10px; }
+.lv-cur:hover, .level-switch.open .lv-cur { --edge: var(--hud-hi); color: var(--text); }
+.lv-dot { position: relative; width: 14px; height: 14px; border-radius: 50%; flex: none; display: grid; place-items: center; box-shadow: 0 0 0 1px var(--hud-line); }
+.lv-dot::after { content: ""; width: var(--d, 6px); height: var(--d, 6px); border-radius: 50%; background: var(--sc, #a1a1aa); }
+.lv-cur .lv-dot, .lv-item.on .lv-dot { box-shadow: 0 0 0 1.5px var(--sig), 0 0 12px rgba(255, 181, 71, 0.55); }
+.lv-text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.lv-text b { font-family: var(--font-hud); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; font-size: .86rem; white-space: nowrap; }
+.lv-text small { font-family: var(--font-data); font-size: .66rem; letter-spacing: .05em; color: var(--hud-dim); white-space: nowrap; }
+.lv-cur .lv-text b { color: #fff3df; }
+.lv-caret { display: inline-flex; color: var(--hud-dim); transform: rotate(90deg); transition: transform .18s; }
+.level-switch.open .lv-caret { transform: rotate(-90deg); }
+.lv-list { position: absolute; top: calc(100% + 6px); left: 0; min-width: 100%; width: max-content; padding: 6px; display: flex; flex-direction: column; gap: 2px; --cut: 10px; }
+.lv-list:not(.hidden) { animation: lv-in .16s ease-out; }
+@keyframes lv-in { from { opacity: 0; transform: translateY(-4px); } }
+/* a thin ladder joins the dots, so the list still reads as one scale from the universe to the Earth */
+.lv-list::before { content: ""; position: absolute; left: 22px; top: 22px; bottom: 22px; width: 1px; background: linear-gradient(var(--hud-line), rgba(125, 211, 252, 0.08)); }
+.lv-item { position: relative; height: 40px; padding: 0 14px 0 9px; background: transparent; }
+.lv-item:hover, .lv-item:focus-visible { background: var(--hud-fill-hi); color: var(--text); outline: none; }
+.lv-item.on { background: var(--hud-fill); }
+.lv-item.on .lv-text b { color: #fff3df; }
+.lv-item .lv-dot { background: var(--hud-panel); }
+body.gaming .level-switch { visibility: hidden; }
+body.fading .level-switch { pointer-events: none; }
+html.classroom .lv-text b { font-size: .95rem; }
+
+/* scene tools sit in their own group, before the tools every level shares */
+.tool-group { display: contents; }
+
+/* ---- the menu, compact: activity tiles, switch chips, one-line settings ---- */
+.menu { padding-top: 12px; }
+.menu-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 4px; }
+.menu-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 60px; padding: 8px 4px; border: 1px solid var(--hud-line);
+  background: var(--hud-fill); color: var(--hud-dim); cursor: pointer; clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px); }
+.menu-tile:hover, .menu-tile:focus-visible { background: var(--hud-fill-hi); color: var(--hud-hi); border-color: var(--line-strong); }
+.menu-tile .mt-ico { display: inline-flex; }
+.mt-label { font-size: .74rem; line-height: 1.15; color: var(--text-2); text-align: center; }
+.menu-tile.tile-dup { display: none; }
+.chip-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+.switch-card.sw-chip { --cut: 6px; min-height: 0; display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px 6px 8px; width: auto; cursor: pointer; }
+.switch-card.sw-chip .sw-label { flex: none; font-size: .84rem; color: var(--hud-dim); }
+.switch-card.sw-chip .sw-emoji .ico { width: 16px; height: 16px; }
+.switch-card.sw-chip:has(input:checked) { background-color: rgba(125, 211, 252, 0.14); border-color: var(--hud-hi); --edge: var(--hud-hi); }
+.switch-card.sw-chip:has(input:checked) .sw-label { color: var(--text); }
+.menu-line { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px solid var(--hud-line); font-size: .86rem; color: var(--text-2); }
+.menu-line:first-of-type { margin-top: 12px; }
+.menu-line .pill-sm { display: inline-flex; align-items: center; gap: 5px; }
+.menu-line select { background: var(--panel2); border: 1px solid var(--hud-line); padding: 4px 8px; color: var(--text); }
+.menu .menu-links { margin-top: 8px; padding-top: 10px; }
+
+/* search: the random hop lives next to the search box */
+.search-row { display: flex; gap: 8px; align-items: stretch; }
+.search-row .input { flex: 1; min-width: 0; }
+.search-random { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .top-left { gap: 8px; }
+  .lv-cur { height: calc(var(--tool-h) + 8px); padding: 0 10px; gap: 8px; }
+  .lv-text small { display: none; }
+}
+/* Narrow phones: the scene tools (game, time machine, radio, sky events) move into the menu so the top bar keeps one row. */
+@media (max-width: 520px) {
+  .tool-group.local, #btn-sky { display: none !important; }
+  .menu-tile.tile-dup { display: flex; }
+  .lv-text b { font-size: .8rem; }
+  .lv-caret { margin-left: -2px; }
+}
+body.solar .menu-tile.tile-dup { display: none !important; }

@@ -127,7 +127,7 @@ async function boot(): Promise<void> {
   // Background music follows the level the user is looking at.
   const tune = () => music.setLevel(inSky ? 'sky' : inSolar ? scaleNow : 'earth');
   const loadSolarMod = lazy(() => import('./solar/ui.ts'));
-  const loadSolar = async () => solar ??= new (await loadSolarMod()).SolarUI(app, { quality, earthCanvas: () => earthCv, exit: leaveSolar, onScale: s => { rail.set(s); scaleNow = s; tune(); }, openSky: () => void openSky(), topSlot: shell.topSlot });
+  const loadSolar = async () => solar ??= new (await loadSolarMod()).SolarUI(app, { quality, earthCanvas: () => earthCv, exit: leaveSolar, onScale: s => { rail.set(s); scaleNow = s; tune(); }, openSky: () => void openSky() });
   const routeOf = (o: { focus?: string; scale?: ScaleId }) => {
     const head = Object.keys(SCALE_ROUTES).find(k => SCALE_ROUTES[k] === (o.scale ?? 'solar'))!;
     return head + (o.focus && o.focus !== 'overview' ? '/' + o.focus : '');
@@ -327,7 +327,7 @@ async function boot(): Promise<void> {
     if (!inSolar) void enterSolar({ scale: l });
     else solar?.goScale(l);
   });
-  app.append(rail.el);
+  shell.levelSlot.append(rail.el);
   shell.applySettings(store.settings);
 
   let painted = { terrain: store.settings.terrain, borders: store.settings.borders };
