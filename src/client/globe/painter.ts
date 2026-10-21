@@ -145,6 +145,46 @@ function terrainColour(lat: number, lon: number): [number, number, number] {
   return col;
 }
 
+/** Adds a country's rings to the current path on an equirectangular canvas `W` wide, handling the antimeridian. */
+export function tracePath(targetCtx: CanvasRenderingContext2D, f: Feature<Polygon | MultiPolygon>, W: number, isAntarctica = false): void {
+  const H = W / 2;
+  const X = (lon: number) => ((lon + 180) / 360) * W;
+  const Y = (lat: number) => ((90 - lat) / 180) * H;
+  const traceRing = (ring: Position[], shift: number) => {
+    ring.forEach(([lon, lat], i) => {
+      const adjLon = shift > 0 && lon < 0 ? lon + 360 : shift < 0 && lon > 0 ? lon - 360 : lon;
+      if (i === 0) targetCtx.moveTo(X(adjLon), Y(lat));
+      else targetCtx.lineTo(X(adjLon), Y(lat));
+    });
+    targetCtx.closePath();
+  };
+  const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+  targetCtx.beginPath();
+  for (const poly of polys) for (const ring of poly) {
+    let hasJump = false;
+    for (let i = 1; i < ring.length; i++) {
+      if (Math.abs(ring[i][0] - ring[i - 1][0]) > 180) { hasJump = true; break; }
+    }
+    if (!hasJump) {
+      traceRing(ring, 0);
+    } else if (isAntarctica) {
+      ring.forEach(([lon, lat], i) => {
+        if (i > 0 && Math.abs(lon - ring[i - 1][0]) > 180) {
+          const prevLon = ring[i - 1][0];
+          targetCtx.lineTo(X(prevLon > 0 ? 180 : -180), Y(-90));
+          targetCtx.lineTo(X(lon > 0 ? 180 : -180), Y(-90));
+        }
+        if (i === 0) targetCtx.moveTo(X(lon), Y(lat));
+        else targetCtx.lineTo(X(lon), Y(lat));
+      });
+      targetCtx.closePath();
+    } else {
+      traceRing(ring, 1);
+      traceRing(ring, -1);
+    }
+  }
+}
+
 export function paintEarth(topo: Topology, countries: CountryInfo[], opts: PaintOpts): HTMLCanvasElement {
   const W = opts.width, H = W / 2;
   const cv = document.createElement('canvas');
@@ -157,42 +197,7 @@ export function paintEarth(topo: Topology, countries: CountryInfo[], opts: Paint
   // can compute view-dependent deep ocean shading and landMask from landSample.a!
   ctx.clearRect(0, 0, W, H);
 
-  const traceRing = (ring: Position[], targetCtx: CanvasRenderingContext2D, shift: number) => {
-    ring.forEach(([lon, lat], i) => {
-      const adjLon = shift > 0 && lon < 0 ? lon + 360 : shift < 0 && lon > 0 ? lon - 360 : lon;
-      if (i === 0) targetCtx.moveTo(X(adjLon), Y(lat));
-      else targetCtx.lineTo(X(adjLon), Y(lat));
-    });
-    targetCtx.closePath();
-  };
-
-  const path = (f: Feature<Polygon | MultiPolygon>, targetCtx: CanvasRenderingContext2D = ctx, isAntarctica = false) => {
-    const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
-    targetCtx.beginPath();
-    for (const poly of polys) for (const ring of poly) {
-      let hasJump = false;
-      for (let i = 1; i < ring.length; i++) {
-        if (Math.abs(ring[i][0] - ring[i - 1][0]) > 180) { hasJump = true; break; }
-      }
-      if (!hasJump) {
-        traceRing(ring, targetCtx, 0);
-      } else if (isAntarctica) {
-        ring.forEach(([lon, lat], i) => {
-          if (i > 0 && Math.abs(lon - ring[i - 1][0]) > 180) {
-            const prevLon = ring[i - 1][0];
-            targetCtx.lineTo(X(prevLon > 0 ? 180 : -180), Y(-90));
-            targetCtx.lineTo(X(lon > 0 ? 180 : -180), Y(-90));
-          }
-          if (i === 0) targetCtx.moveTo(X(lon), Y(lat));
-          else targetCtx.lineTo(X(lon), Y(lat));
-        });
-        targetCtx.closePath();
-      } else {
-        traceRing(ring, targetCtx, 1);
-        traceRing(ring, targetCtx, -1);
-      }
-    }
-  };
+  const path = (f: Feature<Polygon | MultiPolygon>, targetCtx: CanvasRenderingContext2D = ctx, isAntarctica = false) => tracePath(targetCtx, f, W, isAntarctica);
 
   // Political fill with greedy colouring so neighbours differ.
   const obj = topo.objects.countries as GeometryCollection;

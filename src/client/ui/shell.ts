@@ -32,7 +32,7 @@ const typeName = (ty: CatalogueItem['type']) => tr(TYPE_META[ty].one, lang());
 const AURA_ORDER: AuraPreset[] = ['waves', 'aurora', 'ember', 'dusk', 'sculpture'];
 
 export interface ShellHooks {
-  openPhoto: () => void; openCollection: () => void; openGames: () => void; openTutorial: () => void; openTours: () => void; openBookmarks: () => void; openCompare: (id?: string) => void; openTonight: () => void;
+  openPhoto: () => void; openCollection: () => void; openGames: () => void; openTutorial: () => void; openTours: () => void; openLessons: () => void; openBookmarks: () => void; openCompare: (id?: string) => void; openTonight: () => void;
   openAccount: () => void; openGuestbook: () => void;
   openSolar: () => void;
   openSky: () => void;
@@ -342,6 +342,7 @@ export class Shell {
           tile('menu-time', 'clock', 'timeMachine', 'timeMachine', away(() => this.time.toggle()), 'tile-dup'),
           tile('menu-radio', 'radio', 'tileRadio', 'radio', away(() => this.hooks.openRadio?.()), 'tile-dup'),
           tile('menu-sky', 'eclipse', 'tileSky', 'skyEvents', away(this.hooks.openSky), 'tile-dup')]),
+        tile('menu-lessons', 'book', 'tileLessons', 'lessons', away(this.hooks.openLessons)),
         tile('menu-tours', 'compass', 'tours', 'tours', away(this.hooks.openTours)),
         tile('menu-tonight', 'telescope', 'tileTonight', 'tonight', away(this.hooks.openTonight)),
         tile('menu-compare', 'ruler', 'tileCompare', 'compare', away(this.hooks.openCompare)),

@@ -88,9 +88,11 @@ async function boot(): Promise<void> {
   }
 
   let gaming = false;
+  // a geography lesson owns the globe's layers while it runs: anything that leaves the globe ends it
+  const endLesson = () => { if (document.body.classList.contains('lessoning')) void import('./lessons/player.ts').then(m => m.stopLesson()); };
   const setGameMode = (on: boolean, names?: boolean) => {
     gaming = on;
-    if (on) navSeq++;
+    if (on) { navSeq++; endLesson(); }
     globe.gameMode = on;
     if (on) { shell.showItem(null); shell.toggleMenu(false); shell.time.toggle(false); radio?.toggle(false); }
     document.body.classList.toggle('gaming', on);
@@ -138,6 +140,7 @@ async function boot(): Promise<void> {
   };
   const enterSolar = async (opts: { focus?: string; scale?: ScaleId } = {}) => {
     if (inSolar || gaming) return;
+    endLesson();
     const seq = ++navSeq;
     let ui: SolarUI;
     try { ui = await withBusy(loadSolar()); } catch (e) {
@@ -244,6 +247,22 @@ async function boot(): Promise<void> {
   };
   const openTours = () => toursMod(m => m.openTours(tourHost));
 
+  // ---- geography class (lazy): lessons drawn on the globe, with a quiz at the end ----
+  const lessonsMod = later(() => import('./lessons/player.ts'), () => t('lessons'));
+  const lessonHost: import('./lessons/player.ts').LessonHost = {
+    globe, low: quality.tier === 'low',
+    toEarth: then => {
+      if (inSky) sky?.close();
+      shell.showItem(null); shell.toggleMenu(false);
+      if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+      if (inSolar) leaveSolar(globe.lat, globe.lon, then); else then();
+    },
+    sky: id => tourHost.sky(id, 'model'),
+    blocked: () => gaming,
+  };
+  const openLessons = () => lessonsMod(m => m.openLessons(lessonHost));
+  const startLesson = (id: string) => lessonsMod(m => m.startLesson(id, lessonHost));
+
   // ---- saved views (F02) ----
   const tonightMod = later(() => import('./ui/tonight.ts'), () => t('tonight'));
   const cmpMod = later(() => import('./ui/compare.ts'), () => t('compare'));
@@ -295,7 +314,7 @@ async function boot(): Promise<void> {
   };
   const openPhoto = () => { if (!gaming) photoMod(m => m.openPhotoMode(photoShot())); };
   const openBookmarks = () => bmMod(m => m.openBookmarks({ current: currentView, open: navTo }));
-  const startTour = (id: string) => toursMod(m => m.startTour(id, tourHost));
+  const startTour = (id: string) => { endLesson(); toursMod(m => m.startTour(id, tourHost)); };
 
   const showCollection = () => collectionMod(([{ openCollection }, { openPassport }]) => {
     const passport = () => openPassport({
@@ -309,7 +328,7 @@ async function boot(): Promise<void> {
     openCollection: showCollection,
     openGames: () => { if (!gaming) gamesMod(m => m.openGames(host)); },
     openTutorial: () => openTutorial(openTours),
-    openTours, openBookmarks,
+    openTours, openLessons, openBookmarks,
     openCompare: (id?: string) => cmpMod(m => m.openCompare(id)),
     openTonight: () => tonightMod(m => m.openTonight(navTo)),
     openAccount: () => account(m => m.openAccount()), openGuestbook: () => account(m => void m.openGuestbook()),
@@ -372,6 +391,7 @@ async function boot(): Promise<void> {
     }
     const [head, rest = ''] = hsh.split('/');
     if (head === 'sky') { void openSky(rest || undefined); return; }
+    if (head === 'lesson') { if (rest) startLesson(rest); else openLessons(); history.replaceState(null, '', location.pathname + location.search); return; }
     if (head === 'tour') { if (rest) startTour(rest); else openTours(); history.replaceState(null, '', location.pathname + location.search); return; }
     const scale = SCALE_ROUTES[head];
     if (scale) {

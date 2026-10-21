@@ -28,9 +28,9 @@ export function setStill(v: boolean): void {
 
 export function onClassroom(fn: () => void): () => void { listeners.add(fn); return () => listeners.delete(fn); }
 
-/** The link a teacher shares: classroom on, straight into one tour. */
-export function classroomLink(tour: string): string {
-  return `${location.origin}${location.pathname}?class=1#tour/${tour}`;
+/** The link a teacher shares: classroom on, straight into one tour or lesson. */
+export function classroomLink(id: string, kind: 'tour' | 'lesson' = 'tour'): string {
+  return `${location.origin}${location.pathname}?class=1#${kind}/${id}`;
 }
 
 export function apply(): void {

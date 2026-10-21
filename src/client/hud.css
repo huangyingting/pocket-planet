@@ -487,6 +487,44 @@ body:has(.sky) .tour .tour-card.tour-card { left: 22px; right: auto; top: 112px;
 .tour-row .tour-link { width: 44px; height: auto; flex: none; }
 @media (max-width: 760px) { .tour-pick .meta { display: none; } .tour-pick { gap: 10px; padding: 10px; } }
 
+/* ---- Geography class: labels that ride on the globe, the lesson clock, the quiz ---- */
+.lesson-marks { position: fixed; inset: 0; pointer-events: none; z-index: 1; overflow: hidden; }
+body:has(.sky) .lesson-marks, body.solar .lesson-marks { display: none; }
+.lesson-mark { position: absolute; left: 0; top: 0; --c: var(--text); color: var(--c); white-space: nowrap; font-size: .8rem; font-weight: 600; line-height: 1.2;
+  padding: 2px 7px; background: rgba(8, 12, 20, .62); border-left: 2px solid var(--c); text-shadow: 0 1px 2px #000; will-change: transform; }
+.lesson-mark:empty { display: none; }
+.lesson-mark.big { font-size: .95rem; letter-spacing: .02em; }
+.lesson-mark.dot::before { content: ""; position: absolute; left: 2px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: var(--c);
+  box-shadow: 0 0 0 0 var(--c); animation: lesson-ping 1.8s infinite; }
+.lesson-mark.dot { padding-left: 16px; border-left: 0; background: linear-gradient(90deg, transparent 12px, rgba(8, 12, 20, .62) 12px); }
+@keyframes lesson-ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c) 70%, transparent); } 100% { box-shadow: 0 0 0 12px transparent; } }
+.lesson-sun { position: absolute; left: 0; top: 0; visibility: hidden; width: 12px; height: 12px; border-radius: 50%;
+  background: radial-gradient(circle, #fffbe6 0 35%, #ffd24a 70%); box-shadow: 0 0 14px 6px rgba(255, 200, 60, .6); }
+.lesson-sun::after { content: attr(data-label); position: absolute; left: 20px; top: -3px; white-space: nowrap; color: #ffd24a; font-size: .78rem; font-weight: 600; text-shadow: 0 1px 2px #000; }
+.lesson-clock { display: flex; align-items: center; gap: 8px; margin: 2px 0; }
+.lesson-clock input[type=range] { flex: 1; min-width: 60px; accent-color: var(--accent); }
+.lesson-time { font-family: var(--font-hud); font-size: .8rem; color: var(--hud-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lesson-ico { color: var(--accent); display: inline-flex; }
+.lesson-sky { align-self: flex-start; display: inline-flex; gap: 6px; align-items: center; }
+.lesson-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.lesson-opt { justify-content: flex-start; text-align: left; white-space: normal; min-height: 40px; height: auto; padding: 6px 10px; line-height: 1.3; }
+.lesson-opt.right { border-color: #51cf66 !important; color: #8ce99a; background: rgba(81, 207, 102, .14); }
+.lesson-opt.wrong { border-color: #ff6b6b !important; color: #ffa8a8; background: rgba(255, 107, 107, .12); }
+.lesson-opt[disabled] { opacity: 1; cursor: default; }
+.lesson-tap { display: inline-flex; gap: 6px; align-items: center; margin: 0; color: var(--accent); }
+.lesson-tap:has(span:empty) { display: none; }
+.lesson-why { margin: 0; padding: 6px 10px; line-height: 1.5; border-left: 3px solid; font-size: .92rem; }
+.lesson-why.ok { border-color: #51cf66; background: rgba(81, 207, 102, .08); }
+.lesson-why.no { border-color: #ff6b6b; background: rgba(255, 107, 107, .08); }
+.lesson-card .row { flex-wrap: wrap; }
+.lesson-group { display: grid; gap: 8px; }
+.lesson-grade { margin: 6px 0 0; font-family: var(--font-hud); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--hud-dim); }
+@media (max-width: 760px) {
+  .lesson-opts { grid-template-columns: 1fr; }
+  .lesson-mark { font-size: .72rem; padding: 1px 5px; }
+  .lesson-mark.big { font-size: .82rem; }
+}
+
 /* ---- Classroom mode: projector-size text, fewer controls, no third-party content ---- */
 .class-badge { display: none; }
 html.classroom { font-size: 112.5%; }

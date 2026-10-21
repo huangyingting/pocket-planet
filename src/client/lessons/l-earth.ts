@@ -1,0 +1,184 @@
+/** 七上 · 地球和地图 (1): shape and size, latitude and longitude, hemispheres, rotation. */
+import { C, T, arrows, mer, mk, par, type Lesson } from './kit.ts';
+
+const unit = ['The Earth and maps', '地球和地图'] as const;
+
+export const EARTH_A: Lesson[] = [
+  {
+    id: 'shape', grade: 'g7a', unit, icon: 'globe', minutes: 4,
+    title: ['The shape and size of the Earth', '地球的形状和大小'],
+    blurb: ['A sphere slightly flattened at the poles: how we know, and how big it is.', '地球是两极稍扁的球体：人们是怎么知道的，它有多大。'],
+    steps: [
+      {
+        title: ['A sphere in space', '太空中的球体'], cam: [20, 110, 3.2],
+        lines: [par(0, C.gold, 0.2, { dur: 3, w: 1.4 })],
+        marks: [mk([0, 110], 'Equator ≈ 40,000 km around', '赤道周长约 4 万千米', { t: 2.5, c: C.gold, big: true })],
+        body: ['Photos from space show it plainly: the Earth is a sphere. Its average radius is about 6,371 km, the equator is about 40,000 km long, and its surface covers about 510 million km².',
+          '从太空拍的照片一眼就能看出：地球是一个球体。地球的平均半径约 6371 千米，赤道周长约 4 万千米，表面积约 5.1 亿平方千米。'],
+      },
+      {
+        title: ['Sailing all the way round', '一直向西航行'], cam: [0, -60, 4.2], items: ['vy_magellan'],
+        marks: [mk([37.4, -6.0], 'Seville, 1519', '塞维利亚，1519 年', { dot: true, c: C.gold })],
+        body: ['In 1519 Magellan\'s fleet left Spain and kept sailing west. In 1522 the one surviving ship came back to Spain from the east: the first voyage round the world, and strong proof that the Earth is round.',
+          '1519 年，麦哲伦船队从西班牙出发，一直向西航行。1522 年，仅剩的一艘船从东边回到了西班牙。这是人类第一次环球航行，有力地证明了地球是球形的。'],
+      },
+      {
+        title: ['Clues you can see', '生活中的证据'], cam: [10, 20, 5.5], night: true,
+        body: ['Long before spaceflight there were clues: a ship sailing away disappears hull first, mast last; in a lunar eclipse the Earth\'s shadow on the Moon is always round; and the higher you climb, the farther you can see.',
+          '在人类进入太空之前，就有很多证据：远去的帆船总是船身先消失、桅杆后消失；月食时，地球投在月球上的影子总是圆的；站得越高，看得越远。'],
+      },
+      {
+        title: ['Slightly flattened', '两极稍扁'], cam: [15, 30, 3.6],
+        lines: [par(0, C.gold, 0, { dur: 1.6 }), mer(30, C.teal, 0.8, { dur: 2 })],
+        marks: [mk([0, 30], 'Equatorial radius 6,378 km', '赤道半径 6378 千米', { t: 1.5, c: C.gold }), mk([60, 30], 'Polar radius 6,357 km', '极半径 6357 千米', { t: 2.6, c: C.teal })],
+        body: ['The Earth is not a perfect ball. Spinning makes it bulge slightly at the equator: the equatorial radius is about 21 km longer than the polar radius. That is tiny next to its size, so a globe is a very good model.',
+          '地球并不是一个完美的正球体。由于自转，赤道略鼓、两极稍扁：赤道半径比极半径长约 21 千米。和地球的大小相比，这点差别非常小，所以地球仪是很好的模型。'],
+      },
+    ],
+    quiz: [
+      { q: ['The Earth\'s average radius is about…', '地球的平均半径约为'], options: [['6,371 km', '6371 千米'], ['637 km', '637 千米'], ['63,710 km', '63710 千米'], ['40,000 km', '4 万千米']], answer: 0,
+        why: ['About 6,371 km. 40,000 km is the length of the equator.', '约 6371 千米。4 万千米是赤道的周长。'] },
+      { q: ['Which voyage first went all the way round the world?', '人类第一次环球航行是'], options: [['Magellan\'s fleet', '麦哲伦船队'], ['Zheng He\'s fleet', '郑和船队'], ['Columbus', '哥伦布'], ['Apollo 11', '阿波罗 11 号']], answer: 0,
+        why: ['Magellan\'s fleet (1519–1522) sailed west and came home from the east.', '麦哲伦船队（1519—1522 年）一直向西航行，最后从东边回到出发地。'] },
+      { q: ['Find Spain, where Magellan\'s fleet set out.', '在地球上点出麦哲伦船队出发的国家——西班牙。'], at: [40, -4], tolKm: 700,
+        why: ['Spain is in south-west Europe, on the Iberian Peninsula.', '西班牙位于欧洲西南部的伊比利亚半岛。'] },
+    ],
+  },
+  {
+    id: 'graticule', grade: 'g7a', unit, icon: 'grid', minutes: 5,
+    title: ['Latitude and longitude', '经线和纬线'],
+    blurb: ['Parallels and meridians: the grid that gives every place an address.', '纬线和经线：给地球上每个地方一个“地址”。'],
+    steps: [
+      {
+        title: ['Parallels', '纬线'], cam: [25, 100, 3.8],
+        lines: [0, 15, -15, 30, -30, 45, -45, 60, -60, 75, -75].map((la, i) => par(la, la ? C.blue : C.gold, i * 0.35, { dur: 1.6 })),
+        marks: [mk([0, 100], '0° Equator', '0° 赤道', { c: C.gold, t: 0.6 }), mk([30, 100], '30°N', '北纬 30°', { t: 1.5 }), mk([60, 100], '60°N', '北纬 60°', { t: 2.8 }), mk([-30, 100], '30°S', '南纬 30°', { t: 1.9 })],
+        body: ['Parallels are circles parallel to the equator. They get shorter toward the poles, and shrink to a point at each pole. Latitude runs from 0° at the equator to 90°: north of it is north latitude (N), south of it south latitude (S).',
+          '纬线是和赤道平行的圆圈，从赤道向两极逐渐变短，到南北两极缩成一个点。纬度从赤道的 0° 向南北各增加到 90°：赤道以北是北纬（N），以南是南纬（S）。'],
+      },
+      {
+        title: ['Meridians', '经线'], cam: [35, 0, 3.4], items: ['sp_greenwich'],
+        lines: [0, 30, -30, 60, -60, 90, -90, 120, -120, 150, -150, 180].map((lo, i) => mer(lo, lo ? C.teal : C.gold, i * 0.3, { dur: 1.4 })),
+        marks: [mk([51.5, 0], 'Greenwich: 0°', '格林尼治：0°', { c: C.gold, dot: true }), mk([20, 30], '30°E', '东经 30°', { t: 1 }), mk([20, -30], '30°W', '西经 30°', { t: 1.3 })],
+        body: ['Meridians are half-circles joining the North and South Poles, and all are the same length. The 0° meridian (the prime meridian) passes through the old Royal Observatory at Greenwich, London. East of it is east longitude (E), west of it west longitude (W), up to 180°.',
+          '经线是连接南北两极的半圆，所有经线都一样长。0° 经线叫本初子午线，经过英国伦敦格林尼治天文台旧址。它以东是东经（E），以西是西经（W），各到 180°。'],
+      },
+      {
+        title: ['Low, middle and high latitudes', '低、中、高纬度'], cam: [20, 60, 4], graticule: true,
+        paint: [
+          { fill: { k: 'band', s: -30, n: 30, c: C.red }, a: 0.4 },
+          { fill: { k: 'band', s: 30, n: 60, c: C.gold }, t: 0.6, a: 0.4 }, { fill: { k: 'band', s: -60, n: -30, c: C.gold }, t: 0.6, a: 0.4 },
+          { fill: { k: 'band', s: 60, n: 90, c: C.blue }, t: 1.2, a: 0.45 }, { fill: { k: 'band', s: -90, n: -60, c: C.blue }, t: 1.2, a: 0.45 },
+        ],
+        marks: [mk([10, 60], 'Low latitudes 0–30°', '低纬度 0°—30°', { c: C.red, t: 0.3 }), mk([45, 60], 'Middle latitudes 30–60°', '中纬度 30°—60°', { c: C.gold, t: 0.9 }), mk([70, 60], 'High latitudes 60–90°', '高纬度 60°—90°', { c: C.blue, t: 1.5 })],
+        body: ['Latitudes from 0° to 30° are low latitudes, 30° to 60° middle latitudes and 60° to 90° high latitudes. Most of China lies in the middle latitudes.',
+          '0°—30° 是低纬度，30°—60° 是中纬度，60°—90° 是高纬度。我国大部分地区位于中纬度。'],
+      },
+      {
+        title: ['An address on the grid', '经纬网定位'], cam: [38, 116, 2.4], items: ['forbidden'],
+        lines: [{ pts: [[40, 70], [40, 116], [40, 160]], c: C.gold, rhumb: true, dur: 1.4 }, { pts: [[0, 116], [40, 116], [70, 116]], c: C.teal, rhumb: true, t: 0.6, dur: 1.4 }],
+        marks: [mk([40, 116.4], 'Beijing ≈ 40°N, 116°E', '北京 ≈ 北纬 40°，东经 116°', { t: 2, dot: true, c: C.gold, big: true })],
+        body: ['A parallel and a meridian cross at exactly one point, so a latitude and a longitude together pin down any place. Beijing is at about 40°N, 116°E.',
+          '一条纬线和一条经线只相交于一点，所以用纬度和经度就能确定任何地方的位置。北京大约在北纬 40°、东经 116°。'],
+      },
+    ],
+    quiz: [
+      { q: ['How do parallels change from the equator to the poles?', '纬线从赤道向两极'], options: [['They get shorter', '逐渐变短'], ['They get longer', '逐渐变长'], ['They stay the same', '长度不变'], ['They all meet at Greenwich', '都交于格林尼治']], answer: 0,
+        why: ['The equator is the longest parallel; at the poles a parallel shrinks to a point.', '赤道是最长的纬线，到两极缩成一个点。'] },
+      { q: ['The prime meridian (0°) passes through…', '本初子午线（0° 经线）经过'], options: [['Greenwich, London', '英国伦敦格林尼治天文台旧址'], ['Beijing', '北京'], ['The North Pole only', '只经过北极点'], ['The equator only', '只经过赤道']], answer: 0,
+        why: ['It passes through the old Royal Observatory at Greenwich (and, like every meridian, through both poles).', '它经过格林尼治天文台旧址（和所有经线一样，也经过南北两极）。'] },
+      { q: ['Find the point at 0° latitude, 0° longitude.', '在地球上点出 0° 纬线和 0° 经线的交点。'], at: [0, 0], tolKm: 700,
+        why: ['It lies in the Gulf of Guinea, off West Africa.', '这个点在非洲西部的几内亚湾海面上。'] },
+    ],
+  },
+  {
+    id: 'hemispheres', grade: 'g7a', unit, icon: 'compass', minutes: 4,
+    title: ['Hemispheres', '半球的划分'],
+    blurb: ['North and south, east and west, and why the east–west line is at 20°W and 160°E.', '南北半球和东西半球，以及为什么东西半球以 20°W 和 160°E 为界。'],
+    steps: [
+      {
+        title: ['Northern and Southern', '南北半球'], cam: [10, 100, 4.2],
+        lines: [par(0, C.gold, 0, { dur: 1.6, w: 1.4 })],
+        paint: [{ fill: { k: 'band', s: 0, n: 90, c: C.blue }, t: 0.5, a: 0.38 }, { fill: { k: 'band', s: -90, n: 0, c: C.orange }, t: 1.1, a: 0.38 }],
+        marks: [mk([40, 100], 'Northern Hemisphere', '北半球', { big: true, c: C.blue, t: 0.6 }), mk([-35, 100], 'Southern Hemisphere', '南半球', { big: true, c: C.orange, t: 1.2 })],
+        body: ['The equator divides the Earth into the Northern and Southern Hemispheres. There is much more land in the north.',
+          '赤道把地球分为北半球和南半球。北半球的陆地比南半球多得多。'],
+      },
+      {
+        title: ['Eastern and Western', '东西半球'], cam: [15, 70, 4.4],
+        lines: [mer(-20, C.gold, 0, { w: 1.4 }), mer(160, C.gold, 0.4, { w: 1.4 })],
+        paint: [{ fill: { k: 'strip', w: -20, e: 160, c: C.green }, t: 0.8, a: 0.36 }, { fill: { k: 'strip', w: 160, e: -20, c: C.violet }, t: 1.2, a: 0.36 }],
+        marks: [mk([20, 70], 'Eastern Hemisphere', '东半球', { big: true, c: C.green, t: 1 }), mk([30, -20], '20°W', '西经 20°', { c: C.gold, t: 0.5 }), mk([30, 160], '160°E', '东经 160°', { c: C.gold, t: 0.8 })],
+        body: ['East and west are divided along 20°W and 160°E, not along 0° and 180°. The 0° meridian would cut through Europe and Africa; the 20°W–160°E circle runs almost entirely over sea.',
+          '东西半球的分界线是 20°W 和 160°E 组成的经线圈，而不是 0° 和 180°。如果用 0° 经线，会把欧洲和非洲的一些国家分在两个半球；20°W 和 160°E 几乎都从海洋上通过。'],
+      },
+      {
+        title: ['Where is China?', '中国在哪个半球'], cam: [32, 105, 2.8], items: ['forbidden'],
+        paint: [{ fill: { k: 'land', a2: ['CN', 'TW'], c: C.red }, a: 0.55 }],
+        lines: [par(0, C.gold, 0.5, { dur: 1.4 }), mer(160, C.gold, 0.8)],
+        body: ['China lies entirely north of the equator and between 20°W and 160°E, so it is in both the Northern and the Eastern Hemisphere.',
+          '中国全部位于赤道以北，又在 20°W 以东、160°E 以西，所以中国既在北半球，也在东半球。'],
+      },
+      {
+        title: ['Reading positions', '用经纬网判断位置'], cam: [40, 60, 4.4], items: ['forbidden', 'bigben'],
+        lines: [{ pts: [[51.5, -40], [51.5, 0], [51.5, 40]], c: C.teal, rhumb: true, dur: 1 }, { pts: [[20, 0], [51.5, 0], [70, 0]], c: C.teal, rhumb: true, dur: 1, t: 0.3 },
+          { pts: [[40, 80], [40, 116], [40, 150]], c: C.gold, rhumb: true, dur: 1, t: 1 }, { pts: [[10, 116], [40, 116], [70, 116]], c: C.gold, rhumb: true, dur: 1, t: 1.3 }],
+        marks: [mk([51.5, 0], 'London 51.5°N, 0°', '伦敦 51.5°N，0°', { dot: true, c: C.teal, t: 1 }), mk([40, 116.4], 'Beijing 40°N, 116°E', '北京 40°N，116°E', { dot: true, c: C.gold, t: 2 })],
+        body: ['The prime meridian passes through London, so London is on the line between east and west longitude, but it lies in the Eastern Hemisphere because it is east of 20°W. Beijing is at 40°N, 116°E.',
+          '本初子午线经过伦敦，所以伦敦在东经和西经的分界上；但它在 20°W 以东，所以属于东半球。北京位于 40°N、116°E。'],
+      },
+    ],
+    quiz: [
+      { q: ['The Eastern and Western Hemispheres are divided by…', '东西半球的分界线是'], options: [['20°W and 160°E', '20°W 和 160°E 组成的经线圈'], ['0° and 180°', '0° 和 180° 经线'], ['The equator', '赤道'], ['The Tropic of Cancer', '北回归线']], answer: 0,
+        why: ['20°W and 160°E, so no country in Europe or Africa is split in two.', '是 20°W 和 160°E，这样就不会把欧洲、非洲的国家分到两个半球。'] },
+      { q: ['China is in the…', '中国位于'], options: [['Northern and Eastern Hemispheres', '北半球和东半球'], ['Southern and Eastern Hemispheres', '南半球和东半球'], ['Northern and Western Hemispheres', '北半球和西半球'], ['Southern and Western Hemispheres', '南半球和西半球']], answer: 0,
+        why: ['All of China is north of the equator and between 20°W and 160°E.', '中国全部在赤道以北，又在 20°W 和 160°E 之间。'] },
+      { q: ['Find the place at about 40°N, 116°E.', '在地球上点出大约 40°N、116°E 的地方。'], at: [40, 116.4], tolKm: 500,
+        why: ['That is Beijing.', '这里是北京。'] },
+    ],
+  },
+  {
+    id: 'rotation', grade: 'g7a', unit, icon: 'reset', minutes: 5,
+    title: ['The Earth\'s rotation', '地球的自转'],
+    blurb: ['West to east, once a day: day and night, and why clocks differ around the world.', '自西向东，一天一圈：昼夜交替和时间差异。'],
+    steps: [
+      {
+        title: ['West to east', '自西向东转'], cam: [20, 0, 3.6], follow: 55, night: true,
+        clock: { mode: 'day', start: T.dawnBeijing, rate: 2.4 },
+        lines: arrows([[[0, -150], [0, -115]], [[0, -60], [0, -25]], [[0, 30], [0, 65]], [[0, 120], [0, 155]], [[35, -100], [35, -70]], [[35, 80], [35, 110]]], C.gold),
+        body: ['The Earth spins around its axis from west to east, once about every 24 hours. Here the Sun stays still and you watch the ground turn: the arrows ride along with it.',
+          '地球绕着地轴自西向东旋转，大约 24 小时转一圈。这里让太阳保持不动，你看到的是地面在转动，箭头也跟着地面一起走。'],
+      },
+      {
+        title: ['Day and night take turns', '昼夜交替'], cam: [72, -160, 3.6], night: true, items: ['templeofheaven', 'liberty'],
+        clock: { mode: 'day', start: T.dawnBeijing, rate: 2 },
+        marks: [mk([39.9, 116.4], 'Beijing', '北京', { dot: true, c: C.gold }), mk([40.7, -74], 'New York', '纽约', { dot: true, c: C.teal })],
+        body: ['Only half of the Earth faces the Sun at a time. As it turns, every place moves from day into night and back. When it is daytime in Beijing, it is night in New York, on the other side of the world.',
+          '地球同一时间只有一半被太阳照亮。随着地球自转，各地轮流经历白天和黑夜。北京是白天的时候，地球另一边的纽约正是夜晚。'],
+      },
+      {
+        title: ['Seen from above the North Pole', '从北极上空看'], cam: [88, 0, 3.6], night: true,
+        clock: { mode: 'day', start: T.dawnBeijing, rate: 2.4 },
+        lines: arrows([[[60, 0], [60, 40]], [[60, 90], [60, 130]], [[60, 180], [60, -140]], [[60, -90], [60, -50]]], C.gold),
+        body: ['From above the North Pole the Earth turns anticlockwise; from above the South Pole, clockwise. Watch the day/night line sweep round: places to the east get sunrise first.',
+          '从北极上空看，地球逆时针旋转；从南极上空看，顺时针旋转。看晨昏线扫过地面：越往东的地方，越早迎来日出。'],
+      },
+      {
+        title: ['Fifteen degrees an hour', '每小时 15°'], cam: [15, 110, 3.8], night: true, sun: true,
+        clock: { mode: 'day', start: T.dawnBeijing, rate: 1.5 },
+        lines: [mer(120, C.gold, 0, { w: 1.2 }), mer(105, C.teal, 0.3), mer(135, C.teal, 0.5)],
+        marks: [mk([45, 120], '120°E: Beijing Time', '东经 120°：北京时间', { c: C.gold, t: 0.4 })],
+        body: ['The overhead Sun moves 15° of longitude west every hour (360° ÷ 24). So places 15° apart differ by one hour of local time, and the east is always ahead. Beijing Time is the local time at 120°E.',
+          '太阳直射点每小时向西移动 15°（360° ÷ 24）。所以经度每相差 15°，地方时就相差 1 小时，东边的时刻总是早于西边。北京时间就是东经 120° 的地方时。'],
+      },
+    ],
+    quiz: [
+      { q: ['Which way does the Earth spin?', '地球自转的方向是'], options: [['West to east', '自西向东'], ['East to west', '自东向西'], ['North to south', '自北向南'], ['It does not spin', '不旋转']], answer: 0,
+        why: ['West to east: that is why the Sun rises in the east.', '自西向东，所以太阳从东方升起。'] },
+      { q: ['How long does one rotation take?', '地球自转一周大约需要'], options: [['About a day', '约一天'], ['About a year', '约一年'], ['About a month', '约一个月'], ['About an hour', '约一小时']], answer: 0,
+        why: ['About 24 hours, which gives us day and night.', '约 24 小时，产生了昼夜交替。'] },
+      { q: ['Places 15° of longitude apart differ in local time by…', '经度相差 15°，地方时相差'], options: [['1 hour', '1 小时'], ['15 minutes', '15 分钟'], ['15 hours', '15 小时'], ['1 day', '1 天']], answer: 0,
+        why: ['360° in 24 hours is 15° per hour.', '24 小时转 360°，每小时 15°。'] },
+    ],
+  },
+];

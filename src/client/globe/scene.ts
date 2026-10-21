@@ -12,6 +12,7 @@ import { outdoorEnvironment, orientEnvironment } from '../models/environment.ts'
 import { paintNightLights, type CountryInfo } from './painter.ts';
 import { CITIES, cityName } from '../../shared/data/cities.ts';
 import { TYPE_META, type LayerKey } from '../../shared/data/typemeta.ts';
+import { subsolar } from '../../shared/lib/sun.ts';
 import { GlobeLayers, RENDER_ORDER, graticuleStep } from './layers.ts';
 import { buildStarField, gmstRad, SPACE_BG } from '../lib/starfield.ts';
 import type { StationDots } from './stations.ts';
@@ -398,6 +399,26 @@ export class Globe {
   /** Optional extra visibility predicate (e.g. the time machine); selected/ridden items always stay visible. */
   private itemFilter: ((it: CatalogueItem) => boolean) | null = null;
   setItemFilter(fn: ((it: CatalogueItem) => boolean) | null): void { this.itemFilter = fn; this.dirty = true; }
+  /**
+   * Lesson mode (geography lessons): only these items are shown, at any zoom and whatever the layer switches say;
+   * their journeys are drawn in full. `null` = normal browsing.
+   */
+  private lessonKeys: Set<string> | null = null;
+  setLessonItems(keys: Iterable<string> | null): void { this.lessonKeys = keys ? new Set(keys) : null; this.dirty = true; }
+  /** When set, the Sun (day/night line, sub-solar point, stars) is placed for this instant (UTC ms) instead of now. */
+  simTime: number | null = null;
+  /** Show the day/night line even when the "Day & night" setting is off (lessons about rotation and seasons). */
+  forceNight = false;
+  /** Called every frame before the scene renders (lesson overlays); `dt` is real milliseconds. */
+  readonly frameHooks = new Set<(dt: number) => void>();
+  /** Taps on the globe go to `ev.onGlobeTap` instead of picking (lesson "find it on the globe" questions). */
+  captureTaps = false;
+  countryShapes(): readonly CountryInfo[] { return this.countries; }
+  /** Temporary layer switches on top of the user's settings (lessons hide clouds, labels…); never saved. */
+  private layerOverride: Partial<Settings> | null = null;
+  private effective: Settings | null = null;
+  setLayerOverride(o: Partial<Settings> | null): void { this.layerOverride = o; this.effective = null; this.dirty = true; }
+  private get eff(): Settings { return this.layerOverride ? (this.effective ??= { ...this.settings, ...this.layerOverride }) : this.settings; }
   private radio: StationDots | null = null;
   /** The playing radio station (unit vector): the surface ripples spread from it when nothing is selected. */
   beacon: THREE.Vector3 | null = null;
@@ -700,6 +721,7 @@ export class Globe {
   private shown(it: CatalogueItem): boolean {
     const focus = this.selected === it.key || this.ride?.key === it.key;
     if (focus) return true;
+    if (this.lessonKeys) return this.lessonKeys.has(it.key);
     return !this.gameMode && this.settings[TYPE_META[it.type].layer] && this.zoom >= TIER_ZOOM[it.tier] && (!this.itemFilter || this.itemFilter(it));
   }
 
@@ -806,6 +828,7 @@ export class Globe {
   }
 
   applySettings(s: Settings): void {
+    this.effective = null;
     this.settings = { ...DEFAULT_SETTINGS, ...s };
     this.sun.intensity = this.settings.shadows ? 2.6 : 0.9;
     this.ambient.intensity = this.settings.shadows ? 0.18 : 1.3;
@@ -975,7 +998,7 @@ export class Globe {
   private tap(cx: number, cy: number): void {
     const rect = this.renderer.domElement.getBoundingClientRect();
     const x = cx - rect.left, y = cy - rect.top;
-    if (this.gameMode) {
+    if (this.gameMode || this.captureTaps) {
       const ll = this.screenToLatLon(x, y);
       if (ll) this.ev.onGlobeTap?.(ll[0], ll[1]);
       return;
@@ -1298,27 +1321,9 @@ export class Globe {
   }
 
   private updateSun(): void {
-    // Sub-solar point from current UTC time with equation of time (AuraFM solar ephemeris)
-    const now = new Date();
-    const startOfYear = Date.UTC(now.getUTCFullYear(), 0, 0);
-    const doy = (now.getTime() - startOfYear) / 864e5;
-    const gamma = ((2 * Math.PI) / 365) * (doy - 1);
-    const decl =
-      0.006918 -
-      0.399912 * Math.cos(gamma) +
-      0.070257 * Math.sin(gamma) -
-      0.006758 * Math.cos(2 * gamma) +
-      0.000907 * Math.sin(2 * gamma);
-    const eqTime =
-      229.18 *
-      (0.000075 +
-        0.001868 * Math.cos(gamma) -
-        0.032077 * Math.sin(gamma) -
-        0.014615 * Math.cos(2 * gamma) -
-        0.040849 * Math.sin(2 * gamma));
-    const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes() + now.getUTCSeconds() / 60;
-    const subSolarLon = (720 - utcMins - eqTime) / 4;
-    const subSolarLat = (decl * 180) / Math.PI;
+    // Sub-solar point from the current (or lesson) UTC time, with the equation of time
+    const now = new Date(this.simTime ?? Date.now());
+    const [subSolarLat, subSolarLon] = subsolar(now.getTime());
     const real = new THREE.Vector3(...latLonToVec(subSolarLat, subSolarLon));
     const cam = this.camera.position.clone().normalize();
     // The real Sun: the day/night line is where it actually is right now (the "Day & night" switch hides the night)
@@ -1359,7 +1364,7 @@ export class Globe {
     const ru = this.earthUniforms.uReliefMix;
     if (Math.abs(targetRelief - ru.value) > 0.002) { ru.value += (targetRelief - ru.value) * 0.12; this.dirty = true; } else ru.value = targetRelief;
 
-    const targetNightMix = this.settings.shadows ? 1.0 : 0.0;
+    const targetNightMix = this.settings.shadows || this.forceNight ? 1.0 : 0.0;
     this.earthUniforms.uNightMix.value += (targetNightMix - this.earthUniforms.uNightMix.value) * 0.12;
     this.earthUniforms.uAuraColor.value.lerp(this.targetColorA, 0.08);
 
@@ -1377,7 +1382,7 @@ export class Globe {
   }
 
   private updateLabels(): void {
-    if (!this.settings.names || this.ride) { for (const s of this.labelPool) s.style.display = 'none'; return; }
+    if (!this.eff.names || this.ride) { for (const s of this.labelPool) s.style.display = 'none'; return; }
     const z = this.zoom;
     type L = { text: string; cls: string; x: number; y: number; pri: number; corner?: boolean };
     const out: L[] = [];
@@ -1385,7 +1390,7 @@ export class Globe {
       const s = this.project(new THREE.Vector3(...latLonToVec(lat, lon, 1.002)));
       if (s) out.push({ text, cls, x: s.x, y: s.y, pri, corner });
     };
-    if (this.settings.graticule) this.pushGridLabels(push);
+    if (this.eff.graticule) this.pushGridLabels(push);
     if (!this.gameMode || z > 0) {
       for (const c of this.countries) {
         if (!c.a2 || c.area * z * z < 900) continue;
@@ -1468,13 +1473,14 @@ export class Globe {
     this.clock += dt;
     const animate = (!this.lowfx && !motion.still) || now - this.lastLabel > 1000;
     this.updateCamera(real);
+    for (const f of this.frameHooks) f(real);
     // Re-scan the queue when the view changed (or every ¼ s for moving vehicles / freshly loaded packs).
     if (this.pending.size && (this.dirty || now - this.lastDrain > 250)) { this.lastDrain = now; this.drainPlacement(this.quality.drainMs); }
     if (!animate && !this.dirty) return;
     this.updateItems(dt);
     this.updateSun();
     if (this.layers) {
-      this.layers.setVisible(this.settings, this.gameMode);
+      this.layers.setVisible(this.eff, this.gameMode);
       this.layers.update(this.clock, dt, this.camera.position.length() - 1, this.routeState, this.orbitAlt, this.placedObj);
     }
     if (this.radio) {
@@ -1496,6 +1502,7 @@ export class Globe {
 
   // Bound once so the per-frame layer update does not allocate closures.
   private routeState = (it: CatalogueItem): 0 | 1 | 2 => {
+    if (this.lessonKeys) return this.lessonKeys.has(it.key) ? 2 : 0;
     if (this.gameMode || !this.settings[TYPE_META[it.type].layer]) return 0;
     if (this.selected === it.key || this.ride?.key === it.key) return 2;
     return !this.itemFilter || this.itemFilter(it) ? 1 : 0;
