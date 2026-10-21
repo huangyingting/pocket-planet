@@ -494,3 +494,27 @@ body:has(.sky) .tour .tour-card.tour-card { left: 22px; right: auto; top: 112px;
   .tour-body { max-height: 24vh; font-size: .92rem; }
   .tour-card .dots { display: none; }
 }
+
+/* ---- Tour picker ---- */
+.tour-list { display: grid; gap: 10px; }
+.tour-list > p { margin: 0 0 4px; }
+.tour-row { display: flex; gap: 8px; align-items: stretch; }
+.tour-pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 12px 14px; text-align: left; font: inherit; color: var(--text);
+  background: var(--hud-panel, var(--panel2)); border: 1px solid var(--hud-line); border-radius: 0; cursor: pointer; transition: border-color .15s, background .15s; }
+.tour-pick:hover, .tour-pick:focus-visible { border-color: var(--accent); background: var(--hover); }
+.tour-pick .tile { flex: none; width: 42px; height: 42px; display: grid; place-items: center; color: var(--accent); border: 1px solid var(--hud-line); }
+.tour-pick .grow { display: grid; gap: 3px; }
+.tour-pick strong { font-size: 1rem; }
+.tour-pick .small { font-size: .84rem; line-height: 1.4; }
+.tour-pick .meta { flex: none; font-family: var(--font-hud); font-size: .74rem; color: var(--hud-dim); white-space: nowrap; }
+.tour-row .tour-link { width: 44px; height: auto; flex: none; }
+@media (max-width: 760px) { .tour-pick .meta { display: none; } .tour-pick { gap: 10px; padding: 10px; } }
+
+/* ---- Classroom mode: projector-size text, fewer controls, no third-party content ---- */
+.class-badge { display: none; }
+html.classroom { font-size: 112.5%; }
+html.classroom .class-badge { display: inline-block; padding: 2px 8px; font-family: var(--font-hud); font-size: .7rem; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--accent-ink, #000); background: var(--amber, #ffb44a); }
+html.classroom #btn-radio, html.classroom #btn-random, html.classroom .read-more, html.classroom .radio-bar { display: none !important; }
+html.classroom .info-body p, html.classroom .tour-body, html.classroom .solar-info p { line-height: 1.65; }
+.menu-note { margin: 0 0 8px; font-size: .8rem; line-height: 1.45; color: var(--muted); }

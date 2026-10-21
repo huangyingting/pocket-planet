@@ -2,10 +2,11 @@
  * Guided tours: short routes through the scenes that already exist (the globe, the Solar System, the deep-space levels
  * and the sky theatre). A tour only moves the camera/scene and explains; every step can be left for free exploration.
  */
-import { h, openModal, closeModal, confetti } from './dom.ts';
+import { h, openModal, closeModal, confetti, toast } from './dom.ts';
 import { icon, type IconName } from './icons.ts';
 import { t, lang, onLang } from '../lib/i18n.ts';
 import { load, save } from '../lib/storage.ts';
+import { classroomLink } from '../lib/classroom.ts';
 import { skyEvents } from '../../shared/lib/astro/events.ts';
 import { BY_KEY } from '../../shared/data/catalogue.ts';
 
@@ -189,8 +190,17 @@ export function openTours(host: TourHost): void {
   const seen = done();
   openModal('tours', t('tours'), h('div', { class: 'tour-list' },
     h('p', { class: 'muted' }, t('toursIntro')),
-    ...TOURS.map(x => h('button', { class: 'tour-pick', 'data-testid': 'tour-' + x.id, onclick: () => { closeModal('tours'); startTour(x.id, host); } },
-      h('span', { class: 'tile', html: icon(x.icon, 22) }),
-      h('span', { class: 'grow' }, h('strong', {}, L(x.title)), h('span', { class: 'muted small' }, L(x.blurb))),
-      h('span', { class: 'meta' }, (seen.has(x.id) ? '✓ ' : '') + t('minutesN', { n: x.minutes }))))));
+    ...TOURS.map(x => h('div', { class: 'tour-row' },
+      h('button', { class: 'tour-pick', 'data-testid': 'tour-' + x.id, onclick: () => { closeModal('tours'); startTour(x.id, host); } },
+        h('span', { class: 'tile', html: icon(x.icon, 22) }),
+        h('span', { class: 'grow' }, h('strong', {}, L(x.title)), h('span', { class: 'muted small' }, L(x.blurb))),
+        h('span', { class: 'meta' }, (seen.has(x.id) ? '✓ ' : '') + t('minutesN', { n: x.minutes }))),
+      // A teacher's link: opens straight into this tour with classroom mode on.
+      h('button', { class: 'icon-btn tour-link', 'data-testid': 'tour-link-' + x.id, 'aria-label': t('classLink'), title: t('classLink'), html: icon('share', 16),
+        onclick: () => void copyLink(classroomLink(x.id)) })))));
+}
+
+async function copyLink(link: string): Promise<void> {
+  try { await navigator.clipboard.writeText(link); toast(t('classLinkCopied')); }
+  catch { prompt(t('classLink'), link); }
 }

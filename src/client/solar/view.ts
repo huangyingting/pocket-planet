@@ -7,6 +7,7 @@
  * Within `spin`, lat/lon map to directions exactly like the globe (`latLonToVec`), so features and the Earth line up.
  * Three.js axes from ecliptic ones: (x, y, z)₃ = (x, z, −y)ₑ — the ecliptic is the XZ plane and north is +Y.
  */
+import { motion } from '../lib/classroom.ts';
 import * as THREE from 'three';
 import { textW, underUI } from '../ui/occluders.ts';
 import { BODIES, BODY, type BodyId, type SolarBody, type SolarFeature } from '../../shared/data/solar.ts';
@@ -944,7 +945,9 @@ export class SolarView {
     const dt = Math.min(100, now - this.last);
     const frameMs = now - this.last;
     this.last = now;
-    this.simMs += dt * this.speed;
+    // Classroom "pause motion" freezes the sky clock and ambient motion; tweens and the camera keep going.
+    const wdt = motion.still ? 0 : dt;
+    this.simMs += wdt * this.speed;
     this.resize();
     const xf = this.xf;
     let e = 1;
@@ -961,12 +964,12 @@ export class SolarView {
     this.renderer.clear();
     const ws = weight('solar');
     if (ws > 0) {
-      this.updateBodies(dt / 1000);
+      this.updateBodies(wdt / 1000);
       this.updateCamera(dt);
       this.cst.update(this.camera, this.sized.w, this.sized.h, this.discs());
-      this.sunU.uTime.value = now / 1000;
+      if (!motion.still) this.sunU.uTime.value = now / 1000;
       const jup = this.rts.get('jupiter')!.pos, pr = this.renderer.getPixelRatio();
-      this.fx.update({ dt: this.speed === 0 ? 0 : dt / 1000, ms: this.simMs, days: daysJ2000(this.simMs), jup: Math.atan2(-jup.z, jup.x), camera: this.camera, pr,
+      this.fx.update({ dt: this.speed === 0 ? 0 : wdt / 1000, ms: this.simMs, days: daysJ2000(this.simMs), jup: Math.atan2(-jup.z, jup.x), camera: this.camera, pr,
         scale: (this.sized.h * pr) / (2 * Math.tan((this.camera.fov * D2R) / 2)) });
       this.updateLOD();
       this.renderer.render(this.scene, this.camera);

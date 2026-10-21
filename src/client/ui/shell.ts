@@ -20,6 +20,7 @@ import { HAS_API, url } from '../lib/env.ts';
 import { sessionOnly } from '../lib/storage.ts';
 import type { SpaceHit } from '../solar/space-index.ts';
 import { searchAll, type SearchFilter } from '../lib/search.ts';
+import { classroom, setClassroom, setStill, motion, onClassroom } from '../lib/classroom.ts';
 
 export const DEX_ZOOM = 10;
 const LANG_LABEL: Record<Lang, string> = { en: 'English', zh: '中文' };
@@ -77,7 +78,8 @@ export class Shell {
     const top = h('header', { class: 'topbar' },
       h('div', { class: 'brand' },
         h('span', { class: 'brand-mark', 'aria-hidden': 'true' }),
-        h('h1', { 'data-i18n': 'title' }, t('title'))),
+        h('h1', { 'data-i18n': 'title' }, t('title')),
+        h('span', { class: 'class-badge', 'data-testid': 'class-badge', 'data-i18n': 'classroom' }, t('classroom'))),
       this.topSlot,
       h('nav', { class: 'tools', 'aria-label': t('tools') },
         tool('btn-find', 'search', 'search', () => this.openSearch(), 'space-only'),
@@ -103,6 +105,7 @@ export class Shell {
     this.root.append(top, bottomLeft, bottomRight, this.coordEl, this.info, this.menu, this.rideBar, this.time.el, this.tipEl);
     this.renderHints();
     this.renderMenu();
+    onClassroom(() => { if (!this.menu.classList.contains('hidden')) this.renderMenu(); });
     subscribe(() => { if (this.current) this.renderInfo(this.current); if (!this.menu.classList.contains('hidden')) this.renderMenu(); });
     onLang(() => { this.relabel(); this.reader?.relang(); });
     document.addEventListener('keydown', e => {
@@ -261,6 +264,12 @@ export class Shell {
       });
       return h('label', { class: 'switch-card' }, h('span', { class: 'sw-emoji', html: icon(ic, 16) }), h('span', { class: 'sw-label' }, t(key)), input, h('span', { class: 'sw-track', 'aria-hidden': 'true' }));
     };
+    /** A switch that is not a globe setting (classroom mode, pause motion). */
+    const flag = (id: string, ic: IconName, label: string, val: boolean, set: (v: boolean) => void) => {
+      const input = h('input', { type: 'checkbox', role: 'switch', 'data-testid': id, checked: val });
+      input.addEventListener('change', () => { sfx.tap(); set(input.checked); });
+      return h('label', { class: 'switch-card' }, h('span', { class: 'sw-emoji', html: icon(ic, 16) }), h('span', { class: 'sw-label' }, t(label)), input, h('span', { class: 'sw-track', 'aria-hidden': 'true' }));
+    };
     const curMode: SurfaceMode = s.surfaceMode ?? (s.terrain ? 'realistic' : 'political');
     const modeRow = h('div', { class: 'seg-row' },
       ...([
@@ -304,6 +313,10 @@ export class Shell {
       ...earth,
       h('h3', {}, t('mSettings')), h('div', { class: 'grid2' }, sw('sfx', 'sound'), sw('bgm', 'music')),
       row('compass', t('tours'), h('button', { class: 'pill', 'data-testid': 'menu-tours', onclick: () => { this.toggleMenu(false); this.hooks.openTours(); } }, t('open'))),
+      h('h3', {}, t('classroom')),
+      h('p', { class: 'menu-note' }, t('classroomNote')),
+      h('div', { class: 'grid2' }, flag('set-classroom', 'bulb', 'classroom', classroom(), v => { setClassroom(v); if (v) this.toggleReader(false); }),
+        ...(classroom() ? [flag('set-still', 'pause', 'pauseMotion', motion.still, setStill)] : [])),
       row('language', t('language'), sel),
       row('download', t('backup'), h('span', { class: 'row' },
         h('button', { class: 'pill', 'data-testid': 'backup-export', onclick: () => void import('./backup.ts').then(m => m.exportProgress(), () => toast('⚠️ ' + t('loadFail', { s: t('backup') }))) }, t('backupExport')),
@@ -311,7 +324,7 @@ export class Shell {
       ...(sessionOnly() ? [h('p', { class: 'menu-warn', role: 'status' }, t('sessionOnly'))] : []),
       row('reset', t('reset'), h('button', { class: 'pill', 'data-testid': 'reset', onclick: () => { if (confirm(t('resetConfirm'))) { resetSettings(); this.globe.flyTo(25, 40, 2.2); } } }, t('resetBtn'))),
       ...(HAS_API ? [row('user', store.me ? t('signedInAs', { e: store.me.handle ?? store.me.email }) : t('account'), h('button', { class: 'pill', 'data-testid': 'menu-account', onclick: () => { this.toggleMenu(false); this.hooks.openAccount(); } }, store.me ? t('account') : t('signIn'))),
-      row('chat', t('guestbook'), h('button', { class: 'pill', 'data-testid': 'menu-guestbook', onclick: () => { this.toggleMenu(false); this.hooks.openGuestbook(); } }, t('open')))] : []),
+      ...(classroom() ? [] : [row('chat', t('guestbook'), h('button', { class: 'pill', 'data-testid': 'menu-guestbook', onclick: () => { this.toggleMenu(false); this.hooks.openGuestbook(); } }, t('open')))])] : []),
       h('footer', { class: 'menu-links' },
         ...([['about/', 'about', 'bulb'], ['encyclopedia/', 'encyclopedia', 'book'], ['privacy/', 'privacy', 'eye']] as const).map(([href, key, ic]) =>
           h('a', { href: url(href), 'data-testid': 'menu-link-' + key }, h('span', { class: 'ml-ico', html: icon(ic, 15) }), h('span', {}, t(key))))));
@@ -352,7 +365,7 @@ export class Shell {
 
   /** Expands the info card sideways into the Wikipedia reader (lazy-loaded) or folds it back. */
   async toggleReader(open = !this.readerOpen): Promise<void> {
-    if (open === this.readerOpen || (open && !this.current)) return;
+    if (open === this.readerOpen || (open && (!this.current || classroom()))) return;
     this.readerOpen = open;
     this.info.classList.toggle('expanded', open);
     const btn = this.infoMain.querySelector('.read-more');

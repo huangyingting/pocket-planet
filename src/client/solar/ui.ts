@@ -3,6 +3,7 @@
  * controls, and one card for bodies, surface features, explorer sites, deep-space objects and whole scales (same card
  * and Wikipedia reader as on the globe). Lazily loaded together with the view on first entry.
  */
+import { classroom } from '../lib/classroom.ts';
 import { h, toast } from '../ui/dom.ts';
 import { icon } from '../ui/icons.ts';
 import { t, lang, onLang, fmtNum } from '../lib/i18n.ts';
@@ -590,7 +591,7 @@ export class SolarUI {
   }
 
   private async toggleReader(open = !this.readerOpen): Promise<void> {
-    if (open === this.readerOpen || (open && !this.sel)) return;
+    if (open === this.readerOpen || (open && (!this.sel || classroom()))) return;
     this.readerOpen = open;
     this.info.classList.toggle('expanded', open);
     const btn = this.infoMain.querySelector('.read-more');

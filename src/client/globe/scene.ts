@@ -1,3 +1,4 @@
+import { motion } from '../lib/classroom.ts';
 import { t } from '../lib/i18n.ts';
 import * as THREE from 'three';
 import { QUALITY, AdaptiveResolution, type Quality } from './quality.ts';
@@ -1295,11 +1296,13 @@ export class Globe {
     // Phones: when the view is still, ambient animation (clouds, ships, bobbing) runs at a capped rate.
     const idle = !this.dirty && !this.fly && !this.ride && Math.abs(this.vLat) + Math.abs(this.vLon) <= 1e-4;
     if (idle && this.quality.idleFps && now - this.last < 1000 / this.quality.idleFps - 4) return;
-    const dt = Math.min(100, now - this.last);
+    const real = Math.min(100, now - this.last);
     this.last = now;
+    // Classroom "pause motion": the world clock stops; the camera still flies.
+    const dt = motion.still ? 0 : real;
     this.clock += dt;
-    const animate = !this.lowfx || now - this.lastLabel > 1000;
-    this.updateCamera(dt);
+    const animate = (!this.lowfx && !motion.still) || now - this.lastLabel > 1000;
+    this.updateCamera(real);
     // Re-scan the queue when the view changed (or every ¼ s for moving vehicles / freshly loaded packs).
     if (this.pending.size && (this.dirty || now - this.lastDrain > 250)) { this.lastDrain = now; this.drainPlacement(this.quality.drainMs); }
     if (!animate && !this.dirty) return;

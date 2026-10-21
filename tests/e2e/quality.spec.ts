@@ -168,3 +168,35 @@ test('search: catalogue numbers and Chinese aliases, each result says its level'
   await first.click();
   await expect(page).toHaveURL(/#localgroup\/dp_m31|#forbidden/);
 });
+
+test('classroom mode: link turns it on for the visit, hides third-party content, pauses motion', async ({ page }) => {
+  await openApp(page, '/?lowfx=1&notut&class=1');
+  await expect(page.locator('html')).toHaveClass(/classroom/);
+  await expect(page.getByTestId('class-badge')).toBeVisible();
+  await expect(page.locator('#btn-radio')).toBeHidden();
+  await page.goto('/?lowfx=1&notut&class=1#eiffel');
+  await expect(page.locator('.info:not(.hidden)')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('read-more')).toBeHidden();
+  await page.click('#btn-menu');
+  await expect(page.getByTestId('menu-guestbook')).toHaveCount(0);
+  await page.getByTestId('set-still').check({ force: true });
+  await expect(page.locator('body')).toHaveClass(/still/);
+  const clock = () => page.evaluate(() => (window as any).__pp.globe.clock as number);
+  // (lowfx ticks the world about once a second)
+  const c0 = await clock();
+  await page.waitForTimeout(2200);
+  expect(await clock()).toBe(c0);
+  await page.getByTestId('set-still').uncheck({ force: true });
+  await expect.poll(clock, { timeout: 5000 }).toBeGreaterThan(c0);
+  // the link does not stick: a plain visit is back to normal
+  await page.goto('/?lowfx=1&notut');
+  await expect(page.locator('html')).not.toHaveClass(/classroom/);
+  // the menu switch does stick, and teachers get a shareable link per tour
+  await page.click('#btn-menu');
+  await page.getByTestId('set-classroom').check({ force: true });
+  await expect(page.locator('html')).toHaveClass(/classroom/);
+  await page.reload();
+  await expect(page.locator('html')).toHaveClass(/classroom/);
+  await page.goto('/?lowfx=1&notut#tour');
+  await expect(page.getByTestId('tour-link-eclipse')).toBeVisible();
+});

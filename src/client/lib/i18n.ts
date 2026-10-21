@@ -130,6 +130,11 @@ const en: Dict = {
   tourBack: "Back",
   tourStart: "Take a guided tour",
   lvEarth: "Earth",
+  classroom: "Classroom mode",
+  classroomNote: "Bigger text and fewer controls for a projector. No radio, Wikipedia or guestbook.",
+  pauseMotion: "Pause motion",
+  classLink: "Copy a classroom link to this tour",
+  classLinkCopied: "Classroom link copied. It opens this tour with classroom mode on.",
 };
 
 const zh: Dict = {
@@ -259,6 +264,11 @@ const zh: Dict = {
   tourBack: "上一步",
   tourStart: "跟着导览走一走",
   lvEarth: "地球",
+  classroom: "课堂模式",
+  classroomNote: "适合投影的大字号和精简控件；不显示电台、维基百科和留言板。",
+  pauseMotion: "暂停动画",
+  classLink: "复制这条路线的课堂链接",
+  classLinkCopied: "课堂链接已复制，打开后会以课堂模式开始这条路线。",
 };
 
 const DICTS: Record<Lang, Dict> = { en, zh };

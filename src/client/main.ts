@@ -1,3 +1,4 @@
+import { classroom, onClassroom, apply as applyClassroom } from './lib/classroom.ts';
 import './styles.css';
 import './hud.css';
 import './intro.css';
@@ -49,6 +50,7 @@ const loader = document.getElementById('loader');
 
 async function boot(): Promise<void> {
   if (lowfx) document.body.classList.add('lowfx');
+  applyClassroom();
   document.body.classList.add('q-' + quality.tier);
   initTooltips();
   document.documentElement.lang = lang();
@@ -97,7 +99,7 @@ async function boot(): Promise<void> {
   let radio: import('./ui/radio.ts').Radio | null = null;
   const loadRadio = lazy(() => import('./ui/radio.ts'));
   const toggleRadio = async () => {
-    if (gaming || inSolar) return;
+    if (gaming || inSolar || classroom()) return;
     try {
       const m = await withBusy(loadRadio());
       radio = await m.getRadio(globe, app, on => { const b = document.getElementById('btn-radio'); b?.classList.toggle('active', on); b?.setAttribute('aria-pressed', String(on)); });
@@ -106,6 +108,9 @@ async function boot(): Promise<void> {
     if (!radio.active) shell.time.toggle(false);
     radio.toggle();
   };
+
+  // Classroom mode has no live streams: switching it on stops the radio.
+  onClassroom(() => { if (classroom() && radio?.active) radio.toggle(false); });
 
   // ---- Solar System (lazy: its own renderer, loaded on first use) ----
   let solar: SolarUI | null = null;
@@ -302,7 +307,7 @@ async function boot(): Promise<void> {
     if (hsh === 'daily') gamesMod(m => m.openDaily(host));
     else if (hsh === 'placeit' || hsh === 'quiz' || hsh === 'games') gamesMod(m => m.openGames(host));
     else if (hsh === 'collection') showCollection();
-    else if (HAS_API && hsh === 'guestbook') account(m => void m.openGuestbook());
+    else if (HAS_API && hsh === 'guestbook' && !classroom()) account(m => void m.openGuestbook());
     else if (HAS_API && (hsh === 'account' || hsh === 'signed-in')) { if (hsh === 'signed-in') toast('👋 ' + t('synced')); account(m => m.openAccount()); }
     else if (hsh === 'auth-error') toast('⚠️ ' + t('linkExpired'));
     else {

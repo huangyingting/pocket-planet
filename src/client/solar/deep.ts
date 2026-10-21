@@ -4,6 +4,7 @@
  * (three.js (x, z, −y), so the galactic plane is XZ) with its own unit, built on first visit. Everything is additive
  * light on black, so levels cross-fade simply by scaling their brightness. See ADR-017.
  */
+import { motion } from '../lib/classroom.ts';
 import * as THREE from 'three';
 import { textW, underUI } from '../ui/occluders.ts';
 import { DEEP_OBJECTS, type DeepObject, type DeepScale, type DeepKind } from '../../shared/data/cosmos.ts';
@@ -1073,8 +1074,9 @@ export class DeepStage {
   // ---------- frame ----------
   /** Advances tweens of every visible level (`dt` in ms). */
   update(dt: number): void {
-    this.time += dt / 1000;
-    const sec = dt / 1000;
+    // Classroom "pause motion": galaxies stop turning and events hold; camera tweens still run.
+    const sec = motion.still ? 0 : dt / 1000;
+    this.time += sec;
     // Idle: a slow cinematic orbit, easing in.
     const idle = (performance.now() - this.input - 6000) / 4000;
     if (idle > 0 && !this.current.tween) this.az += sec * 0.022 * Math.min(1, idle);
@@ -1100,7 +1102,7 @@ export class DeepStage {
       // in while it is selected and the camera is close; out (and freed) otherwise
       const v = md.R * MODEL_VIEW;
       const on = this.sel?.key === md.key && this.level === md.L.id ? THREE.MathUtils.smoothstep(v * 8, v * 2, md.L.dist) : 0;
-      md.a += (on - md.a) * Math.min(1, sec * 3);
+      md.a += (on - md.a) * Math.min(1, dt / 1000 * 3);
       if (on === 0 && md.a < 0.01 && (this.sel?.key !== md.key || this.level !== md.L.id)) this.dropModel();
     }
     if (this.tweenEl) {
