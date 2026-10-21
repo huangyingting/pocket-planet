@@ -26,6 +26,11 @@ export interface ShellHooks {
   openAccount: () => void; openGuestbook: () => void;
   openSolar: () => void;
   openSky: () => void;
+  /** In space: a picked Earth item first takes you home (true = handled, the shell does nothing more). */
+  toEarth?: (it: CatalogueItem) => boolean;
+  /** In space the +/−/overview buttons drive the space view (true = handled). */
+  zoom?: (inward: boolean) => boolean;
+  overview?: () => void;
 }
 
 export class Shell {
@@ -41,6 +46,9 @@ export class Shell {
   private hints = h('div', { class: 'hints hidden', id: 'hints' });
   private rideBar = h('div', { class: 'ride-bar hidden', 'data-testid': 'ride-bar' });
   private tipEl = h('div', { id: 'tip', class: 'globe-tip hidden', 'aria-hidden': 'true' });
+  /** Top-centre slot: the search bar on Earth, back + breadcrumbs in space. */
+  readonly topSlot = h('div', { class: 'top-center' });
+  private space = false;
   current: CatalogueItem | null = null;
   readonly time: TimeMachine;
 
@@ -49,35 +57,41 @@ export class Shell {
   }
 
   mount(): void {
-    const tool = (id: string, ico: IconName, key: string, fn: () => void) =>
-      h('button', { class: 'tool', id, 'data-testid': id, title: t(key), html: icon(ico, 19), onclick: () => { sfx.tap(); fn(); } },
+    // Global tools stay on every level; `earth-only` ones need the globe and hide in space.
+    const tool = (id: string, ico: IconName, key: string, fn: () => void, cls = '') =>
+      h('button', { class: 'tool' + (cls ? ' ' + cls : ''), id, 'data-testid': id, title: t(key), html: icon(ico, 19), onclick: () => { sfx.tap(); fn(); } },
         h('span', { class: 'sr-only', 'data-i18n': key }, t(key)));
-    const top = h('header', { class: 'topbar' },
-      h('div', { class: 'brand' },
-        h('span', { class: 'brand-mark', 'aria-hidden': 'true' }),
-        h('h1', { 'data-i18n': 'title' }, t('title'))),
+    this.topSlot.append(
       h('div', { class: 'omnibar', role: 'search' },
         h('button', { class: 'omni-search', id: 'btn-search', 'aria-label': t('search'), html: icon('search', 17), onclick: () => { sfx.tap(); this.openSearch(); } },
           h('span', { class: 'omni-placeholder', 'data-i18n': 'searchPlaceholder' }, t('searchPlaceholder')),
           h('kbd', { class: 'omni-kbd', 'aria-hidden': 'true' }, '⌘K')),
-        h('button', { class: 'omni-btn', id: 'btn-random', title: t('randomHop'), 'aria-label': t('randomHop'), html: icon('shuffle', 17), onclick: () => { sfx.tap(); this.randomHop(); } })),
+        h('button', { class: 'omni-btn', id: 'btn-random', title: t('randomHop'), 'aria-label': t('randomHop'), html: icon('shuffle', 17), onclick: () => { sfx.tap(); this.randomHop(); } })));
+    const top = h('header', { class: 'topbar' },
+      h('div', { class: 'brand' },
+        h('span', { class: 'brand-mark', 'aria-hidden': 'true' }),
+        h('h1', { 'data-i18n': 'title' }, t('title'))),
+      this.topSlot,
       h('nav', { class: 'tools', 'aria-label': t('tools') },
-        tool('btn-photo', 'camera', 'photo', this.hooks.openPhoto),
+        tool('btn-find', 'search', 'search', () => this.openSearch(), 'space-only'),
+        tool('btn-photo', 'camera', 'photo', this.hooks.openPhoto, 'earth-only'),
         tool('btn-collection', 'collection', 'collection', this.hooks.openCollection),
-        tool('btn-game', 'game', 'game', this.hooks.openGames),
-        tool('btn-time', 'clock', 'timeMachine', () => this.time.toggle()),
-        tool('btn-solar', 'planet', 'solarSystem', this.hooks.openSolar),
+        tool('btn-game', 'game', 'game', this.hooks.openGames, 'earth-only'),
+        tool('btn-time', 'clock', 'timeMachine', () => this.time.toggle(), 'earth-only'),
+        tool('btn-solar', 'planet', 'solarSystem', this.hooks.openSolar, 'earth-only'),
         tool('btn-sky', 'eclipse', 'skyEvents', this.hooks.openSky),
         h('span', { class: 'tools-sep', 'aria-hidden': 'true' }),
         tool('btn-menu', 'menu', 'menu', () => this.toggleMenu())));
     const bottomLeft = h('div', { class: 'bl' }, this.hints,
       h('button', { class: 'round-btn help', id: 'btn-help', 'aria-label': t('help'), 'aria-expanded': 'false', html: icon('help', 19), onclick: () => this.toggleHints() }));
+    const zoom = (inward: boolean) => { if (!this.hooks.zoom?.(inward)) this.globe.zoomBy(inward ? 1.6 : 1 / 1.6); };
     const bottomRight = h('div', { class: 'br' },
       h('button', { class: 'round-btn', 'aria-label': t('fullscreen'), title: t('fullscreen'), html: icon('expand', 17), onclick: () => this.fullscreen() }),
+      h('button', { class: 'round-btn space-only', 'data-testid': 'btn-overview', 'aria-label': t('overviewScale'), title: t('overviewScale'), html: icon('sun', 17), onclick: () => { sfx.tap(); this.hooks.overview?.(); } }),
       h('div', { class: 'zoom-ctl' },
-        h('button', { id: 'btn-zoom-in', 'aria-label': t('zoomIn'), html: icon('plus', 17), onclick: () => this.globe.zoomBy(1.6) }),
+        h('button', { id: 'btn-zoom-in', 'aria-label': t('zoomIn'), html: icon('plus', 17), onclick: () => zoom(true) }),
         this.zoomEl,
-        h('button', { id: 'btn-zoom-out', 'aria-label': t('zoomOut'), html: icon('minus', 17), onclick: () => this.globe.zoomBy(1 / 1.6) })));
+        h('button', { id: 'btn-zoom-out', 'aria-label': t('zoomOut'), html: icon('minus', 17), onclick: () => zoom(false) })));
     this.root.append(top, bottomLeft, bottomRight, this.coordEl, this.info, this.menu, this.rideBar, this.time.el, this.tipEl);
     this.renderHints();
     this.renderMenu();
@@ -212,9 +226,19 @@ export class Shell {
     if (this.current?.type === 'animal' && close !== this.dexClose) this.renderDexRow();
   }
 
+  /** Switches the global chrome between the globe and the space levels. */
+  setSpace(on: boolean): void {
+    if (this.space === on) return;
+    this.space = on;
+    this.toggleHints(false);
+    this.toggleMenu(false);
+    this.renderHints();
+  }
+
   private renderHints(): void {
+    const keys = this.space ? ['hintSpaceDrag', 'hintSpaceZoom', 'hintSpaceTap', 'hintSpaceRail'] : ['hintDrag', 'hintZoom', 'hintTap'];
     this.hints.replaceChildren(
-      h('p', { html: t('hintDrag') }), h('p', { html: t('hintZoom') }), h('p', { html: t('hintTap') }),
+      ...keys.map(k => h('p', { html: t(k) })),
       h('button', { class: 'chip', id: 'btn-tutorial', onclick: () => { this.toggleHints(false); this.hooks.openTutorial(); } }, t('tutorialAgain')));
   }
   toggleHints(force?: boolean): void {
@@ -299,6 +323,7 @@ export class Shell {
 
   // ---------- info card ----------
   showItem(item: CatalogueItem | null, fly = true): void {
+    if (item && this.hooks.toEarth?.(item)) return;
     const prev = this.current;
     this.current = item;
     this.globe.select(item?.key ?? null);

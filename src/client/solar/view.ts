@@ -8,6 +8,7 @@
  * Three.js axes from ecliptic ones: (x, y, z)₃ = (x, z, −y)ₑ — the ecliptic is the XZ plane and north is +Y.
  */
 import * as THREE from 'three';
+import { textW, underUI } from '../ui/occluders.ts';
 import { BODIES, BODY, type BodyId, type SolarBody, type SolarFeature } from '../../shared/data/solar.ts';
 import { SOLAR_FEATURES } from '../../shared/data/solar-features.ts';
 import { daysJ2000, displayMoonDist, displayOrbit, displayRadius, keplerPosition, poleOf, relativePosition, subSolarLon, type Vec3 } from '../../shared/lib/orbits.ts';
@@ -1053,16 +1054,25 @@ export class SolarView {
         p.copy(rt.pos).project(this.camera);
         show = p.z < 1 && p.z > -1 && Math.abs(p.x) < 1.1 && Math.abs(p.y) < 1.1 && !occluded(rt.pos, rt);
       }
+      let sx = 0, sy = 0;
+      if (show) {
+        // Under its disc, nudged in from the screen edge; dropped if it would land on the chrome.
+        const w = textW(rt.label.textContent ?? '', 8) + 16;
+        sx = THREE.MathUtils.clamp((p.x + 1) / 2 * W, w / 2 + 4, Math.max(w / 2 + 4, W - w / 2 - 4));
+        sy = (1 - p.y) / 2 * H + Math.min(80, (rt.R / dc) * k) + 6;
+        show = sy < H - 20 && !underUI(sx - w / 2, sy, w, 18);
+      }
       rt.label.hidden = !show;
       if (!show) continue;
-      const sx = (p.x + 1) / 2 * W, sy = (1 - p.y) / 2 * H + Math.min(80, (rt.R / dc) * k) + 6;
       rt.label.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px) translateX(-50%)`;
       rt.label.classList.toggle('on', b.id === this.focusId);
     }
     // Comet Encke: named only in the wider views, where its tail is a streak among the planets
     const cp = this.fx.comet.pos;
     p.copy(cp).project(this.camera);
-    const showComet = this.dist > 25 && p.z < 1 && Math.abs(p.x) < 1 && Math.abs(p.y) < 1;
+    const showComet = this.dist > 25 && p.z < 1 && Math.abs(p.x) < 1 && Math.abs(p.y) < 1
+      && (p.x + 1) / 2 * W + 16 + textW(this.cometLabel.textContent ?? '', 8.5) < W - 4
+      && !underUI((p.x + 1) / 2 * W + 8, (1 - p.y) / 2 * H - 20, textW(this.cometLabel.textContent ?? '', 8.5) + 12, 18);
     this.cometLabel.hidden = !showComet;
     if (showComet) this.cometLabel.style.transform = `translate(${((p.x + 1) / 2 * W + 8).toFixed(1)}px, ${((1 - p.y) / 2 * H - 20).toFixed(1)}px)`;
     const placed: [number, number][] = [];
@@ -1095,6 +1105,7 @@ export class SolarView {
         const sx = (p.x + 1) / 2 * W, sy = (1 - p.y) / 2 * H;
         if (sx < 8 || sy < 8 || sx > W - 8 || sy > H - 8) continue;
         const sel = f === this.selFeature;
+        if (underUI(sx - 8, sy - 9, textW(tr(f.name, lang()), 7.5) + 24, 18)) continue;
         // Simple de-clutter: skip labels too close to an already placed (bigger) one.
         if (!sel && placed.some(([x, y]) => Math.abs(x - sx) < 70 && Math.abs(y - sy) < 20)) continue;
         placed.push([sx, sy]);

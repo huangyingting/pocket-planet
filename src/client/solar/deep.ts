@@ -5,6 +5,7 @@
  * light on black, so levels cross-fade simply by scaling their brightness. See ADR-017.
  */
 import * as THREE from 'three';
+import { textW, underUI } from '../ui/occluders.ts';
 import { DEEP_OBJECTS, type DeepObject, type DeepScale, type DeepKind } from '../../shared/data/cosmos.ts';
 import { galVec, NCP_GAL } from '../../shared/lib/sky.ts';
 import type { Vec3 } from '../../shared/lib/orbits.ts';
@@ -16,6 +17,7 @@ import { buildNebula, hasNebulaModel, paintNebulaArt, type NebulaModel } from '.
 import { buildGalaxyModel, galaxyExtentLy, hasGalaxyModel, paintGalaxyArt } from './galaxies.ts';
 import { MILKY_WAY, genericSpiral, gauss, glowCanvas, hashStr, paintBlob, paintCMB, paintDisc, paintNebula, rng, sampleDisc, type DiscDef, type StarCloud } from './cosmos-paint.ts';
 import { cssFont } from '../lib/fonts.ts';
+import { KINDS, Transients, type TransientSource } from './transients.ts';
 
 const D2R = Math.PI / 180;
 /** Local Group: galaxies are drawn this many times their true size. */
@@ -79,6 +81,10 @@ uniform float uTime;
 #ifdef FLOW
 attribute vec3 aEnd; attribute float aPhase;
 #endif
+#ifdef ORBIT
+// axis (unit) and angular speed (rad/s): the point turns about the object's origin (its host galaxy's centre)
+attribute vec4 aOrbit;
+#endif
 varying vec3 vC;
 void main() {
   vec3 p = position; float k = 1.0;
@@ -86,6 +92,10 @@ void main() {
   float f = fract(uTime * 0.035 + aPhase);
   p = mix(position, aEnd, f * f * (3.0 - 2.0 * f) * 0.85 + f * 0.15);
   k = sin(3.14159 * f);
+#endif
+#ifdef ORBIT
+  float oa = uTime * aOrbit.w, oc = cos(oa), os = sin(oa);
+  p = p * oc + cross(aOrbit.xyz, p) * os + aOrbit.xyz * dot(aOrbit.xyz, p) * (1.0 - oc);
 #endif
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   gl_Position = projectionMatrix * mv;
@@ -163,6 +173,10 @@ interface LevelRT {
   /** Re-painters of in-scene text tags (run on language change). */
   texts: (() => void)[];
   pulse?: THREE.Sprite;
+  /** Supernovae, novae, flares, bursts: brief flashes at their real relative rates. */
+  events?: Transients;
+  /** Sprites whose brightness wanders (quasars): material, seed. */
+  flicker: [THREE.SpriteMaterial, number][];
 }
 
 export interface DeepEvents {
@@ -227,10 +241,11 @@ export class DeepStage {
     const homeLabel = document.createElement('button');
     homeLabel.className = 'dl-label home';
     homeLabel.dataset.testid = 'deep-home';
+    homeLabel.hidden = true;
     homeLabel.onclick = () => this.ev.onDown?.();
     labels.append(homeLabel);
     L = { id, def: LEVELS[id], scene: new THREE.Scene(), labels, objs: [], homeLabel, home: new THREE.Vector3(), defTarget: new THREE.Vector3(),
-      target: new THREE.Vector3(), dist: LEVELS[id].defLy / LEVELS[id].unit, tween: null, pts: [], fades: [], w: 0, root: new THREE.Group(), spin: 0, angle: 0, spinners: [], texts: [] };
+      target: new THREE.Vector3(), dist: LEVELS[id].defLy / LEVELS[id].unit, tween: null, pts: [], fades: [], w: 0, root: new THREE.Group(), spin: 0, angle: 0, spinners: [], texts: [], flicker: [] };
     L.scene.add(L.root);
     this.levels.set(id, L);
     if (id === 'galaxy') this.buildGalaxy(L);
@@ -244,6 +259,7 @@ export class DeepStage {
       label.dataset.testid = o.key;
       label.style.setProperty('--c', kindColor(o.kind));
       label.innerHTML = '<i></i><span></span>';
+      label.hidden = true;
       label.onclick = () => this.select(o);
       labels.append(label);
       L.objs.push({ o, pos: scenePos(o.l, o.b, o.distLy, id), label, rank: o.rank ?? 1 });
@@ -274,6 +290,23 @@ export class DeepStage {
     p.frustumCulled = false;
     L.root.add(p);
     return p;
+  }
+
+  /** Per-point orbit (axis ⟂ position, ω from a flat rotation curve: v/r). `share` points move together (a knot). */
+  private static orbits(pos: Float32Array, n: number, w0: number, r: () => number, share = 1, axis?: (i: number, v: THREE.Vector3) => THREE.Vector3 | null): Float32Array {
+    const o = new Float32Array(n * 4), v = new THREE.Vector3(), a = new THREE.Vector3(), q = new THREE.Vector3();
+    for (let i = 0; i < n; i += share) {
+      v.fromArray(pos, i * 3);
+      const d = Math.max(1e-3, v.length()), fixed = axis?.(i, v);
+      if (fixed) a.copy(fixed);
+      else {
+        a.crossVectors(v, q.set(gauss(r), gauss(r), gauss(r))).normalize();
+        if (r() < 0.5) a.negate(); // halo orbits have no common sense of rotation
+      }
+      const w = w0 / d;
+      for (let k = i; k < Math.min(n, i + share); k++) o.set([a.x, a.y, a.z, w], k * 4);
+    }
+    return o;
   }
 
   private fadeMat<M extends THREE.Material & { opacity: number }>(L: LevelRT, m: M): M { L.fades.push([m, m.opacity]); return m; }
@@ -331,7 +364,11 @@ export class DeepStage {
       hc.set(glob ? [1, 0.85, 0.55] : [0.5, 0.48, 0.45], i * 3);
       hs[i] = glob ? 0.9 : 0.35;
     }
-    maxPx(this.points(L, hp, hc, hs, nh, { TWINKLE: '' }), 5);
+    // Halo stars and globular clusters don't share the disc's turn: each swings round the centre on its own tilted
+    // orbit (the Sun's 230 Myr turn at r = 26 sets the pace; flat rotation curve, so ω ∝ 1/r).
+    const ho = DeepStage.orbits(hp, nh, Math.abs(L.spin) * 26, r);
+    for (let i = 0; i < nh; i++) ho[i * 4 + 3] = Math.min(ho[i * 4 + 3], 0.03);
+    L.scene.add(maxPx(this.points(L, hp, hc, hs, nh, { TWINKLE: '', ORBIT: '' }, g => g.setAttribute('aOrbit', new THREE.BufferAttribute(ho, 4))), 5));
     // the same deep-space dress as the Local Group: dark-matter halo glow, faint gas, radar rings, far galaxies
     this.sprite(L, new THREE.CanvasTexture(haloCanvas()), 2 * 1.3e5 / L.def.unit, new THREE.Vector3(), '#5b7cff', 0.32);
     this.gas(L, [
@@ -353,6 +390,34 @@ export class DeepStage {
       if (o.scale !== 'galaxy' || (o.kind !== 'nebula' && o.kind !== 'remnant' && o.kind !== 'starcluster')) continue;
       this.stand.set(o.key, [this.sprite(L, glow, Math.max(0.35, Math.min(1.6, (o.sizeLy ?? 100) / 120)), scenePos(o.l, o.b, o.distLy, 'galaxy'), kindColor(o.kind), 0.5).material]);
     }
+    // Core-collapse supernovae go off among young blue stars in the arms; white-dwarf (Ia) ones anywhere in the disc;
+    // novae crowd the old bulge. Real rates ~2 SNe per century vs ~50 novae a year: novae are far more frequent.
+    const P = DeepStage.discToThree(cloud, 1), young: number[] = [], bulge: number[] = [];
+    for (let i = 0; i < cloud.n; i++) {
+      if (cloud.col[i * 3 + 2] > cloud.col[i * 3] * 1.08) young.push(i);
+      if (Math.hypot(P[i * 3], P[i * 3 + 2]) < MILKY_WAY.R * 0.3) bulge.push(i);
+    }
+    const star = (list: number[] | null) => () => {
+      const i = list?.length ? list[Math.floor(Math.random() * list.length)] : Math.floor(Math.random() * cloud.n);
+      return new THREE.Vector3().fromArray(P, i * 3);
+    };
+    this.addEvents(L, [
+      { kind: KINDS.snII, site: star(young), every: 20 },
+      { kind: KINDS.snIa, site: star(null), every: 38 },
+      { kind: KINDS.nova, site: star(bulge.length ? bulge : null), every: 7 },
+      { kind: KINDS.sgrA, site: () => new THREE.Vector3(), every: 18 },
+    ]);
+  }
+
+  private addEvents(L: LevelRT, src: TransientSource[], max = 4): void {
+    if (document.body.classList.contains('lowfx')) return; // flashes: not with reduced motion / photosensitivity
+    L.events = new Transients(L.root, L.labels, src, max);
+  }
+
+  /** A random point in a galaxy's disc (centre c, radius R, plane given by quaternion q), denser toward the middle. */
+  private static inDisc(c: THREE.Vector3, R: number, q: THREE.Quaternion, inner = 1): THREE.Vector3 {
+    const rr = R * inner * Math.sqrt(Math.random()) * (0.15 + 0.85 * Math.random()), th = Math.random() * Math.PI * 2;
+    return new THREE.Vector3(rr * Math.cos(th), 0, rr * Math.sin(th)).applyQuaternion(q).add(c);
   }
 
   private buildGroup(L: LevelRT): void {
@@ -364,6 +429,7 @@ export class DeepStage {
     const halo = new THREE.CanvasTexture(haloCanvas());
     const origin = new THREE.Vector3();
     const mw = this.disc(L, tex, MILKY_WAY.R * 2 * k, origin, new THREE.Vector3(0, 1, 0), 0.85);
+    const discs: { c: THREE.Vector3; R: number; q: THREE.Quaternion; w: number; key: string }[] = [{ c: origin, R: MILKY_WAY.R * k, q: mw.quaternion.clone(), w: 1, key: 'mw' }];
     const sub = Math.min(cloud.n, Math.round(14_000 * q));
     const mwPts = maxPx(gain(this.points(L, DeepStage.discToThree(cloud, k), cloud.col, cloud.size.map(s => s * (1e3 / u) * 2.6), sub, { TWINKLE: '' }), 0.22), 5);
     L.spinners.push([mw, -0.03], [mwPts, -0.03]);
@@ -387,6 +453,7 @@ export class DeepStage {
         const tx = new THREE.CanvasTexture(paintDisc(def, c, 256, 1.1));
         tx.colorSpace = THREE.SRGBColorSpace;
         const d = this.disc(L, tx, size, p, this.discNormal(o, r), 0.85, r() * 6);
+        discs.push({ c: p, R: size / 2, q: d.quaternion.clone(), w: (o.rank ?? 1) >= 3 ? 1 : 0.3, key: o.key });
         const mats: THREE.Material[] = [d.material as THREE.Material];
         // A 3D swarm of its brightest stars over the painted disc
         const nStar = Math.round((o.rank ?? 1) >= 3 && size > 5 ? 7000 * q : 2500 * q);
@@ -428,6 +495,15 @@ export class DeepStage {
     this.neighbourGroups(L);
     L.defTarget.copy(m31).multiplyScalar(0.42);
     this.backdrop(L, 4200, 1600, 1.1);
+    // Supernovae in the big spirals (weighted by size); Andromeda's bulge throws off a nova every few days in reality
+    const tot = discs.reduce((a, d) => a + d.w * d.R, 0);
+    const pick = () => { let x = Math.random() * tot; for (const d of discs) { x -= d.w * d.R; if (x <= 0) return d; } return discs[0]; };
+    const a31 = discs.find(d => /m31|andromeda_galaxy/.test(d.key));
+    this.addEvents(L, [
+      { kind: KINDS.snII, site: () => { const d = pick(); return DeepStage.inDisc(d.c, d.R, d.q); }, every: 11 },
+      { kind: KINDS.snIa, site: () => { const d = pick(); return DeepStage.inDisc(d.c, d.R, d.q); }, every: 19 },
+      ...(a31 ? [{ kind: KINDS.nova, site: () => DeepStage.inDisc(a31.c, a31.R, a31.q, 0.25), every: 4.5 }] : []),
+    ]);
   }
 
   /** Old halo stars and globular clusters: a faint, slightly flattened cloud around a galaxy. */
@@ -436,12 +512,14 @@ export class DeepStage {
     const p = new Float32Array(N * 3), col = new Float32Array(N * 3), s = new Float32Array(N);
     for (let i = 0; i < N; i++) {
       const v = new THREE.Vector3(gauss(r), gauss(r) * 0.8, gauss(r)).normalize().multiplyScalar(1.5 + R * r() ** 2.2);
-      p.set([c.x + v.x, c.y + v.y, c.z + v.z], i * 3);
+      p.set([v.x, v.y, v.z], i * 3);
       const glob = i % 14 === 0, w = glob ? 0.9 : 0.32 + r() * 0.2;
       col.set(glob ? [w, w * 0.86, w * 0.6] : [w * 0.85, w * 0.85, w], i * 3);
       s[i] = glob ? 0.3 : 0.14;
     }
-    maxPx(this.points(L, p, col, s, N, { TWINKLE: '' }), 4);
+    const o = DeepStage.orbits(p, N, 0.32, r);
+    for (let i = 0; i < N; i++) o[i * 4 + 3] = Math.min(o[i * 4 + 3], 0.06);
+    maxPx(this.points(L, p, col, s, N, { TWINKLE: '', ORBIT: '' }, g => g.setAttribute('aOrbit', new THREE.BufferAttribute(o, 4))), 4).position.copy(c);
   }
 
   /**
@@ -454,12 +532,13 @@ export class DeepStage {
     const a = new THREE.Vector3(), b = new THREE.Vector3();
     if (plane) { a.set(1, 0, 0).cross(plane).normalize(); b.copy(plane).cross(a); }
     let j = 0;
+    const inPlane: boolean[] = [];
     for (let i = 0; i < N; i++) {
       const d = 3 + R * Math.sqrt(r());
+      inPlane.push(!!plane && i % 2 === 0);
       const v = plane && i % 2 === 0
         ? a.clone().multiplyScalar(gauss(r)).addScaledVector(b, gauss(r)).normalize().multiplyScalar(d).addScaledVector(plane, gauss(r) * 0.8)
         : new THREE.Vector3(gauss(r), gauss(r), gauss(r)).normalize().multiplyScalar(d);
-      v.add(c);
       const tint = r(), w = 0.45 + r() * 0.35, big = 0.5 + r() * 0.6;
       const cc = tint < 0.6 ? [1, 0.88, 0.7] : [0.75, 0.85, 1];
       for (let k = 0; k < per; k++) {
@@ -470,7 +549,10 @@ export class DeepStage {
         s[j++] = k === 0 ? big * 0.6 : big * 0.22;
       }
     }
-    maxPx(this.points(L, p, col, s, j), 6);
+    // Each dwarf swings round its host as one knot; the ones in Andromeda's thin plane all go the same way round.
+    const o = DeepStage.orbits(p, j, 0.3, r, per, i => inPlane[i / per] ? plane : null);
+    for (let i = 0; i < j; i++) o[i * 4 + 3] = Math.min(o[i * 4 + 3], 0.05);
+    maxPx(this.points(L, p, col, s, j, { ORBIT: '' }, g => g.setAttribute('aOrbit', new THREE.BufferAttribute(o, 4))), 6).position.copy(c);
   }
 
   /** Points moving from `pos` to `end` over and over (gas streams, infall), built by `fill(i, pos, end) → colour`. */
@@ -734,7 +816,15 @@ export class DeepStage {
     }
     ga ??= scenePos(307, 9, 2.5e8, 'laniakea');
     const centre = ga.clone().multiplyScalar(0.8);
-    this.web(L, { R: 420, nodes: known, extra: 150, n: 46_000, width: 7, size: 2.4, seed: 11, centre, maxLink: 170 });
+    const nodes = this.web(L, { R: 420, nodes: known, extra: 150, n: 46_000, width: 7, size: 2.4, seed: 11, centre, maxLink: 170 });
+    const near = (j: number) => () => nodes[Math.floor(Math.random() * nodes.length)].clone().add(new THREE.Vector3(gauss(Math.random), gauss(Math.random), gauss(Math.random)).multiplyScalar(j));
+    // Across 100 million galaxies a supernova goes off every few seconds; mergers and star-shredding are rarer
+    this.addEvents(L, [
+      { kind: KINDS.snIa, site: near(10), every: 3.2 },
+      { kind: KINDS.snII, site: near(12), every: 4.5 },
+      { kind: KINDS.tde, site: near(8), every: 24 },
+      { kind: KINDS.kilonova, site: near(10), every: 36 },
+    ], 5);
     // Galaxies streaming toward the Great Attractor (the "immeasurable heaven" basin)
     const r = rng(3), N = Math.round(2600 * this.n);
     const p = new Float32Array(N * 3), c = new Float32Array(N * 3), s = new Float32Array(N), e = new Float32Array(N * 3), ph = new Float32Array(N);
@@ -784,7 +874,9 @@ export class DeepStage {
     // a finer web close to home (where the named superclusters are) inside the coarse web of the whole bubble
     this.web(L, { R: 40, nodes: known, extra: 90, n: 16_000, width: 0.55, size: 0.5, seed: 21, maxLink: 14 });
     // galaxies only formed a few hundred million years after the CMB was released: a dark gap before that sphere
-    this.web(L, { R: CMB_R * 0.88, nodes: [], extra: 520, n: 52_000, width: 3.2, size: 3.4, seed: 23, maxLink: 120 });
+    const far = this.web(L, { R: CMB_R * 0.88, nodes: [], extra: 520, n: 52_000, width: 3.2, size: 3.4, seed: 23, maxLink: 120 });
+    // Only gamma-ray bursts shine across the whole observable universe (satellites catch about one a day)
+    this.addEvents(L, [{ kind: KINDS.grb, site: () => far[Math.floor(Math.random() * far.length)].clone().add(new THREE.Vector3(gauss(Math.random), gauss(Math.random), gauss(Math.random)).multiplyScalar(4)), every: 5 }], 3);
     const tex = new THREE.CanvasTexture(paintCMB(this.quality.tier === 'low' ? 512 : 1024));
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.generateMipmaps = false; // no mip seam where the view-direction longitude wraps
@@ -804,6 +896,13 @@ export class DeepStage {
     L.home.set(0, 0, 0);
     L.defTarget.set(0, 0, 0);
     this.sprite(L, new THREE.CanvasTexture(glowCanvas()), 7, new THREE.Vector3(), '#a7f3d0', 0.9);
+    // Quasars: an accretion-disc glow that brightens and fades by tens of percent over days to months
+    const qg = new THREE.CanvasTexture(glowCanvas());
+    for (const o of DEEP_OBJECTS) {
+      if (o.scale !== 'universe' || o.kind !== 'quasar') continue;
+      const s = this.sprite(L, qg, 3.2, scenePos(o.l, o.b, o.distLy, 'universe'), kindColor(o.kind), 0.75);
+      L.flicker.push([s.material, hashStr(o.key) % 1000]);
+    }
   }
 
   /** Bright screen-size markers on every named object. */
@@ -989,6 +1088,7 @@ export class DeepStage {
         if (L.tween) { L.tween.fromT.applyQuaternion(q); L.tween.toT.applyQuaternion(q); }
       }
       for (const [o, w] of L.spinners) o.rotateY(w * sec);
+      if (L.events) { if (L.id === this.level) L.events.update(sec); else if (L.events.count) L.events.clear(); }
     }
     if (this.tweenAz) {
       this.tweenAz.t = Math.min(1, this.tweenAz.t + dt / 2200);
@@ -1060,6 +1160,11 @@ export class DeepStage {
     for (const [m, base] of L.fades) m.opacity = base * w * bg;
     if (L.cmb) L.cmb.uniforms.uFade.value = w * 0.9 * (md ? 1 - 0.7 * md.a : 1);
     if (L.pulse) (L.pulse.material as THREE.SpriteMaterial).opacity = w * (0.45 + 0.25 * Math.sin(this.time * 1.7));
+    for (const [m, k] of L.flicker) {
+      const t = this.time * 0.35 + k;
+      m.opacity *= 0.82 + 0.12 * Math.sin(t) + 0.06 * Math.sin(t * 2.7 + 1.3) + 0.05 * Math.sin(t * 6.1 + k);
+    }
+    L.events?.frame(cam, this.screen.h, w * bg);
     if (md) {
       md.m.group.visible = md.a > 0.003;
       md.m.setOpacity(md.a * w);
@@ -1087,17 +1192,28 @@ export class DeepStage {
     this.render0(L);
     const W = this.screen.w, H = this.screen.h;
     const p = new THREE.Vector3();
-    const boxes: [number, number, number, number][] = [];
+    const boxes: [number, number, number][] = [];
     const max = W < 700 ? 12 : 22;
-    const fits = (x: number, y: number, w: number) => !boxes.some(([bx, by, bw]) => Math.abs(bx - x) < (bw + w) / 2 + 6 && Math.abs(by - y) < 20);
+    const fits = (x0: number, y0: number, w: number) => !boxes.some(([bx, by, bw]) => x0 < bx + bw + 6 && x0 + w + 6 > bx && Math.abs(by - y0) < 20);
     const show = (el: HTMLButtonElement, pos: THREE.Vector3, o: DeepObject | 'home', force: boolean): boolean => {
       p.copy(pos).project(this.camera);
       if (p.z > 1 || p.z < -1 || Math.abs(p.x) > 1.05 || Math.abs(p.y) > 1.05) return false;
       const x = (p.x + 1) / 2 * W, y = (1 - p.y) / 2 * H;
-      const tw = (el.textContent?.length ?? 6) * 7 + 22;
-      if (!force && (boxes.length >= max || !fits(x, y + 12, tw))) return false;
-      boxes.push([x, y + 12, tw, 0]);
+      const tw = textW(el.textContent ?? '', o === 'home' ? 9 : 8) + (o === 'home' ? 34 : 24);
+      // Name to the right of its dot, or to the left when the right side is off-screen or under the chrome.
+      const box = (flip: boolean) => flip ? x - tw + 6 : x - 6;
+      const ok = (flip: boolean) => { const b = box(flip); return b > 4 && b + tw < W - 4 && !underUI(b, y - 10, tw, 20); };
+      let flip = x + tw > W - 6;
+      if (!force) {
+        if (boxes.length >= max) return false;
+        if (!ok(flip) || !fits(box(flip), y, tw)) {
+          flip = !flip;
+          if (!ok(flip) || !fits(box(flip), y, tw)) return false;
+        }
+      }
+      boxes.push([box(flip), y, tw]);
       this.placed.push({ o, x, y });
+      el.classList.toggle('flip', flip);
       el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
       return true;
     };
@@ -1107,6 +1223,7 @@ export class DeepStage {
       x.label.hidden = !show(x.label, x.pos, x.o, x.o === this.sel);
       x.label.classList.toggle('on', x.o === this.sel);
     }
+    L.events?.tagsAt(this.camera, W, H, lang(), boxes);
   }
 
   /** Re-applies the camera of level L (labels project with it). */

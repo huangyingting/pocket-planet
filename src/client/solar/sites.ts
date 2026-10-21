@@ -4,6 +4,7 @@
  * sites are built (one model per frame, via the shared worker-backed model library), so the overview stays cheap.
  */
 import * as THREE from 'three';
+import { textW, underUI } from '../ui/occluders.ts';
 import type { BodyId } from '../../shared/data/solar.ts';
 import { SOLAR_SITES, type SolarSite } from '../../shared/data/solar-sites.ts';
 import { latLonToVec } from '../../shared/lib/geo.ts';
@@ -206,7 +207,7 @@ export class SiteLayer {
         if (s.helio) r.holder.getWorldPosition(tmp);
         p.copy(tmp).project(cam);
         const sx = (p.x + 1) / 2 * W, sy = (1 - p.y) / 2 * H;
-        show = p.z < 1 && sx > 8 && sy > 8 && sx < W - 8 && sy < H - 8;
+        show = p.z < 1 && sx > 8 && sy > 8 && sx < W - 8 && sy < H - 8 && (s === this.sel || !underUI(sx - 10, sy - 10, textW(r.label.textContent ?? '', 7.5) + 30, 20));
         if (show && s !== this.sel && placed.some(([x, y]) => Math.abs(x - sx) < 80 && Math.abs(y - sy) < 20)) show = false;
         if (show) {
           placed.push([sx, sy]);

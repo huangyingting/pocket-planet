@@ -35,9 +35,9 @@
 * { scrollbar-color: rgba(125, 211, 252, 0.3) transparent; }
 
 /* ---- the slab: shared geometry for everything that carries the cut-corner silhouette ---- */
-.omnibar, .tools, .menu, .info, .modal-panel, .time-bar, .ride-bar, .game-hud, .tut-card, .photo-bar, .hints,
+.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .ride-bar, .game-hud, .tut-card, .photo-bar, .hints,
 .zoom-ctl, .round-btn, .toast,
-.solar-ui .solar-crumbs, .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info, .solar-ui .solar-back, .solar-ui .solar-zoom, .solar-ui .solar-hint,
+.solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info, .solar-ui .solar-hint,
 .hub-card, .game-card, .dex-card, .near-card, .diff, .opt, .reader-continue,
 .cta, .pill, .seg button, .react, .read-more, .hero-btn, .switch-card {
   --cut: 12px; --edge: var(--hud-line);
@@ -48,14 +48,14 @@
   clip-path: var(--pp-clip);
   border-radius: 0;
 }
-.zoom-ctl, .round-btn, .toast, .solar-ui .solar-back, .solar-ui .solar-zoom, .solar-ui .solar-hint { --cut: 9px; }
+.zoom-ctl, .round-btn, .toast, .solar-ui .solar-hint { --cut: 9px; }
 .hub-card, .game-card, .dex-card, .near-card, .diff, .opt, .reader-continue, .switch-card { --cut: 10px; }
 .cta, .pill, .seg button, .react, .read-more, .hero-btn { --cut: 7px; }
 .pill-sm { --cut: 5px; }
 
 /* panels: hairline cuts, amber signal tab on the top edge, ruler ticks on the bottom edge */
-.omnibar, .tools, .menu, .info, .modal-panel, .time-bar, .ride-bar, .game-hud, .tut-card, .photo-bar, .hints,
-.solar-ui .solar-crumbs, .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info {
+.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .ride-bar, .game-hud, .tut-card, .photo-bar, .hints,
+.solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info {
   --pp-bg: var(--hud-panel);
   border: 1px solid var(--hud-line); box-shadow: inset 0 0 32px rgba(56, 189, 248, 0.05);
   background:
@@ -64,11 +64,10 @@
     var(--pp-cuts), var(--pp-bg);
 }
 .info, .menu, .modal-panel, .solar-ui .solar-info { --pp-bg: rgba(4, 10, 18, 0.96); }
-.zoom-ctl, .round-btn, .toast, .solar-ui .solar-back, .solar-ui .solar-zoom, .solar-ui .solar-hint {
+.zoom-ctl, .round-btn, .toast, .solar-ui .solar-hint {
   border: 1px solid var(--hud-line); box-shadow: inset 0 0 18px rgba(56, 189, 248, 0.05);
   background: var(--pp-cuts), var(--hud-panel);
 }
-.solar-ui .solar-back:hover:not([disabled]) { background: var(--pp-cuts), rgba(14, 40, 62, 0.9); }
 .toast { border-color: var(--hud); background: linear-gradient(var(--sig), var(--sig)) left 0 top 0 / 3px 100% no-repeat border-box, var(--pp-cuts), rgba(4, 11, 20, 0.95); }
 
 /* blueprint grid behind modals */
@@ -80,12 +79,12 @@
 }
 
 /* idle scanner: a glint that runs along the top edge every few seconds */
-.omnibar::after, .tools::after, .menu::after, .info::after, .modal-panel::after {
+.omnibar::after, .solar-top::after, .tools::after, .menu::after, .info::after, .modal-panel::after {
   content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; pointer-events: none; z-index: 5;
   background: linear-gradient(90deg, transparent 38%, rgba(224, 242, 254, 0.9) 50%, transparent 62%);
   opacity: 0; animation: hud-sweep 8s ease-in-out infinite;
 }
-.omnibar, .tools, .modal-panel { position: relative; }
+.omnibar, .solar-top, .tools, .modal-panel { position: relative; }
 .tools::after { animation-delay: 1.6s; }
 .info::after, .menu::after, .modal-panel::after { animation-delay: .5s; }
 @keyframes hud-sweep {
@@ -366,10 +365,10 @@ body.photo-mode #app::after { display: none; }
 body:is(.time-travel, .riding, .gaming, .photo-mode) .coord-readout { display: none; }
 
 /* ---- space views ---- */
-.solar-ui .solar-back { font-family: var(--font-data); text-transform: uppercase; letter-spacing: .1em; font-size: .76rem; color: var(--hud-hi); }
-.solar-ui .solar-crumbs .crumb { font-family: var(--font-data); letter-spacing: .1em; font-size: .76rem; border-radius: 0; }
-.solar-ui .solar-crumbs .crumb.cur { color: #fff3df; text-shadow: 0 0 10px rgba(255, 181, 71, 0.4); box-shadow: inset 0 -2px 0 var(--sig); }
-.solar-ui .solar-crumbs .sep { color: var(--hud-line); }
+.solar-back { font-family: var(--font-data); text-transform: uppercase; letter-spacing: .1em; font-size: .76rem; color: var(--hud-hi); }
+.solar-crumbs .crumb { font-family: var(--font-data); letter-spacing: .1em; font-size: .76rem; border-radius: 0; }
+.solar-crumbs .crumb.cur { color: #fff3df; text-shadow: 0 0 10px rgba(255, 181, 71, 0.4); box-shadow: inset 0 -2px 0 var(--sig); }
+.solar-crumbs .sep { color: var(--hud-line); }
 .solar-ui .solar-chip { border-radius: 0; }
 .solar-ui .solar-chip.on { background: var(--sig-fill); color: #fff3df; box-shadow: inset 0 -2px 0 var(--sig), inset 0 0 0 1px var(--sig-line); }
 .solar-ui .cst-toggle.on { color: #fff3df; background: var(--sig-fill); box-shadow: inset 0 0 0 1px var(--sig-line); }
@@ -393,12 +392,11 @@ body.solar .sb-label.k-comet { color: var(--hud-dim); }
 .solar-crumbs .crumb { font-size: .86rem; }
 .solar-speed { font-size: .9rem; }
 .solar-hint { font-size: .9rem; }
-.solar-zoom button { height: 44px; }
 
 /* ---- phones ---- */
 @media (max-width: 760px) {
-  .omnibar, .tools, .menu, .info, .modal-panel, .time-bar, .ride-bar, .game-hud, .tut-card, .photo-bar, .hints,
-  .solar-ui .solar-crumbs, .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info { --cut: 10px; }
+  .omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .ride-bar, .game-hud, .tut-card, .photo-bar, .hints,
+  .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info { --cut: 10px; }
   body:not(.solar) #app::after { inset: 4px; }
   .coord-readout { bottom: 26px; font-size: .7rem; gap: 8px; }
   .coord-reticle { display: none; }
@@ -415,8 +413,8 @@ body.solar .sb-label.k-comet { color: var(--hud-dim); }
 }
 
 /* ---- calm modes ---- */
-body.q-low :is(.omnibar, .tools, .menu, .info, .modal-panel, .brand-mark)::after, body.q-low :is(.type-chip, .brand-mark)::before, body.q-low .coord-reticle::after { animation: none; }
+body.q-low :is(.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .brand-mark)::after, body.q-low :is(.type-chip, .brand-mark)::before, body.q-low .coord-reticle::after { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  :is(.omnibar, .tools, .menu, .info, .modal-panel, .brand-mark)::after, :is(.type-chip, .brand-mark)::before, .coord-reticle::after { animation: none; }
+  :is(.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .brand-mark)::after, :is(.type-chip, .brand-mark)::before, .coord-reticle::after { animation: none; }
 }
 .game-card:has(.gc-badge)::after { content: none; }

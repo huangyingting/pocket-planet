@@ -82,7 +82,7 @@ async function boot(): Promise<void> {
   let solar: SolarUI | null = null;
   let solarLoad: Promise<SolarUI> | null = null;
   let inSolar = false;
-  const loadSolar = () => solarLoad ??= import('./solar/ui.ts').then(m => (solar = new m.SolarUI(app, { quality, earthCanvas: () => earthCv, exit: leaveSolar, onScale: s => rail.set(s), openSky: () => void openSky() })));
+  const loadSolar = () => solarLoad ??= import('./solar/ui.ts').then(m => (solar = new m.SolarUI(app, { quality, earthCanvas: () => earthCv, exit: leaveSolar, onScale: s => rail.set(s), openSky: () => void openSky(), topSlot: shell.topSlot })));
   const fade = (fn: () => void) => {
     document.body.classList.add('fading');
     setTimeout(() => { fn(); requestAnimationFrame(() => document.body.classList.remove('fading')); }, lowfx ? 0 : 230);
@@ -95,20 +95,23 @@ async function boot(): Promise<void> {
     fade(() => {
       globe.paused = true;
       document.body.classList.add('solar');
+      shell.setSpace(true);
       ui.enter(opts.focus || opts.scale ? opts : { from: { lat: globe.lat, lon: globe.lon } });
     });
   };
-  const leaveSolar = (lat: number, lon: number) => {
+  const leaveSolar = (lat: number, lon: number, then?: () => void) => {
     if (!inSolar) return;
     inSolar = false;
     fade(() => {
       solar?.leave();
       rail.set('earth');
       document.body.classList.remove('solar');
+      shell.setSpace(false);
       globe.paused = false;
       globe.lat = lat; globe.lon = lon; globe.h = MAX_H;
       globe.flyTo(lat, lon, DEFAULT_H, 1400);
       history.replaceState(null, '', location.pathname + location.search);
+      then?.();
     });
   };
 
@@ -149,6 +152,9 @@ async function boot(): Promise<void> {
     openAccount, openGuestbook: () => void openGuestbook(),
     openSolar: () => void enterSolar(),
     openSky: () => void openSky(),
+    toEarth: it => { if (!inSolar) return false; leaveSolar(it.lat, it.lon, () => shell.showItem(it)); return true; },
+    zoom: inward => { if (!inSolar) return false; solar?.zoom(inward); return true; },
+    overview: () => solar?.overview(),
   });
   shell.mount();
   // One ladder for the whole system: universe → … → Solar System → Earth.

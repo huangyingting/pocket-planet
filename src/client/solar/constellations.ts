@@ -1,3 +1,4 @@
+import { textW, underUI, uiRects, uiVersion } from '../ui/occluders.ts';
 import * as THREE from 'three';
 import { CONSTELLATIONS, type Constellation } from '../../shared/data/constellations.ts';
 import { eqToEcl } from '../../shared/lib/sky.ts';
@@ -35,13 +36,6 @@ void main() {
   float core = 1.0 - smoothstep(0.18, 0.36, d), halo = pow(1.0 - d, 1.8);
   gl_FragColor = vec4(vColor * (core + 0.75 * halo) + 0.4 * core, 1.0);
 }`;
-
-/** Rough label width in px (CJK glyphs are about twice as wide as Latin ones). */
-function textW(s: string, px: number): number {
-  let w = 0;
-  for (const ch of s) w += ch.charCodeAt(0) > 0x2e80 ? px * 1.8 : px;
-  return w;
-}
 
 /** Equatorial RA / Dec (degrees) → unit vector in the three.js scene frame (ecliptic XZ plane, ecliptic north +Y). */
 function skyDir(ra: number, dec: number, out = new THREE.Vector3()): THREE.Vector3 {
@@ -177,7 +171,8 @@ export class ConstellationLayer {
     this.group.position.copy(camera.position);
     camera.updateMatrixWorld();
     const e = camera.matrixWorld.elements;
-    const key = `${W}|${H}|${camera.fov}|${e[0].toFixed(5)}|${e[1].toFixed(5)}|${e[2].toFixed(5)}|${e[8].toFixed(5)}|${e[9].toFixed(5)}|${e[10].toFixed(5)}|`
+    uiRects();
+    const key = `${uiVersion}|${W}|${H}|${camera.fov}|${e[0].toFixed(5)}|${e[1].toFixed(5)}|${e[2].toFixed(5)}|${e[8].toFixed(5)}|${e[9].toFixed(5)}|${e[10].toFixed(5)}|`
       + discs.map(d => `${d[0].toFixed(0)},${d[1].toFixed(0)},${d[2].toFixed(0)}`).join(';');
     if (key === this.lastKey) return;
     this.lastKey = key;
@@ -201,7 +196,7 @@ export class ConstellationLayer {
     for (const c of cand) {
       if (show.size >= max) break;
       const w = Math.max(40, textW(c.f.el.textContent!, 7)) / 2, x0 = c.x - w, x1 = c.x + w, y0 = c.y, y1 = c.y + 18;
-      if (behind(x0, x1, y0, y1) || boxes.some(([a0, a1, b0, b1]) => x0 < a1 && x1 > a0 && y0 < b1 && y1 > b0)) continue;
+      if (x0 < 4 || x1 > W - 4 || behind(x0, x1, y0, y1) || underUI(x0, y0, x1 - x0, 18) || boxes.some(([a0, a1, b0, b1]) => x0 < a1 && x1 > a0 && y0 < b1 && y1 > b0)) continue;
       boxes.push([x0, x1, y0, y1]);
       show.add(c.f);
       c.f.el.style.transform = `translate(${c.x.toFixed(1)}px, ${c.y.toFixed(1)}px) translateX(-50%)`;
@@ -216,7 +211,7 @@ export class ConstellationLayer {
       if (s && behind(s[0], s[0], s[1], s[1])) s = null;
       if (s) {
         const w = textW(t.el.textContent!, 6), y0 = s[1] - 7, y1 = s[1] + 7;
-        const free = (x0: number) => !behind(x0, x0 + w, y0, y1) && !boxes.some(([a0, a1, b0, b1]) => x0 < a1 && x0 + w > a0 && y0 < b1 && y1 > b0);
+        const free = (x0: number) => x0 > 4 && x0 + w < W - 4 && !behind(x0, x0 + w, y0, y1) && !underUI(x0, y0, w, 14) && !boxes.some(([a0, a1, b0, b1]) => x0 < a1 && x0 + w > a0 && y0 < b1 && y1 > b0);
         const x0 = free(s[0] + 6) ? s[0] + 6 : free(s[0] - 6 - w) ? s[0] - 6 - w : null;
         if (x0 === null) s = null;
         else { boxes.push([x0, x0 + w, y0, y1]); s = [x0, s[1]]; }

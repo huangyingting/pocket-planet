@@ -630,3 +630,41 @@ These now match the sky theatre's Sun.
 - \+ The sequence matches real observations, and the colours no longer blow out to white.
 - \+ Removing the particle cone saves draw calls and overdraw.
 - − The ribbons and arcade are exaggerated in size, and the timescales are compressed from minutes and hours to seconds, so that they are readable in a toy.
+
+## ADR-029: Global vs local chrome, UI-aware labels, and living deep space
+
+**Context.** Each level had grown its own controls:
+- the Solar System had its own zoom, overview and sky buttons, and a back button and crumbs floating over the scene;
+- search and the Earth-only tools stayed on screen in space, where they did nothing useful;
+- scene labels (constellations, planets, deep objects) were drawn under the toolbar, info panel and dock.
+
+Above the Solar System the scenes were also static apart from rigid disc spin.
+
+**Decision.**
+- **One chrome, two scopes.**
+  - Global, the same at every level: the brand, the right toolbar (search, collection, sky, menu) and the bottom-right stack (fullscreen, overview in space, zoom +/−).
+  - Local, owned by the level: the top-centre slot (`.top-center`) holds the Earth omnibar, or the space "back to Earth" button with its crumbs.
+  - Tools carry `earth-only` / `space-only` classes, and `body.solar` toggles them.
+  - Zoom and overview reach the active level through `ShellHooks`.
+  - Picking an Earth item from space flies back to Earth first.
+- **No overlap.**
+  - The space dock publishes its height as `--space-dock` (ResizeObserver). Hints, the info panel and the phone corner buttons sit above it.
+  - `ui/occluders.ts` caches the chrome rectangles (refreshed at most every 250 ms, with a version for caches). Every scene-label placer rejects positions under them. Deep labels flip to the left of their dot before giving up.
+  - Labels are created hidden and only shown once placed.
+- **Deep-space motion**, all of it real phenomena with real relative rates, sped up like everything else out there.
+  - **Transients** (`solar/transients.ts`): short flashes, each with its light-curve shape (rise, plateau, e-fold decay, optional tail), its colour evolution and a name tag, spawned as a Poisson process.
+    - Milky Way: Type II supernovae among young blue stars, Type Ia anywhere, novae in the bulge (the most frequent), and Sgr A* flares.
+    - Local Group: supernovae in the big spirals, and Andromeda's frequent bulge novae.
+    - Laniakea: supernovae, tidal-disruption events and kilonovae at web nodes.
+    - Universe: gamma-ray bursts only, the one transient visible across it.
+    - Only the active level runs them, and they are off with `lowfx` (reduced motion / photosensitivity).
+  - **Orbits**: the `ORBIT` point-shader define, with `aOrbit` = axis + ω (Rodrigues rotation).
+    - Milky Way halo stars and globular clusters leave the rigidly turning disc frame. Each follows its own tilted orbit with ω ∝ 1/r (flat rotation curve), and they have no net sense of rotation.
+    - Local Group stellar haloes and dwarf satellites orbit their hosts. Each dwarf moves as one knot, and Andromeda's thin-plane satellites all go round the same way, as observed.
+  - **Quasar variability**: the universe-level quasars carry a glow whose brightness wanders by roughly ±20%.
+
+**Consequences.**
+- \+ The chrome reads the same on every level, and nothing sits on top of anything else.
+- \+ The deep levels are alive with things that really happen there.
+- − The orbit and flash rates are compressed by many orders of magnitude.
+- − Galaxy close-up models do not spin: they are oriented to match their famous photographs.

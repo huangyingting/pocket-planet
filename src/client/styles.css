@@ -974,8 +974,11 @@ body.gaming .topbar .tools, body.gaming .topbar .omnibar, body.gaming .info { di
 #app { transition: opacity .23s ease; }
 body.fading #app { opacity: 0; }
 body.solar #globe { visibility: hidden; }
-body.solar .topbar .omnibar, body.solar .topbar .tools, body.solar .bl, body.solar .br, body.solar #info, body.solar .menu,
-body.solar .time-bar, body.solar .ride-bar, body.solar .globe-tip { display: none !important; }
+/* One chrome for every level: global parts stay put; `earth-only` / `space-only` parts swap in place. */
+body.solar .topbar .omnibar, body.solar .earth-only, body.solar #info, body.solar .coord-readout, body.solar .zoom-readout,
+body.solar .time-bar, body.solar .ride-bar, body.solar .globe-tip, body:not(.solar) .space-only, body:not(.solar) .solar-top { display: none !important; }
+/* A card on the left covers the help corner; it comes back when the card closes. */
+body:has(.info:not(.hidden)) .bl { display: none; }
 .solar-stage { position: absolute; inset: 0; background: #020306; }
 .solar-stage.hidden, .solar-ui.hidden { display: none; }
 .solar-canvas { display: block; width: 100%; height: 100%; touch-action: none; outline: none; cursor: grab; }
@@ -1001,15 +1004,17 @@ body.solar .time-bar, body.solar .ride-bar, body.solar .globe-tip { display: non
 .kind-cap, .kind-lake, .kind-geyser { --k: #7dd3fc; }
 .kind-storm, .kind-spot, .kind-ring { --k: #f472b6; }
 .kind-plain, .kind-region { --k: #a5b4fc; }
-.solar-top { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; z-index: 7; max-width: calc(100vw - 440px); }
-.solar-back { background: var(--panel); backdrop-filter: blur(20px); box-shadow: var(--shadow); height: 36px; flex: none; }
-.solar-crumbs { display: flex; align-items: center; gap: 2px; height: 36px; padding: 0 6px; background: var(--panel); backdrop-filter: blur(20px) saturate(140%);
-  border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); overflow-x: auto; scrollbar-width: none; min-width: 0; }
+.top-center { justify-self: center; display: flex; justify-content: center; min-width: 0; max-width: 100%; }
+.solar-top { display: flex; align-items: center; gap: 2px; min-width: 0; max-width: min(680px, 100%); padding: 3px; background: var(--panel);
+  backdrop-filter: blur(20px) saturate(140%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
+.solar-back { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 12px; border: 0; background: transparent; color: var(--muted); flex: none; white-space: nowrap; }
+.solar-back:hover { background: var(--hover); color: var(--text); }
+.solar-crumbs { display: flex; align-items: center; gap: 2px; min-width: 0; height: 42px; padding: 0 6px; border-left: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
 .solar-crumbs .crumb { background: none; border: 0; color: var(--muted); font-size: .86rem; padding: 4px 7px; border-radius: 7px; white-space: nowrap; }
 .solar-crumbs button.crumb:hover { color: var(--text); background: var(--hover); }
 .solar-crumbs .crumb.cur { color: var(--text); font-weight: 600; }
 .solar-crumbs .sep { color: var(--faint); }
-.solar-bottom { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 6; max-width: calc(100vw - 120px); }
+.solar-bottom { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 6; max-width: calc(100vw - 176px); }
 .solar-dock, .solar-time { display: flex; align-items: center; gap: 3px; padding: 5px; background: var(--panel); backdrop-filter: blur(20px) saturate(140%);
   border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); max-width: 100%; }
 .solar-dock { overflow-x: auto; scrollbar-width: none; }
@@ -1023,14 +1028,14 @@ body.solar .time-bar, body.solar .ride-bar, body.solar .globe-tip { display: non
 .solar-time .icon-btn { width: 28px; height: 28px; border-color: transparent; background: transparent; }
 .solar-time .icon-btn:hover { background: var(--hover); color: var(--text); }
 .solar-speed { min-width: 78px; text-align: center; font-size: .8rem; font-weight: 600; color: var(--text); }
-.solar-date { font-family: var(--font-mono); font-size: .76rem; color: var(--muted); padding: 0 8px; border-left: 1px solid var(--line); min-width: 112px; text-align: center; font-variant-numeric: tabular-nums; }
-.solar-zoom { position: absolute; right: 20px; bottom: 20px; z-index: 6; }
-.solar-hint { position: absolute; left: 50%; bottom: 128px; transform: translateX(-50%); margin: 0; padding: 6px 12px; border-radius: 999px; background: rgba(9, 9, 11, 0.6);
+.solar-date { font-family: var(--font-mono); font-size: .76rem; color: var(--muted); padding: 0 8px; border-left: 1px solid var(--line); min-width: 112px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* --space-dock: live height of the bottom dock (set by the space UI), so whatever stacks above it never lands on it. */
+.solar-hint { position: absolute; left: 50%; bottom: calc(var(--space-dock, 96px) + 32px); transform: translateX(-50%); margin: 0; padding: 6px 12px; border-radius: 999px; background: rgba(9, 9, 11, 0.6);
   color: var(--muted); font-size: .8rem; pointer-events: none; transition: opacity .6s; z-index: 5; white-space: nowrap; }
 .solar-hint.gone { opacity: 0; }
 .solar-info .stats-row dd { white-space: normal; line-height: 1.25; }
-.solar-info { max-height: calc(100vh - 190px); }
-.solar-info.expanded { height: calc(100vh - 190px); }
+.solar-info { max-height: calc(100vh - 102px - var(--space-dock, 96px)); }
+.solar-info.expanded { height: calc(100vh - 102px - var(--space-dock, 96px)); }
 .solar-hero { background: #0d0d11; }
 .solar-map { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; }
 .solar-hero .type-chip { position: absolute; left: 12px; top: 12px; }
@@ -1060,6 +1065,10 @@ body.solar .time-bar, body.solar .ride-bar, body.solar .globe-tip { display: non
   color: rgba(244, 244, 245, 0.86); text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 0 10px rgba(0, 0, 0, 0.8); }
 .dl-label i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6), 0 0 10px var(--c); flex: none; }
 .dl-label:hover { color: #fff; }
+.dl-event { position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap; font-family: var(--font-hud, var(--font-data)); font-size: 10.5px;
+  letter-spacing: .08em; text-transform: uppercase; color: #ffe2b0; padding: 2px 7px; border-left: 2px solid #ffb547; background: rgba(4, 10, 20, 0.55);
+  text-shadow: 0 0 8px rgba(255, 181, 71, 0.45); transition: opacity .2s; }
+.dl-event[hidden] { display: none; }
 .dl-label.on { color: #fff; font-weight: 600; }
 .dl-label.on i { box-shadow: 0 0 0 2px #09090b, 0 0 0 4px var(--accent), 0 0 14px var(--accent); }
 .dl-label.home { margin: 0; transform-origin: 0 0; padding: 4px 10px 4px 22px; border-radius: 999px; font-size: 11.5px; font-weight: 600; letter-spacing: .02em;
@@ -1067,8 +1076,11 @@ body.solar .time-bar, body.solar .ride-bar, body.solar .globe-tip { display: non
 .dl-label.home::before { content: ""; position: absolute; left: 6px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%;
   background: #fde68a; box-shadow: 0 0 0 0 rgba(253, 230, 138, 0.6); animation: here 2s ease-out infinite; }
 @keyframes here { to { box-shadow: 0 0 0 12px rgba(253, 230, 138, 0); } }
+/* Flipped: the name sits left of its dot (right screen edge, or the chrome is in the way). */
+.dl-label.flip { flex-direction: row-reverse; padding: 2px 0 2px 6px; translate: calc(-100% + 7px) 0; }
+.dl-label.home.flip { padding: 4px 22px 4px 10px; translate: calc(-100% + 11px) -11px; }
+.dl-label.home.flip::before { left: auto; right: 6px; }
 .solar-ui.deep .solar-time { display: none; }
-.solar-ui.deep .solar-hint { bottom: 76px; }
 .solar-crumbs .crumb-up { color: var(--faint); }
 
 /* ---- scale rail: universe … Earth ---- */
@@ -1127,45 +1139,51 @@ body:has(.info.expanded:not(.hidden)) .scale-rail { display: none; }
   .brand h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 @media (max-width: 760px) {
-  body.solar .topbar { display: none; }
-  .solar-top { left: 8px; right: 8px; top: 8px; transform: none; max-width: none; }
+  body.solar .top-center { justify-self: stretch; }
+  .solar-top { flex: 1; max-width: none; }
   .solar-back span { display: none; }
-  .solar-back { width: 36px; justify-content: center; padding: 0; }
+  .solar-back { width: 40px; justify-content: center; padding: 0; }
   .solar-crumbs { flex: 1; }
   .solar-bottom { left: 8px; right: 8px; bottom: 8px; transform: none; max-width: none; align-items: stretch; }
   .solar-time { justify-content: center; }
-  .solar-zoom { display: none; }
-  .solar-hint { bottom: 112px; }
+  /* Phones pinch to zoom; help sits above the dock instead of on it. */
+  body.solar .br { display: none; }
+  body.solar .bl { bottom: calc(var(--space-dock, 96px) + 16px); }
+  .solar-hint { bottom: calc(var(--space-dock, 96px) + 76px); max-width: calc(100vw - 24px); white-space: normal; text-align: center; border-radius: 14px; }
+  /* Only this level's root and the current step fit next to the toolbar (the scale rail covers going up). */
+  .solar-crumbs .crumb-up, .solar-crumbs .sep:not(:has(+ .cur)),
+  .solar-crumbs .crumb:not(.cur):not([data-testid="crumb-system"]):not([data-testid="crumb-scale"]) { display: none; }
+  .solar-crumbs .crumb { min-width: 0; overflow: hidden; text-overflow: ellipsis; letter-spacing: .03em; padding-inline: 4px; }
+  .solar-crumbs { overflow: hidden; }
+  .solar-crumbs .crumb:not(.cur) { flex: 0 1 auto; min-width: 3.4em; }
+  .solar-crumbs .crumb.cur { flex: 0 0 auto; max-width: calc(100% - 4.6em); }
   .solar-info { max-height: 58vh; }
   .solar-info.expanded { height: auto; }
   body:has(.solar-info:not(.hidden)) .solar-bottom, body:has(.solar-info:not(.hidden)) .solar-hint { display: none; }
   .sb-label { font-size: 11.5px; }
   .scale-rail { right: 4px; top: 66px; transform: none; padding: 2px; }
-  body.solar .scale-rail { top: 52px; }
   .scale-rail::before { right: 15px; }
   .sr-step { height: 26px; }
   .scale-rail:hover .sr-step span { opacity: 0; }
   .sr-step.on span { opacity: 1; font-size: .72rem; }
-  .solar-ui.deep .solar-hint { bottom: 70px; }
 }
 /* ---- Sci-fi HUD theme for the space views (scoped to .solar-ui / body.solar); a light echo on the globe ---- */
-.solar-ui .solar-crumbs, .solar-ui .solar-back, .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-zoom, .solar-ui .solar-info, .solar-ui .solar-hint {
+.solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info, .solar-ui .solar-hint {
   border-radius: 3px; border: 1px solid var(--hud-line); background: var(--hud-corners), var(--hud-panel);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 28px rgba(56, 189, 248, 0.07) inset, 0 14px 40px rgba(0, 0, 0, 0.5);
 }
-.solar-ui .solar-back { font-family: var(--font-hud); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; color: var(--hud-hi); }
-.solar-ui .solar-back:hover:not([disabled]) { background: var(--hud-corners), rgba(14, 40, 62, 0.85); color: #fff; }
-.solar-ui .solar-crumbs .crumb { font-family: var(--font-hud); text-transform: uppercase; letter-spacing: .07em; font-size: .78rem; border-radius: 2px; color: var(--hud-dim); }
-.solar-ui .solar-crumbs button.crumb:hover { background: rgba(125, 211, 252, 0.1); color: var(--hud-hi); }
-.solar-ui .solar-crumbs .crumb.cur { color: var(--hud-hi); text-shadow: 0 0 10px rgba(125, 211, 252, 0.55); }
-.solar-ui .solar-crumbs .sep { color: var(--hud-line); }
+.solar-back { font-family: var(--font-hud); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; color: var(--hud-hi); border-radius: 0; }
+.solar-back:hover { background: rgba(14, 40, 62, 0.85); color: #fff; }
+.solar-crumbs { border-left-color: var(--hud-line); }
+.solar-crumbs .crumb { font-family: var(--font-hud); text-transform: uppercase; letter-spacing: .07em; font-size: .78rem; border-radius: 2px; color: var(--hud-dim); }
+.solar-crumbs button.crumb:hover { background: rgba(125, 211, 252, 0.1); color: var(--hud-hi); }
+.solar-crumbs .crumb.cur { color: var(--hud-hi); text-shadow: 0 0 10px rgba(125, 211, 252, 0.55); }
 .solar-ui .solar-chip { font-family: var(--font-hud); letter-spacing: .03em; border-radius: 2px; color: #cfe8f6; }
 .solar-ui .solar-chip:hover { background: rgba(125, 211, 252, 0.1); color: #fff; }
 .solar-ui .solar-chip.on { background: rgba(125, 211, 252, 0.16); color: var(--hud-hi); box-shadow: 0 0 0 1px var(--hud) inset, 0 0 14px rgba(125, 211, 252, 0.35); }
 .solar-ui .solar-time .icon-btn { border-radius: 2px; }
 .solar-ui .solar-speed { font-family: var(--font-hud); color: var(--hud-hi); letter-spacing: .04em; }
 .solar-ui .solar-date { font-family: var(--font-hud); color: var(--hud-dim); border-left-color: var(--hud-line); letter-spacing: .05em; }
-.solar-ui .solar-zoom button { color: var(--hud-dim); }
 .solar-ui .cst-toggle { gap: 5px; color: var(--hud-dim); border-radius: 2px; }
 .solar-ui .cst-toggle.on { color: var(--hud-hi); background: rgba(103, 232, 249, .12); box-shadow: inset 0 0 0 1px var(--hud-line); }
 /* Constellation names: faint sky lettering under the planet labels */
@@ -1182,7 +1200,6 @@ body:has(.info.expanded:not(.hidden)) .scale-rail { display: none; }
   .solar-ui .cst-toggle span { display: none; }
   .solar-ui .solar-date { min-width: 0; flex: 1 1 auto; padding: 0 4px; font-size: .68rem; line-height: 1.2; letter-spacing: 0; }
 }
-.solar-ui .solar-zoom button:hover { background: rgba(125, 211, 252, 0.1); color: var(--hud-hi); }
 .solar-ui .solar-hint { font-family: var(--font-hud); letter-spacing: .04em; color: var(--hud-hi); }
 .solar-ui .solar-hint::before { content: "▸ "; color: var(--hud); }
 
@@ -1238,7 +1255,7 @@ body.solar .dl-label.home { border-radius: 2px; font-family: var(--font-hud); te
   background: linear-gradient(var(--hud), var(--hud)) 50% 0 / 1px 7px no-repeat, linear-gradient(var(--hud), var(--hud)) 50% 100% / 1px 7px no-repeat,
     linear-gradient(var(--hud), var(--hud)) 0 50% / 7px 1px no-repeat, linear-gradient(var(--hud), var(--hud)) 100% 50% / 7px 1px no-repeat; }
 .solar-ui.deep .hud-cross { display: none; }
-.hud-readout { position: absolute; left: 14px; bottom: 66px; margin: 0; display: grid; grid-template-columns: auto auto; gap: 1px 12px; align-items: baseline;
+.hud-readout { position: absolute; left: 22px; bottom: 84px; margin: 0; display: grid; grid-template-columns: auto auto; gap: 1px 12px; align-items: baseline;
   font-family: var(--font-hud); font-size: 11px; line-height: 1.45; text-shadow: 0 1px 4px #000; max-width: 300px; }
 .hud-readout dt { color: var(--hud-dim); text-transform: uppercase; letter-spacing: .16em; font-size: 10px; }
 .hud-readout dd { margin: 0; color: var(--hud-hi); font-variant-numeric: tabular-nums; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
