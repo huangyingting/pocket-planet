@@ -123,6 +123,12 @@ const en: Dict = {
   photoSaveFail: "The photo couldn’t be saved on this device.",
   albumFail: "The album couldn’t be opened on this device. Your photos may still be there; try again later.",
   photoAlt: "Photo of the globe",
+  tours: "Guided tours",
+  toursIntro: "Short routes through the scenes, a few minutes each. You can leave a tour at any step and keep exploring from there.",
+  tourExit: "Leave the tour",
+  tourFinish: "Finish",
+  tourBack: "Back",
+  tourStart: "Take a guided tour",
 };
 
 const zh: Dict = {
@@ -245,6 +251,12 @@ const zh: Dict = {
   photoSaveFail: "照片没能保存在这台设备上。",
   albumFail: "这台设备上的相册打不开。照片可能还在，请稍后再试。",
   photoAlt: "地球照片",
+  tours: "导览路线",
+  toursIntro: "几分钟一条的小路线，带你穿过各个场景。随时可以退出，从当前位置继续自由探索。",
+  tourExit: "退出导览",
+  tourFinish: "完成",
+  tourBack: "上一步",
+  tourStart: "跟着导览走一走",
 };
 
 const DICTS: Record<Lang, Dict> = { en, zh };

@@ -27,7 +27,7 @@ const typeName = (ty: CatalogueItem['type']) => tr(TYPE_META[ty].one, lang());
 const AURA_ORDER: AuraPreset[] = ['waves', 'aurora', 'ember', 'dusk', 'sculpture'];
 
 export interface ShellHooks {
-  openPhoto: () => void; openCollection: () => void; openGames: () => void; openTutorial: () => void;
+  openPhoto: () => void; openCollection: () => void; openGames: () => void; openTutorial: () => void; openTours: () => void;
   openAccount: () => void; openGuestbook: () => void;
   openSolar: () => void;
   openSky: () => void;
@@ -247,7 +247,9 @@ export class Shell {
     const keys = this.space ? ['hintSpaceDrag', 'hintSpaceZoom', 'hintSpaceTap', 'hintSpaceRail'] : ['hintDrag', 'hintZoom', 'hintTap'];
     this.hints.replaceChildren(
       ...keys.map(k => h('p', { html: t(k) })),
-      h('button', { class: 'chip', id: 'btn-tutorial', onclick: () => { this.toggleHints(false); this.hooks.openTutorial(); } }, t('tutorialAgain')));
+      h('div', { class: 'row' },
+        h('button', { class: 'chip', id: 'btn-tutorial', onclick: () => { this.toggleHints(false); this.hooks.openTutorial(); } }, t('tutorialAgain')),
+        h('button', { class: 'chip', 'data-testid': 'btn-tours', onclick: () => { this.toggleHints(false); this.hooks.openTours(); } }, t('tours'))));
   }
   toggleHints(force?: boolean): void {
     const show = force ?? this.hints.classList.contains('hidden');
@@ -319,6 +321,7 @@ export class Shell {
     this.menu.replaceChildren(
       ...earth,
       h('h3', {}, t('mSettings')), h('div', { class: 'grid2' }, sw('sfx', 'sound'), sw('bgm', 'music')),
+      row('compass', t('tours'), h('button', { class: 'pill', 'data-testid': 'menu-tours', onclick: () => { this.toggleMenu(false); this.hooks.openTours(); } }, t('open'))),
       row('language', t('language'), sel),
       row('download', t('backup'), h('span', { class: 'row' },
         h('button', { class: 'pill', 'data-testid': 'backup-export', onclick: () => void import('./backup.ts').then(m => m.exportProgress(), () => toast('⚠️ ' + t('loadFail', { s: t('backup') }))) }, t('backupExport')),

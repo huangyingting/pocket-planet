@@ -4,7 +4,7 @@
  */
 const SEL = [
   '.topbar > .brand', '.topbar > .tools', '.top-center > :not(.hidden)', '.scale-rail', '.br', '.bl', '.solar-bottom',
-  '.info:not(.hidden)', '.menu:not(.hidden)', '.hud-readout', '.solar-hint:not(.gone)',
+  '.info:not(.hidden)', '.menu:not(.hidden)', '.hud-readout', '.solar-hint:not(.gone)', '.tour-card',
 ].join(',');
 let cache: DOMRect[] = [];
 let at = -1e9;

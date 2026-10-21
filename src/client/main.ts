@@ -169,26 +169,24 @@ async function boot(): Promise<void> {
   // ---- Sky theatre (lazy): eclipses, meteor showers, planets, played out over the globe or the Solar System ----
   const loadSky = lazy(() => import('./sky/index.ts'));
   let inSky = false;
-  const openSky = async (id?: string) => {
-    if (gaming) return;
+  const openSky = async (id?: string): Promise<import('./sky/theatre.ts').Theatre | null> => {
+    if (gaming) return null;
     const seq = ++navSeq;
     let m: typeof import('./sky/index.ts');
     try { m = await withBusy(loadSky()); } catch (e) {
       console.error(e);
       if (seq === navSeq) showLoadError(t('skyEvents'), () => void openSky(id), 'sky' + (id ? '/' + id : ''));
-      return;
+      return null;
     }
-    if (seq !== navSeq || gaming) return;
+    if (seq !== navSeq || gaming) return null;
     if (!inSky) { shell.toggleMenu(false); shell.time.toggle(false); }
-    inSky = true;
-    tune();
-    radio?.suspend(true);
-    globe.paused = true;
-    solar?.view.suspend(true);
-    sky = m.openSky(document.body, {
+    // replacing an open theatre runs its onClose first, so the "in the sky" state is set after the swap
+    const th = m.openSky(document.body, {
       id, lowfx, dprMax: quality.dprMax, msaa: quality.msaa,
       globe: { lat: globe.lat, lon: globe.lon },
       onClose: () => {
+        if (sky !== th) return;
+        sky = null;
         inSky = false;
         tune();
         if (!inSolar) radio?.suspend(false);
@@ -199,7 +197,36 @@ async function boot(): Promise<void> {
         void withBusy(loadSolar()).then(ui => { ui.showAt(ms); void enterSolar({ focus }); }, () => showLoadError(t('solarSystem'), () => void enterSolar({ focus }), 'solar/' + (focus ?? '')));
       },
     });
+    sky = th;
+    inSky = true;
+    tune();
+    radio?.suspend(true);
+    globe.paused = true;
+    solar?.view.suspend(true);
+    return th;
   };
+
+  // ---- guided tours (lazy): they drive the same navigation a user would ----
+  const toursMod = later(() => import('./ui/tours.ts'), () => t('tours'));
+  const navTo = (hash: string) => {
+    if (inSky) sky?.close();
+    if (location.hash === '#' + hash) route(); else location.hash = hash;
+  };
+  const tourHost: import('./ui/tours.ts').TourHost = {
+    earth: (lat, lon, hh) => {
+      if (gaming) return;
+      if (inSky) sky?.close();
+      shell.showItem(null);
+      if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+      if (inSolar) leaveSolar(lat, lon, () => globe.flyTo(lat, lon, hh, 1400)); else globe.flyTo(lat, lon, hh, 1600);
+    },
+    go: hash => navTo(hash),
+    sky: (id, view) => void openSky(id).then(th => { if (th && view) th.show(view); }),
+    path: pts => { if (!inSolar && !inSky) pts.slice(1).forEach((p, i) => globe.showFlightArc(pts[i], p, i > 0)); },
+    item: key => navTo(key),
+  };
+  const openTours = () => toursMod(m => m.openTours(tourHost));
+  const startTour = (id: string) => toursMod(m => m.startTour(id, tourHost));
 
   const showCollection = () => collectionMod(([{ openCollection }, { openPassport }]) => {
     const passport = () => openPassport({
@@ -212,7 +239,8 @@ async function boot(): Promise<void> {
     openPhoto: () => photoMod(m => m.openPhotoMode(globe, () => shell.current ? tr(shell.current.name, lang()) : '')),
     openCollection: showCollection,
     openGames: () => { if (!gaming) gamesMod(m => m.openGames(host)); },
-    openTutorial,
+    openTutorial: () => openTutorial(openTours),
+    openTours,
     openAccount: () => account(m => m.openAccount()), openGuestbook: () => account(m => void m.openGuestbook()),
     openSolar: () => void enterSolar(),
     openSky: () => void openSky(),
@@ -264,6 +292,7 @@ async function boot(): Promise<void> {
     }
     const [head, rest = ''] = hsh.split('/');
     if (head === 'sky') { void openSky(rest || undefined); return; }
+    if (head === 'tour') { if (rest) startTour(rest); else openTours(); history.replaceState(null, '', location.pathname + location.search); return; }
     const scale = SCALE_ROUTES[head];
     if (scale) {
       const focus = rest || (scale === 'solar' ? 'overview' : '');
@@ -303,8 +332,9 @@ async function boot(): Promise<void> {
     } catch { /* offline */ }
   });
 
+  const deepLink = !!location.hash;
   route();
-  if (!location.hash && load<string | null>('tutorial', null) !== 'done' && !params.has('notut')) setTimeout(openTutorial, 600);
+  if (!deepLink && load<string | null>('tutorial', null) !== 'done' && !params.has('notut')) setTimeout(openTutorial, 600);
 }
 
 boot().catch(err => {

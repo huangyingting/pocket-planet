@@ -35,7 +35,7 @@
 * { scrollbar-color: rgba(125, 211, 252, 0.3) transparent; }
 
 /* ---- the slab: shared geometry for everything that carries the cut-corner silhouette ---- */
-.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .photo-bar, .hints,
+.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .tour-card, .photo-bar, .hints,
 .zoom-ctl, .round-btn, .toast,
 .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info, .solar-ui .solar-hint,
 .hub-card, .game-card, .dex-card, .near-card, .diff, .opt, .reader-continue,
@@ -54,7 +54,7 @@
 .pill-sm { --cut: 5px; }
 
 /* panels: hairline cuts, amber signal tab on the top edge, ruler ticks on the bottom edge */
-.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .photo-bar, .hints,
+.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .tour-card, .photo-bar, .hints,
 .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info {
   --pp-bg: var(--hud-panel);
   border: 1px solid var(--hud-line); box-shadow: inset 0 0 32px rgba(56, 189, 248, 0.05);
@@ -97,7 +97,7 @@
 }
 
 /* panels unfold top-down along the slab outline */
-.info:not(.solar-info), .menu, .modal-panel, .tut-card, .solar-ui .solar-info { animation: pp-unfold .36s var(--ease-out); }
+.info:not(.solar-info), .menu, .modal-panel, .tut-card, .tour-card, .solar-ui .solar-info { animation: pp-unfold .36s var(--ease-out); }
 .modal-panel { animation-duration: .42s; }
 @keyframes pp-unfold {
   from { opacity: .3; clip-path: polygon(var(--cut) 0, 100% 0, 100% 0, 100% 0, 0 0, 0 0); }
@@ -105,7 +105,7 @@
 }
 
 /* ---- type: display / data / reading ---- */
-.modal-head h2, .info-body h2, .passport-head h3, .tut-card h2, .hub-card strong, .game-card strong, .result h3, .big-score, .reader-article h1 {
+.modal-head h2, .info-body h2, .passport-head h3, .tut-card h2, .tour-card h2, .hub-card strong, .game-card strong, .result h3, .big-score, .reader-article h1 {
   font-family: var(--font-hud); letter-spacing: .02em;
 }
 .brand h1 { font-family: var(--font-hud); font-size: 1.14rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; text-shadow: 0 0 16px rgba(125, 211, 252, 0.4), 0 1px 10px #000; }
@@ -397,7 +397,7 @@ body.solar .sb-label.k-comet { color: var(--hud-dim); }
 
 /* ---- phones ---- */
 @media (max-width: 760px) {
-  .omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .photo-bar, .hints,
+  .omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .tour-card, .photo-bar, .hints,
   .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info { --cut: 10px; }
   body:not(.solar) #app::after { inset: 4px; }
   .coord-readout { bottom: 26px; font-size: .7rem; gap: 8px; }
@@ -462,3 +462,35 @@ body.lowfx.scene-loading::after { animation-duration: 2.4s; }
 .backup-preview table { width: 100%; margin: 10px 0 14px; border-collapse: collapse; }
 .backup-preview th, .backup-preview td { padding: 4px 8px; text-align: left; font-weight: 400; }
 .backup-preview td { font-variant-numeric: tabular-nums; }
+
+/* ---- guided tours: a non-modal card that sits where it covers the least of each scene ---- */
+.tour { position: fixed; inset: 0; z-index: 85; pointer-events: none; }
+.tour-card { position: fixed; pointer-events: auto; left: 50%; transform: translateX(-50%); bottom: 96px; width: min(400px, calc(100vw - 24px));
+  padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 6px; }
+.tour-card h2 { margin: 0; font-size: 1.12rem; }
+.tour-body { margin: 0; line-height: 1.55; color: var(--text); max-height: 32vh; overflow: auto; }
+.tour-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tour-kicker { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-hud); font-size: .72rem; letter-spacing: .06em; color: var(--hud-dim); text-transform: uppercase; }
+.tour-kicker .ico, .tour-kicker svg { color: var(--accent); flex: none; }
+.tour-x { margin: -4px -6px -4px 0; }
+.tour-card .dots { justify-content: flex-start; }
+.tour-card .row { justify-content: flex-end; gap: 8px; }
+.tour-spot { position: fixed; display: none; border: 2px solid var(--accent); box-shadow: 0 0 22px var(--accent); transition: all .3s; animation: pulse 1.4s infinite; }
+/* in space the hint line gives way; next to an open card the tour centres on the free side */
+body.touring .solar-hint { display: none; }
+/* on the globe it keeps to the lower left, off the planet itself (the help button sits below it) */
+body:not(.solar) .tour-card { left: 20px; transform: none; bottom: 84px; width: min(380px, calc(100vw - 40px)); }
+body.solar .tour-card { bottom: calc(var(--space-dock, 96px) + 28px); }
+body:has(.info:not(.hidden)) .tour-card { left: calc(400px + (100vw - 400px) / 2); transform: translateX(-50%); bottom: 64px; width: min(380px, calc(100vw - 424px)); }
+body.solar:has(.info:not(.hidden)) .tour-card { bottom: calc(var(--space-dock, 96px) + 28px); }
+/* over the sky theatre: top left under its header, clear of the telemetry (right), narration and timeline (bottom) */
+body:has(.sky) .tour .tour-card.tour-card { left: 22px; right: auto; top: 112px; bottom: auto; transform: none; width: min(380px, calc(100vw - 44px)); }
+@media (min-width: 761px) and (max-width: 1000px) {
+  body:has(.info:not(.hidden)) .tour-card { left: 392px; right: 12px; width: auto; transform: none; }
+
+}
+@media (max-width: 760px) {
+  .tour-card, body.solar .tour-card, body:has(.info:not(.hidden)) .tour-card, body:has(.sky) .tour .tour-card.tour-card { top: 62px; bottom: auto; left: 8px; right: 52px; width: auto; transform: none; padding: 10px 12px; }
+  .tour-body { max-height: 24vh; font-size: .92rem; }
+  .tour-card .dots { display: none; }
+}

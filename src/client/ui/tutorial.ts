@@ -7,7 +7,7 @@ const STEPS: { n: number; target?: string }[] = [
   { n: 4, target: '#btn-collection' }, { n: 5, target: '#btn-game' }, { n: 6, target: '#btn-menu' }, { n: 7 },
 ];
 
-export function openTutorial(): void {
+export function openTutorial(openTours?: () => void): void {
   document.querySelector('.tutorial')?.remove();
   let i = 0;
   const ring = h('div', { class: 'tut-ring', 'aria-hidden': 'true' });
@@ -43,6 +43,7 @@ export function openTutorial(): void {
       h('div', { class: 'dots', 'aria-hidden': 'true' }, ...STEPS.map((_, j) => h('span', { class: j === i ? 'on' : '' }))),
       h('div', { class: 'row' },
         last ? null : h('button', { class: 'link', 'data-testid': 'tut-skip', onclick: () => finish(false) }, t('skip')),
+        last && openTours ? h('button', { class: 'pill', 'data-testid': 'tut-tours', onclick: () => { finish(false); openTours(); } }, t('tourStart')) : null,
         h('button', { class: 'cta', 'data-testid': 'tut-next', onclick: () => go(i + 1) }, last ? t('done') : t('next'))));
     (card.querySelector('.cta') as HTMLButtonElement).focus();
   };

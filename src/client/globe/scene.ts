@@ -669,8 +669,8 @@ export class Globe {
   }
 
   /** Draws an AuraFM-style glowing orbital telemetry arc between two coordinates. */
-  showFlightArc(from: [number, number], to: [number, number]): void {
-    this.flightArcGroup.clear();
+  showFlightArc(from: [number, number], to: [number, number], keep = false): void {
+    if (!keep) this.flightArcGroup.clear();
     const dist = this.angDist(from, to);
     if (dist < 0.03) return;
     const pts: THREE.Vector3[] = [];
