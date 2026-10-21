@@ -7,7 +7,7 @@ An original 3D toy globe for curious kids. Spin the Earth and tap landmarks, ani
 Product, architecture and planning docs are in [`docs/`](docs/README.md). Research on the reference product is in [`research/`](research/README.md).
 
 ## Stack
-* **Client**: TypeScript, Vite, three.js. All 3D models are procedural, built from primitives in `src/client/models/kit.ts` inside Web Workers (`models/library.ts`, see ADR-014). The country map is painted at runtime from Natural Earth TopoJSON.
+* **Client**: TypeScript, Vite, three.js. All 3D models are procedural, built from primitives in `src/client/models/kit.ts` inside Web Workers (`models/library.ts`, see ADR-014). The country map is painted at runtime from Natural Earth TopoJSON. Mountains, snow lines and the sea floor are shaded from NASA/GEBCO elevation and ocean-depth maps (`public/data/relief/`, sized per quality tier).
 * **Server**: Node 24 (native TS execution), Express 5 and the built-in `node:sqlite`. It provides magic-link auth, progress sync, reactions and the guestbook, and also serves the built SPA and the static encyclopedia pages.
 * **Tests**: Vitest for logic and the API; Playwright for desktop and mobile e2e.
 
@@ -88,7 +88,7 @@ The e2e config builds nothing. It starts `node src/server/index.ts` on port 8790
 │       ├── data/               catalogue + more/ (dinos, foods, festivals, space, …), solar (bodies, text, features), typemeta, passports, greetings, cities, ISO names, types
 │       ├── games/              placeit.ts, quiz.ts, daily.ts
 │       └── lib/                geo, rng, progress (merge), stickers, timeline (time machine), season, orbits (planet/moon positions), astro/ (ephemerides, eclipses, sky events)
-├── public/                     static assets copied as-is (favicon, Natural Earth TopoJSON)
+├── public/                     static assets copied as-is (favicon, Natural Earth TopoJSON, NASA/GEBCO relief maps)
 ├── scripts/build-pages.ts      static /landmarks, /animals, /discover pages + sitemap.xml, robots.txt, 404.html
 ├── tests/
 │   ├── unit/                   Vitest: game logic, i18n, catalogue, API (logic.test.ts, server.test.ts)

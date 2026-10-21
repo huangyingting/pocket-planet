@@ -1,4 +1,5 @@
 import { motion } from '../lib/classroom.ts';
+import { url } from '../lib/env.ts';
 import { t } from '../lib/i18n.ts';
 import * as THREE from 'three';
 import { QUALITY, AdaptiveResolution, type Quality } from './quality.ts';
@@ -69,6 +70,10 @@ const OCEANS: [string, Record<Lang, string>, number, number][] = [
   ['southern', { en: 'SOUTHERN OCEAN', zh: '南冰洋' }, -60, 60],
 ];
 
+/** 1×1 stand-ins until the relief maps load (uReliefMix is 0 meanwhile anyway). */
+const flat = (v: number) => { const t = new THREE.DataTexture(new Uint8Array([v, v, v, 255]), 1, 1); t.needsUpdate = true; return t; };
+const FLAT_LAND = flat(0), FLAT_SEA = flat(255);
+
 // ---- AuraFM Custom GLSL Earth Surface Shaders ----
 const EARTH_VERT = `
   varying vec2 vUv;
@@ -87,6 +92,10 @@ const EARTH_VERT = `
 const EARTH_FRAG = `
   uniform sampler2D uLandTex;
   uniform sampler2D uNightTex;
+  uniform sampler2D uRelief;   // land height, square-root encoded (r² = 0..~6.4 km)
+  uniform sampler2D uSea;      // 1 - ocean depth (0..~8 km)
+  uniform vec2 uReliefTexel;   // one texel of the land map in uv
+  uniform float uReliefMix;    // 0 until the relief map arrives, then the mode's relief strength
   uniform vec3 uSunDir;
   uniform float uLandMix;
   uniform float uNightMix;
@@ -103,17 +112,56 @@ const EARTH_FRAG = `
   varying vec3 vNormalWorld;
   varying vec3 vWorldPos;
 
+  // Bump mapping from screen-space derivatives (as three.js's perturbNormalArb): no tangent frame needed.
+  vec3 reliefNormal(vec3 N, out float hLand, out float depth) {
+    float r0 = texture2D(uRelief, vUv).r;
+    hLand = r0 * r0; depth = 1.0 - texture2D(uSea, vUv).r;
+    vec2 dx = dFdx(vUv), dy = dFdy(vUv);
+    // Smooth uv gradient from central differences at least a texel apart (a one-pixel step turns bilinear texels into
+    // flat facets), then projected onto the screen axes.
+    vec2 st = max(uReliefTexel, max(abs(dx), abs(dy)));
+    float e = texture2D(uRelief, vUv + vec2(st.x, 0.0)).r, w = texture2D(uRelief, vUv - vec2(st.x, 0.0)).r;
+    float n = texture2D(uRelief, vUv + vec2(0.0, st.y)).r, so = texture2D(uRelief, vUv - vec2(0.0, st.y)).r;
+    vec2 g = vec2((e * e - w * w) / (2.0 * st.x), (n * n - so * so) / (2.0 * st.y));
+    // land relief, exaggerated so ranges read from orbit
+    float k = 0.035;
+    float hx = dot(g, dx) * k;
+    float hy = dot(g, dy) * k;
+    vec3 sx = dFdx(vWorldPos), sy = dFdy(vWorldPos);
+    vec3 r1 = cross(sy, N), r2 = cross(N, sx);
+    float det = dot(sx, r1);
+    if (abs(det) < 1e-12) return N;
+    vec3 grad = sign(det) * (hx * r1 + hy * r2);
+    return normalize(abs(det) * N - grad);
+  }
+
   void main() {
     vec3 N = normalize(vNormalWorld);
     vec3 V = normalize(cameraPosition - vWorldPos);
     float facing = max(dot(N, V), 0.0);
 
+    float hLand = 0.0, depth = 0.0;
+    vec3 Nr = N;
+    if (uReliefMix > 0.001) Nr = reliefNormal(N, hLand, depth);
+
     vec4 landSample = texture2D(uLandTex, vUv);
     float landMask = smoothstep(0.08, 0.55, landSample.a);
 
     vec3 ocean = mix(uOceanDeep, uOceanMid, 0.55 + 0.45 * facing);
+    // sea floor: pale continental shelves, darker trenches
+    float rel = clamp(uReliefMix, 0.0, 1.0);
+    vec3 shelf = mix(vec3(0.10, 0.36, 0.48), vec3(0.08, 0.26, 0.42), (1.0 - uLandMix) * 0.6);
+    ocean = mix(ocean, shelf, (1.0 - smoothstep(0.0, 0.09, depth)) * 0.75 * rel);
+    ocean *= 1.0 - smoothstep(0.45, 0.95, depth) * 0.35 * rel;
     vec3 minimalLand = mix(vec3(0.09, 0.21, 0.36), vec3(0.15, 0.31, 0.50), facing);
     vec3 realisticLand = landSample.rgb * 1.18 + vec3(0.02, 0.04, 0.07);
+    // elevation colours on the satellite map: bare rock up high, snow above a latitude-dependent snow line
+    float lat = abs(vUv.y - 0.5) * 180.0;
+    float rock = smoothstep(0.22, 0.55, hLand) * 0.5;
+    realisticLand = mix(realisticLand, vec3(0.46, 0.41, 0.36), rock * rel);
+    float snowLine = mix(0.86, 0.14, smoothstep(26.0, 68.0, lat));
+    float snow = smoothstep(snowLine, snowLine + 0.1, hLand);
+    realisticLand = mix(realisticLand, vec3(0.93, 0.95, 0.98), snow * 0.85 * rel);
     vec3 landColor = mix(minimalLand, realisticLand, uLandMix);
 
     vec3 base = mix(ocean, landColor, landMask);
@@ -125,6 +173,16 @@ const EARTH_FRAG = `
     float viewLight = 0.68 + 0.32 * facing;
     float solarBoost = mix(1.0, 0.88 + 0.24 * day + 0.12 * diffuse, uNightMix);
     vec3 lit = base * viewLight * solarBoost;
+
+    // Hill shading: light from the Sun on the day side; with day/night off, from the upper left of the view (map convention).
+    vec3 camUp = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+    vec3 camRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+    vec3 Lview = normalize(V * 0.55 + camUp * 0.75 - camRight * 0.45);
+    vec3 L = normalize(mix(Lview, normalize(uSunDir), uNightMix));
+    float shade = dot(Nr, L) - dot(N, L);
+    float hillAmt = rel * mix(1.0, day, uNightMix) * mix(0.55, 1.0, landMask);
+    // soft response: steep slopes darken but never go black
+    lit *= 1.0 + (shade / (1.0 + abs(shade) * 1.6)) * 1.5 * hillAmt;
 
     // Warm city lights on the night hemisphere (masked to landmasses)
     float lights = texture2D(uNightTex, vUv).r;
@@ -262,6 +320,10 @@ export class Globe {
   private earthUniforms!: {
     uLandTex: { value: THREE.Texture };
     uNightTex: { value: THREE.Texture };
+    uRelief: { value: THREE.Texture };
+    uSea: { value: THREE.Texture };
+    uReliefMix: { value: number };
+    uReliefTexel: { value: THREE.Vector2 };
     uSunDir: { value: THREE.Vector3 };
     uLandMix: { value: number };
     uNightMix: { value: number };
@@ -393,6 +455,10 @@ export class Globe {
     this.earthUniforms = {
       uLandTex: { value: landTex },
       uNightTex: { value: nightTex },
+      uRelief: { value: FLAT_LAND },
+      uSea: { value: FLAT_SEA },
+      uReliefMix: { value: 0 },
+      uReliefTexel: { value: new THREE.Vector2(1, 1) },
       uSunDir: { value: new THREE.Vector3(1, 0.2, 0.5).normalize() },
       uLandMix: { value: this.settings.surfaceMode === 'minimal' ? 0.0 : 1.0 },
       uNightMix: { value: this.settings.shadows ? 1.0 : 0.0 },
@@ -419,6 +485,7 @@ export class Globe {
 
     if (borderPositions) this.setBorderPositions(borderPositions);
 
+    this.loadRelief();
     this.scene.add(this.earth, this.itemsRoot, this.pinsRoot, this.flightArcGroup, this.sun, this.sun.target, this.fillLight, this.fillLight.target, this.ambient, this.selRing);
     this.addAtmosphere();
     this.addStars();
@@ -431,6 +498,20 @@ export class Globe {
     const loop = () => { if (!this.paused) this.frame(); requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
     return true;
+  }
+
+  /** Elevation + ocean depth (NASA/GEBCO) for hill shading, snow lines and sea-floor tints; loads after the globe shows. */
+  private reliefReady = false;
+  private loadRelief(): void {
+    const load = (file: string) => new Promise<THREE.Texture>((ok, fail) => new THREE.TextureLoader().load(url('data/relief/' + file), ok, undefined, fail));
+    Promise.all([load(`land-${this.quality.reliefW}.webp`), load('sea-1024.webp')]).then(([land, sea]) => {
+      land.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+      this.earthUniforms.uRelief.value = land;
+      this.earthUniforms.uReliefTexel.value.set(1 / this.quality.reliefW, 2 / this.quality.reliefW);
+      this.earthUniforms.uSea.value = sea;
+      this.reliefReady = true;
+      this.dirty = true;
+    }, () => { /* stay flat: the painted map still works */ });
   }
 
   setBorderPositions(pos: Float32Array): void {
@@ -1193,6 +1274,11 @@ export class Globe {
 
     const targetLandMix = this.settings.surfaceMode === 'minimal' ? 0.0 : 1.0;
     this.earthUniforms.uLandMix.value += (targetLandMix - this.earthUniforms.uLandMix.value) * 0.12;
+
+    // relief fades in once loaded: full on the satellite map, softer on the flat political / minimal maps
+    const targetRelief = !this.reliefReady ? 0 : this.settings.surfaceMode === 'realistic' || (!this.settings.surfaceMode && this.settings.terrain) ? 1.0 : 0.6;
+    const ru = this.earthUniforms.uReliefMix;
+    if (Math.abs(targetRelief - ru.value) > 0.002) { ru.value += (targetRelief - ru.value) * 0.12; this.dirty = true; } else ru.value = targetRelief;
 
     const targetNightMix = this.settings.shadows ? 1.0 : 0.0;
     this.earthUniforms.uNightMix.value += (targetNightMix - this.earthUniforms.uNightMix.value) * 0.12;

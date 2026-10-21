@@ -85,7 +85,8 @@ export function buildStarField(n: number, frame: SkyFrame, radius: number): THRE
     blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false,
   });
   const pts = new THREE.Points(g, mat);
-  pts.renderOrder = -10;
+  // below every scene layer (the globe itself is -10): a tie lets three.js draw the nearer Earth first and the stars over it
+  pts.renderOrder = -1000;
   pts.frustumCulled = false;
   pts.onBeforeRender = (renderer, _s, camera) => {
     mat.uniforms.uPr.value = renderer.getPixelRatio();

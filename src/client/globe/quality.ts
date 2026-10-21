@@ -19,6 +19,8 @@ export interface Quality {
   /** Painted land texture width (height = width / 2). */
   mapW: number;
   nightW: number;
+  /** Elevation / ocean-depth map width (public/data/relief/relief-<w>.webp). */
+  reliefW: 1024 | 2048 | 4096;
   cloudW: number;
   cloudSeg: number;
   auroraN: number;
@@ -37,11 +39,11 @@ export interface Quality {
 }
 
 export const QUALITY: Record<Tier, Quality> = {
-  high: { tier: 'high', dprMax: 2, dprMin: 1, msaa: true, mapW: 2048, nightW: 2048, cloudW: 2048, cloudSeg: 128, auroraN: 384,
+  high: { tier: 'high', dprMax: 2, dprMin: 1, msaa: true, mapW: 2048, nightW: 2048, reliefW: 4096, cloudW: 2048, cloudSeg: 128, auroraN: 384,
     earthSeg: [96, 96], stars: 1400, lodPx: 60, maxShown: 400, maxMoving: 400, drainMs: 10, idleFps: 0 },
-  medium: { tier: 'medium', dprMax: 1.5, dprMin: 0.85, msaa: false, mapW: 2048, nightW: 1024, cloudW: 1024, cloudSeg: 96, auroraN: 256,
+  medium: { tier: 'medium', dprMax: 1.5, dprMin: 0.85, msaa: false, mapW: 2048, nightW: 1024, reliefW: 2048, cloudW: 1024, cloudSeg: 96, auroraN: 256,
     earthSeg: [80, 64], stars: 800, lodPx: 90, maxShown: 48, maxMoving: 16, drainMs: 6, idleFps: 30 },
-  low: { tier: 'low', dprMax: 1, dprMin: 0.75, msaa: false, mapW: 512, nightW: 1024, cloudW: 512, cloudSeg: 64, auroraN: 160,
+  low: { tier: 'low', dprMax: 1, dprMin: 0.75, msaa: false, mapW: 512, nightW: 1024, reliefW: 1024, cloudW: 512, cloudSeg: 64, auroraN: 160,
     earthSeg: [64, 48], stars: 400, lodPx: 110, maxShown: 36, maxMoving: 12, drainMs: 6, idleFps: 30 },
 };
 

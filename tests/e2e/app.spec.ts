@@ -18,6 +18,10 @@ test('home: globe, top bar, zoom readout, hints @mobile', async ({ page }, info)
     await page.keyboard.press('Escape');
   } else await expect(page.getByTestId('btn-game')).toBeVisible();
   await expect(page.locator('canvas.globe-canvas')).toBeVisible();
+  // terrain: the elevation maps load after the globe and the relief shading fades in
+  await expect.poll(() => page.evaluate(() => (window as any).__pp.globe.earthUniforms.uReliefMix.value), { timeout: 20_000 }).toBeGreaterThan(0.5);
+  // stars draw before the globe, so they can never show through it
+  expect(await page.evaluate(() => { const g = (window as any).__pp.globe; return g.stars.renderOrder < g.earth.renderOrder; })).toBe(true);
   await page.locator('#btn-help').click();
   await expect(page.locator('#hints')).toBeVisible();
   await shot(page, `${info.project.name}_01_home`);
