@@ -49,7 +49,7 @@ const key = (path: string) => Object.keys(man).find(k => k === path) ?? (() => {
 // The Earth and the small tools you can use without the internet. Radio, the Wikipedia reader and accounts are left out.
 const shell = closure([key('index.html'),
   ...['src/shared/data/greetings.ts', 'src/shared/data/plates.ts', 'src/client/ui/photo.ts', 'src/client/ui/bookmarks.ts', 'src/client/ui/tours.ts',
-    'src/client/ui/collection.ts', 'src/client/ui/passport.ts', 'src/client/ui/games.ts', 'src/client/ui/backup.ts'].map(key)]);
+    'src/client/ui/collection.ts', 'src/client/ui/passport.ts', 'src/client/ui/games.ts', 'src/client/ui/backup.ts', 'src/client/ui/compare.ts'].map(key)]);
 for (const f of ['', 'offline.json', 'manifest.webmanifest', 'favicon.svg', 'icon-192.png', 'icon-512.png', 'data/countries-110m.json',
   ...readdirSync(join(dist, 'fonts')).filter(f => f.endsWith('.woff2')).map(f => 'fonts/' + f)]) shell.add(f);
 
@@ -60,7 +60,7 @@ const workerHeroes = new Set<string>();
 if (modelWorker) fileClosure(modelWorker, workerHeroes, true);
 const packs = {
   space: minus(closure([key('src/client/solar/ui.ts'), key('src/client/solar/space-index.ts')])),
-  sky: minus(closure([key('src/client/sky/index.ts')])),
+  sky: minus(closure([key('src/client/sky/index.ts'), key('src/client/ui/tonight.ts')])),
   models: minus(new Set([...closure([...heroes, key('src/client/models/kit.ts')]), ...workerHeroes])),
 };
 

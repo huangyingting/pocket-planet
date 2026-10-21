@@ -31,7 +31,7 @@ const typeName = (ty: CatalogueItem['type']) => tr(TYPE_META[ty].one, lang());
 const AURA_ORDER: AuraPreset[] = ['waves', 'aurora', 'ember', 'dusk', 'sculpture'];
 
 export interface ShellHooks {
-  openPhoto: () => void; openCollection: () => void; openGames: () => void; openTutorial: () => void; openTours: () => void; openBookmarks: () => void; openCompare: (id?: string) => void;
+  openPhoto: () => void; openCollection: () => void; openGames: () => void; openTutorial: () => void; openTours: () => void; openBookmarks: () => void; openCompare: (id?: string) => void; openTonight: () => void;
   openAccount: () => void; openGuestbook: () => void;
   openSolar: () => void;
   openSky: () => void;
@@ -315,6 +315,7 @@ export class Shell {
     this.menu.replaceChildren(
       ...earth,
       h('h3', {}, t('mSettings')), h('div', { class: 'grid2' }, sw('sfx', 'sound'), sw('bgm', 'music')),
+      row('telescope', t('tonight'), h('button', { class: 'pill', 'data-testid': 'menu-tonight', onclick: () => { this.toggleMenu(false); this.hooks.openTonight(); } }, t('open'))),
       row('ruler', t('compare'), h('button', { class: 'pill', 'data-testid': 'menu-compare', onclick: () => { this.toggleMenu(false); this.hooks.openCompare(); } }, t('open'))),
       row('pin', t('bookmarks'), h('button', { class: 'pill', 'data-testid': 'menu-bookmarks', onclick: () => { this.toggleMenu(false); this.hooks.openBookmarks(); } }, t('open'))),
       row('compass', t('tours'), h('button', { class: 'pill', 'data-testid': 'menu-tours', onclick: () => { this.toggleMenu(false); this.hooks.openTours(); } }, t('open'))),

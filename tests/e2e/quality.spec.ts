@@ -341,3 +341,24 @@ test('narration: user-started, highlights the sentence being read, stoppable, te
   await expect(btn).toHaveAttribute('aria-pressed', 'false', { timeout: 15_000 });
   await expect(page.getByTestId('info-desc')).not.toBeEmpty();
 });
+
+test('tonight from my city: hand-picked city, peak vs local view, says there is no weather', async ({ page }) => {
+  await openApp(page);
+  await page.click('#btn-menu');
+  await page.getByTestId('menu-tonight').click();
+  await expect(page.getByTestId('tn-empty')).toBeVisible();
+  await page.getByTestId('tn-city').selectOption('beijing');
+  for (const s of ['night', 'moon', 'planets', 'showers', 'events']) await expect(page.getByTestId('tn-' + s)).toBeVisible();
+  await expect(page.getByTestId('tn-night')).toContainText(/Sunset \d\d:\d\d/);
+  await expect(page.getByTestId('tn-weather')).toContainText(/No weather data/);
+  // the choice is remembered, and an event opens in the sky theatre
+  await page.getByTestId('modal-close').click();
+  await page.click('#btn-menu');
+  await page.getByTestId('menu-tonight').click();
+  await expect(page.getByTestId('tn-city')).toHaveValue('beijing');
+  const ev = page.getByTestId('tn-event').first();
+  if (await ev.count()) {
+    await ev.click();
+    await expect(page.getByTestId('sky')).toBeVisible({ timeout: 30_000 });
+  }
+});
