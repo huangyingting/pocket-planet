@@ -129,6 +129,7 @@ const en: Dict = {
   tourFinish: "Finish",
   tourBack: "Back",
   tourStart: "Take a guided tour",
+  lvEarth: "Earth",
 };
 
 const zh: Dict = {
@@ -257,6 +258,7 @@ const zh: Dict = {
   tourFinish: "完成",
   tourBack: "上一步",
   tourStart: "跟着导览走一走",
+  lvEarth: "地球",
 };
 
 const DICTS: Record<Lang, Dict> = { en, zh };

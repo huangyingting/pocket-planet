@@ -153,3 +153,18 @@ test('progress backup: save a file, then load it back through a preview', async 
   await expect(page.getByTestId('backup-preview')).toHaveCount(0);
   expect(await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('pp.progress') ?? '{}').seen ?? {}))).toContain('an_tiger');
 });
+
+test('search: catalogue numbers and Chinese aliases, each result says its level', async ({ page }) => {
+  await openApp(page);
+  await page.click('#btn-search');
+  const input = page.locator('.search-modal input');
+  await input.fill('M31');
+  const first = page.locator('.search-grid .dex-card').first();
+  await expect(first).toContainText('Andromeda Galaxy');
+  await expect(first.locator('small')).toContainText('Local Group');
+  await input.fill('故宫');
+  await expect(page.locator('.search-grid .dex-card').first()).toContainText('Forbidden City');
+  await expect(page.locator('.search-grid .dex-card').first().locator('small')).toContainText('Earth');
+  await first.click();
+  await expect(page).toHaveURL(/#localgroup\/dp_m31|#forbidden/);
+});

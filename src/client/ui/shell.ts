@@ -1,4 +1,3 @@
-import { SUB_ZH } from '../../shared/data/subs.ts';
 import { h, closeModal, openModal, toast, $ } from './dom.ts';
 import { t, lang, setLang, countryName, fmtNum, onLang } from '../lib/i18n.ts';
 import { store, updateProgress, updateSettings, resetSettings, subscribe } from '../store.ts';
@@ -20,6 +19,7 @@ import { api } from '../lib/api.ts';
 import { HAS_API, url } from '../lib/env.ts';
 import { sessionOnly } from '../lib/storage.ts';
 import type { SpaceHit } from '../solar/space-index.ts';
+import { searchAll, type SearchFilter } from '../lib/search.ts';
 
 export const DEX_ZOOM = 10;
 const LANG_LABEL: Record<Lang, string> = { en: 'English', zh: '中文' };
@@ -151,44 +151,26 @@ export class Shell {
   private openSearch(): void {
     const l = lang();
     let query = '';
-    let filter: 'all' | 'space' | CatalogueItem['type'] = 'all';
+    let filter: SearchFilter = 'all';
     const listEl = h('div', { class: 'dex-grid search-grid' });
     let space: SpaceHit[] | null = null;
     void import('../solar/space-index.ts').then(m => { space = m.spaceIndex(); if (query.trim() || filter === 'space') renderList(); });
     const renderList = () => {
-      const q = query.trim().toLowerCase();
-      // Planets, landers, galaxies…: listed under their own filter, and mixed into a typed search.
-      const spaceHits = (filter === 'space' || (filter === 'all' && q)) && space
-        ? space.filter(s => !q || tr(s.name, l).toLowerCase().includes(q) || s.name.en.toLowerCase().includes(q)).slice(0, filter === 'space' ? 400 : 40)
-        : [];
-      const spaceCards = spaceHits.map(s => h('button', { class: 'dex-card unlocked', onclick: () => { closeModal(); location.hash = '#' + s.hash; } },
-        h('span', { class: 'dex-emoji' }, s.emoji), h('strong', {}, tr(s.name, l)), h('small', {}, t(s.kind))));
-      if (filter === 'space') {
-        listEl.replaceChildren(...(spaceCards.length ? spaceCards : [h('p', { class: 'muted' }, t('notFound'))]));
+      const hits = searchAll(query, l, space, filter);
+      if (!hits.length) {
+        listEl.replaceChildren(h('p', { class: 'muted' }, filter === 'space' && !space ? '…' : t('notFound')));
         return;
       }
-      const matches = CATALOGUE.filter(it => {
-        if (filter !== 'all' && it.type !== filter) return false;
-        if (!q) return true;
-        return tr(it.name, l).toLowerCase().includes(q) ||
-          it.name.en.toLowerCase().includes(q) ||
-          countryName(it.country, l).toLowerCase().includes(q) ||
-          it.sub.toLowerCase().includes(q) || (SUB_ZH[it.sub] ?? '').includes(q);
-      });
-      if (!matches.length && !spaceCards.length) {
-        listEl.replaceChildren(h('p', { class: 'muted' }, t('notFound')));
-        return;
-      }
-      listEl.replaceChildren(...matches.map(it =>
-        h('button', {
-          class: 'dex-card unlocked',
-          onclick: () => { closeModal(); this.showItem(it, true); },
-        },
-          h('span', { class: 'dex-emoji' }, it.emoji),
-          h('strong', {}, tr(it.name, l)),
-          h('small', {}, countryName(it.country, l) || typeName(it.type))
-        )
-      ), ...spaceCards);
+      // Each result says where it lives (level) and what it is (type).
+      listEl.replaceChildren(...hits.slice(0, 400).map(r => r.kind === 'item'
+        ? h('button', { class: 'dex-card unlocked', onclick: () => { closeModal(); this.showItem(r.item, true); } },
+          h('span', { class: 'dex-emoji' }, r.item.emoji),
+          h('strong', {}, tr(r.item.name, l)),
+          h('small', {}, [t('lvEarth'), typeName(r.item.type), countryName(r.item.country, l)].filter(Boolean).join(' · ')))
+        : h('button', { class: 'dex-card unlocked', onclick: () => { closeModal(); location.hash = '#' + r.hit.hash; } },
+          h('span', { class: 'dex-emoji' }, r.hit.emoji),
+          h('strong', {}, tr(r.hit.name, l)),
+          h('small', {}, r.hit.kind === 'scaleIs' ? t('scaleIs') : tr(r.hit.level, l) + ' · ' + t(r.hit.kind)))));
     };
     const input = h('input', {
       type: 'search',
