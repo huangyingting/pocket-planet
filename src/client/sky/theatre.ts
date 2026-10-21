@@ -12,8 +12,9 @@ import { s, SITES, type SkyKey } from './text.ts';
 import { localClock } from './common.ts';
 import { GroundSky } from './ground.ts';
 import { SpaceScene } from './space.ts';
+import { ModelScene } from './model.ts';
 import { LookControls, OrbitControls } from './controls.ts';
-import { buildAct, type Act, type Ctx, type Site, type View } from './acts.ts';
+import { buildAct, bodyName, type Act, type Ctx, type Frame, type Site, type Timing, type View } from './acts.ts';
 import { Calendar, findEvent, nextHighlight, countdown } from './panel.ts';
 
 export interface TheatreOpts {
@@ -30,14 +31,19 @@ export interface TheatreOpts {
 
 const SITE_KEY = 'pp.skyObs';
 const RATES = [1 / 8, 1 / 4, 1 / 2, 1, 2, 4, 8];
-const VIEW_KEY: Record<View, SkyKey> = { ground: 'ground', space: 'space', moon: 'fromMoon' };
+const VIEW_KEY: Record<View, SkyKey> = { model: 'model', ground: 'ground', space: 'space', moon: 'fromMoon' };
+/** Idle drift of the model camera (rad/s). */
+const DRIFT = 0.022;
 
 export class Theatre {
   readonly el: HTMLElement;
   private renderer: THREE.WebGLRenderer;
   private ground: GroundSky;
   private space: SpaceScene;
+  private model: ModelScene;
   private ctx: Ctx;
+  /** The clock of the current view (the model view may run on its own). */
+  private tm!: Timing;
   private cal: Calendar;
   private act!: Act;
   private ev!: SkyEvent;
@@ -62,6 +68,8 @@ export class Theatre {
   private siteSel = h('select', { class: 'sky-select', 'aria-label': s('where') });
   private readEl = h('dl', { class: 'sky-read' });
   private capEl = h('p', { class: 'sky-cap', 'aria-live': 'polite' });
+  private noteEl = h('p', { class: 'sky-note' });
+  private hintEl = h('div', { class: 'sky-hint' });
   private noticeEl = h('p', { class: 'sky-notice' });
   private zoomEl = h('div', { class: 'sky-zoom' });
   private solarBtn: HTMLButtonElement;
@@ -81,10 +89,12 @@ export class Theatre {
     this.renderer.setClearColor(0x000000);
     this.ground = new GroundSky(this.labels);
     this.space = new SpaceScene();
+    this.model = new ModelScene();
     const look = new LookControls(this.cv, this.ground.camera);
     const orbit = new OrbitControls(this.cv, this.space.camera);
-    this.ctx = { ground: this.ground, space: this.space, look, orbit, user: false };
-    look.onUser = orbit.onUser = () => { this.ctx.user = true; };
+    const morbit = new OrbitControls(this.cv, this.model.camera);
+    this.ctx = { ground: this.ground, space: this.space, model: this.model, look, orbit, morbit, user: false };
+    look.onUser = orbit.onUser = morbit.onUser = () => { this.ctx.user = true; };
 
     this.solarBtn = h('button', { class: 'sky-btn sky-solar', 'data-testid': 'sky-solar', onclick: () => this.toSolar() },
       h('span', { html: icon('planet', 18) }), h('span', {}, s('openSolar')));
@@ -108,7 +118,7 @@ export class Theatre {
     });
 
     this.range.addEventListener('input', () => {
-      const a = this.act;
+      const a = this.tm;
       this.t = a.t0 + (a.t1 - a.t0) * Number(this.range.value) / 1000;
       this.uiAcc = 1;
       if (!this.ctx.user) this.cut = true;
@@ -127,7 +137,7 @@ export class Theatre {
     const side = h('div', { class: 'sky-side' },
       h('div', { class: 'sky-card' }, h('span', { class: 'sky-card-k' }, 'TELEMETRY'), this.readEl),
       this.solarBtn);
-    const story = h('div', { class: 'sky-story' }, this.noticeEl, this.capEl);
+    const story = h('div', { class: 'sky-story' }, this.noticeEl, this.capEl, this.noteEl);
     const time = h('footer', { class: 'sky-time' },
       this.playBtn,
       h('div', { class: 'sky-speed', role: 'group', 'aria-label': s('simSpeed') },
@@ -138,7 +148,7 @@ export class Theatre {
       this.clockEl);
     const frame = h('div', { class: 'sky-frame', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'));
     this.el = h('section', { class: 'sky', 'data-testid': 'sky', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'sky-title' },
-      this.cv, this.labels, frame, h('div', { class: 'sky-hint' }, s('dragHint')),
+      this.cv, this.labels, this.model.labelHost, frame, this.hintEl,
       head, side, this.zoomEl, story, time, this.cal.el);
     host.append(this.el);
     addEventListener('keydown', this.onKey, true);
@@ -172,7 +182,14 @@ export class Theatre {
     this.act = buildAct(ev, this.pick());
     const a = this.act;
     this.ground.obs = { lat: a.site.lat, lon: a.site.lon };
-    this.t = keep && prevT >= a.t0 && prevT <= a.t1 ? prevT : a.start;
+    if (a.model) {
+      const names: Record<string, string> = { earth: s('earth'), moon: bodyName('moon'), sun: bodyName('sun'), ...a.model.names };
+      for (const id of [...(a.model.setup.planets ?? []), ...(a.model.setup.sight ?? [])]) names[id] ??= bodyName(id);
+      this.model.configure({ ...a.model.setup, lowfx: this.opts.lowfx }, names);
+    }
+    const view = keep && a.views.includes(prevView) ? prevView : a.view;
+    this.tm = this.timing(view);
+    this.t = keep && prevT >= this.tm.t0 && prevT <= this.tm.t1 ? prevT : this.tm.start;
     this.cal.active = ev.id;
     this.cal.showYear(new Date(ev.t).getUTCFullYear());
     this.cal.render();
@@ -189,23 +206,34 @@ export class Theatre {
     this.zoomEl.replaceChildren(
       h('button', { class: 'sky-btn sky-zbtn', 'data-z': 'tele', onclick: () => this.zoomTo('tele') }, h('span', { html: icon('telescope', 18) }), h('span', {}, s('tele'))),
       h('button', { class: 'sky-btn sky-zbtn', 'data-z': 'eye', onclick: () => this.zoomTo('eye') }, h('span', { html: icon('eye', 18) }), h('span', {}, s('eye'))));
-    const span = a.t1 - a.t0;
+    this.buildMarks();
+    this.rateIx = 3;
+    this.setRate(0);
+    this.setPlaying(true);
+    this.setView(view, !keep);
+    history.replaceState(null, '', '#sky/' + encodeURIComponent(ev.id));
+  }
+
+  /** The clock a view runs on: the act's, or the model's own (days around the event instead of minutes). */
+  private timing(v: View): Timing {
+    const a = this.act;
+    const base: Timing = { t0: a.t0, t1: a.t1, start: a.start, rate: a.rate, marks: a.marks, days: a.days, slow: a.slow, at: a.at };
+    return v === 'model' && a.model?.timing ? { ...base, ...a.model.timing } : base;
+  }
+
+  private buildMarks(): void {
+    const a = this.tm, span = a.t1 - a.t0;
     this.marksEl.replaceChildren(...a.marks.map(m => h('button', {
       class: 'sky-mark' + (m.major ? ' major' : ''), style: `left:${((m.t - a.t0) / span) * 100}%`,
       title: s('jumpTo', { m: m.label }), 'aria-label': s('jumpTo', { m: m.label }),
       onclick: () => { this.t = Math.max(a.t0, m.t - span * 0.004); this.setPlaying(true); if (!this.ctx.user) this.cut = true; },
     }, h('span', {}, m.label))));
     this.declutter();
-    this.rateIx = 3;
-    this.setRate(0);
-    this.setPlaying(true);
-    this.setView(keep && a.views.includes(prevView) ? prevView : a.view, !keep);
-    history.replaceState(null, '', '#sky/' + encodeURIComponent(ev.id));
   }
 
   /** Contact marks bunch up (C2 / max / C3 sit minutes apart in a 3-hour act): keep labels apart, majors first. */
   private declutter(): void {
-    const a = this.act, w = Math.max(200, this.marksEl.clientWidth || this.el.clientWidth * 0.6);
+    const a = this.tm, w = Math.max(200, this.marksEl.clientWidth || this.el.clientWidth * 0.6);
     const order = a.marks.map((m, i) => ({ m, i })).sort((x, y) => Number(!!y.m.major) - Number(!!x.m.major) || x.i - y.i);
     const kept: { x: number; half: number }[] = [];
     for (const { m, i } of order) {
@@ -218,13 +246,13 @@ export class Theatre {
 
   /** Current act's span and contact marks (for tests and deep links). */
   get info(): { id: string; view: View; t0: number; t1: number; t: number; marks: { t: number; label: string }[] } {
-    const a = this.act;
+    const a = this.tm;
     return { id: this.ev.id, view: this.view, t0: a.t0, t1: a.t1, t: this.t, marks: a.marks.map(m => ({ t: m.t, label: m.label })) };
   }
 
   /** Jump the clock (paused unless `play`). */
   seek(t: number, play = false): void {
-    this.t = Math.max(this.act.t0, Math.min(this.act.t1, t));
+    this.t = Math.max(this.tm.t0, Math.min(this.tm.t1, t));
     this.setPlaying(play);
     if (!this.ctx.user) this.cut = true;
   }
@@ -232,12 +260,28 @@ export class Theatre {
   show(v: View): void { if (this.act.views.includes(v)) this.setView(v); }
 
   private setView(v: View, fovPreset = true): void {
+    const was = this.view;
     this.view = v;
-    const a = this.act, { look, orbit } = this.ctx;
+    const a = this.act, { look, orbit, morbit } = this.ctx;
+    const tm = this.timing(v);
+    if (tm.t0 !== this.tm.t0 || tm.t1 !== this.tm.t1 || was !== v) {
+      const changed = tm.t0 !== this.tm.t0 || tm.t1 !== this.tm.t1;
+      this.tm = tm;
+      if (changed) {
+        // the model runs over days, the sky over minutes: keep the moment when it fits, else start over
+        if (this.t < tm.t0 || this.t > tm.t1) this.t = tm.start;
+        this.buildMarks();
+        this.setPlaying(true);
+      }
+    }
     this.ctx.user = false;
     look.enabled = v === 'ground';
-    orbit.enabled = v !== 'ground';
+    orbit.enabled = v === 'space' || v === 'moon';
+    morbit.enabled = v === 'model';
     this.labels.hidden = v !== 'ground';
+    this.model.labelHost.hidden = v !== 'model';
+    this.hintEl.textContent = s(v === 'model' ? 'modelHint' : 'dragHint');
+    this.hintEl.style.animation = 'none'; void this.hintEl.offsetWidth; this.hintEl.style.animation = '';
     this.zoomEl.hidden = v !== 'ground' || a.fov.tele === a.fov.eye;
     this.el.dataset.view = v;
     for (const b of this.viewsEl.querySelectorAll<HTMLElement>('.sky-seg')) {
@@ -269,7 +313,7 @@ export class Theatre {
   }
 
   private setPlaying(on: boolean): void {
-    if (on && this.t >= this.act.t1 - 1) this.t = this.act.t0;
+    if (on && this.tm && this.t >= this.tm.t1 - 1) this.t = this.tm.t0;
     this.playing = on;
     this.playBtn.innerHTML = icon(on ? 'pause' : 'play', 20);
     this.playBtn.setAttribute('aria-label', s(on ? 'pause' : 'play'));
@@ -317,7 +361,9 @@ export class Theatre {
   private resize(): void {
     const w = Math.max(1, this.el.clientWidth), hh = Math.max(1, this.el.clientHeight);
     this.renderer.setSize(w, hh, false);
-    for (const c of [this.ground.camera, this.space.camera]) { c.aspect = w / hh; c.updateProjectionMatrix(); }
+    // the model is framed a little high: the caption and timeline cover the bottom
+    this.model.camera.setViewOffset(w, hh, 0, Math.round(hh * (w < 720 ? -0.03 : 0.06)), w, hh);
+    for (const c of [this.ground.camera, this.space.camera, this.model.camera]) { c.aspect = w / hh; c.updateProjectionMatrix(); }
     this.ground.rendererH = hh * this.renderer.getPixelRatio();
     this.el.classList.toggle('narrow', w < 720);
     if (this.act) this.declutter();
@@ -327,7 +373,7 @@ export class Theatre {
     this.raf = requestAnimationFrame(this.loop);
     const dt = Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
-    const a = this.act;
+    const a = this.tm;
     if (!a) return;
     let rate = 0;
     if (this.playing) {
@@ -338,16 +384,26 @@ export class Theatre {
     const ms = a.at?.(this.t) ?? this.t;
     const simRate = a.at ? 0 : rate;
     let fr;
-    if (this.view === 'ground') {
+    const act = this.act;
+    if (this.view === 'model') {
+      const o = this.ctx.morbit;
+      this.model.update(ms, dt);
+      fr = act.frame(ms, 'model', this.ctx);
+      if (this.cut) o.settle();
+      if (!this.ctx.user) o.spin(DRIFT * dt);
+      o.update(dt);
+      this.model.placeLabels(this.el.clientWidth, this.el.clientHeight, this.uiRects);
+      this.model.render(this.renderer);
+    } else if (this.view === 'ground') {
       this.ground.update(ms, dt, simRate);
-      fr = a.frame(ms, 'ground', this.ctx);
+      fr = act.frame(ms, 'ground', this.ctx);
       if (this.cut) this.ctx.look.settle();
       this.ctx.look.update(dt);
       this.ground.placeLabels(this.el.clientWidth, this.el.clientHeight);
       this.ground.render(this.renderer);
     } else {
       this.space.update(ms, dt);
-      fr = a.frame(ms, this.view, this.ctx);
+      fr = act.frame(ms, this.view, this.ctx);
       if (this.cut) this.ctx.orbit.settle();
       this.ctx.orbit.update(dt);
       this.space.render(this.renderer);
@@ -360,16 +416,27 @@ export class Theatre {
     }
   };
 
-  private paintUi(ms: number, fr: { caption: string; read: [string, string][] }): void {
-    const a = this.act, k = (this.t - a.t0) / (a.t1 - a.t0);
+  /** Panels that model labels must not show through (refreshed with the UI). */
+  private uiRects: DOMRect[] = [];
+
+  private paintUi(ms: number, fr: Frame): void {
+    if (this.view === 'model') {
+      const o = this.el.getBoundingClientRect();
+      this.uiRects = [...this.el.querySelectorAll<HTMLElement>('.sky-head, .sky-card, .sky-solar, .sky-cap, .sky-note, .sky-notice, .sky-time, .skycal')]
+        .filter(e => e.offsetParent !== null)
+        .map(e => { const r = e.getBoundingClientRect(); return new DOMRect(r.left - o.left - 4, r.top - o.top - 4, r.width + 8, r.height + 8); });
+    }
+    const a = this.tm, k = (this.t - a.t0) / (a.t1 - a.t0);
     if (document.activeElement !== this.range) this.range.value = String(Math.round(k * 1000));
     this.fillEl.style.width = `${k * 100}%`;
-    const site = a.site;
+    const site = this.act.site;
     this.clockEl.textContent = a.days ? localClock(ms, site.tz, true, lang()) : localClock(ms, site.tz, false, lang());
     if (this.capEl.textContent !== fr.caption) {
       this.capEl.textContent = fr.caption;
       this.capEl.classList.remove('flash'); void this.capEl.offsetWidth; this.capEl.classList.add('flash');
     }
+    const note = fr.note ?? '';
+    if (this.noteEl.textContent !== note) this.noteEl.textContent = note;
     const rows = fr.read;
     if (this.readEl.childElementCount !== rows.length * 2) this.readEl.replaceChildren(...rows.flatMap(() => [h('dt'), h('dd')]));
     rows.forEach(([key, v], i) => {
@@ -385,8 +452,8 @@ export class Theatre {
     cancelAnimationFrame(this.raf);
     removeEventListener('keydown', this.onKey, true);
     this.ro.disconnect();
-    this.ctx.look.dispose(); this.ctx.orbit.dispose();
-    this.ground.dispose(); this.space.dispose();
+    this.ctx.look.dispose(); this.ctx.orbit.dispose(); this.ctx.morbit.dispose();
+    this.ground.dispose(); this.space.dispose(); this.model.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     this.el.remove();

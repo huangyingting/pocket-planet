@@ -432,6 +432,11 @@ test('sky theatre: eclipse deep link, space view, calendar pick, close', async (
   const sky = page.getByTestId('sky');
   await expect(sky).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('#sky-title')).toContainText(/eclipse/i);
+  // opens on the "how it works" model, labelled and on a clock of days
+  await expect(page.getByTestId('sky-view-model')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.sky-mlabels .m-earth')).toBeVisible();
+  await page.waitForTimeout(1500);
+  await shot(page, 'desktop_39_sky_eclipse_model');
   await page.getByTestId('sky-view-space').click();
   await expect(page.getByTestId('sky-view-space')).toHaveAttribute('aria-selected', 'true');
   await page.waitForTimeout(1500);

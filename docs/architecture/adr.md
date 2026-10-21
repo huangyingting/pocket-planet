@@ -668,3 +668,33 @@ Above the Solar System the scenes were also static apart from rigid disc spin.
 - \+ The deep levels are alive with things that really happen there.
 - − The orbit and flash rates are compressed by many orders of magnitude.
 - − Galaxy close-up models do not spin: they are oriented to match their famous photographs.
+
+## ADR-030: Sky theatre "How it works" model view
+
+**Context.** The Sky theatre showed each event as it looks: the sky from the ground, or a true-scale view from space.
+- At true scale the Moon is a speck 60 Earth radii away, so the lunar "space" view was dominated by the near wall of the umbra cone.
+- Planet, transit and meteor events had no way to show *why* they happen.
+
+**Decision.**
+- **A third view kind, `model`**, is now the default for every act (`sky/model.ts`, `ModelScene`).
+  - It is a labelled orrery in the ecliptic frame of date, computed from the same ephemerides.
+  - **Local stage** (eclipses, phases): Earth and Moon, with the Earth–Moon distance shrunk by 4×.
+    - The shadow cones' half-angle is steepened by the same factor, so every shadow is its true size where it lands.
+    - Earth and Moon are shaded from the real geometry, so the Moon's shadow on Earth and Earth's shadow on the Moon are real-sized.
+    - Also shown: the tilted lunar orbit (brighter above the ecliptic), its nodes, and the far Sun with a stream of sunlight motes.
+    - Phases add ghost moons, lit half toward the Sun; supermoons add perigee and apogee.
+  - **Heliocentric stage** (seasons, oppositions, conjunctions, elongations, transits, meteor showers): positions are to scale and bodies are enlarged.
+    - Lines of sight run from Earth, with an elongation arc.
+    - Seasons show the four equinox and solstice Earths, their fixed axis, and the subsolar ray.
+    - A meteor stream's orbit is back-computed from its radiant and speed (Geminids give a = 1.36 AU, e = 0.88, i = 22°, matching Phaethon). Particles are propagated by Kepler's equation, so Earth visibly ploughs through the trail.
+- **Per-view clocks.** An act can give the model its own `Timing`, for example ±2 days around an eclipse instead of ±1.5 h, or a year for seasons with the four equinox and solstice marks. The theatre swaps the timeline, marks and pace when the view changes.
+- **Labels.**
+  - They sit below their body by its projected radius, so they read the same from any angle.
+  - The off-stage Sun is pinned to the screen edge with an arrow pointing toward it.
+  - Labels hide under the theatre's panels.
+- **Camera.** Each kind has a preset camera with an idle drift, framed higher on desktop to clear the caption, and backed off on portrait screens.
+
+**Consequences.**
+- \+ Every event first shows the geometry behind it, then "From the ground" shows the result.
+- \+ The confusing true-scale lunar space view is gone (the solar one stays).
+- − The model is schematic in size; the caption notes the scale ("sizes enlarged …").

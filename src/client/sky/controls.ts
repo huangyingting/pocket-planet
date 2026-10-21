@@ -126,6 +126,8 @@ export class OrbitControls {
   }
   zoom(f: number): void { this.tDist = Math.max(this.minDist, Math.min(this.maxDist, this.tDist * f)); }
   settle(): void { this.theta = this.tTheta; this.phi = this.tPhi; this.dist = this.tDist; }
+  /** Turn slowly around the target (an idle drift). */
+  spin(d: number): void { this.tTheta += d; this.theta += d; }
 
   update(dt: number): void {
     const k = 1 - Math.exp(-dt * 5);

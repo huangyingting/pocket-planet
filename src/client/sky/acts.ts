@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import {
-  topocentric, localSolar, eclipsePath, planetGeo, moonGeo, sunGeo, moonPhase, gast, type PlanetId, type SkyEvent, type GeoPoint,
+  topocentric, localSolar, eclipsePath, planetGeo, moonGeo, sunGeo, moonPhase, gast, nextPhase, type PlanetId, type SkyEvent, type GeoPoint,
 } from '../../shared/lib/astro/index.ts';
 import { SHOWERS } from '../../shared/data/showers.ts';
 import { lang } from '../lib/i18n.ts';
@@ -14,13 +14,23 @@ import { s, SITES, regionOf } from './text.ts';
 import { localClock, eqVec, D2R } from './common.ts';
 import { PLANETS, type GroundSky } from './ground.ts';
 import type { SpaceScene } from './space.ts';
+import type { ModelScene, ModelSetup } from './model.ts';
 import type { LookControls, OrbitControls } from './controls.ts';
+import { findRoot } from '../../shared/lib/astro/ephem.ts';
 
-export type View = 'ground' | 'space' | 'moon';
+export type View = 'model' | 'ground' | 'space' | 'moon';
 export interface Site { id: string; name: string; lat: number; lon: number; tz: number }
-export interface Ctx { ground: GroundSky; space: SpaceScene; look: LookControls; orbit: OrbitControls; user: boolean }
-export interface Frame { caption: string; read: [string, string][] }
+export interface Ctx {
+  ground: GroundSky; space: SpaceScene; model: ModelScene;
+  look: LookControls; orbit: OrbitControls; morbit: OrbitControls; user: boolean;
+}
+export interface Frame { caption: string; read: [string, string][]; note?: string }
 export interface Mark { t: number; label: string; major?: boolean }
+/** The clock of a view: its span, start, pace and the marks on its timeline. */
+export interface Timing {
+  t0: number; t1: number; start: number; rate: number; marks: Mark[]; days?: boolean;
+  slow?(t: number): number; at?(t: number): number;
+}
 
 export interface Act {
   title: string;
@@ -44,6 +54,8 @@ export interface Act {
   frame(ms: number, view: View, c: Ctx): Frame;
   /** "See it in the Solar System" hand-off. */
   solar?: { focus: string; ms: number };
+  /** The "how it works" model: what to build, its own clock (overrides the act's), extra names for labels. */
+  model?: { setup: ModelSetup; timing?: Partial<Timing>; names?: Record<string, string> };
 }
 
 const H = 3600_000, DAY = 86400_000, SID = 86164_091;
@@ -108,6 +120,56 @@ function slowNear(ts: (number | undefined)[], near: number, far: number, min: nu
 /** Keep the camera on a target (az / alt in degrees) unless the user took over. */
 function track(c: Ctx, az: number, alt: number, fov?: number): void { if (!c.user) c.look.aim(az, alt, fov, false, true); }
 
+// ------------------------------------------------------------------------------------------------ the model view
+
+// no line breaks inside (word joiner after the hyphen, no-break space)
+const utcDate = (ms: number) => new Date(ms).toISOString().slice(5, 16).replace('-', '-\u2060').replace('T', '\u00a0');
+const utcDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+/** Model clock centred on a moment: `days` either side, slowing down around it. */
+function around(t: number, days: number, label: string, near: number, far: number, min: number, secs = 50): Partial<Timing> {
+  return {
+    t0: t - days * DAY, t1: t + days * DAY, start: t - days * 0.65 * DAY, rate: (2 * days * DAY) / 1000 / secs, days: true,
+    marks: [{ t, label, major: true }], slow: slowNear([t], near, far, min), at: undefined,
+  };
+}
+/** Great-circle angle between two ecliptic directions (degrees). */
+function sepDeg(l1: number, b1: number, l2: number, b2: number): number {
+  const c = Math.sin(b1 * D2R) * Math.sin(b2 * D2R) + Math.cos(b1 * D2R) * Math.cos(b2 * D2R) * Math.cos((l1 - l2) * D2R);
+  return Math.acos(Math.max(-1, Math.min(1, c))) / D2R;
+}
+/** Eclipse models: how far the Moon is from the Sun–Earth line, and whether it is lined up now. */
+function eclipseModelFrame(ms: number, t: number, lunar: boolean): Frame {
+  const m = moonGeo(ms), g = sunGeo(ms);
+  const sep = lunar ? sepDeg(m.lon, m.lat, g.lon + 180, -g.lat) : sepDeg(m.lon, m.lat, g.lon, g.lat);
+  const near = Math.abs(ms - t) < 10 * H;
+  return {
+    caption: lunar ? s(near ? 'cm_lunar_near' : 'cm_lunar_far') : s(near ? 'cm_solar_near' : 'cm_solar_far'),
+    read: [[s('utc'), utcDate(ms)], [s('moonLat'), deg(m.lat, 2)], [s(lunar ? 'shadowSep' : 'sunMoonSep'), deg(sep, 2)]],
+    note: s('mScale'),
+  };
+}
+/** Times (UTC ms) of the equinoxes and solstices within ±half a year of t. */
+function seasonMarks(t: number): Mark[] {
+  const out: Mark[] = [];
+  const lon0 = sunGeo(t).lon;
+  ([[0, 'march'], [90, 'june'], [180, 'september'], [270, 'december']] as const).forEach(([L, key]) => {
+    const d = ((((L - lon0) % 360) + 540) % 360) - 180;
+    const guess = t + (d / 360) * 365.2422 * DAY;
+    const f = (u: number) => ((((sunGeo(u).lon - L) % 360) + 540) % 360) - 180;
+    const at = findRoot(f, guess - 5 * DAY, guess + 5 * DAY, 60_000);
+    out.push({ t: at, label: s(`k_${key}` as const), major: Math.abs(at - t) < DAY });
+  });
+  return out.sort((a, b) => a.t - b.t);
+}
+/** Phase marks (New, First quarter, Full, Last quarter) within [a, b]. */
+function phaseMarks(a: number, b: number, majorAt: number): Mark[] {
+  const out: Mark[] = [];
+  ([[0, 'ph0'], [90, 'ph2'], [180, 'ph4'], [270, 'ph6']] as const).forEach(([ph, key]) => {
+    for (let u = nextPhase(a, ph); u < b; u = nextPhase(u + DAY, ph)) out.push({ t: u, label: s(key), major: Math.abs(u - majorAt) < DAY });
+  });
+  return out.sort((x, y) => x.t - y.t);
+}
+
 // ------------------------------------------------------------------------------------------------ solar eclipse
 
 function solarAct(ev: SkyEvent, pick: Site | null): Act {
@@ -127,12 +189,14 @@ function solarAct(ev: SkyEvent, pick: Site | null): Act {
   const path = e.type === 'partial' ? null : eclipsePath(e, 60);
   const typeKey = L.type === 'total' ? 'seesTotal' : L.type === 'annular' ? 'seesAnnular' : 'seesPartial';
   return {
-    title: eventTitle(ev), views: ['ground', 'space'], view: 'ground', site, notice, marks,
+    title: eventTitle(ev), views: ['model', 'ground', 'space'], view: 'model', site, notice, marks,
+    model: { setup: { kind: 'solar', t: ev.t }, timing: around(ev.t, 2, s('c_max'), 2 * H, 12 * H, 0.1) },
     t0, t1, start: Math.max(t0, (L.c2 ?? L.max) - (central ? 6 * 60_000 : 25 * 60_000)),
     rate: (t1 - t0) / 1000 / 70,
     slow: central ? slowNear([L.c2, L.c3], 40_000, 6 * 60_000, 0.025) : undefined,
     fov: { tele: 3.2, eye: 55, start: 'tele' },
     enter(view, c) {
+      if (view === 'model') { c.model.aim(c.morbit, ev.t); return; }
       c.space.setPath(path);
       c.space.setMarker(site);
       c.space.showAxis(true);
@@ -148,6 +212,7 @@ function solarAct(ev: SkyEvent, pick: Site | null): Act {
       }
     },
     frame(ms, view, c) {
+      if (view === 'model') return eclipseModelFrame(ms, ev.t, false);
       const read: [string, string][] = [[s('localTime'), localClock(ms, site.tz, false, lang())]];
       if (view === 'space') {
         read.push([s('magnitude'), e.magnitude.toFixed(3)]);
@@ -193,10 +258,12 @@ function lunarAct(ev: SkyEvent, pick: Site | null): Act {
   marks.push({ t: l.p4, label: s('c_p4') });
   const t0 = l.p1 - 10 * 60_000, t1 = l.p4 + 10 * 60_000;
   return {
-    title: eventTitle(ev), views: ['ground', 'space', 'moon'], view: 'ground', site, notice, marks,
+    title: eventTitle(ev), views: ['model', 'ground', 'moon'], view: 'model', site, notice, marks,
+    model: { setup: { kind: 'lunar', t: l.t }, timing: around(l.t, 2, s('c_max'), 2 * H, 12 * H, 0.1) },
     t0, t1, start: (l.u1 ?? l.p1) - 10 * 60_000, rate: (t1 - t0) / 1000 / 80,
     fov: { tele: 2.4, eye: 60, start: 'tele' },
     enter(view, c) {
+      if (view === 'model') { c.model.aim(c.morbit, l.t); return; }
       c.space.setPath(null); c.space.setMarker(null); c.space.showAxis(false); c.space.showCones(true); c.space.exaggerate(1);
       const st = c.space.update(l.t);
       if (view === 'space') {
@@ -213,6 +280,7 @@ function lunarAct(ev: SkyEvent, pick: Site | null): Act {
       }
     },
     frame(ms, view, c) {
+      if (view === 'model') return eclipseModelFrame(ms, l.t, true);
       const read: [string, string][] = [[s('localTime'), localClock(ms, site.tz, false, lang())]];
       read.push([s('magnitude'), l.umbralMagnitude > 0 ? l.umbralMagnitude.toFixed(2) : l.penumbralMagnitude.toFixed(2)]);
       if (l.u2 && l.u3) read.push([s('duration'), fmtDur((l.u3 - l.u2) / 1000)]);
@@ -245,14 +313,27 @@ function meteorAct(ev: SkyEvent, pick: Site | null): Act {
   const t0 = (ev.t - mid < 12 * H ? mid - DAY : mid) + 20 * H, t1 = t0 + 10 * H;
   const radiant = eqVec(sh.ra, sh.dec);
   return {
-    title: eventTitle(ev), views: ['ground'], view: 'ground', site, marks: [{ t: Math.min(t1, Math.max(t0, ev.t)), label: s('c_peak'), major: true }],
+    title: eventTitle(ev), views: ['model', 'ground'], view: 'model', site, marks: [{ t: Math.min(t1, Math.max(t0, ev.t)), label: s('c_peak'), major: true }],
+    model: {
+      setup: { kind: 'meteors', t: ev.t, shower: sh },
+      timing: { ...around(ev.t, 12, s('c_peak'), 8 * H, 3 * DAY, 0.2, 45), start: ev.t - 8 * DAY },
+      names: { stream: s('stream', { p: tr(sh.parent, lang()) }) },
+    },
     t0, t1, start: t0 + 3 * H, rate: 240,
     fov: { tele: 40, eye: 95, start: 'eye' },
-    enter(_v, c) {
+    enter(v, c) {
+      if (v === 'model') { c.model.aim(c.morbit, ev.t); return; }
       c.ground.shower = { radiant, perSec: sh.zhr / 3600 };
       c.ground.radiant = { dir: radiant, name: s('radiant') + ' · ' + tr(sh.name, lang()) };
     },
-    frame(ms, _v, c) {
+    frame(ms, v, c) {
+      if (v === 'model') {
+        const o = c.model.streamInfo, near = Math.abs(ms - ev.t) < 2.5 * DAY;
+        const read: [string, string][] = [[s('utc'), utcDate(ms)]];
+        if (o) read.push([s('orbitA'), `${o.a.toFixed(2)} AU`], [s('orbitE'), o.e.toFixed(2)], [s('orbitI'), deg(o.i, 0)]);
+        read.push([s('speed'), `${sh.speedKms} km/s`], [s('parent'), tr(sh.parent, lang())]);
+        return { caption: near ? s('cm_meteor_near', { v: sh.speedKms }) : s('cm_meteor_far', { p: tr(sh.parent, lang()) }), read, note: s('mScaleHelio') };
+      }
       const st = c.ground.state, rad = c.ground.radiantHz;
       if (rad) track(c, rad.az, Math.min(55, Math.max(25, rad.alt * 0.7)));
       const moon = moonPhase(ms);
@@ -283,12 +364,20 @@ function moonAct(ev: SkyEvent, pick: Site | null): Act {
   for (let t = t0; t <= t1; t += 20 * 60_000) { const a = topocentric(t, site).moon.alt; if (a > hi) { hi = a; best = t; } }
   const AVG_R = 0.2588; // mean apparent radius of the Moon, degrees (31.06′ diameter)
   return {
-    title: eventTitle(ev), views: isNew ? ['space', 'ground'] : ['ground', 'space'], view: isNew ? 'space' : 'ground', site,
+    title: eventTitle(ev), views: ['model', 'ground'], view: 'model', site,
     marks: [{ t: ev.t, label: s(isNew ? 'k_new' : 'k_full'), major: true }],
+    model: {
+      setup: { kind: 'phases', t: ev.t, apsides: ev.kind === 'supermoon' },
+      timing: {
+        t0: ev.t - 15 * DAY, t1: ev.t + 15 * DAY, start: ev.t - 8 * DAY, rate: 30 * DAY / 1000 / 60, days: true, at: undefined,
+        marks: phaseMarks(ev.t - 15 * DAY, ev.t + 15 * DAY, ev.t), slow: slowNear([ev.t], 6 * H, 2 * DAY, 0.2),
+      },
+    },
     t0: isNew ? ev.t - 15 * DAY : t0, t1: isNew ? ev.t + 15 * DAY : t1, start: isNew ? ev.t - 4 * DAY : best,
     rate: isNew ? 30 * DAY / 1000 / 60 : 24 * H / 1000 / 80, days: isNew,
     fov: { tele: 1.6, eye: 60, start: 'tele' },
     enter(view, c) {
+      if (view === 'model') { c.model.aim(c.morbit, ev.t); return; }
       c.space.setPath(null); c.space.setMarker(null); c.space.showAxis(false); c.space.showCones(false);
       if (view === 'space') {
         c.space.exaggerate(5);
@@ -300,6 +389,17 @@ function moonAct(ev: SkyEvent, pick: Site | null): Act {
     },
     frame(ms, view, c) {
       const m = moonGeo(ms), ph = moonPhase(ms);
+      if (view === 'model') {
+        const e = ((m.lon - sunGeo(ms).lon) % 360 + 360) % 360, ix = Math.round(e / 45) % 8;
+        return {
+          caption: ev.kind === 'supermoon' ? s('cm_super') : s('cm_phase'),
+          read: [
+            [s('utc'), utcDate(ms)], [s('phaseNow'), s(`ph${ix}` as `ph${0 | 1 | 2 | 3 | 4 | 5 | 6 | 7}`)], [s('illum'), pct(ph.illumination)],
+            [s('distance'), `${Math.round(m.distKm).toLocaleString()} km`], [s('moonAge'), `${ph.ageDays.toFixed(1)} ${lang() === 'zh' ? '天' : 'd'}`],
+          ],
+          note: s('mScale'),
+        };
+      }
       const read: [string, string][] = [
         [s(isNew ? 'utc' : 'localTime'), isNew ? new Date(ms).toISOString().slice(0, 16).replace('T', ' ') : localClock(ms, site.tz, false, lang())],
         [s('illum'), pct(ph.illumination)],
@@ -327,10 +427,18 @@ function seasonAct(ev: SkyEvent, pick: Site | null): Act {
   if (rise) marks.push({ t: rise, label: s('c_rise') });
   if (set) marks.push({ t: set, label: s('c_set') });
   return {
-    title: eventTitle(ev), views: ['space', 'ground'], view: 'space', site, marks,
+    title: eventTitle(ev), views: ['model', 'space', 'ground'], view: 'model', site, marks,
+    model: {
+      setup: { kind: 'seasons', t: ev.t },
+      timing: {
+        t0: ev.t - 183 * DAY, t1: ev.t + 183 * DAY, start: ev.t - 40 * DAY, rate: 366 * DAY / 1000 / 90, days: true, at: undefined,
+        marks: seasonMarks(ev.t), slow: slowNear([ev.t], 12 * H, 12 * DAY, 0.12),
+      },
+    },
     t0: mid, t1: mid + DAY, start: rise ? rise - H : mid + 6 * H, rate: 24 * H / 1000 / 50,
     fov: { tele: 30, eye: 100, start: 'eye' },
     enter(view, c) {
+      if (view === 'model') { c.model.aim(c.morbit, ev.t); return; }
       c.space.setPath(null); c.space.setMarker(site); c.space.showAxis(false); c.space.showCones(false); c.space.exaggerate(1);
       if (view === 'space') {
         c.orbit.target.set(0, 0, 0); c.orbit.up.set(0, 0, 1); c.orbit.minDist = 1.3; c.orbit.maxDist = 300;
@@ -340,6 +448,18 @@ function seasonAct(ev: SkyEvent, pick: Site | null): Act {
     },
     frame(ms, view, c) {
       const sg = sunGeo(ms);
+      if (view === 'model') {
+        const au = sg.distKm / 149_597_870.7, zh = lang() === 'zh';
+        return {
+          caption: au < 0.985 ? s('cm_perihelion') : s('cm_season'),
+          read: [
+            [s('utc'), utcDay(ms)],
+            [s('subsolar'), `${Math.abs(sg.dec).toFixed(1)}°${sg.dec >= 0 ? (zh ? '北纬' : 'N') : (zh ? '南纬' : 'S')}`],
+            [s('sunDist'), `${au.toFixed(3)} AU`],
+          ],
+          note: s('mScaleHelio'),
+        };
+      }
       const read: [string, string][] = [
         [s('localTime'), localClock(ms, site.tz, false, lang())],
         [lang() === 'zh' ? '太阳直射' : 'Sun overhead at', `${Math.abs(sg.dec).toFixed(1)}°${sg.dec >= 0 ? (lang() === 'zh' ? '北纬' : 'N') : (lang() === 'zh' ? '南纬' : 'S')}`],
@@ -404,13 +524,32 @@ function planetAct(ev: SkyEvent, pick: Site | null): Act {
   const cap = ev.kind === 'opposition' ? s('cap_opposition', { p: bodyName(main) })
     : ev.kind === 'elongation' ? s('cap_elongation', { p: bodyName(main) }) : s('cap_conjunction');
   return {
-    title: eventTitle(ev), views: ['ground'], view: 'ground', site, days: true, at,
+    title: eventTitle(ev), views: ['model', 'ground'], view: 'model', site, days: true, at,
+    model: {
+      setup: {
+        kind: 'planets', t: ev.t, planets: ids.filter(isPlanet),
+        sight: ev.kind === 'conjunction' ? ids.filter(isPlanet) : [main, 'sun'],
+        arc: ev.kind === 'elongation' && isPlanet(main) ? main : undefined,
+      },
+      timing: { ...around(ev.t, 30, ev.kind === 'conjunction' ? s('c_closest') : s('c_peak'), 12 * H, 6 * DAY, 0.15, 60), start: ev.t - 20 * DAY },
+    },
     marks: [{ t: base, label: ev.kind === 'conjunction' ? s('c_closest') : s('c_peak'), major: true }],
     t0: base - span * DAY, t1: base + span * DAY, start: base - 6 * DAY, rate: DAY / 1000 / 2.5,
     fov: { tele: ev.kind === 'conjunction' ? Math.max(3, (ev.value ?? 1) * 5) : 12, eye: 70, start: ev.kind === 'conjunction' ? 'tele' : 'eye' },
     solar: isPlanet(main) ? { focus: main, ms: ev.t } : undefined,
-    enter(_v, c) { c.ground.highlight = ids; },
-    frame(ms, _v, c) {
+    enter(v, c) { if (v === 'model') { c.model.aim(c.morbit, ev.t); return; } c.ground.highlight = ids; },
+    frame(ms, v, c) {
+      if (v === 'model') {
+        const g = isPlanet(main) ? planetGeo(main, ms) : null;
+        const read: [string, string][] = [[s('utc'), utcDay(ms)]];
+        if (g) read.push([s('elongation'), deg(Math.abs(g.elong), 0)], [s('earthDist'), `${g.distAu.toFixed(2)} AU`]);
+        if (ev.kind === 'conjunction' && ids.length > 1 && ids.every(isPlanet)) {
+          const p = planetGeo(ids[0] as PlanetId, ms), q = planetGeo(ids[1] as PlanetId, ms);
+          read.push([s('separation'), deg(sepDeg(p.lon, p.lat, q.lon, q.lat), 2)]);
+        }
+        const k = ev.kind === 'opposition' ? 'cm_opposition' : ev.kind === 'elongation' ? 'cm_elongation' : 'cm_conjunction';
+        return { caption: s(k, { p: bodyName(main) }), read, note: s('mScaleHelio') };
+      }
       const a = bodyDirAlt(c, ids[0] ?? main), b = bodyDirAlt(c, ids[1] ?? ids[0] ?? main);
       const az = a.az + (((b.az - a.az + 540) % 360) - 180) / 2, alt = (a.alt + b.alt) / 2;
       track(c, az, c.look.targetFov > 20 ? Math.max(alt * 0.6, Math.min(alt, 18)) : alt);
@@ -446,14 +585,23 @@ function transitAct(ev: SkyEvent): Act {
   const site: Site = { id: 'best', name: s('bestSpot'), lat: sg.dec, lon, tz: tzOf(lon) };
   const t0 = ingress - 25 * 60_000, t1 = egress + 25 * 60_000;
   return {
-    title: eventTitle(ev), views: ['ground'], view: 'ground', site,
+    title: eventTitle(ev), views: ['model', 'ground'], view: 'model', site,
     marks: [{ t: ingress, label: s('c_ingress') }, { t: ev.t, label: s('c_midtransit'), major: true }, { t: egress, label: s('c_egress') }],
+    model: { setup: { kind: 'planets', t: ev.t, planets: [id], sight: [id, 'sun'] }, timing: around(ev.t, 12, s('c_midtransit'), 4 * H, 2 * DAY, 0.04) },
     t0, t1, start: ingress - 6 * 60_000, rate: (t1 - t0) / 1000 / 60,
     slow: slowNear([ingress, egress], 2 * 60_000, 15 * 60_000, 0.15),
     fov: { tele: 0.9, eye: 0.9, start: 'tele' },
     solar: { focus: id, ms: ev.t },
-    enter(_v, c) { c.ground.filter = true; c.ground.transit = id; },
-    frame(ms, _v, c) {
+    enter(v, c) { if (v === 'model') { c.model.aim(c.morbit, ev.t); return; } c.ground.filter = true; c.ground.transit = id; },
+    frame(ms, v, c) {
+      if (v === 'model') {
+        const g = planetGeo(id, ms);
+        return {
+          caption: s('cm_transit', { p: bodyName(id) }),
+          read: [[s('utc'), utcDate(ms)], [s('elongation'), deg(sepAt(ms), 2)], [s('earthDist'), `${g.distAu.toFixed(3)} AU`]],
+          note: s('mScaleHelio'),
+        };
+      }
       const st = c.ground.state;
       track(c, st.sunAz, st.sunAlt);
       return {
