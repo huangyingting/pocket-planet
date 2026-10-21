@@ -572,3 +572,9 @@ body:has(.sky) .modal { z-index: 96; }
 .tn-here { font-size: .88rem; color: #b8d4e6; }
 .tn-here.tn-up { color: #8be0a4; }
 .tn-weather { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 8px 12px; border-radius: 10px; border: 1px dashed #ffb347; color: #ffcf8a; font-size: .88rem; }
+/* mission stories: when each phase happened, and whether the scene is from the record or a sketch */
+.tour-when { margin: 0 0 4px; font-family: var(--font-hud); font-size: .74rem; color: var(--hud-dim); font-variant-numeric: tabular-nums; }
+.tour-track { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 8px; padding: 2px 8px; border-radius: 999px; font-size: .74rem; border: 1px solid; }
+.tour-track svg { flex: none; }
+.tour-record { color: var(--ok, #7fd99a); border-color: color-mix(in srgb, currentColor 45%, transparent); }
+.tour-sketch { color: var(--warn, #f5c46b); border-color: currentColor; border-style: dashed; }

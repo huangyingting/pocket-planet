@@ -243,6 +243,10 @@ const en: Dict = {
   dir_SW: "south-west",
   dir_W: "west",
   dir_NW: "north-west",
+  tourRecord: "Historical record: this place and time come from the mission logs.",
+  tourSketch: "Schematic: a simplified picture, not real tracking data.",
+  tourUtc: "{d} UTC",
+  tourMet: "{d} UTC · mission time T+{met}",
 };
 
 const zh: Dict = {
@@ -485,6 +489,10 @@ const zh: Dict = {
   dir_SW: "西南",
   dir_W: "西",
   dir_NW: "西北",
+  tourRecord: "历史记录：这里的地点和时间来自任务记录。",
+  tourSketch: "示意：简化的画面，不是真实追踪数据。",
+  tourUtc: "{d}（UTC）",
+  tourMet: "{d}（UTC）· 任务时间 T+{met}",
 };
 
 const DICTS: Record<Lang, Dict> = { en, zh };

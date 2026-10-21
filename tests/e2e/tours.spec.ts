@@ -56,3 +56,36 @@ test('guided tours: pick from the help panel, walk every step, leave or finish',
   await expect(page.locator('body')).not.toHaveClass(/touring/);
   expect(errors).toEqual([]);
 });
+
+test('mission story: Apollo 11 phases carry real times and say what is record and what is sketch', async ({ page }, info) => {
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await openApp(page);
+  await page.evaluate(() => { location.hash = '#tour/apollo11'; });
+  const card = page.getByTestId('tour');
+  await expect(card).toBeVisible();
+  const when = card.getByTestId('tour-when'), track = card.getByTestId('tour-track');
+  await expect(when).toContainText('1969');
+  await expect(when).toContainText('T+0:00');
+  await expect(track).toHaveClass(/tour-record/);
+  await expect(page.getByTestId('info-name')).toContainText(/Kennedy/i, { timeout: 20_000 });
+  await card.getByTestId('tour-next').click();
+  await expect(track).toHaveClass(/tour-sketch/);
+  await card.getByTestId('tour-next').click();
+  await expect(page.locator('body.solar')).toHaveCount(1, { timeout: 60_000 });
+  await card.getByTestId('tour-next').click();
+  await expect(when).toContainText('T+102:45');
+  await expect(page.locator('body')).toContainText(/Jul 20, 1969/, { timeout: 20_000 });
+  await expect(track).toHaveClass(/tour-record/);
+  await page.waitForTimeout(2500);
+  await page.screenshot({ path: info.outputPath('apollo-landing.png') });
+  await card.getByTestId('tour-next').click();
+  await card.getByTestId('tour-next').click();
+  await expect(page.locator('body.solar')).toHaveCount(0, { timeout: 20_000 });
+  await card.getByTestId('tour-next').click();
+  await expect(track).toHaveCount(0);
+  await expect(page.getByTestId('info-name')).toContainText(/Armstrong/i, { timeout: 20_000 });
+  await card.getByTestId('tour-next').click();
+  await expect(card).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

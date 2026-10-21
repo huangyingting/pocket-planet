@@ -236,6 +236,11 @@ async function boot(): Promise<void> {
     sky: (id, view) => void openSky(id).then(th => { if (th && view) th.show(view); }),
     path: pts => { if (!inSolar && !inSky) pts.slice(1).forEach((p, i) => globe.showFlightArc(pts[i], p, i > 0)); },
     item: key => navTo(key),
+    solarAt: (focus, ms) => {
+      if (inSky) sky?.close();
+      if (inSolar && solar) { solar.showAt(ms, focus); return; }
+      void withBusy(loadSolar()).then(ui => { ui.showAt(ms); void enterSolar({ focus }); }, () => showLoadError(t('solarSystem'), () => void enterSolar({ focus }), 'solar/' + focus));
+    },
   };
   const openTours = () => toursMod(m => m.openTours(tourHost));
 

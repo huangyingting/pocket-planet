@@ -22,10 +22,16 @@ export interface TourHost {
   /** Draws a route as arcs between consecutive points (a sketch, not tracking data). */
   path(pts: [number, number][]): void;
   item(key: string): void;
+  /** Opens the Solar System on `focus` with its clock set to `ms`, so the scene shows that moment. */
+  solarAt(focus: string, ms: number): void;
 }
 
-interface Step { title: Pair; body: Pair; run: (h: TourHost) => void; spot?: string }
-export interface Tour { id: string; icon: IconName; title: Pair; blurb: Pair; minutes: number; steps: () => Step[] }
+interface Step {
+  title: Pair; body: Pair; run: (h: TourHost) => void; spot?: string;
+  /** Mission stories: the moment of this phase (UTC ms) and whether what is shown is from the record or only a sketch. */
+  when?: number; track?: 'record' | 'sketch';
+}
+export interface Tour { id: string; icon: IconName; title: Pair; blurb: Pair; minutes: number; steps: () => Step[]; /** mission start (UTC ms), for mission elapsed time */ t0?: number }
 
 const DAY = 864e5;
 /** The Arctic tern's sketched route: the catalogue journey's own points. */
@@ -36,6 +42,11 @@ function nextTotal(kind: 'solar-eclipse' | 'lunar-eclipse'): string | undefined 
   return skyEvents(now - DAY, now + 6 * 365 * DAY, { kinds: [kind] })
     .find(e => (e.solar?.type ?? e.lunar?.type) === 'total')?.id;
 }
+
+
+/** Apollo 11, from the NASA mission report: times are UTC, places are the recorded pad, landing and splashdown points. */
+const A11 = Date.UTC(1969, 6, 16, 13, 32, 0);
+const A11_PARKING: [number, number][] = [[28.6, -80.6], [30, -50], [22, -15], [5, 20], [-15, 60], [-28, 100], [-25, 140], [-5, 175], [15, -150]];
 
 export const TOURS: Tour[] = [
   {
@@ -116,7 +127,44 @@ export const TOURS: Tour[] = [
           '打开卡片可以跟着燕鸥一起飞；也可以在“迁徙”分类里找找座头鲸、帝王蝶和角马的旅程。'] },
     ],
   },
+  {
+    id: 'apollo11', icon: 'rocket', minutes: 5, t0: A11,
+    title: ['Apollo 11: to the Moon and back', '阿波罗11号：登月往返'],
+    blurb: ['Eight days in July 1969, phase by phase: launch, the trip, the landing, the first steps and the splashdown.', '1969 年 7 月的八天，一段一段看：发射、飞行、着陆、第一步和溅落。'],
+    steps: () => [
+      { title: ['Launch', '发射'], when: A11, track: 'record', run: x => x.item('sp_ksc'),
+        body: ['A Saturn V rocket lifted off from Launch Complex 39A at the Kennedy Space Center, Florida, carrying Neil Armstrong, Buzz Aldrin and Michael Collins.',
+          '土星五号火箭从美国佛罗里达州肯尼迪航天中心的 39A 发射台升空，载着尼尔·阿姆斯特朗、巴兹·奥尔德林和迈克尔·柯林斯。'] },
+      { title: ['Around Earth, then off to the Moon', '先绕地球，再飞向月球'], when: Date.UTC(1969, 6, 16, 16, 22, 13), track: 'sketch',
+        run: x => { x.earth(5, -120, 3.2); x.path(A11_PARKING); },
+        body: ['They circled Earth about one and a half times to check the spacecraft. Then, over the Pacific, the rocket\'s third stage fired again and sent them toward the Moon. The line here is a simplified sketch of the orbit, not tracking data.',
+          '他们先绕地球飞了大约一圈半，检查飞船。然后在太平洋上空，火箭第三级再次点火，把他们送向月球。这里画的线是简化的轨道示意，不是真实追踪数据。'] },
+      { title: ['Three days to the Moon', '飞行三天到月球'], when: Date.UTC(1969, 6, 19, 17, 21, 50), track: 'sketch', run: x => x.solarAt('moon', Date.UTC(1969, 6, 19, 17, 21, 50)),
+        body: ['The trip of about 384,000 km took three days. Behind the Moon, out of radio contact, they fired the engine to slow down and enter lunar orbit. The Solar System clock is set to that day; sizes and distances are enlarged, and the spacecraft itself is not shown.',
+          '约 38.4 万公里的路程用了三天。在月球背面、和地球失去无线电联系时，他们点燃发动机减速，进入环月轨道。太阳系的时钟已调到那一天；画面里的大小和距离都放大了，也没有画出飞船本身。'] },
+      { title: ['The Eagle has landed', '“鹰”着陆了'], when: Date.UTC(1969, 6, 20, 20, 17, 40), track: 'record', run: x => x.solarAt('ss_moon_apollo11', Date.UTC(1969, 6, 20, 20, 17, 40)),
+        body: ['Armstrong and Aldrin flew the lunar module Eagle down to the Sea of Tranquility, steering past a field of boulders with less than a minute of landing fuel to spare. Collins stayed in orbit in Columbia.',
+          '阿姆斯特朗和奥尔德林驾驶“鹰”号登月舱降落在静海，为了避开一片大石头，着陆时剩下的燃料只够用不到一分钟。柯林斯留在“哥伦比亚”号指令舱里环绕月球。'] },
+      { title: ['One small step', '一小步'], when: Date.UTC(1969, 6, 21, 2, 56, 15), track: 'record', run: x => x.solarAt('ss_moon_apollo11', Date.UTC(1969, 6, 21, 2, 56, 15)),
+        body: ['Armstrong stepped onto the Moon: "That\'s one small step for man, one giant leap for mankind." Aldrin followed, and together they spent about two and a half hours outside, setting up experiments and collecting 21.5 kg of rock and soil.',
+          '阿姆斯特朗踏上月面：“这是个人的一小步，却是人类的一大步。”奥尔德林随后出舱，两人在外面一共待了约两个半小时，安放实验仪器，采集了 21.5 公斤岩石和土壤。'] },
+      { title: ['Splashdown', '溅落'], when: Date.UTC(1969, 6, 24, 16, 50, 35), track: 'record', run: x => x.earth(13.3, -169.15, 2.4),
+        body: ['After rejoining Collins in lunar orbit, the crew flew home and splashed down in the Pacific Ocean, south-west of Hawaii, where the ship USS Hornet picked them up. The whole mission lasted about 8 days and 3 hours.',
+          '回到月球轨道和柯林斯会合后，三人飞回地球，降落在夏威夷西南方的太平洋上，由“大黄蜂”号航空母舰接回。整个任务持续了约 8 天 3 小时。'] },
+      { title: ['Your turn', '轮到你了'], run: x => x.item('pp_armstrong'),
+        body: ['Meet Neil Armstrong, or find the Apollo 11 landing site and the other Apollo missions on the Moon in the Solar System.',
+          '认识一下尼尔·阿姆斯特朗，或者到太阳系的月球上找找阿波罗11号着陆点和其他阿波罗任务。'] },
+    ],
+  },
 ];
+
+/** "20 July 1969, 20:17 UTC · T+102:45" (mission elapsed time in hours:minutes). */
+function missionTime(ms: number, t0?: number): string {
+  const d = new Intl.DateTimeFormat(lang() === 'zh' ? 'zh-CN' : 'en-GB', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC', hour12: false }).format(ms);
+  if (t0 === undefined) return t('tourUtc', { d });
+  const m = Math.floor((ms - t0) / 60_000);
+  return t('tourMet', { d, met: `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}` });
+}
 
 const done = () => new Set(load<string[]>('toursDone', []));
 
@@ -149,6 +197,9 @@ export function startTour(id: string, host: TourHost): void {
         h('span', { class: 'tour-kicker', html: icon(tour.icon, 14) }, h('span', {}, `${L(tour.title)} · ${t('tutStep', { i: i + 1, n: steps.length })}`)),
         h('button', { class: 'icon-btn tour-x', 'aria-label': t('tourExit'), 'data-testid': 'tour-exit', html: icon('close', 16), onclick: () => stop() })),
       h('h2', { id: 'tour-title' }, L(st.title)),
+      st.when !== undefined ? h('p', { class: 'tour-when', 'data-testid': 'tour-when' }, missionTime(st.when, tour.t0)) : '',
+      st.track ? h('p', { class: 'tour-track tour-' + st.track, 'data-testid': 'tour-track', html: icon(st.track === 'record' ? 'pin' : 'sparkle', 14) },
+        h('span', {}, t(st.track === 'record' ? 'tourRecord' : 'tourSketch'))) : '',
       h('p', { class: 'tour-body', 'aria-live': 'polite' }, L(st.body)),
       h('div', { class: 'dots', 'aria-hidden': 'true' }, ...steps.map((_, j) => h('span', { class: j === i ? 'on' : '' }))),
       h('div', { class: 'row' },
