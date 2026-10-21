@@ -1,4 +1,5 @@
 import { classroom, onClassroom, apply as applyClassroom } from './lib/classroom.ts';
+import { parseView, type Bookmark } from './lib/viewlink.ts';
 import './styles.css';
 import './hud.css';
 import './intro.css';
@@ -231,6 +232,35 @@ async function boot(): Promise<void> {
     item: key => navTo(key),
   };
   const openTours = () => toursMod(m => m.openTours(tourHost));
+
+  // ---- saved views (F02) ----
+  const bmMod = later(() => import('./ui/bookmarks.ts'), () => t('bookmarks'));
+  const currentView = async (): Promise<Bookmark | null> => {
+    if (gaming) return null;
+    let route: string;
+    try { route = parseView(decodeURIComponent(location.hash.slice(1)).trim()).route; } catch { return null; }
+    const at = Date.now();
+    if (inSky) {
+      const id = route.split('/')[1];
+      if (!id) return { route: 'sky', label: { en: t('skyEvents'), zh: t('skyEvents') }, at };
+      const [{ findEvent }, { eventTitle }] = await Promise.all([import('./sky/panel.ts'), import('./sky/acts.ts')]);
+      const ev = findEvent(id);
+      if (!ev) return null;
+      const name = `${eventTitle(ev)} · ${new Date(ev.t).toLocaleDateString(lang() === 'zh' ? 'zh-CN' : 'en')}`;
+      return { route: 'sky/' + id, label: { en: name, zh: name }, at };
+    }
+    if (inSolar) {
+      if (!route) return null;
+      const { spaceIndex } = await import('./solar/space-index.ts');
+      const hit = spaceIndex().find(x => x.hash === route);
+      return { route, label: hit?.name ?? { en: route, zh: route }, at };
+    }
+    const cam = { lat: globe.lat, lon: globe.lon, h: globe.h };
+    if (shell.current) return { route: shell.current.key, cam, label: shell.current.name, at };
+    const where = `${Math.abs(cam.lat).toFixed(1)}°${cam.lat >= 0 ? 'N' : 'S'} ${Math.abs(cam.lon).toFixed(1)}°${cam.lon >= 0 ? 'E' : 'W'}`;
+    return { route: '', cam, label: { en: 'Earth · ' + where, zh: '地球 · ' + where }, at };
+  };
+  const openBookmarks = () => bmMod(m => m.openBookmarks({ current: currentView, open: navTo }));
   const startTour = (id: string) => toursMod(m => m.startTour(id, tourHost));
 
   const showCollection = () => collectionMod(([{ openCollection }, { openPassport }]) => {
@@ -245,7 +275,7 @@ async function boot(): Promise<void> {
     openCollection: showCollection,
     openGames: () => { if (!gaming) gamesMod(m => m.openGames(host)); },
     openTutorial: () => openTutorial(openTours),
-    openTours,
+    openTours, openBookmarks,
     openAccount: () => account(m => m.openAccount()), openGuestbook: () => account(m => void m.openGuestbook()),
     openSolar: () => void enterSolar(),
     openSky: () => void openSky(),
@@ -289,10 +319,19 @@ async function boot(): Promise<void> {
   const route = () => {
     let hsh: string;
     try { hsh = decodeURIComponent(location.hash.slice(1)).trim(); } catch { hsh = '\u0000'; }
+    // A saved view: route + versioned globe camera. A broken camera falls back to the route alone.
+    const view = parseView(hsh);
+    hsh = view.route;
+    const cam = view.cam;
+    if (view.bad) toast('🧭 ' + t('linkView'));
     if (!hsh) {
       // back/forward to the bare page: show the Earth
       if (inSky) sky?.close();
-      if (inSolar) leaveSolar(globe.lat, globe.lon);
+      if (cam) {
+        history.replaceState(null, '', location.pathname + location.search);
+        const go = () => globe.flyTo(cam.lat, cam.lon, cam.h, 1400);
+        if (inSolar) leaveSolar(cam.lat, cam.lon, go); else go();
+      } else if (inSolar) leaveSolar(globe.lat, globe.lon);
       return;
     }
     const [head, rest = ''] = hsh.split('/');
@@ -312,7 +351,8 @@ async function boot(): Promise<void> {
     else if (hsh === 'auth-error') toast('⚠️ ' + t('linkExpired'));
     else {
       const it = BY_KEY.get(hsh);
-      if (it) { if (inSolar) leaveSolar(it.lat, it.lon, () => shell.showItem(it)); else shell.showItem(it); }
+      const show = () => { shell.showItem(it!, !cam); if (cam) globe.flyTo(cam.lat, cam.lon, cam.h, 1400); };
+      if (it) { if (inSolar) leaveSolar(it.lat, it.lon, show); else show(); }
       else { toast('🧭 ' + t('linkUnknown')); history.replaceState(null, '', location.pathname + location.search); }
     }
   };

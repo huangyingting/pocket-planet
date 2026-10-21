@@ -135,6 +135,16 @@ const en: Dict = {
   pauseMotion: "Pause motion",
   classLink: "Copy a classroom link to this tour",
   classLinkCopied: "Classroom link copied. It opens this tour with classroom mode on.",
+  bookmarks: "Saved views",
+  bmIntro: "Keep a place, object or sky event on this device, or copy a link that reopens it — on the globe it remembers the camera too.",
+  bmSave: "Save this view",
+  bmCopy: "Copy link",
+  bmCopied: "Link copied",
+  bmRemove: "Remove",
+  bmEmpty: "Nothing saved yet.",
+  bmNothing: "There is nothing to save here yet.",
+  bmSaved: "Saved",
+  linkView: "That link's view could not be restored, so here is the place it points to.",
 };
 
 const zh: Dict = {
@@ -269,6 +279,16 @@ const zh: Dict = {
   pauseMotion: "暂停动画",
   classLink: "复制这条路线的课堂链接",
   classLinkCopied: "课堂链接已复制，打开后会以课堂模式开始这条路线。",
+  bookmarks: "收藏的视角",
+  bmIntro: "把地点、天体或天象收藏在这台设备上，或复制一个能重新打开它的链接；在地球上还会记住镜头位置。",
+  bmSave: "收藏当前视角",
+  bmCopy: "复制链接",
+  bmCopied: "链接已复制",
+  bmRemove: "删除",
+  bmEmpty: "还没有收藏。",
+  bmNothing: "这里暂时没有可收藏的内容。",
+  bmSaved: "已收藏",
+  linkView: "无法还原这个链接里的视角，已为你打开它指向的地方。",
 };
 
 const DICTS: Record<Lang, Dict> = { en, zh };

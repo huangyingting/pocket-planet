@@ -200,3 +200,32 @@ test('classroom mode: link turns it on for the visit, hides third-party content,
   await page.goto('/?lowfx=1&notut#tour');
   await expect(page.getByTestId('tour-link-eclipse')).toBeVisible();
 });
+
+test('saved views: a versioned link restores the camera, bad links fall back, bookmarks reopen', async ({ page }) => {
+  await openApp(page, '/?lowfx=1&notut#eiffel@v1:30.00,10.00,1.500');
+  await expect(page.locator('.info:not(.hidden)')).toBeVisible({ timeout: 30_000 });
+  const cam = () => page.evaluate(() => { const g = (window as any).__pp.globe; return [Math.round(g.lat), Math.round(g.lon), +g.h.toFixed(1)]; });
+  await expect.poll(cam, { timeout: 10_000 }).toEqual([30, 10, 1.5]);
+  // the item stays selected and the hash is cleaned back to the plain route
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe('#eiffel');
+  // a mangled camera still opens the item
+  await page.goto('/?lowfx=1&notut#eiffel@v7:zz');
+  await expect(page.locator('.info:not(.hidden)')).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('.toast').last()).toContainText('could not be restored');
+  // save it, go elsewhere, reopen from the list
+  await page.click('#btn-menu');
+  await page.getByTestId('menu-bookmarks').click();
+  await page.getByTestId('bm-save').click();
+  await expect(page.getByTestId('bm-open')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await page.goto('/?lowfx=1&notut#solar/mars');
+  await page.waitForFunction(() => location.hash === '#solar/mars');
+  await page.click('#btn-menu');
+  await page.getByTestId('menu-bookmarks').click();
+  await page.getByTestId('bm-save').click();
+  await expect(page.getByTestId('bm-open')).toHaveCount(2);
+  await expect(page.getByTestId('bm-list')).toContainText(/Mars/);
+  await page.getByTestId('bm-open').nth(1).click();
+  await expect(page.locator('.info:not(.solar-info):not(.hidden)')).toContainText('Eiffel', { timeout: 30_000 });
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe('#eiffel');
+});

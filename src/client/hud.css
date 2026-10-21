@@ -518,3 +518,8 @@ html.classroom .class-badge { display: inline-block; padding: 2px 8px; font-fami
 html.classroom #btn-radio, html.classroom #btn-random, html.classroom .read-more, html.classroom .radio-bar { display: none !important; }
 html.classroom .info-body p, html.classroom .tour-body, html.classroom .solar-info p { line-height: 1.65; }
 .menu-note { margin: 0 0 8px; font-size: .8rem; line-height: 1.45; color: var(--muted); }
+
+/* Saved views (F02) */
+.bm-actions { gap: 8px; flex-wrap: wrap; margin: 4px 0 12px; }
+.bm-actions .pill { display: inline-flex; align-items: center; gap: 6px; }
+.bm-list .tour-pick strong { overflow-wrap: anywhere; }
