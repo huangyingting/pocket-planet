@@ -42,7 +42,7 @@ const OVERRIDES: Record<string, string> = {
 /** Chinese titles for items whose English article is generic but zh.wikipedia has a specific one. */
 const ZH: Record<string, string> = { pl_bamboo: '蜀南竹海', fd_hotpot: '重庆火锅', an_manta: '蝠鲼属', ar_pakal: '巴加尔大帝' };
 
-const UA = 'Terrastra/1.0 (https://github.com/huangyingting/terrastra; build script)';
+const UA = 'Terrastra/1.0 (https://github.com/vibewatch/terrastra; build script)';
 const API = 'https://en.wikipedia.org/w/api.php';
 
 interface Page { title: string; missing?: boolean; invalid?: boolean; pageprops?: { disambiguation?: string }; langlinks?: { lang: string; title: string }[] }

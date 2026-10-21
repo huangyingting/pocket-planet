@@ -53,7 +53,7 @@ jobs:
       - run: npm ci
       - id: pages
         uses: actions/configure-pages@v5
-      # Static, backend-less edition served from https://<owner>.github.io/<repo>/
+      # Static, backend-less edition served from the Pages URL (custom domain: https://terrastra.genisisiq.com/)
       - run: npm run build
         env:
           VITE_STATIC: '1'

@@ -2,7 +2,7 @@
 
 An original 3D toy globe for curious kids. Spin the Earth and tap landmarks, animals, dinosaurs, foods, festivals, volcanoes, space sites and discoveries, then collect them in a dex. Every place you open gets a stamp in your **passport**. The **time machine** rewinds the globe to the age of dinosaurs or any century. Animals can play their calls, and places can say hello in the local language. Layers show clouds, aurora and tectonic plates, and migration and voyage routes can be ridden. You can also ride ships, planes and trains, take photos, and play three geography games: Place it!, Quiz and Daily Planet. Zoom out past the Earth (or press the planet button) to fly around the **Solar System**: the Sun, eight planets, dwarf planets and major moons sit at their real positions for any date, with painted surfaces, named craters, volcanoes and landing sites, and a Wikipedia reader for each. Real mission sites (rovers, landers, orbiters, plumes) have 3D models, and the **scale ladder** keeps going: the Milky Way, the Local Group, the Laniakea supercluster and the observable universe, each with real objects to tap. Space has weather: solar flares, prominences and coronal mass ejections, asteroid and Kuiper belts, swirling storms on the giant planets, aurorae and a comet. Constellations can be shown in the sky, the Milky Way slowly turns, and the universe level surrounds you with the cosmic microwave background, famous nebulae (the Eagle's pillars, the Crab, the Ring, the Horsehead and more) can be flown into as 3D models, so can galaxies, groups, clusters and quasars beyond it (Andromeda, the Magellanic Clouds, the Sombrero, Centaurus A, the Virgo and Coma clusters, the Bullet Cluster, 3C 273 and more, each shaped and turned as we see it in the sky), and the **sky theatre** replays solar and lunar eclipses, meteor showers, conjunctions, oppositions, transits, supermoons and solstices from the best place on Earth or from space, all inside one "Astrolabe" HUD: cut-corner panels, monochrome line icons, an amber signal for whatever is selected, numbered cards and a live coordinate readout.
 
-**▶ Play it: https://huangyingting.github.io/terrastra/** (static GitHub Pages edition: [see Deployment](#deployment))
+**▶ Play it: https://terrastra.genisisiq.com/** (static GitHub Pages edition: [see Deployment](#deployment))
 
 Product, architecture and planning docs are in [`docs/`](docs/README.md). Research on the reference product is in [`research/`](research/README.md).
 
@@ -102,13 +102,13 @@ Import rule: `client` and `server` may import from `shared`; `shared` imports no
 
 ## Deployment
 ### GitHub Pages (static edition)
-[`.github/workflows/pages.yml`](.github/workflows/pages.yml) runs typecheck and unit tests on every push and PR. On `main` it also builds and deploys to GitHub Pages (repo **Settings → Pages → Source: GitHub Actions**). The Pages build sets:
+[`.github/workflows/pages.yml`](.github/workflows/pages.yml) runs typecheck and unit tests on every push and PR. On `main` it also builds and deploys to GitHub Pages (repo **Settings → Pages → Source: GitHub Actions**, custom domain `terrastra.genisisiq.com`, a DNS CNAME to `vibewatch.github.io`). The Pages build sets:
 
 | Build var | Value on Pages | Effect |
 |---|---|---|
 | `VITE_STATIC` | `1` | backend-less edition: no `/api` calls; account, sync and guestbook are hidden, and likes stay on the device; about/privacy copy adjusted |
-| `BASE_PATH` | `/<repo>/` | Vite `base` + prefix for every link in the static encyclopedia pages |
-| `BASE_URL` | `https://<owner>.github.io/<repo>` | canonical URLs and sitemap |
+| `BASE_PATH` | `/` (custom domain; `/<repo>/` without one) | Vite `base` + prefix for every link in the static encyclopedia pages |
+| `BASE_URL` | `https://terrastra.genisisiq.com` | canonical URLs and sitemap |
 
 To try it locally:
 ```bash
