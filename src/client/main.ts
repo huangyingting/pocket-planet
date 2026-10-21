@@ -19,6 +19,7 @@ import { HAS_API, url } from './lib/env.ts';
 import { load } from './lib/storage.ts';
 import { mergeProgress } from '../shared/lib/progress.ts';
 import { sfx } from './lib/sfx.ts';
+import { music } from './lib/music.ts';
 import { openPassport } from './ui/passport.ts';
 import { openCollection } from './ui/collection.ts';
 import { openPhotoMode } from './ui/photo.ts';
@@ -71,18 +72,33 @@ async function boot(): Promise<void> {
   const setGameMode = (on: boolean, names?: boolean) => {
     gaming = on;
     globe.gameMode = on;
-    if (on) { shell.showItem(null); shell.toggleMenu(false); shell.time.toggle(false); }
+    if (on) { shell.showItem(null); shell.toggleMenu(false); shell.time.toggle(false); radio?.toggle(false); }
     document.body.classList.toggle('gaming', on);
     globe.applySettings(on && names === false ? { ...store.settings, names: false } : store.settings);
     if (!on) globe.ev.onGlobeTap = undefined;
   };
   const host = { globe, setGameMode };
 
+  // ---- Earth radio (lazy): station dots on the globe + a player dock ----
+  let radio: import('./ui/radio.ts').Radio | null = null;
+  const toggleRadio = async () => {
+    if (gaming || inSolar) return;
+    const m = await import('./ui/radio.ts');
+    try {
+      radio = await m.getRadio(globe, app, on => document.getElementById('btn-radio')?.classList.toggle('active', on));
+    } catch { toast(t('radioLoadFail')); return; }
+    if (!radio.active) shell.time.toggle(false);
+    radio.toggle();
+  };
+
   // ---- Solar System (lazy: its own renderer, loaded on first use) ----
   let solar: SolarUI | null = null;
   let solarLoad: Promise<SolarUI> | null = null;
   let inSolar = false;
-  const loadSolar = () => solarLoad ??= import('./solar/ui.ts').then(m => (solar = new m.SolarUI(app, { quality, earthCanvas: () => earthCv, exit: leaveSolar, onScale: s => rail.set(s), openSky: () => void openSky(), topSlot: shell.topSlot })));
+  let scaleNow: ScaleId = 'solar';
+  // Background music follows the level the user is looking at.
+  const tune = () => music.setLevel(inSky ? 'sky' : inSolar ? scaleNow : 'earth');
+  const loadSolar = () => solarLoad ??= import('./solar/ui.ts').then(m => (solar = new m.SolarUI(app, { quality, earthCanvas: () => earthCv, exit: leaveSolar, onScale: s => { rail.set(s); scaleNow = s; tune(); }, openSky: () => void openSky(), topSlot: shell.topSlot })));
   const fade = (fn: () => void) => {
     document.body.classList.add('fading');
     setTimeout(() => { fn(); requestAnimationFrame(() => document.body.classList.remove('fading')); }, lowfx ? 0 : 230);
@@ -90,6 +106,7 @@ async function boot(): Promise<void> {
   const enterSolar = async (opts: { focus?: string; scale?: ScaleId } = {}) => {
     if (inSolar || gaming) return;
     inSolar = true;
+    radio?.suspend(true);
     shell.showItem(null); shell.toggleMenu(false); shell.time.toggle(false);
     const ui = await loadSolar();
     fade(() => {
@@ -97,11 +114,14 @@ async function boot(): Promise<void> {
       document.body.classList.add('solar');
       shell.setSpace(true);
       ui.enter(opts.focus || opts.scale ? opts : { from: { lat: globe.lat, lon: globe.lon } });
+      tune();
     });
   };
   const leaveSolar = (lat: number, lon: number, then?: () => void) => {
     if (!inSolar) return;
     inSolar = false;
+    tune();
+    if (!inSky) radio?.suspend(false);
     fade(() => {
       solar?.leave();
       rail.set('earth');
@@ -123,6 +143,8 @@ async function boot(): Promise<void> {
     const m = await (skyLoad ??= import('./sky/index.ts'));
     if (!inSky) { shell.toggleMenu(false); shell.time.toggle(false); }
     inSky = true;
+    tune();
+    radio?.suspend(true);
     globe.paused = true;
     solar?.view.suspend(true);
     m.openSky(document.body, {
@@ -130,6 +152,8 @@ async function boot(): Promise<void> {
       globe: { lat: globe.lat, lon: globe.lon },
       onClose: () => {
         inSky = false;
+        tune();
+        if (!inSolar) radio?.suspend(false);
         if (inSolar) solar?.view.suspend(false); else globe.paused = false;
       },
       onSolar: (focus, ms) => {
@@ -152,6 +176,7 @@ async function boot(): Promise<void> {
     openAccount, openGuestbook: () => void openGuestbook(),
     openSolar: () => void enterSolar(),
     openSky: () => void openSky(),
+    openRadio: () => void toggleRadio(),
     toEarth: it => { if (!inSolar) return false; leaveSolar(it.lat, it.lon, () => shell.showItem(it)); return true; },
     zoom: inward => { if (!inSolar) return false; solar?.zoom(inward); return true; },
     overview: () => solar?.overview(),

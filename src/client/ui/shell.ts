@@ -9,7 +9,8 @@ import { CONTINENT_NAMES } from '../../shared/data/iso.ts';
 import { AURA_PRESETS, type AuraPreset, type SurfaceMode, type Globe, type Settings } from '../globe/scene.ts';
 import { createModelPreview } from '../models/preview.ts';
 import { icon, TYPE_ICON, type IconName } from './icons.ts';
-import { sfx, setMusic, callFor, speak } from '../lib/sfx.ts';
+import { sfx, callFor, speak } from '../lib/sfx.ts';
+import { music } from '../lib/music.ts';
 import { GREETINGS } from '../../shared/data/greetings.ts';
 import { TimeMachine } from './timemachine.ts';
 import { api } from '../lib/api.ts';
@@ -26,6 +27,8 @@ export interface ShellHooks {
   openAccount: () => void; openGuestbook: () => void;
   openSolar: () => void;
   openSky: () => void;
+  /** Earth radio on/off. */
+  openRadio?: () => void;
   /** In space: a picked Earth item first takes you home (true = handled, the shell does nothing more). */
   toEarth?: (it: CatalogueItem) => boolean;
   /** In space the +/−/overview buttons drive the space view (true = handled). */
@@ -78,6 +81,7 @@ export class Shell {
         tool('btn-collection', 'collection', 'collection', this.hooks.openCollection),
         tool('btn-game', 'game', 'game', this.hooks.openGames, 'earth-only'),
         tool('btn-time', 'clock', 'timeMachine', () => this.time.toggle(), 'earth-only'),
+        tool('btn-radio', 'radio', 'radio', () => this.hooks.openRadio?.(), 'earth-only'),
         tool('btn-solar', 'planet', 'solarSystem', this.hooks.openSolar, 'earth-only'),
         tool('btn-sky', 'eclipse', 'skyEvents', this.hooks.openSky),
         h('span', { class: 'tools-sep', 'aria-hidden': 'true' }),
@@ -318,7 +322,7 @@ export class Shell {
   applySettings(s: Settings): void {
     this.globe.applySettings(s);
     sfx.setEnabled(s.sfx);
-    setMusic(s.bgm);
+    music.setOn(s.bgm);
   }
 
   // ---------- info card ----------

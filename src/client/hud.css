@@ -35,7 +35,7 @@
 * { scrollbar-color: rgba(125, 211, 252, 0.3) transparent; }
 
 /* ---- the slab: shared geometry for everything that carries the cut-corner silhouette ---- */
-.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .ride-bar, .game-hud, .tut-card, .photo-bar, .hints,
+.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .photo-bar, .hints,
 .zoom-ctl, .round-btn, .toast,
 .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info, .solar-ui .solar-hint,
 .hub-card, .game-card, .dex-card, .near-card, .diff, .opt, .reader-continue,
@@ -54,7 +54,7 @@
 .pill-sm { --cut: 5px; }
 
 /* panels: hairline cuts, amber signal tab on the top edge, ruler ticks on the bottom edge */
-.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .ride-bar, .game-hud, .tut-card, .photo-bar, .hints,
+.omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .photo-bar, .hints,
 .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info {
   --pp-bg: var(--hud-panel);
   border: 1px solid var(--hud-line); box-shadow: inset 0 0 32px rgba(56, 189, 248, 0.05);
@@ -395,7 +395,7 @@ body.solar .sb-label.k-comet { color: var(--hud-dim); }
 
 /* ---- phones ---- */
 @media (max-width: 760px) {
-  .omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .ride-bar, .game-hud, .tut-card, .photo-bar, .hints,
+  .omnibar, .solar-top, .tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .photo-bar, .hints,
   .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info { --cut: 10px; }
   body:not(.solar) #app::after { inset: 4px; }
   .coord-readout { bottom: 26px; font-size: .7rem; gap: 8px; }
@@ -407,8 +407,17 @@ body.solar .sb-label.k-comet { color: var(--hud-dim); }
   .tools .ico, .omnibar .ico { width: 21px; height: 21px; }
   .modal-panel { --cut: 0px; }
 }
+/* Narrow phones: nine tools plus search need the whole row, so the brand is kept for screen readers only
+   and the random hop (also a plain search away) steps aside. */
+@media (max-width: 440px) {
+  .topbar { grid-template-columns: 1fr auto; }
+  .brand { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .omnibar .omni-btn, .tools-sep { display: none; }
+  .tool { width: 34px; }
+}
 @media (max-width: 380px) {
-  .tool, .omni-btn { width: 34px; }
+  .topbar { padding-inline: 8px; }
+  .tool { width: 32px; }
   .coord-readout { display: none; }
 }
 

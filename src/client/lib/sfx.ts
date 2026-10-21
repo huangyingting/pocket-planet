@@ -1,8 +1,9 @@
 // Tiny WebAudio synth: no audio files needed.
 let ctx: AudioContext | null = null;
 let enabled = true;
-let musicOn = false;
-let musicTimer = 0;
+
+/** The one shared AudioContext (sound effects, music and radio static). */
+export function audioCtx(): AudioContext | null { return ac(); }
 
 function ac(): AudioContext | null {
   if (typeof AudioContext === 'undefined') return null;
@@ -114,17 +115,3 @@ export const sfx = {
   call(kind: CallKind) { CALLS[kind](); },
   fanfare() { if (enabled) [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.25, 'triangle', 0.07, i * 0.12)); },
 };
-
-const MELODY = [392, 440, 523, 440, 392, 330, 392, 0, 349, 392, 440, 392, 349, 294, 330, 0];
-export function setMusic(on: boolean): void {
-  musicOn = on;
-  clearInterval(musicTimer);
-  if (!on) return;
-  let i = 0;
-  musicTimer = window.setInterval(() => {
-    if (!musicOn) return;
-    const f = MELODY[i++ % MELODY.length];
-    if (f) tone(f, 0.35, 'sine', 0.025);
-    if (i % 4 === 1) tone(f / 2 || 196, 0.6, 'triangle', 0.02);
-  }, 420);
-}

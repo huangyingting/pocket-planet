@@ -288,6 +288,7 @@ ${credit(T('Original 3D models', '原创 3D 模型'), T('Every model, planet and
 ${credit(T('three.js', 'three.js'), T('The WebGL 3D engine.', 'WebGL 3D 引擎。'), 'MIT', 'https://threejs.org/')}
 ${credit(T('Natural Earth · world-atlas', 'Natural Earth · world-atlas'), T('Country shapes and borders, decoded with topojson-client.', '国家轮廓与边界，使用 topojson-client 解码。'), 'Public domain · ISC', 'https://www.naturalearthdata.com/')}
 ${credit(T('Wikipedia', '维基百科'), T('Longer articles in the in-app reader, loaded live from Wikipedia.', '应用内阅读器中的长篇文章，实时从维基百科加载。'), 'CC BY-SA 4.0', 'https://www.wikipedia.org/')}
+${credit(T('Radio Browser', 'Radio Browser 电台目录'), T('The live radio stations on the globe: a free, community-run directory. Streams come straight from each station.', '地球上的直播电台：一个免费、社区维护的电台目录。声音直接来自各个电台。'), 'Public domain', 'https://www.radio-browser.info/')}
 ${credit(T('Meeus · JPL · Espenak', 'Meeus · JPL · Espenak'), T('Positions of the Sun, Moon and planets, eclipses and ΔT (Astronomical Algorithms; JPL Keplerian elements).', '太阳、月球和行星的位置，日月食与 ΔT（《天文算法》、JPL 开普勒根数）。'), 'Published algorithms')}
 ${credit(T('Geist · Chakra Petch', 'Geist · Chakra Petch'), T('Typefaces for reading, data and display.', '正文、数据与标题字体。'), 'SIL OFL 1.1')}
 </div>
@@ -304,6 +305,7 @@ ${STATIC ? li('This edition has no server: there are no accounts, cookies or upl
   + li('Guestbook messages are public, limited to 200 characters, filtered for links and unkind words, and hidden after reports.', '留言板消息是公开的，最多 200 字，会过滤链接和不友善的词语，被举报后会隐藏。')
   + li('You can delete your account and server data any time from the Account panel.', '你可以随时在账户面板中删除账户和服务器数据。')}
 ${li('Reading an article in the app loads it directly from Wikipedia (wikipedia.org), which sees your IP address like any website.', '在应用中阅读文章时会直接从维基百科（wikipedia.org）加载，维基百科会像任何网站一样看到你的 IP 地址。')}
+${li('Listening to the radio connects straight to that station’s own server, which sees your IP address like any website. Stations choose what they broadcast.', '收听电台时会直接连接该电台自己的服务器，它会像任何网站一样看到你的 IP 地址。电台播放什么内容由电台决定。')}
 ${li('No ads, no third-party trackers.', '没有广告，没有第三方追踪。')}</ol></div>`, { current: 'privacy' });
 page('/404/', 'Not found — Pocket Planet', 'Page not found.', `<div class="prose" style="padding:40px 0"><p class="eyebrow">404</p><h1>${bi(T('Lost in space?', '迷失在太空了吗？'))}</h1>
 ${bi(T('We couldn’t find that page.', '我们找不到这个页面。'), 'p', 'lead')}<div class="actions"><a class="btn sig" href="/">${icon('globe', 16)}${bi(T('Back to the globe', '回到地球'))}</a></div></div>`);

@@ -11,6 +11,7 @@ import { CITIES } from '../../shared/data/cities.ts';
 import { TYPE_META, type LayerKey } from '../../shared/data/typemeta.ts';
 import { GlobeLayers, RENDER_ORDER, graticuleStep } from './layers.ts';
 import { buildStarField, gmstRad, SPACE_BG } from '../lib/starfield.ts';
+import type { StationDots } from './stations.ts';
 
 export type AuraPreset = 'waves' | 'aurora' | 'ember' | 'dusk' | 'sculpture';
 export type SurfaceMode = 'realistic' | 'minimal' | 'political';
@@ -245,6 +246,9 @@ export interface GlobeEvents {
   onFirst?: (what: 'drag' | 'zoom') => void;
   /** Kept zooming out past the widest view (wheel / pinch / zoom-out button): time to show the Solar System. */
   onBeyond?: () => void;
+  /** Radio on: a station dot was tapped / hovered (index into the station list, -1 = none). */
+  onStation?: (i: number) => void;
+  onStationHover?: (i: number, screen: { x: number; y: number } | null) => void;
 }
 
 export class Globe {
@@ -325,6 +329,10 @@ export class Globe {
   /** Optional extra visibility predicate (e.g. the time machine); selected/ridden items always stay visible. */
   private itemFilter: ((it: CatalogueItem) => boolean) | null = null;
   setItemFilter(fn: ((it: CatalogueItem) => boolean) | null): void { this.itemFilter = fn; this.dirty = true; }
+  private radio: StationDots | null = null;
+  /** The playing radio station (unit vector): the surface ripples spread from it when nothing is selected. */
+  beacon: THREE.Vector3 | null = null;
+  private audioLevel = 0;
   private layers: GlobeLayers | null = null;
   private dirty = true;
   private last = performance.now();
@@ -697,6 +705,18 @@ export class Globe {
     el.addEventListener('pointermove', e => {
       const prev = ptrs.get(e.pointerId);
       if (!prev) {
+        if (this.radio && !this.gameMode && !this.ride) {
+          const rect = el.getBoundingClientRect();
+          const si = this.radio.pick(e.clientX - rect.left, e.clientY - rect.top, this.camera, el.clientWidth, el.clientHeight);
+          if (si !== this.radio.hover) { this.radio.hover = si; this.dirty = true; }
+          if (si >= 0) {
+            if (this.hoveredKey) { this.hoveredKey = null; this.ev.onHover?.(null, null); }
+            el.style.cursor = 'pointer';
+            this.ev.onStationHover?.(si, this.stationScreen(si));
+            return;
+          }
+          this.ev.onStationHover?.(-1, null);
+        }
         if (!this.gameMode && !this.ride) {
           const rect = el.getBoundingClientRect();
           const hit = this.pickAt(e.clientX - rect.left, e.clientY - rect.top);
@@ -742,6 +762,7 @@ export class Globe {
       this.ev.onFirst?.('drag');
     });
     el.addEventListener('pointerleave', () => {
+      if (this.radio && this.radio.hover >= 0) { this.radio.hover = -1; this.ev.onStationHover?.(-1, null); }
       if (this.hoveredKey) {
         this.hoveredKey = null;
         el.style.cursor = '';
@@ -804,8 +825,38 @@ export class Globe {
       if (ll) this.ev.onGlobeTap?.(ll[0], ll[1]);
       return;
     }
+    if (this.radio) {
+      const si = this.radio.pick(x, y, this.camera, rect.width, rect.height, 16);
+      if (si >= 0) { this.ev.onStation?.(si); return; }
+    }
     const hit = this.pickAt(x, y);
     this.ev.onPick?.(hit);
+  }
+
+  /** Shows (or removes) the radio station layer. */
+  setStations(d: StationDots | null): void {
+    if (this.radio) this.scene.remove(this.radio.group);
+    this.radio = d;
+    if (d) this.scene.add(d.group);
+    if (!d) { this.beacon = null; this.setAudio(0, 0, 0); }
+    this.dirty = true;
+  }
+
+  stationScreen(i: number): { x: number; y: number } | null {
+    if (!this.radio || i < 0) return null;
+    const p = this.radio.pos;
+    return this.project(new THREE.Vector3(p[i * 3], p[i * 3 + 1], p[i * 3 + 2]));
+  }
+
+  /** Live radio levels (0..1) drive the aurora, city lights and the station ripples. */
+  setAudio(bass: number, mid: number, high: number): void {
+    this.audioLevel = bass;
+    this.earthUniforms.uAudioBass.value = 0.12 + bass * 0.9;
+    this.earthUniforms.uAudioMid.value = 0.1 + mid * 0.9;
+    const a = this.atmosUniforms;
+    a.uAudioBass.value = 0.12 + bass * 0.8;
+    a.uAudioMid.value = 0.1 + mid * 0.8;
+    a.uAudioHigh.value = 0.08 + high * 0.8;
   }
 
   screenToLatLon(x: number, y: number): [number, number] | null {
@@ -1059,6 +1110,8 @@ export class Globe {
       const hov = this.placed.get(this.hoveredKey);
       if (hov?.obj.visible) this.earthUniforms.uStationPos.value.copy(hov.obj.position).normalize();
       else this.earthUniforms.uStationPos.value.set(0, 0, 0);
+    } else if (this.beacon) {
+      this.earthUniforms.uStationPos.value.copy(this.beacon);
     } else {
       this.earthUniforms.uStationPos.value.set(0, 0, 0);
     }
@@ -1255,6 +1308,10 @@ export class Globe {
     if (this.layers) {
       this.layers.setVisible(this.settings, this.gameMode);
       this.layers.update(this.clock, dt, this.camera.position.length() - 1, this.routeState, this.orbitAlt, this.placedObj);
+    }
+    if (this.radio) {
+      this.radio.group.visible = !this.gameMode;
+      this.radio.update(this.clock, this.camera, this.renderer.domElement.clientHeight, this.audioLevel);
     }
     this.renderer.render(this.scene, this.camera);
     if (this.adapt && !(idle && this.quality.idleFps)) {

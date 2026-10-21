@@ -698,3 +698,41 @@ Above the Solar System the scenes were also static apart from rigid disc spin.
 - \+ Every event first shows the geometry behind it, then "From the ground" shows the result.
 - \+ The confusing true-scale lunar space view is gone (the solar one stays).
 - − The model is schematic in size; the caption notes the scale ("sizes enlarged …").
+
+## ADR-031: Per-level generative music and Earth live radio
+
+**Context.**
+- The old background music was a single looped melody, the same in every level.
+- The user asked for a different track for each level, and for a live-radio feature on Earth like AuraFM's.
+- AuraFM has no licence, so none of its code is reused. Only the idea is reimplemented.
+
+**Decision.**
+- **Generative music** (`lib/music.ts`). Pure WebAudio, with no audio files to download.
+  - Each level (earth, sky, solar, galaxy, group, laniakea, universe) has its own mood: key, scale, chord loop, pace, pad/bass/lead timbre, bells, and reverb/echo sends.
+  - A small look-ahead scheduler plays the mood on its own bus. Changing level crossfades the buses.
+  - The setting is off by default (`bgm`). The context suspends while the tab is hidden and unlocks on the first gesture.
+  - `main.ts` calls `tune()` on every level change: zoom scale, Solar enter/leave, Sky open/close.
+- **Earth radio** (`lib/radio.ts`, `ui/radio.ts`, `globe/stations.ts`).
+  - **Data.** `scripts/gen-radio.ts` turns a Radio-Browser dump (public domain) into `public/data/radio/stations.json`.
+    - About 3000 HTTPS stations in 141 countries, at most 90 per country.
+    - A name/tag blocklist removes adult and gambling stations, because the app is for children.
+    - Stations without coordinates are scattered, with a seeded scatter, around their country's main cities and flagged as approximate.
+  - **Globe.** All stations are one additive Points layer with back-face fade and CPU screen-space picking. A second two-slot layer draws the playing station (breathing with the audio level) and the hovered one. The Earth shader's existing `uStationPos`/`uAudio*` ripples follow the signal.
+  - **Playback.**
+    - The engine first tries CORS through a `MediaElementSource` analyser, so the EQ and globe react to the real signal.
+    - If that fails it falls back to a plain `<audio>` element with a synthetic pulse.
+    - HLS uses native playback where available, otherwise lazily imported `hls.js`.
+    - Tuning static plays while connecting.
+    - A failed station auto-skips to the nearest one, at most twice.
+  - **UI.**
+    - A toolbar button (Earth only) opens a bottom dock: EQ, name, LIVE/country/tags/kbps, favourite, play/stop, next nearby, shuffle, volume, close.
+    - The dock hides in time-travel, game, ride, photo and Solar modes.
+    - Leaving Earth suspends playback; coming back resumes it.
+    - Background music ducks while the radio is connecting or playing.
+  - **Privacy.** The browser connects directly to the station's stream server, which is noted on the privacy page. Favourites, volume and the last station stay in localStorage.
+- **Phone top bar.** The ninth tool did not fit. At ≤440 px the brand stays only for screen readers and the random-hop button is hidden, since it is still in search.
+
+**Consequences.**
+- \+ Every level has its own sound with no download cost. The radio is lazy-loaded: code, the station list (~150 KB gzipped) and `hls.js` load only on first use.
+- − Some streams are not CORS-enabled and play without a real analyser. Stream availability depends on third parties.
+- − The station list is a snapshot. Re-run `node scripts/gen-radio.ts` to refresh it.

@@ -1280,3 +1280,42 @@ body:has(.solar-info.expanded:not(.hidden)) .hud-frame, body:has(.solar-info:not
 body.lowfx *, body.lowfx *::before, body.lowfx *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; animation-duration: 0s !important; transition: none !important; }
 /* Phones / low-end: panels are ~90% opaque anyway, and re-blurring the live globe behind them every frame is costly on mobile GPUs. */
 body.q-medium *, body.q-low * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
+/* ---- Earth radio dock (bottom centre; shares the slot with the time machine, which hides it) ---- */
+.radio-bar {
+  position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 9;
+  width: min(560px, calc(100vw - 200px)); min-height: 60px; padding: 9px 12px 9px 14px;
+  display: flex; align-items: center; gap: 12px;
+  background: var(--panel); backdrop-filter: blur(20px); border: 1px solid var(--line); box-shadow: var(--shadow);
+}
+.radio-bar.hidden { display: none; }
+.radio-eq { flex: 0 0 auto; display: flex; align-items: flex-end; gap: 3px; height: 24px; width: 22px; }
+.radio-eq i { flex: 1; height: 100%; background: #34d399; transform-origin: 50% 100%; transform: scaleY(.18); box-shadow: 0 0 8px rgba(52, 211, 153, .45); transition: transform .08s linear; }
+.radio-bar:not([data-state="playing"]) .radio-eq i { background: var(--hud-dim); box-shadow: none; transform: scaleY(.18) !important; }
+.radio-bar[data-state="connecting"] .radio-eq i { animation: radio-seek 1s ease-in-out infinite; }
+.radio-bar[data-state="connecting"] .radio-eq i:nth-child(2) { animation-delay: .15s; }
+.radio-bar[data-state="connecting"] .radio-eq i:nth-child(3) { animation-delay: .3s; }
+.radio-bar[data-state="connecting"] .radio-eq i:nth-child(4) { animation-delay: .45s; }
+@keyframes radio-seek { 50% { opacity: .25; } }
+.radio-meta { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.radio-name { font-weight: 600; font-size: .95rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radio-sub { font: 500 .74rem/1.2 var(--font-mono); color: var(--hud-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radio-live { font-style: normal; color: #0b1a14; background: #34d399; padding: 1px 5px; margin-right: 6px; letter-spacing: .08em; font-weight: 700; }
+.radio-ctl { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; }
+.radio-btn { width: 36px; height: 36px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: var(--text-2); cursor: pointer; }
+.radio-btn:hover:not([disabled]) { color: var(--text); background: var(--hover); }
+.radio-btn[disabled] { opacity: .35; cursor: default; }
+.radio-play { color: #34d399; }
+.radio-fav.on { color: #fbbf24; }
+.radio-fav.on .ico path { fill: currentColor; }
+.radio-vol { width: 76px; margin: 0 4px; accent-color: #34d399; }
+body.time-travel .radio-bar, body.gaming .radio-bar, body.riding .radio-bar, body.photo-mode .radio-bar, body.solar .radio-bar { display: none; }
+body.radio-on .coord-readout { display: none; }
+@media (max-width: 760px) {
+  .radio-bar { left: 10px; right: 68px; bottom: 10px; transform: none; width: auto; gap: 8px; padding: 7px 6px 7px 10px; }
+  .radio-vol, .radio-rand { display: none; }
+  .radio-btn { width: 34px; }
+  body.radio-on .bl { display: none; }
+  body:has(.info:not(.hidden)) .radio-bar { display: none; }
+}
+.radio-cc { font-weight: 600; color: var(--hud-hi); border: 1px solid var(--hud-line); padding: 0 4px; margin-right: 6px; }

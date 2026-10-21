@@ -130,6 +130,13 @@ test('passport stamps, time machine and sounds', async ({ page }) => {
   await page.getByTestId('time-close').click();
   await expect(page.getByTestId('time-bar')).toBeHidden();
   expect(await page.evaluate(() => (window as any).__pp.globe.itemFilter)).toBeNull();
+
+  // live radio: the dock opens with the station count (no stream is played in CI)
+  await page.getByTestId('btn-radio').click();
+  await expect(page.getByTestId('radio-bar')).toBeVisible();
+  await expect(page.getByTestId('radio-bar')).toContainText(/[\d,]+ stations · \d+ countries/);
+  await page.getByTestId('btn-radio').click();
+  await expect(page.getByTestId('radio-bar')).toBeHidden();
 });
 
 test('vehicle ride mode', async ({ page }) => {
