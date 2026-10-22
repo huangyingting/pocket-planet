@@ -124,9 +124,12 @@ function run(lesson: Lesson, host: LessonHost): void {
       ...rows, items.length ? h('ul', { class: 'lab-tasks' }, ...items) : '');
   };
 
-  const head = (sub: string) => h('header', { class: 'tour-head' },
-    h('span', { class: 'tour-kicker', html: icon(lesson.icon, 14) }, h('span', {}, `${L(lesson.title)} · ${sub}`)),
-    h('button', { class: 'icon-btn tour-x', 'aria-label': t('lessonExit'), 'data-testid': 'lesson-exit', html: icon('close', 16), onclick: () => stop() }));
+  /** the lesson's name, where the learner is, and a hairline of progress through steps and quiz */
+  const head = (sub: string, done = (i + 1) / (steps.length + quiz.length)) => h('header', { class: 'tour-head' },
+    h('span', { class: 'tour-kicker', html: icon(lesson.icon, 14) }, h('span', { class: 'kick-t', title: L(lesson.title) }, L(lesson.title))),
+    h('span', { class: 'lesson-step', 'data-testid': 'lesson-step' }, sub),
+    h('button', { class: 'icon-btn tour-x', 'aria-label': t('lessonExit'), 'data-testid': 'lesson-exit', html: icon('close', 16), onclick: () => stop() }),
+    h('i', { class: 'lesson-prog', 'aria-hidden': 'true', style: `--p:${Math.min(1, done).toFixed(3)}` }));
 
   const nav = (back: (() => void) | null, next: () => void, label: string, nextOff = false) => h('div', { class: 'row' },
     h('button', { class: 'pill', 'data-testid': 'lesson-back', disabled: !back, onclick: () => back?.() }, t('tourBack')),
@@ -137,7 +140,7 @@ function run(lesson: Lesson, host: LessonHost): void {
     stage.onClock = null;
     if (astro) astro.onClock = null;
     card.replaceChildren(
-      head(t('tutStep', { i: i + 1, n: steps.length })),
+      head(`${i + 1} / ${steps.length}`),
       h('h2', { id: 'lesson-title' }, L(st.title)),
       st.sketch ? h('p', { class: 'tour-track tour-sketch', 'data-testid': 'lesson-sketch', html: icon('sparkle', 14) }, h('span', {}, t('lessonSketch'))) : '',
       h('p', { class: 'tour-body', 'aria-live': 'polite' }, L(st.body)),
@@ -146,7 +149,6 @@ function run(lesson: Lesson, host: LessonHost): void {
       clockRow(),
       labRows(),
       st.sky ? h('button', { class: 'pill pill-sm lesson-sky', 'data-testid': 'lesson-sky', html: icon('telescope', 14), onclick: () => host.sky(nextSolstice()) }, h('span', {}, t('lessonSky'))) : '',
-      h('div', { class: 'dots', 'aria-hidden': 'true' }, ...steps.map((_, j) => h('span', { class: j === i ? 'on' : '' }))),
       nav(i > 0 ? () => go(i - 1) : null, () => go(i + 1), i === steps.length - 1 ? t('lessonQuiz') : t('next')));
   };
 
@@ -242,8 +244,7 @@ function run(lesson: Lesson, host: LessonHost): void {
     const why = ans === null ? '' : h('div', { class: 'lesson-why ' + (ans ? 'ok' : 'no'), 'aria-live': 'polite', 'data-testid': 'lesson-why' },
       h('p', {}, h('strong', {}, t(ans ? 'lessonRight' : 'lessonWrong') + ' '), tap ? t('lessonKm', { km: Math.round(tap.km).toLocaleString() }) + ' ' : '', L(q.why)), reveal);
     card.replaceChildren(
-      head(t('lessonQuiz')),
-      h('p', { class: 'tour-when' }, t('lessonQ', { i: k + 1, n: quiz.length })),
+      head(t('lessonQ', { i: k + 1, n: quiz.length })),
       h('h2', { id: 'lesson-title' }, L(q.q)),
       figure(q.fig),
       q.astro ? clockRow() : '',
@@ -255,7 +256,7 @@ function run(lesson: Lesson, host: LessonHost): void {
     const s = answers.filter(Boolean).length;
     const v = view(sub), nx = nextLesson(lesson.id, v) ?? (v === 'all' ? undefined : nextLesson(lesson.id, 'all'));
     card.replaceChildren(
-      head(t('lessonQuiz')),
+      head(t('lessonQuiz'), 1),
       h('h2', { id: 'lesson-title', 'data-testid': 'lesson-score' }, t('lessonScore', { s, n: quiz.length })),
       h('p', { class: 'lesson-keys-h' }, t('lessonKeys')),
       h('ul', { class: 'lesson-keys', 'data-testid': 'lesson-keys' }, ...lesson.keys.map(k => h('li', {}, L(k)))),
@@ -305,7 +306,7 @@ function run(lesson: Lesson, host: LessonHost): void {
         { timeout: 12000, maximumAge: 3600e3 });
     };
     card.replaceChildren(
-      head(t('lessonHome')),
+      head(t('lessonHome'), 0),
       h('h2', { id: 'lesson-title' }, L(lesson.title)),
       h('p', { class: 'tour-body' }, t('lessonHomeAsk')),
       h('p', { class: 'lesson-tap', html: icon('pin', 14) }, h('span', {}, t('lessonHomeTap'))),
@@ -484,12 +485,12 @@ export function openLessons(host: LessonHost, sub: Subject = 'geo'): void {
     note.textContent = L(cat.views[v].note);
     const groups = cat.course(v).map(gr => h('section', { class: 'lesson-group' },
       h('h3', { class: 'lesson-grade' }, h('span', {}, L(gr.name)), h('small', {}, `${gr.lessons.filter(x => seen.has(x.id)).length}/${gr.lessons.length}`)),
-      ...gr.lessons.map(x => h('div', { class: 'tour-row' },
+      ...gr.lessons.map(x => h('div', { class: 'tour-row lesson-row' + (seen.has(x.id) ? ' done' : '') },
         h('button', { class: 'tour-pick', 'data-testid': 'lesson-' + x.id, onclick: () => { closeModal('lessons'); startLesson(x.id, host); } },
-          h('span', { class: 'tile', html: icon(x.icon, 22) }),
+          h('span', { class: 'tile', html: icon(x.icon, 18) }),
           h('span', { class: 'grow' }, h('strong', {}, L(x.title)), h('span', { class: 'muted small' }, `${L(x.unit)} · ${L(x.blurb)}`)),
           h('span', { class: 'meta' }, (seen.has(x.id) ? '✓ ' : '') + t('minutesN', { n: x.minutes }))),
-        h('button', { class: 'icon-btn tour-link', 'aria-label': t('classLink'), title: t('classLink'), html: icon('share', 16),
+        h('button', { class: 'icon-btn tour-link', 'aria-label': t('classLink'), title: t('classLink'), html: icon('share', 14),
           onclick: () => void copyLink(classroomLink(x.id, 'lesson')) })))));
     list.replaceChildren(...groups);
   };

@@ -357,7 +357,8 @@ export class LessonStage {
     this.sunEl.className = 'lesson-sun';
     this.sunEl.dataset.testid = 'lesson-sun';
     this.marksEl.append(this.sunEl);
-    document.body.append(this.marksEl);
+    // inside the app layer, so the top bar, settings and info panels stay above the globe's labels
+    (document.getElementById('app') ?? document.body).append(this.marksEl);
     globe.frameHooks.add(this.hook);
   }
 
