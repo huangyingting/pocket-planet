@@ -695,6 +695,8 @@ export class LessonStage {
       const f = pts && fitView(pts, a.width, a.height, H, g.camera.fov);
       if (f && f[2] < h) [lat, lon, h] = f;
     }
+    // the learner may look closer or wider, but the step's scene stays in view (and zooming out never leaves Earth)
+    g.zoomRange = [h * 0.4, Math.max(h * 2.5, 1.2)];
     g.flyTo(lat, lon, h, 1500);
   }
 
@@ -743,6 +745,7 @@ export class LessonStage {
     g.simTime = null;
     g.flatView = false;
     g.setViewShift(0, 0);
+    g.zoomRange = null;
     g.markDirty();
     this.scene = null;
   }

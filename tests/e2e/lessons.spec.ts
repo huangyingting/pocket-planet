@@ -1,8 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
 import { fromHub, openApp } from './helpers.ts';
 
-type W = { __lesson?: { painted: boolean; lineCount: number; sunLat: number; now: number; playing: boolean } | null; __pp: { globe: { captureTaps: boolean; forceNight: boolean; simTime: number | null; ev: { onGlobeTap?: (a: number, b: number) => void } } } };
+type W = { __lesson?: { painted: boolean; lineCount: number; sunLat: number; now: number; playing: boolean } | null; __pp: { globe: { h: number; zoomRange: [number, number] | null; captureTaps: boolean; forceNight: boolean; simTime: number | null; ev: { onGlobeTap?: (a: number, b: number) => void } } } };
 const lesson = (page: Page) => page.evaluate(() => { const l = (window as unknown as W).__lesson; return l ? { painted: l.painted, lines: l.lineCount, sunLat: l.sunLat, now: l.now, playing: l.playing } : null; });
+/** A point on the scene beside the lesson card, for wheel and pointer input. */
+const beside = async (page: Page) => {
+  const b = (await page.getByTestId('lesson').boundingBox())!, W = page.viewportSize()!.width, H = page.viewportSize()!.height;
+  return b.x > W / 2 ? { x: b.x / 2, y: H / 2 } : { x: (b.x + b.width + W) / 2, y: H / 2 };
+};
 const globe = (page: Page) => page.evaluate(() => { const g = (window as unknown as W).__pp.globe; return { capture: g.captureTaps, night: g.forceNight, sim: g.simTime }; });
 
 test('geography class: pick a lesson, watch the steps, answer the quiz, leave cleanly', async ({ page }, info) => {
@@ -33,6 +38,21 @@ test('geography class: pick a lesson, watch the steps, answer the quiz, leave cl
   await expect.poll(async () => (await lesson(page))?.painted, { timeout: 30_000 }).toBe(true);
   expect((await lesson(page))!.lines).toBe(2);
   await expect(page.getByTestId('lesson-mark').first()).toBeVisible({ timeout: 30_000 });
+  // zooming is bounded by the step's framing; wheeling far out never leaves Earth for the Solar System
+  await expect(page.getByTestId('scale-rail')).toBeHidden();
+  const range = await page.evaluate(() => (window as unknown as W).__pp.globe.zoomRange);
+  expect(range).not.toBeNull();
+  const p = await beside(page);
+  await page.mouse.move(p.x, p.y);
+  for (let i = 0; i < 30; i++) { await page.mouse.wheel(0, 400); await page.waitForTimeout(30); }
+  await page.waitForTimeout(800);
+  const hOut = await page.evaluate(() => (window as unknown as W).__pp.globe.h);
+  expect(hOut).toBeLessThanOrEqual(range![1] + 1e-6);
+  expect(hOut).toBeGreaterThan(Math.min(range![1], 4.5) - 1e-3);
+  expect(page.url()).not.toContain('#solar');
+  await expect(card).toBeVisible();
+  for (let i = 0; i < 30; i++) { await page.mouse.wheel(0, -400); await page.waitForTimeout(30); }
+  expect(await page.evaluate(() => (window as unknown as W).__pp.globe.h)).toBeGreaterThanOrEqual(range![0] - 1e-6);
   for (let i = 1; i < 4; i++) await card.getByTestId('lesson-next').click();
 
   // the last step runs a year clock: the overhead Sun moves, and the user can pause and scrub it
@@ -64,6 +84,8 @@ test('geography class: pick a lesson, watch the steps, answer the quiz, leave cl
   // everything the lesson switched on is put back
   expect(await lesson(page)).toBeNull();
   expect(await globe(page)).toEqual({ capture: false, night: false, sim: null });
+  expect(await page.evaluate(() => (window as unknown as W).__pp.globe.zoomRange)).toBeNull();
+  await expect(page.getByTestId('scale-rail')).toBeVisible();
   await expect(page.getByTestId('lesson-mark')).toHaveCount(0);
 
   // a teacher's deep link opens a lesson; a "find it" question takes a tap on the globe
@@ -94,7 +116,7 @@ test('geography class: pick a lesson, watch the steps, answer the quiz, leave cl
   expect(errors).toEqual([]);
 });
 
-type AW = { __astro?: () => { shown: boolean; kitId: string | null; value: number; pickScreen(tag: string): { x: number; y: number } | null } | null; __pp: { globe: { paused: boolean } } };
+type AW = { __astro?: () => { zoom: { dist: number; min: number; max: number }; shown: boolean; kitId: string | null; value: number; pickScreen(tag: string): { x: number; y: number } | null } | null; __pp: { globe: { paused: boolean } } };
 const board = (page: Page) => page.evaluate(() => { const b = (window as unknown as AW).__astro?.(); return b ? { shown: b.shown, kit: b.kitId, v: b.value } : null; });
 
 test('astronomy class: its own course, 3D models on a board of their own, "tap it" questions', async ({ page }, info) => {
@@ -122,6 +144,17 @@ test('astronomy class: its own course, 3D models on a board of their own, "tap i
   expect(await page.evaluate(() => (window as unknown as AW).__pp.globe.paused)).toBe(true);
   await card.getByTestId('lesson-next').click();
   await expect.poll(async () => (await board(page))?.kit, { timeout: 30_000 }).toBeTruthy();
+  // the board's zoom stays within the step's framing too
+  const zoom = () => page.evaluate(() => (window as unknown as AW).__astro!()!.zoom);
+  const z0 = await zoom();
+  expect(z0.max / z0.min).toBeLessThan(10);
+  const q = await beside(page);
+  await page.mouse.move(q.x, q.y);
+  for (let i = 0; i < 25; i++) { await page.mouse.wheel(0, 400); await page.waitForTimeout(30); }
+  await expect.poll(async () => { const z = await zoom(); return z.dist <= z.max * 1.001; }).toBe(true);
+  for (let i = 0; i < 25; i++) { await page.mouse.wheel(0, -400); await page.waitForTimeout(30); }
+  await expect.poll(async () => { const z = await zoom(); return z.dist >= z.min * 0.999; }).toBe(true);
+  expect(page.url()).not.toContain('#solar');
   await page.screenshot({ path: info.outputPath('astro-step.png') });
   await card.getByTestId('lesson-exit').click();
   await expect(card).toHaveCount(0);

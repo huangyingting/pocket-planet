@@ -84,6 +84,8 @@ export class AstroStage {
   /** Which kit runs (tests). */
   get kitId(): string | null { return this.kit ? this.cur?.kit ?? null : null; }
   get shown(): boolean { return this.active; }
+  /** Camera distance and the zoom bounds of the current view (tests). */
+  get zoom(): { dist: number; min: number; max: number } { return { dist: this.orbit.dist, min: this.orbit.minDist, max: this.orbit.maxDist }; }
 
   /** Shows one scene (a lesson step or a quiz question). The kit module loads on first use. */
   async show(s: AstroScene): Promise<void> {
@@ -192,8 +194,11 @@ export class AstroStage {
       countries: () => this.opts.countries?.() ?? [],
       zh, L: (p: Pair) => p[zh() ? 1 : 0],
       view: (from: V3, dist: number, target: V3 = [0, 0, 0], snap = false) => {
+        const d = dist * this.fitK;
+        // each view bounds the zoom around its framing, so the scene can't be lost off-screen or zoomed through
+        this.orbit.minDist = d * 0.4; this.orbit.maxDist = d * 2.5;
         this.orbit.target.copy(v3(target));
-        this.orbit.place(v3(from), dist * this.fitK, snap);
+        this.orbit.place(v3(from), d, snap);
       },
       label: (at: THREE.Vector3 | THREE.Object3D, text: Pair | string, o: LabelOpts = {}) => {
         const el = document.createElement('div');
@@ -232,7 +237,11 @@ export class AstroStage {
     this.camera.updateProjectionMatrix();
     // a scene framed for a 16:10 screen at distance d fits the free area at d·k
     const k = Math.max((1.6 * H) / fw, H / fh, 1);
-    if (this.kit && Math.abs(k - this.fitK) > 0.02) this.orbit.zoom(k / this.fitK);
+    if (this.kit && Math.abs(k - this.fitK) > 0.02) {
+      const f = k / this.fitK;
+      this.orbit.minDist *= f; this.orbit.maxDist *= f;
+      this.orbit.zoom(f);
+    }
     this.fitK = k;
   }
 

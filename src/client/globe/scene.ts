@@ -393,6 +393,8 @@ export class Globe {
   settings: Settings = { ...DEFAULT_SETTINGS };
   lang: Lang = 'en';
   gameMode = false;
+  /** A lesson's [min, max] camera height: zooming stays inside it and never leaves the globe. */
+  zoomRange: [number, number] | null = null;
   /** While the Solar System view is up, the globe stops rendering. */
   paused = false;
   private overshoot = { v: 0, t: 0 };
@@ -923,7 +925,7 @@ export class Globe {
         if (pinch0 > 0) {
           const want = h0 * (pinch0 / d);
           this.setH(want);
-          if (want > MAX_H * 1.35 && !this.ride && !this.gameMode) { pinch0 = 0; this.ev.onBeyond?.(); }
+          if (want > MAX_H * 1.35 && !this.ride && !this.gameMode && !this.zoomRange) { pinch0 = 0; this.ev.onBeyond?.(); }
         }
         moved = true;
         this.ev.onFirst?.('zoom');
@@ -966,7 +968,7 @@ export class Globe {
       this.ev.onFirst?.('zoom');
       // Wheeling on outward at the widest view builds up "overshoot"; enough of it opens the Solar System.
       const now = performance.now();
-      if (e.deltaY > 0 && this.h >= MAX_H - 1e-3 && !this.fly && !this.gameMode) {
+      if (e.deltaY > 0 && this.h >= MAX_H - 1e-3 && !this.fly && !this.gameMode && !this.zoomRange) {
         this.overshoot.v = (now - this.overshoot.t < 700 ? this.overshoot.v : 0) + Math.min(0.2, e.deltaY * 0.0015);
         this.overshoot.t = now;
         if (this.overshoot.v > 0.35) { this.overshoot.v = 0; this.ev.onBeyond?.(); }
@@ -987,15 +989,20 @@ export class Globe {
     return ((this.h * 2 * Math.tan((this.camera.fov * Math.PI) / 360)) / H) * (180 / Math.PI) * 0.9;
   }
 
-  setH(h: number): void { this.h = Math.max(MIN_H, Math.min(MAX_H, h)); this.dirty = true; }
+  /** Clamp a camera height to the globe's range, narrowed by `zoomRange` when one is set. */
+  private clampH(h: number): number {
+    const r = this.zoomRange;
+    return Math.max(r ? Math.max(MIN_H, r[0]) : MIN_H, Math.min(r ? Math.min(MAX_H, r[1]) : MAX_H, h));
+  }
+  setH(h: number): void { this.h = this.clampH(h); this.dirty = true; }
   zoomBy(f: number): void {
-    if (f < 1 && this.h >= MAX_H - 1e-3 && !this.ride && !this.gameMode) { this.ev.onBeyond?.(); return; }
+    if (f < 1 && this.h >= MAX_H - 1e-3 && !this.ride && !this.gameMode && !this.zoomRange) { this.ev.onBeyond?.(); return; }
     this.flyTo(this.lat, this.lon, this.h / f, 350);
   }
 
   flyTo(lat: number, lon: number, h = this.h, dur = 1200): void {
     let dl = ((lon - this.lon + 540) % 360) - 180;
-    this.fly = { from: [this.lat, this.lon, this.h], to: [lat, this.lon + dl, Math.max(MIN_H, Math.min(MAX_H, h))], t: 0, dur };
+    this.fly = { from: [this.lat, this.lon, this.h], to: [lat, this.lon + dl, this.clampH(h)], t: 0, dur };
     this.vLat = this.vLon = 0;
     this.dirty = true;
   }

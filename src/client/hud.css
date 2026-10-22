@@ -532,6 +532,8 @@ body:has(.sky) .lesson-marks, body.solar .lesson-marks { display: none; }
 .astro-mark { will-change: transform; }
 .sky-labels.astro-mlabels { position: fixed; z-index: 17; }
 body:not(.astro-on) .astro-mlabels { display: none; }
+/* a lesson keeps the learner in its scene: the scale ladder comes back when the lesson closes */
+body.lessoning .level-switch { display: none; }
 
 /* figures in the lesson card: charts and diagrams */
 .lesson-fig { margin: 0; padding: 6px 4px 2px; border: 1px solid var(--hud-line, rgba(255, 255, 255, .12)); border-radius: 6px; background: rgba(4, 10, 18, .55); }
