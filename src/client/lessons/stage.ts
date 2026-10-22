@@ -12,7 +12,7 @@ import { latLonToVec, vecToLatLon } from '../../shared/lib/geo.ts';
 import { BY_KEY } from '../../shared/data/catalogue.ts';
 import { subsolar } from '../../shared/lib/sun.ts';
 import type { Continent } from '../../shared/data/iso.ts';
-import { BIOMES, CLIMATES, biomeOf, climateAt, coastDistances, type Biome, type Climate } from './climate.ts';
+import { BIOMES, CLIMATES, biomeOf, climateAt, coastDistances, inPoly, type Biome, type Climate } from './climate.ts';
 
 export type LL = [lat: number, lon: number];
 export type Pair = readonly [en: string, zh: string];
@@ -395,6 +395,23 @@ export class LessonStage {
   }
 
   /** Re-render text after a language switch. */
+  /** What the lesson maps say about one place: its country (if on land), climate type and natural vegetation. */
+  here(lat: number, lon: number): { a2?: string; climate?: Climate; biome?: Biome } {
+    const countries = this.globe.countryShapes(), w = 512, hh = w / 2;
+    const { data } = landMask(countries, w);
+    const x = Math.max(0, Math.min(w - 1, Math.floor(((lon + 180) / 360) * w))), y = Math.max(0, Math.min(hh - 1, Math.floor(((90 - lat) / 180) * hh)));
+    const ix = y * w + x;
+    const inFeat = (c: CountryInfo) => {
+      const g = c.feature.geometry, polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+      return polys.some(rings => inPoly(lat, lon, rings[0].map(([o, a]) => [a, o] as LL)) && !rings.slice(1).some(r => inPoly(lat, lon, r.map(([o, a]) => [a, o] as LL))));
+    };
+    const country = countries.find(inFeat);
+    if (!data[ix] && !country) return {};
+    const cd = coasts(countries, w);
+    const climate = climateAt(lat, lon, cd.dw[ix], cd.de[ix]);
+    return { a2: country?.a2 || undefined, climate, biome: biomeOf(climate, lat, lon, cd.dw[ix], cd.de[ix]) };
+  }
+
   relabel(): void {
     const zh = this.opts.lang() === 'zh';
     for (const m of this.marks) m.el.textContent = m.def.text ? m.def.text[zh ? 1 : 0] : '';

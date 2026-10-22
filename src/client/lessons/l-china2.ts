@@ -61,6 +61,7 @@ export const CHINA_B: Lesson[] = [
       },
       {
         title: ['From end to end', '四至点'], cam: [33, 105, 4],
+        task: ['Find the four extreme points in turn: north, south, west and east. Which pair is farthest apart?', '依次找到我国领土的最北端、最南端、最西端和最东端。哪两点相距最远？'],
         paint: [{ fill: { k: 'land', a2: CN, c: C.red }, a: 0.3 }],
         lines: [{ pts: [[53.5, 122.4], [4, 112.3]], c: C.gold, w: 1.4, dur: 2, t: 0.6 }, { pts: [[39.2, 73.5], [48.4, 135.0]], c: C.orange, w: 1.4, dur: 2, t: 2.2 }],
         marks: [mk([53.5, 122.4], 'North: Mohe, Heilongjiang', '最北：黑龙江省漠河以北', { dot: true, c: C.ice, t: 0.2 }), mk([4, 112.3], 'South: Zengmu Ansha', '最南：曾母暗沙', { dot: true, c: C.green, t: 1.2 }), mk([39.2, 73.5], 'West: Pamirs', '最西：帕米尔高原', { dot: true, c: C.brown, t: 2 }), mk([48.4, 135.0], 'East: Heilong–Wusuli confluence', '最东：黑龙江与乌苏里江主航道汇合处', { dot: true, c: C.orange, t: 2.8 })],
@@ -69,6 +70,7 @@ export const CHINA_B: Lesson[] = [
       },
       {
         title: ['Neighbours on land and sea', '邻国和海域'], cam: [32, 108, 4.4],
+        task: ['Follow China\'s coast from the Bohai Sea south past the Yellow Sea and the East China Sea to the South China Sea.', '沿我国海岸线，从渤海向南经过黄海、东海，到达南海。'],
         paint: [{ fill: { k: 'land', a2: NEIGHBOURS, c: C.orange }, a: 0.4 }, { fill: { k: 'land', a2: CN, c: C.red }, a: 0.55, t: 0.4 }, { fill: { k: 'land', a2: ['KR', 'JP', 'PH', 'MY', 'BN', 'ID'], c: C.teal }, a: 0.35, t: 2.2 }],
         marks: [mk([38.7, 120.2], 'Bohai Sea (inland sea)', '渤海（内海）', { c: C.blue, t: 1 }), mk([35.5, 123.2], 'Yellow Sea', '黄海', { c: C.gold, t: 1.3 }), mk([29.5, 125.5], 'East China Sea', '东海', { c: C.teal, t: 1.6 }), mk([15, 114], 'South China Sea', '南海', { big: true, c: C.blue, t: 1.9 }), mk([23.7, 121], 'Taiwan Island', '台湾岛', { c: C.red, t: 2.4 }), mk([19.2, 109.7], 'Hainan Island', '海南岛', { c: C.red, t: 2.6 })],
         body: ['China\'s land border is over 22,000 km long, with 14 neighbours: North Korea, Russia, Mongolia, Kazakhstan, Kyrgyzstan, Tajikistan, Afghanistan, Pakistan, India, Nepal, Bhutan, Myanmar, Laos and Vietnam. From north to south its seas are the Bohai, Yellow, East China and South China seas; across the sea lie South Korea, Japan, the Philippines, Malaysia, Brunei and Indonesia. Taiwan Island is China\'s largest island and Hainan the second.',
@@ -99,6 +101,12 @@ export const CHINA_B: Lesson[] = [
         why: ['23 provinces, 5 autonomous regions, 4 municipalities and 2 SARs.', '23 个省、5 个自治区、4 个直辖市和 2 个特别行政区。'] },
       { q: ['Find China\'s easternmost point.', '在地球上点出我国领土的最东端。'], at: [48.4, 135.0], tolKm: 400,
         why: ['Where the Heilong and Wusuli rivers meet, near 135°E.', '在黑龙江与乌苏里江主航道汇合处，约东经 135°。'] },
+      { q: ['Label China\'s four seas, from north to south.', '从北到南，在地球上标出我国濒临的四个海。'],
+        place: [{ text: ['Bohai Sea', '渤海'], at: [38.7, 120.2], tolKm: 300 }, { text: ['Yellow Sea', '黄海'], at: [35.5, 123.2], tolKm: 300 }, { text: ['East China Sea', '东海'], at: [29.5, 125.5], tolKm: 450 }, { text: ['South China Sea', '南海'], at: [15, 114], tolKm: 700 }],
+        why: ['The small Bohai Sea is almost enclosed by land; the Yellow Sea and East China Sea lie to the east; the South China Sea is the largest and deepest.', '渤海几乎被陆地环抱，是我国的内海；黄海、东海在东面；南海面积最大、最深。'] },
+      { q: ['Match each provincial-level division to its capital.', '把省级行政区和它的行政中心连起来。'],
+        match: [[['Heilongjiang', '黑龙江省'], ['Harbin', '哈尔滨']], [['Sichuan', '四川省'], ['Chengdu', '成都']], [['Guangdong', '广东省'], ['Guangzhou', '广州']], [['Shandong', '山东省'], ['Jinan', '济南']], [['Xinjiang', '新疆维吾尔自治区'], ['Ürümqi', '乌鲁木齐']]],
+        why: ['Harbin, Chengdu, Guangzhou, Jinan and Ürümqi are the capitals of Heilongjiang, Sichuan, Guangdong, Shandong and Xinjiang.', '哈尔滨、成都、广州、济南、乌鲁木齐分别是黑龙江、四川、广东、山东、新疆的行政中心。'] },
     ],
   },
   {
@@ -130,6 +138,7 @@ export const CHINA_B: Lesson[] = [
       },
       {
         title: ['The Hu Huanyong line', '胡焕庸线'], cam: [36, 108, 3.6],
+        task: ['Find Heihe in the north-east and Tengchong in the south-west, then compare how crowded the two sides of the line look.', '找到东北的黑河和西南的腾冲，比较这条线两侧人口的疏密。'],
         paint: [{ fill: { k: 'poly', pts: HU_EAST, c: C.orange, clip: CN }, a: 0.45, t: 2 }],
         lines: [{ pts: HU_LINE, c: C.gold, w: 2, dur: 2.4 }],
         marks: [mk([50.25, 127.5], 'Heihe', '黑河', { dot: true, c: C.gold, t: 0.2 }), mk([25.02, 98.5], 'Tengchong', '腾冲', { dot: true, c: C.gold, t: 2.2 }), mk([31, 114], 'East: dense', '东南部：人口稠密', { big: true, c: C.orange, t: 2.6 }), mk([38, 88], 'West: sparse', '西北部：人口稀疏', { big: true, c: C.ice, t: 3 })],
@@ -146,6 +155,7 @@ export const CHINA_B: Lesson[] = [
       },
       {
         title: ['Where groups live', '民族的分布'], cam: [35, 104, 3.8], sketch: true,
+        task: ['Turn the globe from Guangxi round to Xinjiang and find where each named ethnic group mainly lives.', '从广西转到新疆，找出每个标出的少数民族主要分布在哪里。'],
         paint: [{ fill: { k: 'land', a2: CN, c: C.white }, a: 0.15 }],
         marks: [mk([23.5, 108.3], 'Zhuang · Guangxi', '壮族 · 广西', { dot: true, c: C.gold, t: 0.3 }), mk([42, 85], 'Uygur · Xinjiang', '维吾尔族 · 新疆', { dot: true, c: C.gold, t: 0.6 }), mk([37.5, 106], 'Hui · Ningxia', '回族 · 宁夏', { dot: true, c: C.gold, t: 0.9 }),
           mk([43.5, 113], 'Mongol · Inner Mongolia', '蒙古族 · 内蒙古', { dot: true, c: C.gold, t: 1.2 }), mk([31, 88], 'Zang · Xizang', '藏族 · 西藏', { dot: true, c: C.gold, t: 1.5 }), mk([42.9, 129.5], 'Korean · Yanbian, Jilin', '朝鲜族 · 吉林延边', { dot: true, c: C.gold, t: 1.8 }), mk([22, 100.8], 'Dai · Yunnan', '傣族 · 云南', { dot: true, c: C.gold, t: 2.1 })],
@@ -166,6 +176,11 @@ export const CHINA_B: Lesson[] = [
         why: ['Groups mix across the country but also have their own communities.', '各民族交错杂居，又各自相对集中。'] },
       { q: ['Find Tengchong.', '在地球上点出腾冲。'], at: [25.02, 98.5], tolKm: 400,
         why: ['Tengchong is in western Yunnan, near the border with Myanmar.', '腾冲在云南省西部，靠近中缅边境。'] },
+      { q: ['Match each ethnic group to the autonomous region where many of its people live.', '把民族和它主要聚居的自治区连起来。'],
+        match: [[['Zhuang', '壮族'], ['Guangxi', '广西壮族自治区']], [['Uygur', '维吾尔族'], ['Xinjiang', '新疆维吾尔自治区']], [['Hui', '回族'], ['Ningxia', '宁夏回族自治区']], [['Mongol', '蒙古族'], ['Inner Mongolia', '内蒙古自治区']], [['Zang (Tibetan)', '藏族'], ['Xizang', '西藏自治区']]],
+        why: ['Each of China\'s five autonomous regions is named after a main ethnic group living there, although many groups also live mixed together across the country.', '我国五个自治区都以当地主要聚居的少数民族命名；同时，各民族在全国范围内又交错杂居。'] },
+      { q: ['At the end of 2023, about 297 million of China\'s 1.41 billion people were aged 60 or over. About what percentage is that?', '2023 年底，我国 14.1 亿人口中 60 岁及以上的约有 2.97 亿。这约占总人口的百分之几？'], num: { answer: 21, tol: 0.8, unit: ['%', '%'] },
+        why: ['297 ÷ 1,410 ≈ 0.21, so about 21%: more than one person in five. A country is usually called "ageing" when over 10% are aged 60+.', '2.97 ÷ 14.1 ≈ 0.21，约占 21%，超过五分之一。一般认为 60 岁及以上人口超过 10%，就进入了老龄化社会。'] },
     ],
   },
   {
@@ -211,6 +226,7 @@ export const CHINA_B: Lesson[] = [
       },
       {
         title: ['More water in summer', '水资源夏秋多、冬春少'], cam: [31, 111, 2.4],
+        task: ['Find the Three Gorges Dam on the Yangtze: its reservoir stores summer floodwater for the dry season.', '找到长江上的三峡大坝：它的水库把夏季洪水蓄起来，供枯水季节使用。'],
         lines: [{ pts: RIVERS.yangtze.slice(8, 13), c: C.blue, w: 1.8, flow: true, arrow: true, dur: 1.8 }],
         marks: [mk([30.82, 111.0], 'Three Gorges Dam', '三峡水利枢纽', { dot: true, c: C.teal, big: true, t: 1.2 })],
         fig: { k: 'climo', city: 'beijing' },
@@ -219,6 +235,7 @@ export const CHINA_B: Lesson[] = [
       },
       {
         title: ['South–North Water Diversion', '南水北调'], cam: [34, 112, 3.2], sketch: true,
+        task: ['Follow the routes north from the Yangtze: find where the east and middle routes start and where they end.', '从长江出发向北追踪调水线路：找到东线和中线的起点和终点。'],
         lines: [{ pts: RIVERS.yangtze, c: C.blue, w: 1.2, dur: 1 }, { pts: RIVERS.yellow, c: C.gold, w: 1.2, dur: 1 },
           { pts: SNWD_EAST, c: C.teal, w: 2, flow: true, arrow: true, dur: 2, t: 0.8 }, { pts: SNWD_EAST_SD, c: C.teal, w: 1.6, flow: true, arrow: true, dur: 1.2, t: 2.4 },
           { pts: SNWD_MIDDLE, c: C.green, w: 2, flow: true, arrow: true, dur: 2, t: 1.6 }, { pts: SNWD_WEST, c: C.violet, w: 2, flow: true, arrow: true, dur: 1.2, t: 3 }],
@@ -239,6 +256,11 @@ export const CHINA_B: Lesson[] = [
         why: ['They are Inner Mongolia, Xinjiang, Qinghai and Xizang.', '四大牧区是内蒙古、新疆、青海、西藏。'] },
       { q: ['Find the Danjiangkou Reservoir.', '在地球上点出丹江口水库。'], at: [32.6, 111.5], tolKm: 350,
         why: ['On the Han River, between Hubei and Henan: source of the Middle Route.', '位于湖北、河南交界的汉江上，是中线工程的水源地。'] },
+      { q: ['China\'s total water resources are about 2.8 trillion m³, shared by about 1.41 billion people. About how much water is that per person?', '我国水资源总量约 2.8 万亿立方米，人口约 14.1 亿。人均水资源量约是多少？'], num: { answer: 1990, tol: 80, unit: ['m³', '立方米'] },
+        why: ['2,800,000,000,000 ÷ 1,410,000,000 ≈ 1,990 m³ per person. The total is among the world\'s largest, but per person it is only about a quarter of the world average.', '28000 亿 ÷ 14.1 亿 ≈ 1990 立方米。我国水资源总量居世界前列，但人均只有世界人均的四分之一左右。'] },
+      { q: ['Which of these help solve the water shortage in north China? Pick all that apply.', '下列措施中，有利于解决我国北方缺水问题的有（多选）'],
+        options: [['Transferring water from the south', '跨流域调水'], ['Drip and sprinkler irrigation', '推广喷灌、滴灌'], ['Treating and reusing waste water', '污水处理后再利用'], ['Pumping out more and more groundwater', '大量开采地下水'], ['Flood irrigation of fields', '大水漫灌']], multi: [0, 1, 2],
+        why: ['Moving water, saving water and reusing it all help. Over-pumping groundwater makes the land sink, and flood irrigation wastes water.', '跨流域调水、节约用水、污水再利用都有帮助；过量开采地下水会引起地面沉降，大水漫灌则浪费水资源。'] },
     ],
   },
   {
@@ -254,6 +276,7 @@ export const CHINA_B: Lesson[] = [
     steps: [
       {
         title: ['Farming east, herding west', '东耕西牧'], cam: [37, 104, 3.6], sketch: true, items: ['an_yak'],
+        task: ['Find the four great pastoral areas in the west: Inner Mongolia, Xinjiang, Qinghai and Xizang.', '在西部找到四大牧区：内蒙古、新疆、青海和西藏。'],
         paint: [{ fill: { k: 'land', a2: CN, c: C.gold }, a: 0.35 }, { fill: { k: 'poly', pts: [[54, 122.5], [54, 136], [17, 125], [17, 97], ...[...FARM_PASTURE].reverse()], c: C.lime, clip: CN }, a: 0.5, t: 1.6 }],
         lines: [{ pts: FARM_PASTURE, c: C.white, w: 1.6, dur: 2.2 }],
         marks: [mk([32, 113], 'Crop farming, forestry, fishing', '种植业、林业、渔业', { big: true, c: C.lime, t: 2 }), mk([43.5, 113], 'Inner Mongolia pastures', '内蒙古牧区', { c: C.gold, t: 2.4 }), mk([44, 86], 'Xinjiang pastures', '新疆牧区', { c: C.gold, t: 2.6 }), mk([36, 97], 'Qinghai pastures', '青海牧区', { c: C.gold, t: 2.8 }), mk([31.5, 88], 'Xizang pastures', '西藏牧区', { c: C.gold, t: 3 })],
@@ -281,6 +304,7 @@ export const CHINA_B: Lesson[] = [
       },
       {
         title: ['Fast trains and big ports', '高铁与港口'], cam: [33, 112, 3.4], items: ['vh_qinghaitibet', 'cn_bund'],
+        task: ['Follow the Beijing–Shanghai and Beijing–Guangzhou high-speed lines south from Beijing.', '从北京出发，沿京沪高铁和京广高铁向南追踪。'],
         lines: [{ pts: BJ_SH, c: C.gold, w: 2, dur: 1.6, flow: true }, { pts: BJ_GZ, c: C.orange, w: 2, dur: 1.8, t: 0.6, flow: true }, { pts: QT_RAILWAY, c: C.violet, w: 2, dur: 2, t: 1.4, flow: true }],
         marks: [mk([35.5, 117.8], 'Beijing–Shanghai HSR', '京沪高铁', { c: C.gold, t: 1 }), mk([27.5, 113.6], 'Beijing–Guangzhou HSR', '京广高铁', { c: C.orange, t: 1.6 }), mk([33.5, 92.5], 'Qinghai–Tibet Railway', '青藏铁路', { c: C.violet, t: 2.6 }), mk([31.2, 121.5], 'Shanghai Port', '上海港', { dot: true, c: C.teal, t: 3 })],
         fig: { k: 'line', title: ['China\'s high-speed rail (approx.)', '我国高速铁路营业里程（约）'], unit: ['10,000 km', '万千米'], x: [2008, 2012, 2015, 2018, 2020, 2023], min: 0, max: 5,
@@ -307,6 +331,12 @@ export const CHINA_B: Lesson[] = [
         why: ['Thick loess is easy to dig and keeps warm in winter, cool in summer.', '黄土深厚易挖，窑洞冬暖夏凉。'] },
       { q: ['Find Shanghai, China\'s biggest port.', '在地球上点出上海港。'], at: [31.2, 121.5], tolKm: 300,
         why: ['At the mouth of the Yangtze.', '位于长江入海口。'] },
+      { q: ['Match each traditional house to where it is found.', '把传统民居和它所在的地区连起来。'],
+        match: [[['Courtyard house (siheyuan)', '四合院'], ['Beijing', '北京']], [['Yurt', '蒙古包'], ['Inner Mongolian grasslands', '内蒙古草原']], [['Earth building (tulou)', '土楼'], ['The hills of Fujian', '福建山区']], [['Stilt house', '吊脚楼'], ['Damp hills of the south-west', '西南潮湿的山区']]],
+        why: ['Houses suit their environment: yurts move with the herds, stilt houses keep out damp and pests, and tulou were built as fortified homes for whole clans.', '民居与当地环境相适应：蒙古包便于随畜群迁移，吊脚楼可以防潮、防虫蛇，土楼是聚族而居、便于防御的大型住宅。'] },
+      { q: ['Label China\'s four big industrial bases.', '在地球上标出我国的四大工业基地。'],
+        place: [{ text: ['Central & southern Liaoning', '辽中南'], at: [41.2, 122.8], tolKm: 300 }, { text: ['Beijing–Tianjin–Tangshan', '京津唐'], at: [39.7, 117.5], tolKm: 300 }, { text: ['Shanghai–Nanjing–Hangzhou', '沪宁杭'], at: [31.3, 120.5], tolKm: 350 }, { text: ['Pearl River Delta', '珠江三角洲'], at: [22.8, 113.5], tolKm: 300 }],
+        why: ['All four lie in the east, near the coast and big ports, where transport, markets and skilled workers are close at hand.', '四大工业基地都分布在东部沿海地区，靠近港口，交通便利，市场广阔，技术力量雄厚。'] },
     ],
   },
   {
@@ -331,6 +361,7 @@ export const CHINA_B: Lesson[] = [
       },
       {
         title: ['The Northeast: black soil', '东北三省：黑土地'], cam: [46, 126, 2.6], items: ['fs_harbin', 'vo_tianchi'],
+        task: ['Find the Northeast Plain ringed by mountains: the Greater Khingan to the west, the Lesser Khingan to the north and the Changbai Mountains to the east.', '找到被群山环绕的东北平原：西面是大兴安岭，北面是小兴安岭，东面是长白山。'],
         paint: [{ fill: { k: 'poly', pts: NE_PLAIN, c: C.brown, clip: CN }, a: 0.65 }],
         marks: [mk([46.5, 126], 'Northeast Plain', '东北平原', { big: true, c: C.brown, t: 0.6 }), mk([45.8, 126.6], 'Harbin', '哈尔滨', { dot: true, c: C.ice, t: 1 }), mk([49, 122.2], 'Greater Khingan: forests', '大兴安岭：林区', { c: C.green, t: 1.4 })],
         fig: { k: 'climo', city: 'harbin' },
@@ -349,6 +380,7 @@ export const CHINA_B: Lesson[] = [
       },
       {
         title: ['The Loess Plateau', '黄土高原'], cam: [37, 108, 2.6], sketch: true,
+        task: ['Zoom in on the Loess Plateau: look for the gullies cutting through the yellow land.', '放大黄土高原，找一找千沟万壑的黄土地。'],
         paint: [{ fill: { k: 'poly', pts: LOESS, c: C.brown, clip: CN }, a: 0.6 }],
         lines: [{ pts: RIVERS.yellow.slice(6, 16), c: C.gold, w: 2, flow: true, arrow: true, dur: 2, t: 0.6 }],
         marks: [mk([37.5, 108], 'Loess Plateau', '黄土高原', { big: true, c: C.brown, t: 0.4 }), mk([36.6, 109.5], 'Gullies, terraces, check dams', '沟壑纵横 · 梯田 · 淤地坝', { c: C.lime, t: 1.8 })],
@@ -371,6 +403,12 @@ export const CHINA_B: Lesson[] = [
         why: ['Little spring rain just when crops need water.', '春季降水少，正是农作物需水的时候。'] },
       { q: ['Find the Loess Plateau.', '在地球上点出黄土高原。'], at: [37, 108], tolKm: 450,
         why: ['In the middle course of the Yellow River, in Shaanxi, Shanxi and nearby.', '位于黄河中游，主要在陕西、山西一带。'] },
+      { q: ['Match each region of the north to its farming.', '把北方的地区和它的农业特点连起来。'],
+        match: [[['Northeast Plain', '东北平原'], ['Black soil; spring wheat, corn and soybeans, one crop a year', '黑土肥沃；春小麦、玉米、大豆，一年一熟']], [['North China Plain', '华北平原'], ['Winter wheat; two crops a year or three in two years', '冬小麦；一年两熟或两年三熟']], [['Loess Plateau', '黄土高原'], ['Terraces and check dams to hold the soil', '修梯田、打淤地坝，保持水土']]],
+        why: ['The cold Northeast has a short growing season; the warmer North China Plain fits two crops; on the Loess Plateau, farming must first stop soil being washed away.', '东北纬度高，生长期短，一年一熟；华北平原热量较多，一年两熟或两年三熟；黄土高原首先要治理水土流失。'] },
+      { q: ['Label these places in the northern region.', '在地球上标出北方地区的这些地方。'],
+        place: [{ text: ['Northeast Plain', '东北平原'], at: [46, 125], tolKm: 450 }, { text: ['North China Plain', '华北平原'], at: [36, 116], tolKm: 400 }, { text: ['Xi\'an', '西安'], at: [34.3, 108.9], tolKm: 300 }],
+        why: ['The Northeast Plain is China\'s largest plain; the North China Plain lies along the lower Yellow River; Xi\'an, an ancient capital, is in the Wei River valley.', '东北平原是我国面积最大的平原；华北平原位于黄河下游；古都西安在渭河谷地。'] },
     ],
   },
   {
@@ -395,6 +433,7 @@ export const CHINA_B: Lesson[] = [
       },
       {
         title: ['The Yangtze River Delta', '长江三角洲'], cam: [31, 120.5, 1.9], items: ['cn_bund', 'cn_westlake', 'vh_container'],
+        task: ['Find Shanghai, Nanjing, Hangzhou and Suzhou: notice how close together the cities of the delta are.', '找到上海、南京、杭州和苏州：注意三角洲上的城市分布多么密集。'],
         paint: [{ fill: { k: 'poly', pts: YRD, c: C.teal, clip: CN }, a: 0.55 }],
         lines: [{ pts: RIVERS.yangtze.slice(14), c: C.blue, w: 2, flow: true, arrow: true, dur: 1.4 }],
         marks: [mk([31.2, 121.5], 'Shanghai', '上海', { dot: true, big: true, c: C.gold, t: 0.4 }), mk([32.05, 118.8], 'Nanjing', '南京', { dot: true, c: C.white, t: 0.8 }), mk([30.25, 120.15], 'Hangzhou', '杭州', { dot: true, c: C.white, t: 1 }), mk([31.3, 120.6], 'Suzhou', '苏州', { dot: true, c: C.white, t: 1.2 }), mk([31.1, 120.9], 'Water towns', '江南水乡', { c: C.teal, t: 1.8 })],
@@ -419,6 +458,7 @@ export const CHINA_B: Lesson[] = [
       },
       {
         title: ['Karst hills and rice terraces', '喀斯特地貌与梯田'], cam: [25, 106, 2.4], items: ['cn_guilin', 'cn_yuanyang', 'cn_zhangjiajie'],
+        task: ['Zoom in around Guilin and look for the steep limestone hills rising from the flat land.', '放大桂林一带，找一找平地上拔地而起的石灰岩山峰。'],
         paint: [{ fill: { k: 'poly', pts: [[29, 103], [28.5, 109], [25.5, 111.5], [23, 110], [23, 104], [25, 102.5]], c: C.violet, clip: CN }, a: 0.4 }],
         marks: [mk([26.5, 106.7], 'Yunnan–Guizhou Plateau: karst', '云贵高原：喀斯特地貌', { c: C.violet, t: 0.4 }), mk([24.9, 110.5], 'Guilin', '桂林', { dot: true, c: C.green, t: 1 }), mk([23.1, 102.8], 'Yuanyang (Hani) terraces', '元阳哈尼梯田', { dot: true, c: C.lime, t: 1.6 })],
         body: ['On the Yunnan–Guizhou Plateau and in Guangxi, rain slowly dissolved limestone into karst: steep peaks, caves and underground rivers, like the hills along the Li River at Guilin. With little flat land in the hills, the Hani people of Yuanyang carved mountainsides into rice terraces over 1,300 years ago.',
@@ -436,6 +476,12 @@ export const CHINA_B: Lesson[] = [
         why: ['About 23.5°N, through the middle of the island.', '约北纬 23.5°，穿过岛的中部。'] },
       { q: ['Find Hong Kong.', '在地球上点出香港。'], at: [22.3, 114.17], tolKm: 250,
         why: ['At the mouth of the Pearl River, next to Shenzhen.', '位于珠江口东侧，与深圳相邻。'] },
+      { q: ['Which describe the southern region? Pick all that apply.', '下列描述中，符合南方地区特征的有（多选）'],
+        options: [['Warm and wet, mostly subtropical monsoon', '温暖湿润，以亚热带季风气候为主'], ['Paddy fields growing rice', '耕地以水田为主，种植水稻'], ['Many rivers and lakes', '河湖众多'], ['Rivers freeze in winter', '冬季河流结冰'], ['Dry fields of winter wheat', '以旱地为主，种植冬小麦']], multi: [0, 1, 2],
+        why: ['South of the Qinling–Huaihe line, winters stay above 0 °C, rain is plentiful, and the land is laced with rivers, lakes and paddy fields.', '秦岭—淮河以南，1 月平均气温在 0 °C 以上，降水丰富，河湖众多，以水田为主。'] },
+      { q: ['Label these places in the southern region.', '在地球上标出南方地区的这些地方。'],
+        place: [{ text: ['Yangtze River Delta', '长江三角洲'], at: [31, 120.5], tolKm: 350 }, { text: ['Pearl River Delta', '珠江三角洲'], at: [22.8, 113.5], tolKm: 300 }, { text: ['Taiwan Island', '台湾岛'], at: [23.7, 121], tolKm: 300 }, { text: ['Yunnan–Guizhou Plateau', '云贵高原'], at: [26, 104.5], tolKm: 400 }],
+        why: ['The two great deltas are China\'s richest city regions; Taiwan Island lies across the Taiwan Strait; the karst Yunnan–Guizhou Plateau is in the south-west.', '长江三角洲和珠江三角洲是我国经济最发达的城市地区；台湾岛与大陆隔台湾海峡相望；喀斯特广布的云贵高原在西南部。'] },
     ],
   },
   {
@@ -451,6 +497,7 @@ export const CHINA_B: Lesson[] = [
     steps: [
       {
         title: ['Dry northwest', '干旱的西北地区'], cam: [42, 98, 3.4], sketch: true,
+        task: ['Travel west from Inner Mongolia into Xinjiang: watch grassland give way to desert grassland and then desert.', '从内蒙古向西到新疆：观察草原怎样逐渐变为荒漠草原，再变为荒漠。'],
         paint: [{ fill: { k: 'poly', pts: NORTHWEST, c: C.gold, clip: CN }, a: 0.25 },
           { fill: { k: 'poly', pts: [[50, 112], [50, 122.5], [47.5, 120], [43.5, 118], [41.5, 113.5], [42, 112]], c: C.lime, clip: CN }, a: 0.55, t: 0.6 },
           { fill: { k: 'poly', pts: [[45, 104], [50, 112], [42, 112], [41.5, 113.5], [41, 109.5], [39.5, 106.5], [38, 105.5], [40, 104]], c: C.brown, clip: CN }, a: 0.5, t: 1.2 },
@@ -481,6 +528,7 @@ export const CHINA_B: Lesson[] = [
       },
       {
         title: ['Where great rivers begin', '江河源地'], cam: [33.8, 96, 2.4], sketch: true,
+        task: ['Find Sanjiangyuan, where the Yangtze, the Yellow River and the Lancang all begin.', '找到长江、黄河、澜沧江的发源地——三江源。'],
         paint: [{ fill: { k: 'poly', pts: SANJIANGYUAN, c: C.teal, clip: CN }, a: 0.45 }],
         lines: [{ pts: RIVERS.yangtze.slice(0, 5), c: C.blue, w: 2, flow: true, arrow: true, dur: 1.6, t: 0.4 }, { pts: RIVERS.yellow.slice(0, 6), c: C.gold, w: 2, flow: true, arrow: true, dur: 1.6, t: 0.8 }, { pts: RIVERS.mekong.slice(0, 4), c: C.green, w: 2, flow: true, arrow: true, dur: 1.6, t: 1.2 }],
         marks: [mk([34.2, 95.5], 'Sanjiangyuan', '三江源', { big: true, c: C.teal, t: 0.2 }), mk([33, 92], 'Yangtze', '长江', { c: C.blue, t: 1.6 }), mk([35.3, 99], 'Yellow River', '黄河', { c: C.gold, t: 2 }), mk([30, 97.5], 'Lancang River', '澜沧江', { c: C.green, t: 2.4 })],
@@ -506,6 +554,12 @@ export const CHINA_B: Lesson[] = [
         why: ['Yaks carry loads and give milk, meat and wool.', '牦牛能驮运货物，还提供奶、肉和毛。'] },
       { q: ['Find the Taklimakan Desert.', '在地球上点出塔克拉玛干沙漠。'], at: [39, 83.5], tolKm: 500,
         why: ['In the Tarim Basin, southern Xinjiang.', '位于新疆南部的塔里木盆地。'] },
+      { q: ['Going west from the east of Inner Mongolia into Xinjiang, in what order does the land change?', '从内蒙古东部向西到新疆，景观依次变为'],
+        order: [['Grassland', '草原'], ['Desert grassland', '荒漠草原'], ['Desert', '荒漠']],
+        why: ['The further from the sea, the less rain falls, so the landscape changes from grassland to desert grassland to desert.', '距海越远，降水越少，景观由草原逐渐过渡为荒漠草原，再到荒漠。'] },
+      { q: ['Label these places in western China.', '在地球上标出我国西部的这些地方。'],
+        place: [{ text: ['Turpan', '吐鲁番'], at: [42.95, 89.2], tolKm: 350 }, { text: ['Dunhuang', '敦煌'], at: [40.1, 94.7], tolKm: 350 }, { text: ['Sanjiangyuan', '三江源'], at: [34.2, 95.5], tolKm: 400 }, { text: ['Lhasa', '拉萨'], at: [29.65, 91.1], tolKm: 350 }],
+        why: ['Turpan and Dunhuang are oases on the old Silk Road; Sanjiangyuan is on the Qinghai–Tibet Plateau; Lhasa lies in a river valley in Xizang.', '吐鲁番和敦煌是古丝绸之路上的绿洲；三江源在青藏高原上；拉萨位于西藏的河谷中。'] },
     ],
   },
 ];

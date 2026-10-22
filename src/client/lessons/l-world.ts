@@ -51,6 +51,7 @@ export const WORLD: Lesson[] = [
     steps: [
       {
         title: ['Three continents, five seas', '三洲五海之地'], cam: [30, 42, 3.0], names: true,
+        task: ['Turn around the Middle East and find all five seas: the Caspian, Black, Mediterranean, Red and Arabian Seas.', '绕着中东转一圈，找到五海：里海、黑海、地中海、红海和阿拉伯海。'],
         paint: [{ fill: { k: 'continents', only: ['asia', 'africa', 'europe'] }, a: 0.3 }, { fill: { k: 'land', a2: ME, c: C.gold }, t: 0.4, a: 0.55 }],
         marks: [
           mk([42.5, 34.5], 'Black Sea', '黑海', { c: C.blue, t: 0.8 }), mk([42, 50.5], 'Caspian Sea', '里海', { c: C.blue, t: 1.0 }),
@@ -72,6 +73,7 @@ export const WORLD: Lesson[] = [
       },
       {
         title: ['The world\'s oil store', '世界石油宝库'], cam: [22, 70, 4.2], sketch: true, items: ['burj', 'vh_dhow'],
+        task: ['Follow the oil routes out of the Persian Gulf: one heads east to Asia, the others west to Europe.', '沿着从波斯湾出发的石油运输路线：一条向东通往亚洲，其他的向西通往欧洲。'],
         paint: [{ fill: { k: 'poly', pts: [[30.5, 47.5], [29, 48.5], [26, 50], [24, 52], [24.5, 55], [26.5, 56], [27.5, 52], [29.5, 50], [32, 49], [33, 46]], c: C.orange }, a: 0.55 }],
         lines: [
           route([[27.5, 51], [26.4, 56.5], [22, 62], [10, 75], [6, 80.5], [6.2, 94], [2.5, 101], [1.3, 104.3], [10, 110], [22, 116], [30, 123]], 0.4),
@@ -112,6 +114,12 @@ export const WORLD: Lesson[] = [
         why: ['A hot desert climate leaves little fresh water.', '热带沙漠气候降水稀少，淡水缺乏。'] },
       { q: ['Which city is holy to Jews, Christians and Muslims?', '哪座城市是三大宗教的圣地？'], options: [['Jerusalem', '耶路撒冷'], ['Dubai', '迪拜'], ['Cairo', '开罗'], ['Baghdad', '巴格达']], answer: 0,
         why: ['All three faiths have holy sites in Jerusalem.', '三大宗教在耶路撒冷都有圣迹。'] },
+      { q: ['Match each strait or canal to the waters it links.', '把海峡、运河和它沟通的水域连起来。'],
+        match: [[['Suez Canal', '苏伊士运河'], ['Mediterranean and Red Sea', '地中海和红海']], [['Turkish Straits', '土耳其海峡'], ['Black Sea and Mediterranean', '黑海和地中海']], [['Strait of Hormuz', '霍尔木兹海峡'], ['Persian Gulf and Arabian Sea', '波斯湾和阿拉伯海']], [['Bab-el-Mandeb', '曼德海峡'], ['Red Sea and Gulf of Aden', '红海和亚丁湾']]],
+        why: ['These narrow waterways make the Middle East a crossroads: ships from Asia to Europe pass Bab-el-Mandeb, the Red Sea and Suez; Gulf oil leaves through Hormuz.', '这些狭窄的水道使中东成为交通要道：亚欧之间的船只经曼德海峡、红海和苏伊士运河往来；波斯湾的石油经霍尔木兹海峡运出。'] },
+      { q: ['Label the five seas around the Middle East.', '在地球上标出中东周围的五海。'],
+        place: [{ text: ['Caspian Sea', '里海'], at: [42, 50.5], tolKm: 400 }, { text: ['Black Sea', '黑海'], at: [43, 34.5], tolKm: 450 }, { text: ['Mediterranean Sea', '地中海'], at: [34, 22], tolKm: 700 }, { text: ['Red Sea', '红海'], at: [20, 38.5], tolKm: 400 }, { text: ['Arabian Sea', '阿拉伯海'], at: [15, 63], tolKm: 700 }],
+        why: ['The Caspian is a lake in the north-east, the Black Sea is in the north, the Mediterranean in the west, the Red Sea in the south-west and the Arabian Sea in the south-east.', '里海是东北部的内陆湖，黑海在北面，地中海在西面，红海在西南，阿拉伯海在东南。'] },
     ],
   },
   {
@@ -135,6 +143,7 @@ export const WORLD: Lesson[] = [
       },
       {
         title: ['A mild, wet climate', '温带海洋性气候'], cam: [52, -2, 3.2], sketch: true,
+        task: ['Follow the westerlies and the warm current in from the Atlantic: notice that no mountain wall stops them reaching far inland.', '沿着西风和暖流从大西洋进入欧洲：注意没有高大的山脉阻挡，它们能深入内陆。'],
         paint: [{ fill: { k: 'climate', only: ['maritime'] }, t: 0.6, a: 0.55 }],
         lines: [...arrows([[[47, -25], [50, -8]], [[52, -25], [54, -8]], [[57, -22], [59, -6]]], C.teal, 0, 2), { pts: [[40, -40], [48, -25], [55, -15], [62, -4], [68, 8]], c: C.red, t: 0.5, w: 2, flow: true, arrow: true, dur: 2 }],
         marks: [mk([51, -21], 'Westerlies', '西风', { c: C.teal, t: 0.8 }), mk([58, -14], 'North Atlantic Drift (warm)', '北大西洋暖流', { c: C.red, t: 1.4 })],
@@ -163,6 +172,7 @@ export const WORLD: Lesson[] = [
       },
       {
         title: ['The European Union', '欧洲联盟'], cam: [50, 14, 3.0], borders: true,
+        task: ['Find Brussels, the EU headquarters, among the coloured member countries.', '在着色的成员国中找到欧盟总部所在地布鲁塞尔。'],
         paint: [{ fill: { k: 'land', a2: EU27, c: C.blue }, t: 0.3, a: 0.5 }],
         marks: [mk([50.85, 4.35], 'Brussels (EU headquarters)', '布鲁塞尔（欧盟总部）', { dot: true, big: true, c: C.gold, t: 1 })],
         body: ['After two world wars, European countries chose to cooperate. Today 27 countries form the European Union: goods, money and people move freely between them, and 21 of them share one currency, the euro. The UK left the EU in 2020.',
@@ -178,6 +188,12 @@ export const WORLD: Lesson[] = [
         why: ['Cool summers suit grass better than grain.', '夏季凉爽，利于牧草而不利于谷物生长。'] },
       { q: ['Find Paris, home of the Eiffel Tower.', '在地球上点出巴黎。'], at: [48.86, 2.35], tolKm: 350,
         why: ['Paris is in northern France on the River Seine.', '巴黎位于法国北部的塞纳河畔。'] },
+      { q: ['Which help explain Western Europe\'s mild, wet climate? Pick all that apply.', '欧洲西部形成温和湿润气候的原因有（多选）'],
+        options: [['Westerlies blowing in from the Atlantic', '盛行西风从大西洋吹来'], ['The warm North Atlantic Drift', '北大西洋暖流'], ['Mostly plains that let sea air reach far inland', '地形以平原为主，海洋气流能深入内陆'], ['High mountains along the west coast', '西海岸有高大的山脉'], ['Monsoon winds', '季风']], multi: [0, 1, 2],
+        why: ['Moist westerlies and a warm current keep winters mild and bring rain all year, and the low land lets them spread far inland.', '湿润的西风和暖流使冬季温和，全年降水均匀；地势低平，海洋气流能深入内陆。'] },
+      { q: ['Label these places in Western Europe.', '在地球上标出欧洲西部的这些地方。'],
+        place: [{ text: ['London', '伦敦'], at: [51.5, -0.12], tolKm: 350 }, { text: ['Rome', '罗马'], at: [41.9, 12.5], tolKm: 350 }, { text: ['The Alps', '阿尔卑斯山脉'], at: [46.5, 9.5], tolKm: 350 }, { text: ['Denmark', '丹麦'], at: [56, 9.5], tolKm: 350 }],
+        why: ['London is on the Thames in Britain, Rome in central Italy, the Alps arc across Switzerland and its neighbours, and Denmark is a dairy country north of Germany.', '伦敦在英国泰晤士河畔，罗马在意大利中部，阿尔卑斯山脉横贯瑞士及其周边国家，丹麦是德国北面的乳畜业国家。'] },
     ],
   },
   {
@@ -211,6 +227,7 @@ export const WORLD: Lesson[] = [
       },
       {
         title: ['The Nile and the Congo', '尼罗河与刚果河'], cam: [8, 26, 3.6],
+        task: ['Follow the Nile north from Lake Victoria to the Mediterranean, then the Congo as it curves across the equator to the Atlantic.', '沿尼罗河从维多利亚湖向北一直到地中海，再沿刚果河两次穿过赤道流入大西洋。'],
         lines: [flow(NILE, 0.2), flow(BLUE_NILE, 0.6), flow(CONGO, 1.0), flow(NIGER, 1.4)],
         marks: [mk([20, 29.5], 'Nile', '尼罗河', { c: C.blue, t: 1.2 }), mk([1.5, 21], 'Congo', '刚果河', { c: C.blue, t: 1.6 }), mk([15.5, -4], 'Niger', '尼日尔河', { c: C.blue, t: 2 }), mk([1, 33], 'Lake Victoria', '维多利亚湖', { t: 1 })],
         body: ['The Nile, about 6,700 km long, is the world\'s longest river. It flows north from East Africa across the desert to the Mediterranean. The Congo crosses the equator twice through the rainforest and carries more water than any other African river.',
@@ -218,6 +235,7 @@ export const WORLD: Lesson[] = [
       },
       {
         title: ['Climate in mirror image', '气候南北对称'], cam: [2, 18, 3.6], sketch: true, items: ['an_lion', 'an_elephant', 'mg_wildebeest'],
+        task: ['Turn the globe north and south from the equator: notice the same belts of rainforest, savanna and desert on both sides.', '从赤道分别向北、向南转动地球：注意两侧依次出现相同的热带雨林、热带草原和热带沙漠气候带。'],
         paint: [{ fill: { k: 'climate', only: ['rainforest', 'savanna', 'desert', 'med'] }, a: 0.6 }],
         lines: [par(0, C.gold, 0.3)],
         marks: [mk([0.5, -5], 'Equator', '赤道', { c: C.gold, t: 0.6 }), mk([1, 22], 'Rainforest', '热带雨林', { t: 1 }), mk([10, 22], 'Savanna', '热带草原', { t: 1.3 }), mk([-15, 25], 'Savanna', '热带草原', { t: 1.5 }), mk([23, 12], 'Desert', '热带沙漠', { t: 1.8 }), mk([-24, 17], 'Desert', '热带沙漠', { t: 2 })],
@@ -254,6 +272,12 @@ export const WORLD: Lesson[] = [
         why: ['The Nile flows north into the Mediterranean, near Cairo.', '尼罗河向北流，在开罗以北注入地中海。'] },
       { q: ['Why are economies with "one export" risky?', '经济结构单一的国家面临什么风险？'], options: [['A price fall hurts the whole country', '国际价格下跌会使整个国家受损'], ['They have too many factories', '工厂太多'], ['They import no food', '不进口粮食'], ['They are too cold', '气候太冷']], answer: 0,
         why: ['When most money comes from one product, its price decides everything.', '大部分收入来自一种产品，价格波动影响巨大。'] },
+      { q: ['Match each country to the main export its economy depends on.', '把国家和它主要依赖的出口商品连起来。'],
+        match: [[['Nigeria', '尼日利亚'], ['Oil', '石油']], [['Zambia', '赞比亚'], ['Copper', '铜']], [['Côte d\'Ivoire', '科特迪瓦'], ['Cocoa', '可可']], [['Botswana', '博茨瓦纳'], ['Diamonds', '钻石']]],
+        why: ['Many African countries sell one or two raw materials, so a fall in world prices hits the whole economy.', '许多非洲国家依赖一两种原料出口，国际市场价格一下跌，整个国家的经济就会受到冲击。'] },
+      { q: ['Label these features of Africa.', '在地球上标出非洲的这些地理事物。'],
+        place: [{ text: ['Kilimanjaro', '乞力马扎罗山'], at: [-3.07, 37.35], tolKm: 400 }, { text: ['Lake Victoria', '维多利亚湖'], at: [-1, 33], tolKm: 400 }, { text: ['Ethiopian Highlands', '埃塞俄比亚高原'], at: [10, 39.5], tolKm: 500 }, { text: ['Mouth of the Congo', '刚果河河口'], at: [-6, 12.4], tolKm: 500 }],
+        why: ['Kilimanjaro, Africa\'s highest peak, and Lake Victoria, its largest lake, are on the East African Plateau; the Ethiopian Highlands are further north; the Congo reaches the Atlantic in the west.', '非洲最高峰乞力马扎罗山和最大的湖泊维多利亚湖都在东非高原上；埃塞俄比亚高原在它的北面；刚果河在西部注入大西洋。'] },
     ],
   },
   {
@@ -277,6 +301,7 @@ export const WORLD: Lesson[] = [
       },
       {
         title: ['Sunrise across 11 time zones', '跨越 11 个时区'], cam: [60, 90, 4.6], night: true,
+        task: ['Watch the line between night and day sweep west across Russia: how long after Vladivostok does the Sun rise in Kaliningrad?', '观察晨线自东向西扫过俄罗斯：符拉迪沃斯托克日出后，要过多久加里宁格勒才迎来日出？'],
         clock: { mode: 'day', start: Date.UTC(2025, 2, 20, 18), rate: 2, span: 12 },
         marks: [mk([43.1, 131.9], 'Vladivostok', '符拉迪沃斯托克', { dot: true, t: 0.4 }), mk([54.7, 20.5], 'Kaliningrad', '加里宁格勒', { dot: true, t: 0.6 })],
         body: ['Russia is so wide from west to east that it spans 11 time zones. When the Sun rises in Vladivostok on the Pacific coast, people in Moscow are still in the middle of the night. Watch the dawn sweep across the country.',
@@ -300,6 +325,7 @@ export const WORLD: Lesson[] = [
       },
       {
         title: ['Riches and the railway', '资源与西伯利亚大铁路'], cam: [56, 85, 4.4], items: ['vh_transsib', 'kremlin', 'basil'],
+        task: ['Follow the Trans-Siberian Railway from Moscow all the way east to Vladivostok on the Pacific.', '沿着西伯利亚大铁路从莫斯科一路向东，到达太平洋沿岸的符拉迪沃斯托克。'],
         lines: [{ pts: TRANS_SIB, c: C.gold, t: 0.3, w: 2, dur: 3 }],
         paint: [{ fill: { k: 'poly', pts: [[67, 66], [67, 80], [60, 82], [56, 76], [58, 66]], c: C.orange }, t: 1, a: 0.5 }],
         marks: [mk([55.75, 37.6], 'Moscow', '莫斯科', { dot: true, big: true, t: 0.4 }), mk([43.1, 131.9], 'Vladivostok', '符拉迪沃斯托克', { dot: true, t: 2.8 }), mk([62, 74], 'West Siberian oil & gas', '西西伯利亚油气田', { c: C.orange, t: 1.4 })],
@@ -316,6 +342,11 @@ export const WORLD: Lesson[] = [
         why: ['They run north–south at about 60°E.', '它大致沿东经 60° 南北延伸。'] },
       { q: ['Which railway crosses Russia from Moscow to the Pacific?', '哪条铁路横贯俄罗斯，从莫斯科通往太平洋沿岸？'], options: [['The Trans-Siberian Railway', '西伯利亚大铁路'], ['The Orient Express', '东方快车'], ['The Qinghai–Tibet Railway', '青藏铁路'], ['The Channel Tunnel', '英吉利海峡隧道']], answer: 0,
         why: ['It runs about 9,300 km to Vladivostok.', '它全长约 9300 千米，通往符拉迪沃斯托克。'] },
+      { q: ['Moscow uses UTC+3 and Vladivostok uses UTC+10. When it is 12:00 in Moscow, what time is it in Vladivostok? Give the hour (0–23).', '莫斯科使用东三区时间，符拉迪沃斯托克使用东十区时间。莫斯科 12 时，符拉迪沃斯托克是几时？'], num: { answer: 19, tol: 0.1, unit: ['h', '时'] },
+        why: ['Vladivostok is 7 time zones further east, so it is 7 hours later: 12 + 7 = 19:00.', '符拉迪沃斯托克比莫斯科偏东 7 个时区，时间早 7 小时：12 + 7 = 19 时。'] },
+      { q: ['Label these Russian rivers.', '在地球上标出俄罗斯的这些河流。'],
+        place: [{ text: ['Volga', '伏尔加河'], at: [52, 47], tolKm: 450 }, { text: ['Ob', '鄂毕河'], at: [63, 69], tolKm: 450 }, { text: ['Yenisei', '叶尼塞河'], at: [64, 88], tolKm: 450 }, { text: ['Lena', '勒拿河'], at: [65, 125], tolKm: 450 }],
+        why: ['The Volga, in the European part, flows south into the Caspian Sea; the Ob, Yenisei and Lena cross Siberia from west to east and flow north to the Arctic Ocean.', '伏尔加河在欧洲部分，向南注入里海；鄂毕河、叶尼塞河和勒拿河自西向东排列在西伯利亚，向北注入北冰洋。'] },
     ],
   },
   {
@@ -331,6 +362,7 @@ export const WORLD: Lesson[] = [
     steps: [
       {
         title: ['The South Asian subcontinent', '南亚次大陆'], cam: [22, 80, 3.0], items: ['everest'],
+        task: ['Turn from the Himalayas southwards: find the Ganges Plain and then the Deccan Plateau.', '从喜马拉雅山向南转动：依次找到恒河平原和德干高原。'],
         paint: [{ fill: { k: 'land', a2: ['IN'], c: C.orange }, a: 0.45 }, { fill: { k: 'poly', pts: REGIONS.himalaya, c: C.white }, t: 0.5, a: 0.7 }, { fill: { k: 'poly', pts: GANGES_PLAIN, c: C.lime, clip: ['IN', 'BD'] }, t: 0.9, a: 0.55 }, { fill: { k: 'poly', pts: DECCAN, c: C.brown, clip: ['IN'] }, t: 1.3, a: 0.55 }],
         lines: [flow(RIVERS.ganges, 1.6)],
         marks: [mk([30, 82], 'Himalayas', '喜马拉雅山脉', { c: C.white, t: 0.6 }), mk([26.5, 81], 'Ganges Plain', '恒河平原', { c: C.lime, t: 1 }), mk([17.5, 77.5], 'Deccan Plateau', '德干高原', { c: C.brown, t: 1.4 }), mk([24.5, 88.5], 'Ganges', '恒河', { c: C.blue, t: 2 })],
@@ -339,6 +371,7 @@ export const WORLD: Lesson[] = [
       },
       {
         title: ['The monsoon', '热带季风气候'], cam: [18, 78, 3.4], sketch: true,
+        task: ['Compare the two sets of arrows: the wet south-west monsoon comes from the sea, the dry north-east monsoon from the land.', '比较两组箭头：湿润的西南季风来自海洋，干燥的东北季风来自陆地。'],
         lines: [...arrows([[[2, 60], [14, 70]], [[0, 70], [12, 76]], [[5, 85], [18, 88]], [[8, 90], [22, 91]]], C.teal, 0, 2), ...arrows([[[28, 88], [20, 82]], [[27, 78], [18, 74]]], C.orange, 1.6, 1.6)],
         marks: [mk([8, 66], 'Jun–Sep: wet SW monsoon', '6–9 月：湿润的西南季风', { c: C.teal, t: 0.8 }), mk([26, 72], 'Oct–May: dry NE monsoon', '10 月–次年 5 月：干燥的东北季风', { c: C.orange, t: 2 }), mk([19.08, 72.88], 'Mumbai', '孟买', { dot: true, t: 1 }), mk([25.3, 91.7], 'Cherrapunji', '乞拉朋齐', { dot: true, t: 1.4 })],
         fig: { k: 'climo', city: 'mumbai' },
@@ -377,6 +410,15 @@ export const WORLD: Lesson[] = [
         why: ['It is on the Deccan Plateau in southern India.', '它位于印度南部的德干高原上。'] },
       { q: ['The Green Revolution helped India by…', '“绿色革命”帮助印度'], options: [['Growing much more grain', '大幅提高了粮食产量'], ['Planting more forests', '大量植树造林'], ['Building software parks', '建设软件园'], ['Stopping the monsoon', '阻止了季风']], answer: 0,
         why: ['High-yield seeds, irrigation and fertiliser raised harvests.', '高产品种、灌溉和化肥提高了粮食产量。'] },
+      { q: ['From north to south, put India\'s three landform regions in order.', '从北到南，给印度的三大地形区排序。'],
+        order: [['Himalayas', '喜马拉雅山脉'], ['Ganges Plain', '恒河平原'], ['Deccan Plateau', '德干高原']],
+        why: ['The Himalayas wall off the north, the broad Ganges Plain lies in the middle, and the Deccan Plateau fills the south of the peninsula.', '北部是喜马拉雅山脉，中部是广阔的恒河平原，南部半岛是德干高原。'] },
+      { q: ['Match each region of India to its main crop.', '把印度的地区和主要农作物连起来。'],
+        match: [[['Punjab, in the drier north-west', '西北部较干旱的旁遮普'], ['Wheat', '小麦']], [['The wet Ganges delta in the east', '东部湿润的恒河三角洲'], ['Rice', '水稻']], [['The Deccan Plateau', '德干高原'], ['Cotton', '棉花']]],
+        why: ['Wheat suits the drier north-west with irrigation; rice needs the heavy rain of the east; the black soils of the Deccan suit cotton.', '西北部较干旱，引水灌溉种植小麦；东部降水丰富，适宜种植水稻；德干高原的黑土适宜种植棉花。'] },
+      { q: ['Label these Indian cities.', '在地球上标出这些印度城市。'],
+        place: [{ text: ['New Delhi', '新德里'], at: [28.6, 77.2], tolKm: 400 }, { text: ['Mumbai', '孟买'], at: [19.08, 72.88], tolKm: 400 }, { text: ['Kolkata', '加尔各答'], at: [22.57, 88.36], tolKm: 400 }],
+        why: ['New Delhi, the capital, is on the Ganges Plain; Mumbai is the great west-coast port; Kolkata is in the Ganges delta in the east.', '首都新德里在恒河平原上；孟买是西海岸的大港口；加尔各答在东部的恒河三角洲。'] },
     ],
   },
   {
@@ -404,6 +446,7 @@ export const WORLD: Lesson[] = [
       },
       {
         title: ['Mountains, plains, mountains', '西部山地、中部平原、东部山地'], cam: [39, -98, 3.2], sketch: true, items: ['grandcanyon', 'gatewayarch'],
+        task: ['Turn the globe from west to east across the USA: the Rockies, the Central Plains, then the Appalachians.', '从西向东转动美国：依次是落基山脉、中部平原和阿巴拉契亚山脉。'],
         paint: [{ fill: { k: 'poly', pts: US_WEST, c: C.brown, clip: ['US'] }, t: 0.2, a: 0.55 }, { fill: { k: 'poly', pts: US_PLAINS, c: C.lime, clip: ['US'] }, t: 0.6, a: 0.45 }, { fill: { k: 'poly', pts: US_EAST, c: C.orange, clip: ['US'] }, t: 1.0, a: 0.5 }],
         lines: [{ pts: ROCKIES, c: C.brown, t: 0.3, w: 2.2, dur: 1.4 }, { pts: APPALACHIANS, c: C.orange, t: 1.1, w: 2, dur: 1.2 }, flow(MISSOURI, 1.5), flow(MISSISSIPPI, 1.8)],
         marks: [mk([41, -110], 'Rocky Mountains', '落基山脉', { c: C.brown, t: 0.8 }), mk([40, -98], 'Central Plains', '中部平原', { c: C.lime, t: 1.2 }), mk([38, -79.5], 'Appalachians', '阿巴拉契亚山脉', { c: C.orange, t: 1.5 }), mk([33, -91.5], 'Mississippi', '密西西比河', { c: C.blue, t: 2.4 })],
@@ -412,6 +455,7 @@ export const WORLD: Lesson[] = [
       },
       {
         title: ['Farm belts', '农业地区专业化'], cam: [39, -95, 3.0], sketch: true, items: ['an_bison'],
+        task: ['Match the colours to the key: find the corn belt, then the wheat to its west and the cotton belt to its south.', '对照图例：先找到玉米带，再找到它西边的小麦区和南边的棉花带。'],
         paint: [
           { fill: { k: 'poly', pts: DAIRY, c: C.white }, t: 0.2, a: 0.55 }, { fill: { k: 'poly', pts: CORN, c: C.gold }, t: 0.5, a: 0.6 },
           { fill: { k: 'poly', pts: WHEAT_S, c: C.brown }, t: 0.8, a: 0.6 }, { fill: { k: 'poly', pts: WHEAT_W, c: C.orange }, t: 1.0, a: 0.6 },
@@ -441,6 +485,12 @@ export const WORLD: Lesson[] = [
         why: ['Farming belts match natural conditions: that is specialisation.', '农业带与自然条件相适应，这就是地区专业化。'] },
       { q: ['The USA is called a nation of immigrants because…', '美国被称为移民国家，是因为'], options: [['Most people\'s families came from other continents', '大多数居民的祖先来自其他大洲'], ['Nobody lives there', '那里没有人居住'], ['Everyone speaks one language', '所有人说同一种语言'], ['It has no cities', '没有城市']], answer: 0,
         why: ['Europeans, Africans, Latin Americans and Asians all moved there.', '欧洲人、非洲人、拉美人和亚洲人都迁入美国。'] },
+      { q: ['Match each US farm belt to where it is found.', '把美国的农业带和它的分布地区连起来。'],
+        match: [[['Dairy belt', '乳畜带'], ['Near the cool Great Lakes', '五大湖附近，气候冷湿']], [['Corn belt', '玉米带'], ['The warm, wet Midwest', '中部温暖湿润的平原']], [['Wheat', '小麦区'], ['The drier Great Plains', '较干旱的大平原']], [['Cotton belt', '棉花带'], ['The hot South', '炎热的南部']]],
+        why: ['Each belt grows what its climate and soil suit best: grass for cows where it is cool, corn where it is warm and wet, wheat where it is drier, cotton where it is hot.', '各农业带因地制宜：冷湿处种牧草养奶牛，温暖湿润处种玉米，较干旱处种小麦，炎热处种棉花。'] },
+      { q: ['Label these features of the USA.', '在地球上标出美国的这些地理事物。'],
+        place: [{ text: ['Rocky Mountains', '落基山脉'], at: [41, -108], tolKm: 600 }, { text: ['Appalachians', '阿巴拉契亚山脉'], at: [38, -80], tolKm: 500 }, { text: ['Mouth of the Mississippi', '密西西比河河口'], at: [29.1, -89.3], tolKm: 400 }],
+        why: ['The high Rockies run down the west; the old, lower Appalachians are in the east; the Mississippi crosses the Central Plains to the Gulf of Mexico.', '高大的落基山脉纵贯西部，古老低缓的阿巴拉契亚山脉在东部，密西西比河穿过中部平原注入墨西哥湾。'] },
     ],
   },
   {
@@ -464,6 +514,7 @@ export const WORLD: Lesson[] = [
       },
       {
         title: ['The Amazon rainforest', '亚马孙热带雨林'], cam: [-4, -62, 3.0], items: ['an_jaguar', 'an_macaw', 'pl_kapok'],
+        task: ['Follow the Amazon River east from Manaus to where it meets the Atlantic at the equator.', '沿着亚马孙河从马瑙斯向东，到赤道附近注入大西洋的地方。'],
         paint: [{ fill: { k: 'poly', pts: REGIONS.amazon, c: C.green }, t: 0.3, a: 0.6 }],
         lines: [flow(AMAZON_R, 0.6)],
         marks: [mk([-3.1, -60.0], 'Manaus', '马瑙斯', { dot: true, t: 1.4 }), mk([-1.5, -63], 'Amazon River', '亚马孙河', { c: C.blue, t: 1.8 })],
@@ -473,6 +524,7 @@ export const WORLD: Lesson[] = [
       },
       {
         title: ['Protecting the forest', '保护热带雨林'], cam: [-8, -58, 3.0], sketch: true,
+        task: ['Find the orange "arc of deforestation" along the southern and eastern edge of the green forest.', '在绿色雨林的南缘和东缘找到橙色的“毁林弧”。'],
         paint: [{ fill: { k: 'poly', pts: REGIONS.amazon, c: C.green }, a: 0.5 }, { fill: { k: 'poly', pts: [[-6, -48], [-3, -48.5], [-6, -52], [-9, -60], [-11, -64], [-12.5, -60], [-11, -52], [-8, -49]], c: C.orange, clip: ['BR'] }, t: 0.6, a: 0.6 }],
         marks: [mk([-9.5, -56], '"Arc of deforestation"', '“毁林弧”', { c: C.orange, big: true, t: 1 })],
         fig: { k: 'line', title: ['Amazon forest cleared each year in Brazil (approx.)', '巴西亚马孙每年毁林面积（约）'], unit: ['thousand km²', '千平方千米'], x: [1995, 2000, 2004, 2008, 2012, 2016, 2019, 2023], series: [{ name: ['Cleared', '毁林面积'], c: C.orange, y: [29, 18, 28, 13, 4.6, 7.9, 10, 9] }], min: 0 },
@@ -509,6 +561,12 @@ export const WORLD: Lesson[] = [
         why: ['Brazil was a Portuguese colony.', '巴西曾是葡萄牙的殖民地。'] },
       { q: ['Brazil is the world\'s biggest producer of…', '巴西是世界上最大的哪种农产品生产国？'], options: [['Coffee', '咖啡'], ['Wheat', '小麦'], ['Tea', '茶叶'], ['Rubber', '橡胶']], answer: 0,
         why: ['It grows about a third of the world\'s coffee.', '巴西的咖啡产量约占世界的三分之一。'] },
+      { q: ['Which actions help protect the Amazon rainforest? Pick all that apply.', '下列做法中，有利于保护亚马孙热带雨林的有（多选）'],
+        options: [['Setting up nature reserves', '建立自然保护区'], ['Watching for illegal logging by satellite', '用卫星监测非法砍伐'], ['Replanting cleared land', '在砍伐过的土地上重新造林'], ['Clearing forest for cattle ranches', '毁林开辟牧场'], ['Building more roads deep into the forest', '修建更多深入雨林的公路']], multi: [0, 1, 2],
+        why: ['Reserves, satellite watching and replanting protect the forest. Ranches and new roads are the main causes of forest loss.', '建立保护区、卫星监测和植树造林能保护雨林；开辟牧场和修路是雨林遭到破坏的主要原因。'] },
+      { q: ['Label these places in Brazil.', '在地球上标出巴西的这些地方。'],
+        place: [{ text: ['Brasília (capital)', '巴西利亚（首都）'], at: [-15.8, -47.9], tolKm: 400 }, { text: ['Rio de Janeiro', '里约热内卢'], at: [-22.9, -43.2], tolKm: 300 }, { text: ['Manaus', '马瑙斯'], at: [-3.1, -60], tolKm: 400 }, { text: ['Iguazu Falls', '伊瓜苏瀑布'], at: [-25.7, -54.4], tolKm: 400 }],
+        why: ['Brasília was built inland to develop the interior; Rio is on the south-east coast; Manaus is in the middle of the Amazon; Iguazu Falls is on the border with Argentina.', '巴西利亚建在内陆，以带动内地开发；里约热内卢在东南沿海；马瑙斯在亚马孙雨林中部；伊瓜苏瀑布在与阿根廷交界处。'] },
     ],
   },
 ];

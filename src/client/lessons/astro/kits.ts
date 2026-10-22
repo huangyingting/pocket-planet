@@ -23,4 +23,13 @@ export const KITS: Record<KitId, () => Mod> = {
   expand: () => import('./k-expand.ts'),
   transit: () => import('./k-transit.ts'),
   rays: () => import('./k-rays.ts'),
+  layers: () => import('./k-layers.ts'),
+  strata: () => import('./k-strata.ts'),
+  mountain: () => import('./k-mountain.ts'),
+  air: () => import('./k-air.ts'),
+  belts: () => import('./k-belts.ts'),
+  terms: () => import('./k-terms.ts'),
+  gnomon: () => import('./k-gnomon.ts'),
+  nebula: () => import('./k-nebula.ts'),
+  optics: () => import('./k-optics.ts'),
 };

@@ -6,9 +6,7 @@ import { fitView, oceanAt, tempAt } from '../../src/client/lessons/stage.ts';
 import { subsolar } from '../../src/shared/lib/sun.ts';
 import { BY_KEY } from '../../src/shared/data/catalogue.ts';
 import type { LL, Pair } from '../../src/client/lessons/kit.ts';
-
-const okLL = ([la, lo]: LL) => la >= -90 && la <= 90 && lo >= -180 && lo <= 180;
-const okPair = (p: Pair) => p.length === 2 && p[0].trim().length > 0 && p[1].trim().length > 0 && /[\u4e00-\u9fff]/.test(p[1]) && !/[\u4e00-\u9fff]/.test(p[0]);
+import { checkQuiz, checkStep, okLL, okPair, versions } from './lesson-check.ts';
 
 describe('geography lessons data', () => {
   it('has unique ids in every grade and finds them by id', () => {
@@ -22,7 +20,7 @@ describe('geography lessons data', () => {
     for (const l of LESSONS) {
       expect(l.strand in STRANDS, l.id).toBe(true);
       expect(!!l.grade || l.tracks.length > 0, `${l.id} curriculum`).toBe(true);
-      expect(l.tracks.every(t => t in VIEWS && t !== 'all' && t !== 'cn'), l.id).toBe(true);
+      expect(l.tracks.every(t => t in VIEWS && t !== 'all' && t !== 'cn' && t !== 'cns'), l.id).toBe(true);
       expect(l.keys.length, `${l.id} keys`).toBeGreaterThanOrEqual(2);
       expect(l.keys.every(okPair), `${l.id} keys`).toBe(true);
     }
@@ -35,10 +33,13 @@ describe('geography lessons data', () => {
     }
     expect(course('all').flatMap(g => g.lessons).length).toBe(LESSONS.length);
     expect(course('cn').map(g => g.lessons.length).every(n => n > 0)).toBe(true);
+    expect(course('cns').map(g => g.lessons.length).every(n => n > 0)).toBe(true);
+    // middle school first within a theme
+    for (const g of course('all')) { const s = g.lessons.map(l => l.grade === 'h1' || l.grade === 'h2'); expect(s.indexOf(true) < 0 || s.indexOf(false, s.indexOf(true)) < 0, g.name[0]).toBe(true); }
   });
 
   it('draws every figure it refers to', () => {
-    const figs: Fig[] = LESSONS.flatMap(l => [...l.steps.map(s => s.fig), ...l.quiz.map(q => q.fig)]).filter((f): f is Fig => !!f);
+    const figs: Fig[] = LESSONS.flatMap(versions).flatMap(l => [...l.steps.map(s => s.fig), ...l.quiz.map(q => q.fig)]).filter((f): f is Fig => !!f);
     expect(figs.length).toBeGreaterThan(20);
     for (const f of figs) {
       if (f.k === 'climo') { expect(f.city in CITIES, f.city).toBe(true); if (f.b) expect(f.b in CITIES, f.b).toBe(true); }
@@ -53,13 +54,12 @@ describe('geography lessons data', () => {
   });
 
   it('is fully bilingual, with valid places, models and answers', () => {
-    for (const l of LESSONS) {
-      const at = `${l.id}`;
-      for (const p of [l.title, l.blurb, l.unit]) expect(okPair(p), at).toBe(true);
-      expect(l.steps.length, at).toBeGreaterThanOrEqual(3);
-      expect(l.quiz.length, at).toBeGreaterThanOrEqual(3);
-      for (const s of l.steps) {
-        expect(okPair(s.title) && okPair(s.body), `${at}: ${s.title[0]}`).toBe(true);
+    for (const l of LESSONS) for (const p of [l.title, l.blurb, l.unit]) expect(okPair(p), l.id).toBe(true);
+    for (const { steps, quiz, at } of LESSONS.flatMap(versions)) {
+      expect(steps.length, at).toBeGreaterThanOrEqual(3);
+      expect(quiz.length, at).toBeGreaterThanOrEqual(3);
+      for (const s of steps) {
+        checkStep(s, at);
         if (s.astro) continue;
         expect(okLL([s.cam[0], s.cam[1]]) && s.cam[2] > 1, `${at} cam`).toBe(true);
         for (const k of s.items ?? []) expect(BY_KEY.has(k), `${at} item ${k}`).toBe(true);
@@ -67,14 +67,9 @@ describe('geography lessons data', () => {
         for (const ln of s.lines ?? []) { expect(ln.pts.length, at).toBeGreaterThanOrEqual(2); expect(ln.pts.every(okLL), `${at} line`).toBe(true); }
         for (const p of s.paint ?? []) if (p.fill.k === 'poly') expect(p.fill.pts.every(okLL), `${at} poly`).toBe(true);
       }
-      for (const q of l.quiz) {
+      for (const q of quiz) {
         expect(okPair(q.q) && okPair(q.why), `${at} quiz ${q.q[0]}`).toBe(true);
-        if (q.options) {
-          expect(q.options.every(okPair), at).toBe(true);
-          expect(q.answer! >= 0 && q.answer! < q.options.length, at).toBe(true);
-        } else {
-          expect(q.at && okLL(q.at) && (q.tolKm ?? 0) > 0, `${at} locate`).toBe(true);
-        }
+        checkQuiz(q, at);
       }
     }
   });

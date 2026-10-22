@@ -53,6 +53,7 @@ export const HUMAN: Lesson[] = [
       },
       {
         title: ['Where people crowd together', '人口稠密的地区'], cam: [35, 60, 5], sketch: true,
+        task: ['Watch the gold Hu Line appear in China: notice that most of China\'s people live to its south-east.', '观察我国境内出现的金色胡焕庸线：注意我国绝大多数人口分布在这条线的东南侧。'],
         paint: [{ fill: { k: 'poly', pts: [[50.2, 127.5], [25.0, 98.5], [20, 100], [18, 110], [22, 122], [40, 125], [48, 136], [54, 136]], c: C.red, clip: ['CN'] }, a: 0.55 },
           { fill: { k: 'land', a2: ['JP', 'KR', 'TW'], c: C.red }, a: 0.55 },
           { fill: { k: 'land', a2: ['IN', 'BD', 'PK', 'NP', 'LK'], c: C.red }, t: 0.6, a: 0.55 },
@@ -67,6 +68,7 @@ export const HUMAN: Lesson[] = [
       },
       {
         title: ['Where few people live', '人口稀少的地区'], cam: [25, 20, 5.4], sketch: true, items: ['an_penguin', 'an_camel'],
+        task: ['Turn the globe to visit each empty land: the Sahara, Greenland, the Amazon and the Tibetan Plateau.', '转动地球，依次找到这些人口稀少的地区：撒哈拉沙漠、格陵兰岛、亚马孙雨林和青藏高原。'],
         paint: [{ fill: { k: 'poly', pts: [[30, -17], [30, 34], [15, 34], [15, -17]], c: C.brown, clip: SAHARA }, a: 0.55 },
           { fill: { k: 'land', a2: ['SA'], c: C.brown }, a: 0.55 },
           { fill: { k: 'land', a2: ['GL', 'AQ'], c: C.ice }, t: 0.6, a: 0.6 },
@@ -107,6 +109,14 @@ export const HUMAN: Lesson[] = [
         why: ['Fewer workers have to support more old people.', '劳动力减少，养老负担加重。'] },
       { q: ['Find the country with the most people (2023).', '在地球上点出人口最多的国家（2023 年）。'], at: [22, 79], tolKm: 1500,
         why: ['India, with about 1.43 billion people, just ahead of China.', '印度，约 14.3 亿人，略多于中国。'] },
+      { q: ['Why do few people live in some places? Pick all the reasons shown in this lesson.', '有些地区人口稀少，原因有（多选）'],
+        options: [['It is too dry, as in deserts', '过于干旱，如沙漠'], ['It is too cold, as in polar lands', '过于寒冷，如极地'], ['Dense, hot, wet forest', '湿热、森林茂密'], ['Thin, cold air on high plateaus', '高原空气稀薄、寒冷'], ['Flat, fertile river plains', '地势平坦、土壤肥沃的河流平原']], multi: [0, 1, 2, 3],
+        why: ['Deserts, polar lands, rainforests and high plateaus make life hard. Flat, fertile plains with a mild climate attract people instead.', '沙漠、极地、热带雨林和高原的自然条件恶劣，人口稀少；地势平坦、土壤肥沃、气候适宜的平原地区则人口稠密。'] },
+      { q: ['China has about 1.41 billion people on 9.6 million km². What is its population density?', '我国人口约 14.1 亿，面积约 960 万平方千米。我国的人口密度约是多少？'], num: { answer: 147, tol: 6, unit: ['people/km²', '人/平方千米'] },
+        why: ['Population density = people ÷ area = 1,410,000,000 ÷ 9,600,000 ≈ 147 people per km², more than twice the world average of about 60.', '人口密度 = 人口数 ÷ 面积 = 141000 万 ÷ 960 万 ≈ 147 人/平方千米，是世界平均水平（约 60 人/平方千米）的两倍多。'] },
+      { q: ['Label the four most crowded regions of the world.', '在地球上标出世界四大人口稠密区。'],
+        place: [{ text: ['East Asia', '亚洲东部'], at: [32, 114], tolKm: 800 }, { text: ['South Asia', '亚洲南部'], at: [24, 80], tolKm: 800 }, { text: ['Western Europe', '欧洲西部'], at: [50, 8], tolKm: 800 }, { text: ['Eastern North America', '北美洲东部'], at: [40, -80], tolKm: 800 }],
+        why: ['All four lie in the middle and low latitudes of the Northern Hemisphere, mostly on plains near the sea with a mild climate.', '四大人口稠密区都在北半球中低纬度地区，多是临海的平原，气候适宜。'] },
     ],
   },
   {
@@ -138,6 +148,7 @@ export const HUMAN: Lesson[] = [
       },
       {
         title: ['China and India', '中国和印度'], cam: [28, 95, 4.4],
+        task: ['Compare the two pyramids: find which one is widest at the bottom and which is widest in the middle.', '比较两个人口金字塔：哪一个底部最宽，哪一个中部最宽？'],
         paint: [{ fill: { k: 'land', a2: ['CN'], c: C.red }, a: 0.5 }, { fill: { k: 'land', a2: ['IN'], c: C.orange }, t: 0.5, a: 0.5 }],
         fig: { k: 'pyramid', a: 'china', b: 'india' },
         body: ['India\'s pyramid is still wide at the bottom: a young population with many future workers. China\'s is widest in the middle: many working-age adults, but fewer children since birth rates fell, and a fast-growing number of old people.',
@@ -155,6 +166,7 @@ export const HUMAN: Lesson[] = [
       },
       {
         title: ['From village to city in China', '我国的城乡人口流动'], cam: [30, 112, 3],
+        task: ['Follow the gold arrows from inland provinces: find the three city regions where they end.', '沿着金色箭头从中西部省区出发，找到它们汇聚的三个城市地区。'],
         paint: [{ fill: { k: 'poly', pts: REGIONS.sichuan, c: C.orange }, a: 0.45 }],
         lines: [flow([[30.6, 104], [26, 110], [23.1, 113.3]], C.gold, 0.2), flow([[34.7, 113.6], [32.5, 118], [31.2, 121.4]], C.gold, 0.5), flow([[31.8, 117.2], [34, 117], [39.9, 116.4]], C.gold, 0.8),
           flow([[27, 113], [23.1, 113.3]], C.gold, 1.1), flow([[29.5, 106.5], [30.5, 114.3], [31.2, 121.4]], C.gold, 1.4)],
@@ -184,6 +196,15 @@ export const HUMAN: Lesson[] = [
         why: ['Factories and services on the east coast offer more jobs.', '东部沿海的工厂和服务业提供了更多就业机会。'] },
       { q: ['Find Niger, a country with a very young population.', '在地球上点出人口非常年轻的国家——尼日尔。'], at: [17, 9], tolKm: 900,
         why: ['Niger is in West Africa, on the southern edge of the Sahara.', '尼日尔位于非洲西部，撒哈拉沙漠南缘。'] },
+      { q: ['Which are PULL factors that attract migrants? Pick all that apply.', '下列属于吸引人口迁入的拉力因素的有（多选）'],
+        options: [['Well-paid jobs', '收入较高的工作'], ['Good schools and hospitals', '良好的学校和医疗条件'], ['Peace and safety', '和平安定'], ['War', '战乱'], ['Drought and crop failure', '干旱导致农业歉收']], multi: [0, 1, 2],
+        why: ['Pull factors draw people to a new place; war and drought are push factors that drive people away from home.', '拉力因素吸引人们迁入；战乱、干旱是迫使人们离开家乡的推力因素。'] },
+      { q: ['Put these countries in order from the youngest population to the oldest.', '按人口从年轻到年老的顺序，给这些国家排序。'],
+        order: [['Niger', '尼日尔'], ['India', '印度'], ['China', '中国'], ['Japan', '日本']],
+        why: ['Niger\'s pyramid is very wide at the base; India is still young; China is widest in the middle; Japan is one of the oldest countries in the world.', '尼日尔的人口金字塔底部非常宽；印度人口仍然年轻；我国人口金字塔中部最宽；日本是世界上老龄化最严重的国家之一。'] },
+      { q: ['Label the three city regions that draw the most migrants in China.', '在地球上标出我国吸引流动人口最多的三个城市地区。'],
+        place: [{ text: ['Pearl River Delta', '珠江三角洲'], at: [23, 113.3], tolKm: 400 }, { text: ['Yangtze River Delta', '长江三角洲'], at: [31.2, 121], tolKm: 400 }, { text: ['Beijing', '北京'], at: [39.9, 116.4], tolKm: 400 }],
+        why: ['Jobs in factories and services in these eastern city regions draw workers from inland villages.', '东部这些城市地区工厂和服务业的就业机会多，吸引了大量来自中西部农村的劳动力。'] },
     ],
   },
   {
@@ -207,6 +228,7 @@ export const HUMAN: Lesson[] = [
       },
       {
         title: ['The six UN languages', '联合国的六种工作语言'], cam: [20, 10, 5.6],
+        task: ['Turn the globe to the coloured areas: find where Spanish, French, Russian and Arabic are spoken.', '转动地球，在着色区域中找到使用西班牙语、法语、俄语和阿拉伯语的地方。'],
         paint: [{ fill: { k: 'land', a2: ['CN', 'TW', 'SG'], c: C.red }, a: 0.55 },
           { fill: { k: 'land', a2: ['US', 'GB', 'IE', 'CA', 'AU', 'NZ'], c: C.blue }, a: 0.55 },
           { fill: { k: 'land', a2: ['ES', 'MX', 'GT', 'HN', 'SV', 'NI', 'CR', 'PA', 'CU', 'DO', 'CO', 'VE', 'EC', 'PE', 'BO', 'CL', 'AR', 'PY', 'UY'], c: C.orange }, t: 0.4, a: 0.6 },
@@ -235,6 +257,7 @@ export const HUMAN: Lesson[] = [
       },
       {
         title: ['Sacred places', '宗教圣地'], cam: [32, 40, 3.8], items: ['stpeters', 'hagiasophia', 'shwedagon'],
+        task: ['Find Jerusalem, Mecca and Vatican City: notice how close they all lie to the Mediterranean and the Red Sea.', '找到耶路撒冷、麦加和梵蒂冈：注意它们都离地中海和红海不远。'],
         marks: [mk([31.78, 35.23], 'Jerusalem', '耶路撒冷', { dot: true, big: true, c: C.gold, t: 0.3 }), mk([21.42, 39.83], 'Mecca', '麦加', { dot: true, c: C.green, t: 0.8 }),
           mk([41.9, 12.45], 'Vatican City', '梵蒂冈', { dot: true, c: C.blue, t: 1.2 }), mk([27.47, 83.28], 'Lumbini', '蓝毗尼', { dot: true, c: C.gold, t: 1.6 }), mk([25.32, 83.01], 'Varanasi', '瓦拉纳西', { dot: true, c: C.orange, t: 2 })],
         body: ['Jerusalem is a holy city for Jews, Christians and Muslims. Mecca, in Saudi Arabia, is Islam\'s holiest city; Vatican City is the centre of the Catholic Church; Lumbini in Nepal is where the Buddha was born. Religious buildings are often great works of art, and visitors should treat them with respect.',
@@ -259,6 +282,12 @@ export const HUMAN: Lesson[] = [
         why: ['All three religions have holy sites in Jerusalem.', '三种宗教在耶路撒冷都有圣地。'] },
       { q: ['Find the Taj Mahal.', '在地球上点出泰姬陵。'], at: [27.2, 78.0], tolKm: 600,
         why: ['It stands in Agra, northern India.', '它位于印度北部的阿格拉。'] },
+      { q: ['Match each religion to one of its holy places.', '把宗教和它的圣地连起来。'],
+        match: [[['Christianity', '基督教'], ['Vatican City', '梵蒂冈']], [['Islam', '伊斯兰教'], ['Mecca', '麦加']], [['Buddhism', '佛教'], ['Lumbini', '蓝毗尼']]],
+        why: ['The Vatican is the centre of the Catholic Church; Mecca is where Muhammad was born; Lumbini in Nepal is the birthplace of the Buddha.', '梵蒂冈是天主教的中心；麦加是穆罕默德的诞生地；尼泊尔的蓝毗尼是佛祖释迦牟尼的诞生地。'] },
+      { q: ['Label these world heritage sites.', '在地球上标出这些世界文化遗产。'],
+        place: [{ text: ['Pyramids of Giza', '吉萨金字塔'], at: [30, 31.1], tolKm: 500 }, { text: ['Forbidden City', '故宫'], at: [39.9, 116.4], tolKm: 500 }, { text: ['Kremlin', '克里姆林宫'], at: [55.8, 37.6], tolKm: 500 }, { text: ['Eiffel Tower', '埃菲尔铁塔'], at: [48.9, 2.3], tolKm: 500 }],
+        why: ['The pyramids stand by the Nile near Cairo, the Forbidden City in Beijing, the Kremlin in Moscow and the Eiffel Tower in Paris.', '金字塔在开罗附近的尼罗河畔，故宫在北京，克里姆林宫在莫斯科，埃菲尔铁塔在巴黎。'] },
     ],
   },
   {
@@ -281,6 +310,7 @@ export const HUMAN: Lesson[] = [
       },
       {
         title: ['Why settlements grow here', '聚落的形成'], cam: [28, 60, 5],
+        task: ['Zoom in on Cairo: notice how the green strip of farms and towns follows the Nile through the desert.', '放大开罗一带：注意绿色的农田和城镇沿着尼罗河穿过沙漠分布。'],
         lines: [flow(NILE, C.blue, 0.2, 1.4), flow(RIVERS.yangtze, C.blue, 0.6, 1.4), flow(RIVERS.ganges, C.blue, 1, 1.4)],
         marks: [mk([30.05, 31.25], 'Cairo: on the Nile', '开罗：尼罗河畔', { dot: true, c: C.gold, t: 1.4 }), mk([30.6, 114.3], 'Wuhan: where rivers meet', '武汉：江汉交汇处', { dot: true, c: C.gold, t: 1.8 }),
           mk([31.2, 121.5], 'Shanghai: river mouth and coast', '上海：江海交汇处', { dot: true, c: C.gold, t: 2.2 }), mk([25.3, 83], 'Ganges plain', '恒河平原', { c: C.blue, t: 2.6 })],
@@ -301,6 +331,7 @@ export const HUMAN: Lesson[] = [
       },
       {
         title: ['Megacities', '超大城市'], cam: [25, 80, 5.4], items: ['skytree', 'cn_bund'],
+        task: ['Turn the globe and count the megacities: how many of them are in Asia?', '转动地球数一数这些超大城市：有多少座在亚洲？'],
         marks: [mk([35.68, 139.69], 'Tokyo', '东京', { dot: true, c: C.gold, t: 0.2 }), mk([28.61, 77.21], 'Delhi', '德里', { dot: true, c: C.gold, t: 0.4 }), mk([31.23, 121.47], 'Shanghai', '上海', { dot: true, c: C.gold, t: 0.6 }),
           mk([23.81, 90.41], 'Dhaka', '达卡', { dot: true, c: C.gold, t: 0.8 }), mk([-23.55, -46.63], 'São Paulo', '圣保罗', { dot: true, c: C.gold, t: 1 }), mk([19.43, -99.13], 'Mexico City', '墨西哥城', { dot: true, c: C.gold, t: 1.2 }),
           mk([30.04, 31.24], 'Cairo', '开罗', { dot: true, c: C.gold, t: 1.4 }), mk([39.9, 116.4], 'Beijing', '北京', { dot: true, c: C.gold, t: 1.6 }), mk([19.08, 72.88], 'Mumbai', '孟买', { dot: true, c: C.gold, t: 1.8 })],
@@ -328,6 +359,15 @@ export const HUMAN: Lesson[] = [
         why: ['From about 11% in 1950 to about 65% in 2022.', '从 1950 年的约 11% 提高到 2022 年的约 65%。'] },
       { q: ['Find Cairo, a megacity on the Nile.', '在地球上点出尼罗河畔的超大城市开罗。'], at: [30.05, 31.25], tolKm: 500,
         why: ['Cairo sits where the Nile valley opens into its delta.', '开罗位于尼罗河谷与三角洲交界处。'] },
+      { q: ['Match each city to the reason it grew there.', '把城市和它的形成条件连起来。'],
+        match: [[['Cairo', '开罗'], ['Water and farmland along the Nile in a desert', '沙漠中尼罗河沿岸有水源和耕地']], [['Wuhan', '武汉'], ['Where the Han River joins the Yangtze', '汉江与长江交汇处']], [['Shanghai', '上海'], ['Where the Yangtze reaches the sea', '长江入海口']]],
+        why: ['Settlements grow where there is water, flat farmland and easy transport: by rivers, where rivers meet, and at river mouths on the coast.', '聚落多形成于水源充足、地形平坦、交通便利的地方，如河流沿岸、河流交汇处和河口沿海地区。'] },
+      { q: ['Which are problems that cities can face when they grow too fast? Pick all that apply.', '城市发展过快可能出现的问题有（多选）'],
+        options: [['Traffic jams', '交通拥堵'], ['Housing shortages', '住房紧张'], ['Air and water pollution', '空气和水污染'], ['Too much farmland', '耕地过多'], ['Too few people', '人口太少']], multi: [0, 1, 2],
+        why: ['When people pour into a city faster than roads, homes and services can be built, it becomes crowded and polluted. Cities often spread over farmland, not the other way round.', '城市人口增长快于道路、住房和公共设施的建设，就会出现拥挤和污染等问题；城市扩张往往还会占用耕地。'] },
+      { q: ['Label these megacities on the globe.', '在地球上标出这些超大城市。'],
+        place: [{ text: ['Tokyo', '东京'], at: [35.68, 139.69], tolKm: 500 }, { text: ['Delhi', '德里'], at: [28.61, 77.21], tolKm: 500 }, { text: ['São Paulo', '圣保罗'], at: [-23.55, -46.63], tolKm: 500 }, { text: ['Mexico City', '墨西哥城'], at: [19.43, -99.13], tolKm: 500 }],
+        why: ['Tokyo is the largest city region in the world; most fast-growing megacities are in Asia, Latin America and Africa.', '东京是世界上最大的城市地区；增长最快的超大城市大多在亚洲、拉丁美洲和非洲。'] },
     ],
   },
   {
@@ -353,6 +393,7 @@ export const HUMAN: Lesson[] = [
       },
       {
         title: ['Measuring wealth', '人均国内生产总值'], cam: [30, 40, 5.4],
+        task: ['Compare the bars with the coloured countries: find the USA and Niger, the richest and the poorest of the five.', '把柱状图和着色的国家对照起来：找到五个国家中最富裕的美国和最贫穷的尼日尔。'],
         paint: [{ fill: { k: 'land', a2: ['US'], c: C.blue }, a: 0.6 }, { fill: { k: 'land', a2: ['JP'], c: C.blue }, t: 0.3, a: 0.6 },
           { fill: { k: 'land', a2: ['CN'], c: C.lime }, t: 0.6, a: 0.55 }, { fill: { k: 'land', a2: ['IN'], c: C.orange }, t: 0.9, a: 0.55 }, { fill: { k: 'land', a2: ['NE'], c: C.red }, t: 1.2, a: 0.6 }],
         fig: { k: 'bars', title: ['GDP per person, 2023 (approx.)', '人均国内生产总值（2023 年，约）'], unit: ['thousand US$', '千美元'],
@@ -372,6 +413,7 @@ export const HUMAN: Lesson[] = [
       },
       {
         title: ['North and South', '南北差距'], cam: [20, 30, 5.8], sketch: true,
+        task: ['Turn the globe south: notice that Australia and New Zealand count as part of the rich "North" even though they lie in the Southern Hemisphere.', '把地球转到南半球：注意澳大利亚和新西兰虽然位于南半球，却属于发达的“北方”。'],
         paint: [{ fill: { k: 'land', a2: DEVELOPED, c: C.blue }, a: 0.45 }],
         lines: [{ pts: NORTH_SOUTH, c: C.gold, t: 0.4, dur: 3, w: 1.8 }],
         marks: [mk([55, 40], 'The "North": rich', '“北方”：发达国家', { big: true, c: C.blue, t: 1 }), mk([5, 20], 'The "South": developing', '“南方”：发展中国家', { big: true, c: C.orange, t: 2 })],
@@ -407,6 +449,11 @@ export const HUMAN: Lesson[] = [
         why: ['Life expectancy, years of schooling and income per person.', '预期寿命、受教育年限和人均收入。'] },
       { q: ['Find the city with the UN headquarters.', '在地球上点出联合国总部所在的城市。'], at: [40.75, -73.97], tolKm: 500,
         why: ['The UN headquarters is in New York, USA.', '联合国总部位于美国纽约。'] },
+      { q: ['Which of these are developed countries? Pick all that apply.', '下列国家中，属于发达国家的有（多选）'],
+        options: [['Japan', '日本'], ['Australia', '澳大利亚'], ['Germany', '德国'], ['China', '中国'], ['Brazil', '巴西'], ['India', '印度']], multi: [0, 1, 2],
+        why: ['Japan, Australia and Germany are developed countries. China, Brazil and India are developing countries; China is the largest developing country in the world.', '日本、澳大利亚、德国是发达国家；中国、巴西、印度是发展中国家，中国是世界上最大的发展中国家。'] },
+      { q: ['In 2023 China\'s GDP was about 17.8 trillion US$ and its population about 1.41 billion. What was its GDP per person, in thousand US$?', '2023 年我国国内生产总值约 17.8 万亿美元，人口约 14.1 亿。人均国内生产总值约为多少千美元？'], num: { answer: 12.6, tol: 0.4, unit: ['thousand US$', '千美元'] },
+        why: ['17.8 trillion ÷ 1.41 billion ≈ 12,600 US$. China\'s total GDP is the second largest in the world, but per person it is still far behind developed countries.', '17.8 万亿 ÷ 14.1 亿 ≈ 12600 美元。我国经济总量居世界第二，但人均水平与发达国家相比还有较大差距。'] },
     ],
   },
   {
@@ -440,6 +487,7 @@ export const HUMAN: Lesson[] = [
       },
       {
         title: ['Ships carry world trade', '海运与世界贸易'], cam: [25, 60, 5.4], items: ['vh_container', 'cb_panamacanal'],
+        task: ['Follow the shipping routes out of Shanghai: find the Strait of Malacca and the Suez Canal on the way to Europe.', '沿着从上海出发的航线：找到通往欧洲途中的马六甲海峡和苏伊士运河。'],
         lines: [{ pts: ASIA_EUROPE_ROUTE, c: C.gold, t: 0.2, w: 1.6, flow: true, arrow: true, dur: 3 },
           { pts: [[31.2, 121.9], [38, 145], [45, 170], [46, 179.9]], c: C.teal, t: 0.6, w: 1.4, flow: true, dur: 1.4 },
           { pts: [[46, -179.9], [45, -160], [38, -135], [33.7, -118.3]], c: C.teal, t: 1.4, w: 1.4, flow: true, arrow: true, dur: 1.4 },
@@ -472,6 +520,7 @@ export const HUMAN: Lesson[] = [
       },
       {
         title: ['Where is your phone made?', '一部手机的“全球之旅”'], cam: [20, 100, 5], sketch: true,
+        task: ['Follow the gold arrows: count how many places send parts or raw materials to the assembly line in China.', '沿着金色箭头，数一数有多少个地方把零部件或原料运到我国组装。'],
         lines: [flow([[24.8, 121], [22.5, 114.1]], C.gold, 0.2), flow([[37.3, 127], [22.5, 114.1]], C.gold, 0.4), flow([[35.6, 139.7], [22.5, 114.1]], C.gold, 0.6),
           flow([[-10.7, 25.5], [5, 60], [22.5, 114.1]], C.gold, 0.8), flow([[-31, 116], [22.5, 114.1]], C.gold, 1),
           flow([[22.5, 114.1], [45, 60], [50, 10]], C.teal, 1.8), flow([[22.5, 114.1], [10, 70], [-1.3, 36.8]], C.teal, 2)],
@@ -493,6 +542,12 @@ export const HUMAN: Lesson[] = [
         why: ['Wind never runs out; oil, coal and gas do.', '风能取之不尽，石油、煤炭和天然气会用完。'] },
       { q: ['Find the Suez Canal.', '在地球上点出苏伊士运河。'], at: [30.5, 32.35], tolKm: 400,
         why: ['It links the Mediterranean Sea and the Red Sea, in Egypt.', '它位于埃及，沟通地中海和红海。'] },
+      { q: ['Match each job to its sector.', '把职业和它所属的产业连起来。'],
+        match: [[['Rice farmer', '种水稻的农民'], ['Primary sector', '第一产业']], [['Car factory worker', '汽车厂工人'], ['Secondary sector', '第二产业']], [['Bus driver', '公交车司机'], ['Tertiary sector', '第三产业']]],
+        why: ['Farming, forestry, herding and fishing are primary; industry and building are secondary; services such as transport, shops and schools are tertiary.', '农业（种植业、林业、畜牧业、渔业）属于第一产业；工业和建筑业属于第二产业；交通运输、商业、教育等服务业属于第三产业。'] },
+      { q: ['Label these busy sea passages on the globe.', '在地球上标出这些繁忙的海上通道。'],
+        place: [{ text: ['Strait of Malacca', '马六甲海峡'], at: [2.6, 101], tolKm: 400 }, { text: ['Strait of Hormuz', '霍尔木兹海峡'], at: [26.6, 56.3], tolKm: 400 }, { text: ['Panama Canal', '巴拿马运河'], at: [9.1, -79.7], tolKm: 400 }],
+        why: ['Malacca links the Indian and Pacific Oceans; Hormuz is the gateway for Persian Gulf oil; Panama links the Atlantic and the Pacific.', '马六甲海峡沟通印度洋和太平洋；霍尔木兹海峡是波斯湾石油外运的咽喉；巴拿马运河沟通大西洋和太平洋。'] },
     ],
   },
 ];

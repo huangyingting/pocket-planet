@@ -26,6 +26,15 @@ import type { Opts as CompactOpts } from './k-compact.ts';
 import type { Opts as ExpandOpts } from './k-expand.ts';
 import type { Opts as TransitOpts } from './k-transit.ts';
 import type { Opts as RaysOpts } from './k-rays.ts';
+import type { Opts as LayersOpts } from './k-layers.ts';
+import type { Opts as StrataOpts } from './k-strata.ts';
+import type { Opts as MountainOpts } from './k-mountain.ts';
+import type { Opts as AirOpts } from './k-air.ts';
+import type { Opts as BeltsOpts } from './k-belts.ts';
+import type { Opts as TermsOpts } from './k-terms.ts';
+import type { Opts as GnomonOpts } from './k-gnomon.ts';
+import type { Opts as NebulaOpts } from './k-nebula.ts';
+import type { Opts as OpticsOpts } from './k-optics.ts';
 
 export type { Pair };
 export type V3 = [x: number, y: number, z: number];
@@ -57,8 +66,22 @@ export interface AstroClock {
   hold?: boolean;
 }
 
-/** One kit and its options; `cam` overrides the kit's own framing. */
-type With<K extends string, O> = { kit: K; clock?: AstroClock; cam?: AstroCam } & O;
+/** A lab slider: a parameter the learner changes; the kit reads it each frame with `ctx.param(id)`. */
+export interface AstroParam {
+  id: string; name: Pair; min: number; max: number; value: number;
+  /** slider step (default: (max − min) / 100) */
+  step?: number;
+  /** readout, `{v}` is the value with `dp` decimals (default `{v}`) */
+  fmt?: Pair; dp?: number;
+}
+/** A lab task: it ticks itself once `done` holds for the parameters and the clock value. */
+export interface LabTask { text: Pair; done: (p: Readonly<Record<string, number>>, v: number) => boolean }
+
+/**
+ * One kit and its options; `cam` overrides the kit's own framing. `params` turn the step into a lab: sliders in the
+ * card, read by the kit, with optional `tasks` that tick themselves.
+ */
+type With<K extends string, O> = { kit: K; clock?: AstroClock; cam?: AstroCam; params?: AstroParam[]; tasks?: LabTask[] } & O;
 export type AstroScene =
   | With<'model', ModelOpts>
   | With<'orrery', OrreryOpts>
@@ -78,7 +101,16 @@ export type AstroScene =
   | With<'expand', ExpandOpts>
   | With<'transit', TransitOpts>
   | With<'rays', RaysOpts>
-  | With<'projection', ProjectionOpts>;
+  | With<'projection', ProjectionOpts>
+  | With<'layers', LayersOpts>
+  | With<'strata', StrataOpts>
+  | With<'mountain', MountainOpts>
+  | With<'air', AirOpts>
+  | With<'belts', BeltsOpts>
+  | With<'terms', TermsOpts>
+  | With<'gnomon', GnomonOpts>
+  | With<'nebula', NebulaOpts>
+  | With<'optics', OpticsOpts>;
 export type KitId = AstroScene['kit'];
 
 /** Camera: look at `target` (default origin) from direction `from`, `dist` away. The scene's up axis is +z. */
@@ -123,6 +155,8 @@ export interface KitCtx {
   label(at: THREE.Vector3 | THREE.Object3D, text: Pair | string, o?: LabelOpts): Label;
   /** Make an object answerable in a "pick it" quiz question (`Quiz.pick` = tag). */
   pickable(obj: THREE.Object3D, tag: string): void;
+  /** A lab slider's value (the scene's `params`); NaN when the scene has no such parameter. */
+  param(id: string): number;
 }
 
 /** A running kit for one step. */

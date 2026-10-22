@@ -4,17 +4,16 @@ import { KITS } from '../../src/client/lessons/astro/kits.ts';
 import { LESSONS, lessonById, nextLesson, subjectOf } from '../../src/client/lessons/data.ts';
 import { renderFig, type Fig } from '../../src/client/lessons/figs.ts';
 import type { AstroScene, Pair } from '../../src/client/lessons/kit.ts';
-
-const okPair = (p: Pair) => p.length === 2 && p[0].trim().length > 0 && p[1].trim().length > 0 && /[\u4e00-\u9fff]/.test(p[1]) && !/[\u4e00-\u9fff]/.test(p[0]);
+import { checkQuiz, checkScene, okPair } from './lesson-check.ts';
 
 describe('astronomy lessons data', () => {
-  it('has the whole course: 12 junior and 14 senior lessons with their own ids', () => {
+  it('has the whole course, junior and senior lessons with their own ids', () => {
     const ids = ASTRO_LESSONS.map(l => l.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids.every(id => id.startsWith('a-'))).toBe(true);
     expect(LESSONS.some(l => l.id.startsWith('a-'))).toBe(false);
-    expect(ASTRO_LESSONS.filter(l => l.level === 'jr').length).toBe(12);
-    expect(ASTRO_LESSONS.filter(l => l.level === 'sr').length).toBe(14);
+    expect(ASTRO_LESSONS.filter(l => l.level === 'jr').length).toBeGreaterThanOrEqual(12);
+    expect(ASTRO_LESSONS.filter(l => l.level === 'sr').length).toBeGreaterThanOrEqual(14);
     for (const l of ASTRO_LESSONS) {
       expect(l.strand in ASTRO_STRANDS, l.id).toBe(true);
       expect(lessonById(l.id), l.id).toBe(l);
@@ -49,16 +48,11 @@ describe('astronomy lessons data', () => {
       for (const q of l.quiz) {
         expect(okPair(q.q) && okPair(q.why), `${at} quiz ${q.q[0]}`).toBe(true);
         if (q.astro) scenes.push(q.astro);
-        if (q.options) {
-          // numbers and letters read the same in both languages
-          expect(q.options.every(o => okPair(o) || (o[0] === o[1] && o[0].trim().length > 0 && !/[\u4e00-\u9fff]/.test(o[0]))), at).toBe(true);
-          expect(q.answer! >= 0 && q.answer! < q.options.length, at).toBe(true);
-        } else if (q.pick) expect(q.astro, `${at} pick needs a scene`).toBeTruthy();
-        else expect(q.at, `${at} quiz kind`).toBeTruthy();
+        checkQuiz(q, at);
       }
       for (const sc of scenes) {
         expect(sc.kit in KITS, `${at} kit ${sc.kit}`).toBe(true);
-        if (sc.clock) expect(sc.clock.to !== sc.clock.from && Number.isFinite(sc.clock.rate), `${at} clock`).toBe(true);
+        checkScene(sc, at);
       }
     }
   });

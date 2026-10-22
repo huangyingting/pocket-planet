@@ -12,12 +12,12 @@ import * as THREE from 'three';
 import { CONSTELLATIONS } from '../../../shared/data/constellations.ts';
 import { gmst } from '../../../shared/lib/astro/ephem.ts';
 import { C } from '../kit.ts';
-import { D2R, Arrow, ball, body, circlePts, clamp, dirLight, drawIn, line, ramp, rng, setLine } from './draw.ts';
+import { D2R, Arrow, ball, body, canvasTex, circlePts, clamp, dirLight, drawIn, line, ramp, ring, rng, setLine } from './draw.ts';
 import type { AstroClock, KitCtx, KitFactory, KitRun, Label, Pair, V3 } from './types.ts';
 
 export interface Opts {
-  /** default `dome` */
-  view?: 'dome' | 'outside' | 'earth';
+  /** default `dome`; `chart`: a flat polar star chart (like the Suzhou stone chart of 1247), static */
+  view?: 'dome' | 'outside' | 'earth' | 'chart';
   /** dome: look toward azimuth (0 = north, 90 = east) and altitude, degrees; default north, 35° up */
   look?: [az: number, alt: number];
   /** dome: vertical field of view (default 70°) */
@@ -50,6 +50,25 @@ export interface Opts {
   handle?: boolean;
   /** outside: the celestial equator (default on) */
   equator?: boolean;
+  /** dome / chart: the 28 lunar mansions (二十八宿) by their determinative stars (距星); `'names'` labels each */
+  mansions?: boolean | 'names';
+  /** dome / chart: the Four Symbols (四象), each mansion group in its colour */
+  symbols?: boolean;
+  /** chart: the Three Enclosures (三垣) */
+  enclosures?: boolean;
+  /** dome: the Milky Way band (it fades out under a bright sky) */
+  milkyway?: boolean;
+  /**
+   * dome: limiting magnitude: fainter stars vanish and the sky glows as with light pollution. A lab slider `mag`
+   * (`ctx.param('mag')`) overrides it.
+   */
+  limit?: number;
+  /** dome: dark adaptation: the clock is minutes in the dark (unit `x`) and sets the limiting magnitude */
+  adapt?: boolean;
+  /** dome: a meteor shower streaking from this radiant (RA, Dec in degrees) */
+  meteors?: { ra: number; dec: number; name?: Pair };
+  /** dome / chart: marked points of the sky (RA, Dec in degrees) */
+  marks?: { ra: number; dec: number; name: Pair; c?: string }[];
 }
 
 const H = 36e5, SID = 86164091;
@@ -64,6 +83,55 @@ const TINT: Record<string, string> = {
   Dubhe: '#ffe2b4', Mira: '#ffa070', Rigel: '#bcd0ff', Spica: '#b8cbff', Vega: '#d4e2ff', Sirius: '#d8e6ff', Regulus: '#c9d9ff',
   Capella: '#fff0c8', Polaris: '#fff6e0', Deneb: '#eef3ff', Altair: '#f4f6ff', Acrux: '#c4d4ff', Gacrux: '#ffb88a', Canopus: '#f6f4ff',
 };
+
+/**
+ * The 28 lunar mansions (二十八宿) and their determinative stars (距星), J2000 RA / Dec (degrees) and V magnitude:
+ * 角 α Vir, 亢 κ Vir, 氐 α² Lib, 房 π Sco, 心 σ Sco, 尾 μ¹ Sco, 箕 γ² Sgr | 斗 φ Sgr, 牛 β Cap, 女 ε Aqr, 虚 β Aqr,
+ * 危 α Aqr, 室 α Peg, 壁 γ Peg | 奎 ζ And, 娄 β Ari, 胃 35 Ari, 昴 17 Tau, 毕 ε Tau, 觜 λ Ori, 参 δ Ori |
+ * 井 μ Gem, 鬼 θ Cnc, 柳 δ Hya, 星 α Hya, 张 υ¹ Hya, 翼 α Crt, 轸 γ Crv.
+ */
+export const MANSIONS: [zh: string, py: string, ra: number, dec: number, mag: number][] = [
+  ['角', 'Jiao', 201.298, -11.161, 0.97], ['亢', 'Kang', 213.224, -10.274, 4.18], ['氐', 'Di', 222.720, -16.042, 2.75], ['房', 'Fang', 239.713, -26.114, 2.89],
+  ['心', 'Xin', 245.297, -25.593, 2.89], ['尾', 'Wei', 252.968, -38.047, 3.0], ['箕', 'Ji', 271.452, -30.424, 2.99],
+  ['斗', 'Dou', 281.414, -26.991, 3.17], ['牛', 'Niu', 305.253, -14.781, 3.08], ['女', 'Nü', 311.919, -9.496, 3.77], ['虚', 'Xu', 322.890, -5.571, 2.87],
+  ['危', 'Wei', 331.446, -0.320, 2.94], ['室', 'Shi', 346.190, 15.205, 2.48], ['壁', 'Bi', 3.309, 15.184, 2.83],
+  ['奎', 'Kui', 11.835, 24.267, 4.06], ['娄', 'Lou', 28.660, 20.808, 2.64], ['胃', 'Wei', 40.863, 27.707, 4.66], ['昴', 'Mao', 56.219, 24.113, 3.70],
+  ['毕', 'Bi', 67.154, 19.180, 3.53], ['觜', 'Zi', 83.784, 9.934, 3.39], ['参', 'Shen', 83.002, -0.299, 2.23],
+  ['井', 'Jing', 95.740, 22.514, 2.87], ['鬼', 'Gui', 127.899, 18.094, 5.33], ['柳', 'Liu', 129.414, 5.704, 4.16], ['星', 'Xing', 141.897, -8.659, 1.98],
+  ['张', 'Zhang', 147.870, -14.846, 4.11], ['翼', 'Yi', 164.944, -18.299, 4.07], ['轸', 'Zhen', 183.952, -17.542, 2.58],
+];
+/** The Four Symbols (四象), seven mansions each, in mansion order; `tag` is their pick name. */
+const SYMBOLS: { name: Pair; c: string; tag: string }[] = [
+  { name: ['Azure Dragon of the East', '东方苍龙'], c: '#63e6be', tag: 'dragon' },
+  { name: ['Black Tortoise of the North', '北方玄武'], c: '#91a7ff', tag: 'tortoise' },
+  { name: ['White Tiger of the West', '西方白虎'], c: '#f1f3f5', tag: 'tiger' },
+  { name: ['Vermilion Bird of the South', '南方朱雀'], c: '#ff8787', tag: 'bird' },
+];
+/** The Three Enclosures (三垣), sketched as circles: centre RA / Dec and radius (degrees). */
+const ENCLOSURES: { name: Pair; ra: number; dec: number; r: number }[] = [
+  { name: ['Purple Forbidden Enclosure', '紫微垣'], ra: 0, dec: 90, r: 30 },
+  { name: ['Supreme Palace Enclosure', '太微垣'], ra: 176, dec: 7, r: 14 },
+  { name: ['Heavenly Market Enclosure', '天市垣'], ra: 260, dec: 8, r: 19 },
+];
+/** Galactic (l, b) → equatorial unit vector (J2000). */
+function galactic(l: number, b: number): THREE.Vector3 {
+  const x = Math.cos(b * D2R) * Math.cos(l * D2R), y = Math.cos(b * D2R) * Math.sin(l * D2R), z = Math.sin(b * D2R);
+  return new THREE.Vector3(
+    -0.0548755604 * x + 0.4941094279 * y - 0.8676661490 * z,
+    -0.8734370902 * x - 0.4448296300 * y - 0.1980763734 * z,
+    -0.4838350155 * x + 0.7469822445 * y + 0.4559837762 * z);
+}
+/** Naked-eye stars brighter than magnitude m over the whole sky (approximate counts). */
+function starsBrighter(m: number): number {
+  const T: [number, number][] = [[0, 0.6], [1, 1.2], [2, 1.72], [3, 2.23], [4, 2.71], [5, 3.2], [6, 3.69], [7, 4.18]];
+  const i = Math.max(0, Math.min(T.length - 2, Math.floor(m)));
+  const [m0, a] = T[i], [, b] = T[i + 1];
+  return 10 ** (a + (b - a) * (m - m0));
+}
+/** Bortle dark-sky class for a naked-eye limiting magnitude. */
+const bortle = (m: number) => m >= 7.6 ? 1 : m >= 7.1 ? 2 : m >= 6.6 ? 3 : m >= 6.1 ? 4 : m >= 5.6 ? 5 : m >= 5.1 ? 6 : m >= 4.6 ? 7 : m >= 4.1 ? 8 : 9;
+/** Limiting magnitude after `t` minutes in the dark: pupils open in seconds, the rods take 20–30 minutes. */
+const adaptLim = (t: number) => 3.2 + 3.3 * (1 - Math.exp(-Math.max(0, t) / 8));
 
 export interface Star { p: THREE.Vector3; mag: number; name?: { en: string; zh: string }; col: THREE.Color }
 let CAT: { stars: Star[]; idx: Record<string, number[]>; byName: Record<string, number> } | null = null;
@@ -96,15 +164,34 @@ export function catalogue() {
 const VS = /* glsl */ `
 attribute float aMag;
 attribute vec3 aCol;
-uniform float uPr, uK, uBelow, uHz;
+uniform float uPr, uK, uBelow, uHz, uLim;
 varying vec3 vC;
 varying float vA;
 void main() {
   vec4 w = modelMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * viewMatrix * w;
-  vA = clamp(1.25 - 0.16 * aMag, 0.18, 1.0) * mix(1.0, uBelow, step(w.z, uHz));
+  vA = clamp(1.25 - 0.16 * aMag, 0.18, 1.0) * mix(1.0, uBelow, step(w.z, uHz)) * (1.0 - smoothstep(uLim - 0.12, uLim + 0.12, aMag));
   vC = aCol;
   gl_PointSize = clamp(uK * (5.4 - 0.75 * aMag), 1.4, 10.0) * uPr;
+}`;
+const MW_VS = /* glsl */ `
+attribute float aB;
+attribute float aS;
+uniform float uPr, uA, uHz;
+varying float vA;
+void main() {
+  vec4 w = modelMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * viewMatrix * w;
+  vA = aB * uA * step(uHz, w.z);
+  gl_PointSize = aS * uPr;
+}`;
+const MW_FS = /* glsl */ `
+varying float vA;
+void main() {
+  vec2 q = gl_PointCoord * 2.0 - 1.0;
+  float r = dot(q, q);
+  if (r > 1.0) discard;
+  gl_FragColor = vec4(vec3(0.55, 0.6, 0.72) * exp(-r * 3.0) * vA * 0.11, 1.0);
 }`;
 const FS = /* glsl */ `
 varying vec3 vC;
@@ -126,7 +213,7 @@ export function starPoints(list: Star[], R: number, k: number, below: number, pr
   g.setAttribute('aCol', new THREE.BufferAttribute(colr, 3));
   const m = new THREE.ShaderMaterial({
     vertexShader: VS, fragmentShader: FS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    uniforms: { uPr: { value: pr }, uK: { value: k }, uBelow: { value: below }, uHz: { value: 0 } },
+    uniforms: { uPr: { value: pr }, uK: { value: k }, uBelow: { value: below }, uHz: { value: 0 }, uLim: { value: 99 } },
   });
   const p = new THREE.Points(g, m);
   p.frustumCulled = false;
@@ -167,6 +254,7 @@ const kit: KitFactory<Opts & { clock?: AstroClock }> = (ctx, o) => {
   const at = (v: number) => unit === 'date' ? v : unit === 'hour' ? (o.t ?? T_DEF) + v * H : o.t ?? T_DEF;
   const latAt = (v: number) => unit === 'lat' ? v : o.lat ?? 40;
   if (view === 'earth') return earthKit(ctx, latAt);
+  if (view === 'chart') return chartKit(ctx, o);
   const ms0 = o.clock ? at(o.clock.from) : at(0);
   // over a long date span keep the clock time fixed: the sky only creeps ~1°/day (Earth's orbit)
   const yearly = unit === 'date' && !!o.clock && Math.abs(o.clock.to - o.clock.from) > 20 * 864e5;
@@ -313,6 +401,104 @@ const kit: KitFactory<Opts & { clock?: AstroClock }> = (ctx, o) => {
     attr.needsUpdate = true;
   };
 
+  // the 28 lunar mansions and the Four Symbols
+  const mans = o.mansions || o.symbols ? MANSIONS.map(([zh, py, ra, dec, mag]) => ({ zh, py, p: eq(ra, dec), mag })) : [];
+  if (mans.length) {
+    // determinative stars missing from the constellation figures
+    const extra = mans.filter(m => !cat.stars.some(s => s.p.dot(m.p) > Math.cos(0.15 * D2R)))
+      .map(m => ({ p: m.p, mag: m.mag, col: new THREE.Color('#fff4e0') }));
+    if (extra.length) { const pts = starPoints(extra, R * 0.999, dome ? 1 : 0.85, dome ? 0 : 0.28, pr); spin.add(pts); starMats.push(pts.material as THREE.ShaderMaterial); }
+    SYMBOLS.forEach((sy, k) => {
+      const seven = mans.slice(k * 7, k * 7 + 7);
+      const pts: THREE.Vector3[] = [];
+      for (let i = 0; i < 6; i++) pts.push(...arcPts(seven[i].p, seven[i + 1].p, 0, 1, R * 0.998, 12));
+      const chain = line(pts, sy.c, { opacity: 0.75 });
+      spin.add(chain);
+      draws.push(chain);
+      for (const m of seven) {
+        // a small ring around each determinative star
+        const a = new THREE.Vector3(0, 0, 1).cross(m.p).normalize(), b = m.p.clone().cross(a), rr = 1.3 * D2R;
+        spin.add(line(Array.from({ length: 25 }, (_, i) => { const t = (i / 24) * Math.PI * 2; return m.p.clone().addScaledVector(a, rr * Math.cos(t)).addScaledVector(b, rr * Math.sin(t)).normalize().multiplyScalar(R * 0.998); }), sy.c, { opacity: 0.9 }));
+        if (o.mansions === 'names') addLabel(m.p.clone().multiplyScalar(R), [m.py, `${m.zh}宿`], sy.c, { dy: 16, t: 1 + k * 0.4 });
+      }
+      const g = new THREE.Group(), cen = seven.reduce((s2, m) => s2.add(m.p), new THREE.Vector3()).normalize().multiplyScalar(R);
+      g.position.copy(cen);
+      for (const m of seven) { const h = new THREE.Mesh(new THREE.SphereGeometry(R * 0.04, 8, 6), hidden()); h.position.copy(m.p).multiplyScalar(R).sub(cen); g.add(h); }
+      spin.add(g);
+      ctx.pickable(g, sy.tag);
+      if (o.symbols) addLabel(cen, sy.name, sy.c, { big: true, dy: -34, t: 0.8 + k * 0.4 });
+    });
+  }
+  for (const m of o.marks ?? []) addLabel(eq(m.ra, m.dec).multiplyScalar(R), m.name, m.c ?? C.pink, { dot: true, t: 1 });
+
+  // the Milky Way: soft points along the galactic plane, brightest toward the centre in Sagittarius
+  let mwMat: THREE.ShaderMaterial | null = null;
+  if (dome && o.milkyway) {
+    const n = ctx.low ? 5000 : 14000, Rn = rng(21), pos = new Float32Array(n * 3), br = new Float32Array(n), sz = new Float32Array(n);
+    const gauss = () => { let u = 0; for (let i = 0; i < 4; i++) u += Rn(); return (u - 2) * 1.7; };
+    for (let i = 0; i < n; i++) {
+      const l = Rn() * 360, dl = Math.min(l, 360 - l), core = Math.exp(-((dl / 38) ** 2));
+      let b = gauss() * (3.2 + 5 * core);
+      // the Great Rift: dark dust from Cygnus to Sagittarius, just north of the plane
+      const rift = l < 70 || l > 340 ? Math.exp(-(((b - 1.2) / 1.6) ** 2)) * 0.75 : 0;
+      if (Rn() < 0.08) b *= 2.2;
+      const p = galactic(l, b).multiplyScalar(R * 1.02);
+      pos.set([p.x, p.y, p.z], i * 3);
+      br[i] = (0.35 + 0.9 * core) * (1 - rift) * (0.5 + Rn() * 0.7);
+      sz[i] = 7 + Rn() * 16;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('aB', new THREE.BufferAttribute(br, 1));
+    g.setAttribute('aS', new THREE.BufferAttribute(sz, 1));
+    mwMat = new THREE.ShaderMaterial({
+      vertexShader: MW_VS, fragmentShader: MW_FS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: { uPr: { value: pr }, uA: { value: 1 }, uHz: { value: 0 } },
+    });
+    const mw = new THREE.Points(g, mwMat);
+    mw.frustumCulled = false;
+    spin.add(mw);
+  }
+
+  // a meteor shower: streaks shooting out of the radiant
+  const NM = ctx.low ? 6 : 12;
+  let meteors: THREE.LineSegments | null = null;
+  const met: { a: THREE.Vector3; b: THREE.Vector3; t0: number; dur: number }[] = [];
+  if (dome && o.meteors) {
+    const rad = eq(o.meteors.ra, o.meteors.dec), Rn = rng(8);
+    for (let i = 0; i < NM; i++) {
+      // a start point 10–55° from the radiant, flying straight away from it
+      const ax = new THREE.Vector3(Rn() - 0.5, Rn() - 0.5, Rn() - 0.5).cross(rad).normalize();
+      const a = rad.clone().applyAxisAngle(ax, (10 + Rn() * 45) * D2R);
+      met.push({ a, b: along(rad, a, 1 + (0.15 + Rn() * 0.25)), t0: Rn() * 4, dur: 0.5 + Rn() * 0.6 });
+    }
+    const g = new THREE.BufferGeometry(), colr = new Float32Array(NM * 6);
+    for (let i = 0; i < NM; i++) colr.set([0, 0, 0, 1, 0.97, 0.85], i * 6);
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(NM * 6), 3));
+    g.setAttribute('color', new THREE.BufferAttribute(colr, 3));
+    meteors = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    meteors.frustumCulled = false;
+    spin.add(meteors);
+    addLabel(rad.clone().multiplyScalar(R), o.meteors.name ?? ['radiant', '辐射点'], C.orange, { dot: true, t: 0.6 });
+  }
+
+  // light pollution / dark adaptation: a limiting magnitude
+  const limOf = (v: number) => { const m = ctx.param('mag'); return Number.isFinite(m) ? m : o.adapt ? adaptLim(v) : o.limit ?? NaN; };
+  let glowMat: THREE.MeshBasicMaterial | null = null;
+  if (dome && (o.limit !== undefined || Number.isFinite(ctx.param('mag')))) {
+    const tex = canvasTex(4, 256, c => {
+      const gr = c.createLinearGradient(0, 0, 0, 256);
+      gr.addColorStop(0, 'rgb(22,30,48)'); gr.addColorStop(0.36, 'rgb(48,52,66)'); gr.addColorStop(0.47, 'rgb(150,112,72)');
+      gr.addColorStop(0.5, 'rgb(190,135,80)'); gr.addColorStop(1, 'rgb(40,30,20)');
+      c.fillStyle = gr; c.fillRect(0, 0, 4, 256);
+    });
+    glowMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.BackSide, blending: THREE.AdditiveBlending, opacity: 0 });
+    const sph = new THREE.Mesh(new THREE.SphereGeometry(R * 0.97, 48, 24), glowMat);
+    sph.rotation.x = Math.PI / 2;
+    sph.renderOrder = -1;
+    hz.add(sph);
+  }
+
   // ---- the observer's world
   const cards: [Pair, V3][] = [[['N', '北'], [0, 1, 0]], [['E', '东'], [1, 0, 0]], [['S', '南'], [0, -1, 0]], [['W', '西'], [-1, 0, 0]]];
   if (dome) {
@@ -407,6 +593,24 @@ const kit: KitFactory<Opts & { clock?: AstroClock }> = (ctx, o) => {
       if (dome) {
         sky.position.copy(ctx.camera.position); hz.position.copy(ctx.camera.position);
         for (const m of starMats) m.uniforms.uHz.value = ctx.camera.position.z - 1;
+        if (mwMat) mwMat.uniforms.uHz.value = ctx.camera.position.z - 1;
+      }
+      const lim = limOf(v);
+      if (Number.isFinite(lim)) {
+        for (const m of starMats) m.uniforms.uLim.value = lim;
+        if (mwMat) mwMat.uniforms.uA.value = clamp((lim - 4.6) / 1.5);
+        if (glowMat) glowMat.opacity = 0.55 * clamp((6.6 - lim) / 4.5) ** 0.8;
+      }
+      if (meteors) {
+        const attr = meteors.geometry.getAttribute('position') as THREE.BufferAttribute;
+        met.forEach((m, i) => {
+          const f = ((el - m.t0) % 4.5 + 4.5) % 4.5 / m.dur;
+          const on = el >= m.t0 && f <= 1;
+          const head = along(m.a, m.b, on ? clamp(f * 1.2) : 0).multiplyScalar(R * 0.995);
+          const tail = along(m.a, m.b, on ? clamp(f * 1.2 - 0.45) : 0).multiplyScalar(R * 0.995);
+          attr.setXYZ(i * 2, tail.x, tail.y, tail.z); attr.setXYZ(i * 2 + 1, head.x, head.y, head.z);
+        });
+        attr.needsUpdate = true;
       }
       if (lat !== lastLat) {
         lastLat = lat;
@@ -452,7 +656,13 @@ const kit: KitFactory<Opts & { clock?: AstroClock }> = (ctx, o) => {
       }
     },
     readout(v) {
-      const ms = at(v), lat = latAt(v);
+      const ms = at(v), lat = latAt(v), lim = limOf(v);
+      if (Number.isFinite(lim)) {
+        const n = starsBrighter(lim) / 2, nr = n < 100 ? Math.round(n / 5) * 5 : Math.round(n / 50) * 50;
+        const m = lim.toFixed(1), bt = bortle(lim);
+        return o.adapt ? [`limit ${m} · ~${nr} stars`, `极限 ${m} 等 · 约 ${nr} 颗星`]
+          : [`Bortle ${bt} · ~${nr} stars`, `波特尔 ${bt} 级 · 约 ${nr} 颗星`];
+      }
       if (unit === 'lat') return [`pole altitude ${Math.round(Math.abs(lat))}°`, `${lat >= 0 ? '北极星' : '南天极'}高度 ${Math.round(Math.abs(lat))}°`];
       if (unit === 'date') {
         const s = season(ms, tz, lat < 0);
@@ -527,4 +737,102 @@ function earthKit(ctx: KitCtx, latAt: (v: number) => number): KitRun {
     },
     readout(v) { const l = Math.round(clamp(latAt(v), 0, 90)); return [`Polaris altitude = latitude = ${l}°`, `北极星高度 = 纬度 = ${l}°`]; },
   };
+}
+
+/**
+ * A flat polar star chart in the old Chinese style (the Suzhou stone chart of 1247): the north celestial pole in the
+ * centre, declination +90° … −55° outward, seen from below (as the sky looks overhead), with the inner circle of
+ * always-visible stars (内规), the equator, the ecliptic, the 28 mansions' hour-lines through their determinative
+ * stars, the Four Symbols around the rim and the Three Enclosures.
+ */
+function chartKit(ctx: KitCtx, o: Opts): KitRun {
+  const Rc = 5, DMIN = -55;
+  const g = new THREE.Group();
+  g.rotation.x = Math.PI / 2;
+  ctx.root.add(g);
+  // the Vermilion Bird (south) at the bottom, the Azure Dragon (east) on the left, as overhead when facing south
+  const th = (ra: number) => (50 - ra) * D2R;
+  const rad = (dec: number) => ((90 - dec) / (90 - DMIN)) * Rc;
+  const xy = (ra: number, dec: number, z = 0) => { const r = rad(dec), t = th(ra); return new THREE.Vector3(r * Math.cos(t), r * Math.sin(t), z); };
+  const fromVec = (p: THREE.Vector3, z = 0) => xy(Math.atan2(p.y, p.x) / D2R, Math.asin(clamp(p.z, -1, 1)) / D2R, z);
+  const lab = (p: THREE.Vector3, text: Pair, c: string, opt: { big?: boolean; dot?: boolean; t?: number; dy?: number; dx?: number } = {}) => {
+    const a = new THREE.Object3D(); a.position.copy(p); g.add(a); return ctx.label(a, text, { c, ...opt });
+  };
+
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(Rc * 1.0, 128), new THREE.MeshBasicMaterial({ color: '#0b1424' }));
+  disc.position.z = -0.02;
+  g.add(disc, ring(Rc, Rc * 1.012, '#c9b07a', 0.9));
+  // inner circle: stars that never set at the old capitals (~35° N)
+  g.add(line(circlePts(rad(55), 128), '#c9b07a', { opacity: 0.55, dashed: true, dash: 0.08 }));
+  g.add(line(circlePts(rad(0), 160), C.teal, { opacity: 0.55 }));
+  const eps = 23.44 * D2R;
+  const ecl = Array.from({ length: 181 }, (_, i) => {
+    const l = (i / 180) * Math.PI * 2;
+    return xy(Math.atan2(Math.sin(l) * Math.cos(eps), Math.cos(l)) / D2R, Math.asin(Math.sin(eps) * Math.sin(l)) / D2R, 0.002);
+  });
+  g.add(line(ecl, C.gold, { opacity: 0.55, dashed: true, dash: 0.1 }));
+  lab(xy(30, 0), ['celestial equator', '天赤道'], C.teal, { dy: 12, t: 0.8 });
+  lab(xy(132, 21.5), ['ecliptic', '黄道'], C.gold, { dy: -12, t: 1 });
+  lab(xy(140, 55), ['inner circle: stars that never set', '内规：恒显圈'], '#c9b07a', { t: 1.2, dy: 12 });
+  // the pole is a small cross (Polaris, 0.7° away, carries the dot); its label sits just below
+  const pc = Rc * 0.025;
+  g.add(line([[-pc, 0, 0.006], [pc, 0, 0.006]], C.gold, { opacity: 0.9 }), line([[0, -pc, 0.006], [0, pc, 0.006]], C.gold, { opacity: 0.9 }));
+  lab(new THREE.Vector3(0, 0, 0), ['north celestial pole', '北天极'], C.gold, { dy: 18 });
+
+  // stars
+  const cat = catalogue(), pr = Math.min(devicePixelRatio, ctx.low ? 1 : 2);
+  const flat = cat.stars.filter(s => s.p.z > Math.sin(DMIN * D2R) && s.mag < 5).map(s => ({ ...s, p: fromVec(s.p, 0.01) }));
+  const mansionStars = MANSIONS.map(([, , ra, dec, mag]) => ({ p: xy(ra, dec, 0.012), mag: Math.min(mag, 4.2), col: new THREE.Color('#fff4e0') }));
+  g.add(starPoints([...flat, ...mansionStars], 1, 0.85, 1, pr));
+
+  // the Big Dipper
+  const uma = cat.idx.uma, dp = (i: number) => fromVec(cat.stars[uma[i]].p, 0.005);
+  g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(DIPPER_LINES.flatMap(([a, b]) => [dp(a), dp(b)])),
+    new THREE.LineBasicMaterial({ color: C.gold, transparent: true, opacity: 0.85, depthWrite: false })));
+  lab(dp(0).clone().lerp(dp(4), 0.5), ['Big Dipper (Beidou)', '北斗'], C.gold, { dy: -14, t: 0.6 });
+
+  // the Three Enclosures
+  if (o.enclosures) {
+    const encC = '#e599f7';
+    ENCLOSURES.forEach((e, k) => {
+      const c = eq(e.ra, e.dec), a = new THREE.Vector3(0, 0, 1).cross(c), b = new THREE.Vector3();
+      if (a.lengthSq() < 1e-6) a.set(1, 0, 0);
+      a.normalize(); b.crossVectors(c, a);
+      const pts = Array.from({ length: 73 }, (_, i) => { const t = (i / 72) * Math.PI * 2, r = e.r * D2R; return fromVec(c.clone().multiplyScalar(Math.cos(r)).addScaledVector(a, Math.sin(r) * Math.cos(t)).addScaledVector(b, Math.sin(r) * Math.sin(t)), 0.004); });
+      const l = line(pts, encC, { opacity: 0.85, dashed: true, dash: 0.07 });
+      g.add(l);
+      const lp = k === 0 ? xy(250, 58) : xy(e.ra, e.dec + e.r * 0.15);
+      lab(lp, e.name, encC, { big: true, t: 0.8 + k * 0.4 });
+    });
+  }
+
+  // the 28 mansions: hour-lines from the pole through each determinative star, names in the rim band
+  const showM = !!o.mansions;
+  MANSIONS.forEach(([zh, py, ra], i) => {
+    const sy = SYMBOLS[Math.floor(i / 7)];
+    if (showM) {
+      g.add(line([xy(ra, 55, 0.003), xy(ra, DMIN, 0.003)], sy.c, { opacity: 0.38 }));
+      const next = MANSIONS[(i + 1) % 28][2];
+      let w = (next - ra + 360) % 360;
+      if (w > 180) w = 0;
+      const tiny = w < 3, mid = tiny ? ra : ra + w / 2;
+      if (o.mansions === 'names') lab(xy(mid, tiny ? -30 : -45), [py, zh], sy.c, { t: 0.4 + i * 0.05, dx: tiny ? -10 : 0 });
+    }
+  });
+  // the Four Symbols: arcs around the rim, each a pick target
+  if (o.symbols) {
+    SYMBOLS.forEach((sy, k) => {
+      const ra0 = MANSIONS[k * 7][2], ra1 = MANSIONS[(k * 7 + 7) % 28][2], span = (ra1 - ra0 + 360) % 360;
+      const t0 = th(ra0 + span), arc = new THREE.Mesh(new THREE.RingGeometry(Rc * 1.03, Rc * 1.1, 48, 1, t0, span * D2R),
+        new THREE.MeshBasicMaterial({ color: sy.c, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
+      arc.scale.setScalar(0.999);
+      g.add(arc);
+      ctx.pickable(arc, sy.tag);
+      const m = ra0 + span / 2;
+      lab(xy(m, DMIN).multiplyScalar(1.2), sy.name, sy.c, { big: true, t: 0.6 + k * 0.3 });
+    });
+  }
+  for (const m of o.marks ?? []) lab(xy(m.ra, m.dec, 0.01), m.name, m.c ?? C.pink, { dot: true, t: 1 });
+  ctx.view([0, -1, 0], 15.5, [0, 0, 0], true);
+  return { update() { /* static */ } };
 }

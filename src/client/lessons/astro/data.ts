@@ -6,9 +6,10 @@ import { A_MOTION } from './l-motion.ts';
 import { A_EARTHSUN } from './l-earthsun.ts';
 import { A_STARS } from './l-stars.ts';
 import { A_COSMOS } from './l-cosmos.ts';
+import { A_EXTRA } from './l-extra.ts';
 import type { AstroStrand, Lesson, Level, Pair, Track } from '../kit.ts';
 
-const ALL: Lesson[] = [...A_EARTHMOON, ...A_SOLAR, ...A_SKY, ...A_MOTION, ...A_EARTHSUN, ...A_STARS, ...A_COSMOS];
+const ALL: Lesson[] = [...A_EARTHMOON, ...A_SOLAR, ...A_SKY, ...A_MOTION, ...A_EARTHSUN, ...A_STARS, ...A_COSMOS, ...A_EXTRA];
 const STRAND_ORDER: AstroStrand[] = ['earthmoon', 'solar', 'sky', 'earthsun', 'motion', 'stars', 'cosmos'];
 /** Grouped by theme, junior lessons before senior ones within a theme. */
 export const ASTRO_LESSONS: Lesson[] = STRAND_ORDER.flatMap(s => ALL.filter(l => l.strand === s && l.level === 'jr').concat(ALL.filter(l => l.strand === s && l.level !== 'jr')));

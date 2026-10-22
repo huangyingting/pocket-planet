@@ -24,6 +24,7 @@ export const CHINA: Lesson[] = [
       },
       {
         title: ['Two dividing lines', '阶梯的分界线'], cam: [34, 105, 3], sketch: true,
+        task: ['Trace the two gold lines from north to south and name the mountain ranges along each one.', '从北到南描一遍两条金色分界线，说出每条线上有哪些山脉。'],
         paint: [{ fill: { k: 'land', a2: CN, c: C.white }, a: 0.22 }],
         lines: [{ pts: STEP1, c: C.gold, w: 1.8, dur: 2.2 }, { pts: STEP2, c: C.orange, w: 1.8, t: 1.8, dur: 2.2 }],
         marks: [mk([37.5, 92], 'Kunlun · Qilian · Hengduan', '昆仑山—祁连山—横断山', { c: C.gold, t: 1 }), mk([44, 118.5], 'Greater Khingan · Taihang · Wushan · Xuefeng', '大兴安岭—太行山—巫山—雪峰山', { c: C.orange, t: 3 })],
@@ -32,6 +33,7 @@ export const CHINA: Lesson[] = [
       },
       {
         title: ['Three steps', '三级阶梯'], cam: [33, 103, 3], sketch: true, items: ['potala', 'everest', 'cn_bund'],
+        task: ['Turn the globe from Xizang east to Shanghai and watch the land step down from plateau to plain.', '把地球从西藏向东转到上海，看看地势怎样从高原一级一级降到平原。'],
         paint: [{ fill: { k: 'poly', pts: STEP_POLYS[0], c: C.violet, clip: CN }, a: 0.55 }, { fill: { k: 'poly', pts: STEP_POLYS[1], c: C.brown, clip: CN }, t: 0.8, a: 0.55 }, { fill: { k: 'poly', pts: STEP_POLYS[2], c: C.green, clip: CN }, t: 1.6, a: 0.55 }],
         lines: [{ pts: STEP1, c: C.gold, w: 1.4, dur: 1 }, { pts: STEP2, c: C.orange, w: 1.4, dur: 1, t: 0.8 }],
         marks: [mk([33, 88], 'Step 1: above 4,000 m', '第一级：4000 米以上', { big: true, c: C.violet, t: 0.4 }), mk([39, 106], 'Step 2: 1,000–2,000 m', '第二级：1000—2000 米', { big: true, c: C.brown, t: 1.2 }), mk([30, 116], 'Step 3: mostly under 500 m', '第三级：多在 500 米以下', { big: true, c: C.green, t: 2 })],
@@ -53,6 +55,15 @@ export const CHINA: Lesson[] = [
         why: ['Kunlun–Qilian–Hengduan divides Steps 1 and 2.', '昆仑山—祁连山—横断山是第一、二级阶梯的分界线。'] },
       { q: ['Find the Three Gorges.', '在地球上点出三峡。'], at: [30.8, 111], tolKm: 400,
         why: ['On the Yangtze where it leaves Step 2 near Yichang.', '在长江流出第二级阶梯的地方，宜昌附近。'] },
+      { q: ['Match each landform to the step it is on.', '把地形区和它所在的阶梯连起来。'],
+        match: [[['Qinghai–Tibet Plateau', '青藏高原'], ['Step 1', '第一级阶梯']], [['Loess Plateau', '黄土高原'], ['Step 2', '第二级阶梯']], [['North China Plain', '华北平原'], ['Step 3', '第三级阶梯']]],
+        why: ['The Qinghai–Tibet Plateau is above 4,000 m; the Loess Plateau lies at 1,000–2,000 m; the North China Plain is mostly below 500 m (much of it below 50 m).', '青藏高原平均海拔 4000 米以上，在第一级阶梯；黄土高原海拔 1000—2000 米，在第二级阶梯；华北平原海拔多在 500 米以下，在第三级阶梯。'] },
+      { q: ['Label these mountain ranges, which mark the edges of the steps.', '在地球上标出这些作为阶梯分界线的山脉。'],
+        place: [{ text: ['Kunlun Mountains', '昆仑山脉'], at: [36, 86], tolKm: 450 }, { text: ['Hengduan Mountains', '横断山脉'], at: [28, 99], tolKm: 400 }, { text: ['Greater Khingan', '大兴安岭'], at: [48, 121], tolKm: 400 }, { text: ['Taihang Mountains', '太行山脉'], at: [37, 113.5], tolKm: 350 }],
+        why: ['Kunlun, Qilian and Hengduan mark the edge of Step 1; Greater Khingan, Taihang, Wushan and Xuefeng mark the edge of Step 2.', '昆仑山脉—祁连山脉—横断山脉是第一、二级阶梯的分界线；大兴安岭—太行山脉—巫山—雪峰山是第二、三级阶梯的分界线。'] },
+      { q: ['How does "high in the west, low in the east" help China? Pick all that apply.', '我国地势西高东低，带来的有利影响有（多选）'],
+        options: [['Moist sea air can reach far inland', '有利于海洋上的湿润气流深入内地'], ['Big rivers flow east, linking west and east', '大河东流，沟通东西交通'], ['Rivers dropping between steps give hydropower', '河流在阶梯交界处落差大，水能丰富'], ['Most rivers flow north to the Arctic', '大多数河流向北流入北冰洋'], ['It makes the whole country dry', '使全国气候干旱']], multi: [0, 1, 2],
+        why: ['The land opens to the Pacific, so summer monsoon rain reaches inland; rivers like the Yangtze flow east as transport links; where they drop between steps, as at the Three Gorges, they yield hydropower.', '地势西高东低、面向海洋，有利于夏季风深入内地带来降水；长江等大河滚滚东流，沟通东西交通；河流在阶梯交界处落差大，如三峡，蕴藏着丰富的水能。'] },
     ],
   },
   {
@@ -67,6 +78,7 @@ export const CHINA: Lesson[] = [
     steps: [
       {
         title: ['Summer and winter monsoons', '夏季风和冬季风'], cam: [32, 112, 3.4], sketch: true,
+        task: ['Compare the teal summer arrows with the pale winter arrows: where does each set come from?', '比较青色的夏季风箭头和浅色的冬季风箭头：它们分别从哪里吹来？'],
         lines: [...arrows([[[15, 125], [26, 118]], [[18, 135], [30, 124]], [[12, 105], [22, 109]]], C.teal, 0, 2.2),
           ...arrows([[[52, 95], [42, 108]], [[55, 110], [44, 118]], [[45, 125], [36, 120]]], C.ice, 2, 2.2)],
         marks: [mk([20, 130], 'Summer: warm, wet sea winds', '夏季风：温暖湿润', { c: C.teal, t: 0.8 }), mk([50, 105], 'Winter: cold, dry land winds', '冬季风：寒冷干燥', { c: C.ice, t: 2.8 })],
@@ -90,6 +102,7 @@ export const CHINA: Lesson[] = [
       },
       {
         title: ['The Yangtze', '长江'], cam: [30.5, 108, 2.6], items: ['cn_yellowcrane', 'leshan', 'cn_bund'],
+        task: ['Follow the Yangtze from the plateau to Shanghai: find Yichang and Hukou, which divide its upper, middle and lower course.', '沿长江从高原到上海：找到划分上、中、下游的宜昌和湖口。'],
         lines: [{ pts: RIVERS.yangtze.slice(0, 11), c: C.blue, w: 1.8, flow: true, dur: 2 }, { pts: RIVERS.yangtze.slice(10, 14), c: C.teal, w: 1.8, flow: true, t: 1.8, dur: 1 }, { pts: RIVERS.yangtze.slice(13), c: C.green, w: 1.8, flow: true, arrow: true, t: 2.6, dur: 1 }],
         marks: [mk([30.7, 111.3], 'Yichang', '宜昌', { dot: true, c: C.gold, t: 2 }), mk([29.75, 116.2], 'Hukou', '湖口', { dot: true, c: C.gold, t: 2.8 })],
         body: ['The Yangtze is China\'s longest river (about 6,300 km). Its upper course ends at Yichang, its middle course at Hukou. It carries more water than any other Chinese river and is a "golden waterway" for shipping.',
@@ -113,6 +126,15 @@ export const CHINA: Lesson[] = [
         why: ['Its middle course cuts through the loose loess.', '中游流经土质疏松的黄土高原。'] },
       { q: ['Find Yichang.', '在地球上点出宜昌。'], at: [30.7, 111.3], tolKm: 400,
         why: ['Yichang is in Hubei, just below the Three Gorges.', '宜昌在湖北省，三峡出口处。'] },
+      { q: ['Which describe the land NORTH of the Qinling–Huaihe line? Pick all that apply.', '下列描述中，属于秦岭—淮河以北地区的有（多选）'],
+        options: [['January average below 0 °C', '1 月平均气温低于 0 °C'], ['Dry fields growing wheat', '耕地以旱地为主，种植小麦'], ['Rivers freeze in winter', '冬季河流结冰'], ['Paddy fields growing rice', '耕地以水田为主，种植水稻'], ['Rivers stay ice-free all year', '河流终年不结冰']], multi: [0, 1, 2],
+        why: ['The line roughly follows the 0 °C January isotherm and the 800 mm rainfall line: to the north winters freeze and farming is in dry fields; to the south paddy rice grows.', '秦岭—淮河一线大致与 1 月 0 °C 等温线和 800 毫米年等降水量线一致：以北冬季河流结冰，以旱地为主；以南以水田为主，种植水稻。'] },
+      { q: ['Follow the Yellow River from its source to the sea: put these in order.', '黄河从源头到入海口，依次流经'],
+        order: [['Qinghai–Tibet Plateau', '青藏高原'], ['Loess Plateau', '黄土高原'], ['North China Plain', '华北平原'], ['Bohai Sea', '渤海']],
+        why: ['The Yellow River rises on the Qinghai–Tibet Plateau, picks up its mud crossing the Loess Plateau, builds the North China Plain and enters the Bohai Sea.', '黄河发源于青藏高原，流经黄土高原时带走大量泥沙，在华北平原上堆积，最后注入渤海。'] },
+      { q: ['Label the points that divide the courses of the two great rivers.', '在地球上标出长江、黄河上中下游的分界点。'],
+        place: [{ text: ['Hukou (Yangtze: middle | lower)', '湖口（长江中游 | 下游）'], at: [29.75, 116.2], tolKm: 300 }, { text: ['Hekou (Yellow R.: upper | middle)', '河口（黄河上游 | 中游）'], at: [40.3, 111.1], tolKm: 300 }, { text: ['Jiumengjin (Yellow R.: middle | lower)', '旧孟津（黄河中游 | 下游）'], at: [34.85, 112.6], tolKm: 300 }],
+        why: ['Yichang and Hukou divide the Yangtze; Hekou in Inner Mongolia and Jiumengjin in Henan divide the Yellow River.', '长江以宜昌、湖口为界分上、中、下游；黄河以内蒙古的河口、河南的旧孟津为界分上、中、下游。'] },
     ],
   },
 ];

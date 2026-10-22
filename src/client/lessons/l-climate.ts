@@ -79,6 +79,7 @@ export const CLIMATE_L: Lesson[] = [
       },
       {
         title: ['Trade winds and westerlies', '信风带和西风带'], cam: [10, -30, 4.8], sketch: true,
+        task: ['Turn the globe along the equator: check that the gold trade-wind arrows on both sides point towards it, and the westerlies point towards the poles.', '沿赤道转动地球：看看两侧金色的信风箭头是不是都指向赤道，而西风箭头都偏向两极。'],
         lines: [ITCZ, ...NE_TRADES, ...SE_TRADES, ...WESTERLIES_N, ...WESTERLIES_S],
         marks: [
           mk([3, -30], 'ITCZ: where the trade winds meet', '赤道辐合带：信风在此相遇', { c: C.red, t: 0.4 }),
@@ -90,6 +91,7 @@ export const CLIMATE_L: Lesson[] = [
       },
       {
         title: ['Sea breezes and monsoons', '海陆风与季风'], cam: [22, 100, 4], sketch: true, items: ['an_tiger'],
+        task: ['Watch the arrows change: first the teal summer winds blow in from the sea, then the pale winter winds blow out from the land.', '观察箭头的变化：先是青色的夏季风从海洋吹向陆地，后是浅色的冬季风从陆地吹向海洋。'],
         lines: [
           ...arrows([[[5, 65], [18, 74]], [[6, 85], [20, 88]], [[10, 112], [24, 113]], [[18, 130], [30, 120]]], C.teal, 0.3, 2.2),
           ...arrows([[[45, 95], [32, 80], [22, 76]], [[50, 112], [38, 116], [26, 115]], [[30, 92], [16, 88]]], C.ice, 2.4, 2.2),
@@ -108,6 +110,18 @@ export const CLIMATE_L: Lesson[] = [
         why: ['Air flows from the subtropical high towards the equator and is bent to the right.', '空气从副热带高气压带吹向赤道，在北半球向右偏，成为东北信风。'] },
       { q: ['In summer the monsoon brings heavy rain to this city. Find Mumbai.', '夏季风给这座城市带来大量降水。在地球上点出孟买。'], at: [19.1, 72.9], tolKm: 500,
         why: ['Mumbai is on India\'s west coast, facing the wet south-west monsoon.', '孟买位于印度西海岸，迎着湿润的西南季风。'] },
+      { q: ['Which of these make the air quality worse? Pick all that apply.', '下列因素中，会使空气质量变差的有（多选）'],
+        options: [['Exhaust from cars', '汽车尾气'], ['Smoke from factories', '工厂排放的烟尘'], ['Dust blown from deserts', '从荒漠吹来的沙尘'], ['Planting trees and grass', '植树种草'], ['A good rain shower', '一场透雨']], multi: [0, 1, 2],
+        why: ['Exhaust, smoke and dust put particles and gases into the air. Plants trap dust, and rain washes the air clean.', '汽车尾气、工厂烟尘和沙尘都会向空气中排放颗粒物和有害气体；植物能吸附灰尘，降雨能冲刷空气中的污染物。'] },
+      { q: ['Match each pressure belt to where it lies and the weather it brings.', '把气压带和它的位置、天气特点连起来。'],
+        match: [[['Equatorial low', '赤道低气压带'], ['Near the equator: rising air, heavy rain', '赤道附近：空气上升，多雨']], [['Subtropical high', '副热带高气压带'], ['About 30° N and S: sinking air, dry', '南北纬 30° 附近：空气下沉，干燥']], [['Subpolar low', '副极地低气压带'], ['About 60° N and S', '南北纬 60° 附近']], [['Polar high', '极地高气压带'], ['Near the poles: cold, sinking air', '两极附近：空气寒冷下沉']]],
+        why: ['Heated air rises at the equator and sinks near 30°; another low lies near 60°, and cold air sinks over the poles.', '赤道受热空气上升，在南北纬 30° 附近下沉；南北纬 60° 附近是副极地低气压带，两极空气冷却下沉，形成极地高气压带。'] },
+      { q: ['Read the chart: about how fast is a force-8 wind, in metres per second?', '读图：8 级风的风速约为每秒多少米？'],
+        fig: { k: 'bars', title: ['Wind force and wind speed (approx.)', '风力等级与风速（约）'], unit: ['m/s', '米/秒'], rows: [
+          { name: ['Force 1', '1 级'], v: 1, c: C.lime }, { name: ['Force 3', '3 级'], v: 4.4, c: C.green }, { name: ['Force 6', '6 级'], v: 12.3, c: C.gold },
+          { name: ['Force 8', '8 级'], v: 19, c: C.orange }, { name: ['Force 10', '10 级'], v: 26.5, c: C.red }, { name: ['Force 12+', '12 级以上'], v: 34, c: C.violet }] },
+        num: { answer: 19, tol: 1.5, unit: ['m/s', '米/秒'] },
+        why: ['About 19 m/s, roughly 70 km per hour: strong enough to break twigs off trees. Each force step means a faster wind.', '约 19 米/秒，约合每小时 70 千米，能折断树枝。风力等级越高，风速越大。'] },
     ],
   },
   {
@@ -128,6 +142,7 @@ export const CLIMATE_L: Lesson[] = [
       },
       {
         title: ['Tropical rainforest', '热带雨林气候'], cam: [0, 100, 4], sketch: true, items: ['marinabay', 'pl_kapok'],
+        task: ['Turn the globe along the equator and find the three great rainforest areas: the Amazon, the Congo Basin and South-East Asia.', '沿赤道转动地球，找到热带雨林气候的三大分布区：亚马孙平原、刚果盆地和东南亚。'],
         paint: [{ fill: { k: 'climate', only: ['rainforest'] }, a: 0.65 }], fig: { k: 'climo', city: 'singapore' },
         marks: [mk([1.35, 103.8], 'Singapore', '新加坡', { dot: true, c: C.green, t: 0.6 }), mk([-3, -60], 'Amazon', '亚马孙平原', { c: C.green, t: 1 }), mk([0, 22], 'Congo Basin', '刚果盆地', { c: C.green, t: 1.3 })],
         body: ['Near the equator it is hot all year (about 27 °C every month) and it rains almost every afternoon, over 2,000 mm a year. Look at Singapore\'s graph: a flat temperature line and tall rain bars in every month. The Amazon, the Congo Basin and the islands of South-east Asia have this climate.',
@@ -150,6 +165,7 @@ export const CLIMATE_L: Lesson[] = [
       },
       {
         title: ['Tropical desert', '热带沙漠气候'], cam: [24, 20, 4.4], sketch: true, items: ['pyramids', 'an_camel'],
+        task: ['Notice how the desert climate lies along the Tropic lines: follow it from the Sahara east to Arabia, then find Australia\'s deserts in the south.', '注意热带沙漠气候沿回归线分布：从撒哈拉沙漠向东找到阿拉伯半岛，再到南半球找到澳大利亚的沙漠。'],
         paint: [{ fill: { k: 'climate', only: ['desert'] }, a: 0.65 }], fig: { k: 'climo', city: 'cairo' }, lines: TROPICS,
         marks: [mk([30.0, 31.2], 'Cairo', '开罗', { dot: true, c: C.orange, t: 0.6 }), mk([23, 5], 'Sahara', '撒哈拉沙漠', { big: true, c: C.orange, t: 1 })],
         body: ['Around the tropics, under the subtropical high, sinking air stays dry. Cairo gets about 25 mm of rain in a whole year: its rain bars almost vanish. Summers are very hot and nights can be cold. The Sahara, Arabia and inland Australia are hot deserts.',
@@ -166,6 +182,15 @@ export const CLIMATE_L: Lesson[] = [
         why: ['In summer the south-west monsoon carries wet ocean air onto India.', '夏季，西南季风把海洋上的湿润空气带到印度。'] },
       { q: ['Singapore has a tropical rainforest climate. Find it.', '新加坡是热带雨林气候。在地球上点出新加坡。'], at: [1.35, 103.8], tolKm: 400,
         why: ['Singapore is at the tip of the Malay Peninsula, just north of the equator.', '新加坡在马来半岛南端，紧挨着赤道。'] },
+      { q: ['Match each city to its climate type.', '把城市和它的气候类型连起来。'],
+        match: [[['Singapore', '新加坡'], ['Tropical rainforest', '热带雨林气候']], [['Mumbai', '孟买'], ['Tropical monsoon', '热带季风气候']], [['Darwin', '达尔文'], ['Tropical savanna', '热带草原气候']], [['Cairo', '开罗'], ['Tropical desert', '热带沙漠气候']]],
+        why: ['Singapore is wet all year; Mumbai has a summer monsoon rainy season; Darwin has a wet and a dry season; Cairo hardly ever gets rain.', '新加坡终年多雨；孟买夏季风带来雨季；达尔文分干湿两季；开罗终年少雨。'] },
+      { q: ['Read the graph: Singapore\'s warmest month is 28.4 °C and its coolest is 26.5 °C. What is its annual temperature range?', '读图：新加坡最热月气温 28.4 °C，最冷月 26.5 °C。它的气温年较差是多少？'],
+        fig: { k: 'climo', city: 'singapore' }, num: { answer: 1.9, tol: 0.2, unit: ['°C', '°C'] },
+        why: ['28.4 − 26.5 = 1.9 °C. Near the equator the Sun is high all year, so it is hot in every month and the range is tiny.', '28.4 − 26.5 = 1.9 °C。赤道附近终年正午太阳高度大，各月都很热，气温年较差很小。'] },
+      { q: ['Label these tropical regions on the globe.', '在地球上标出这些热带地区。'],
+        place: [{ text: ['Amazon Plain (rainforest)', '亚马孙平原（热带雨林气候）'], at: [-4, -62], tolKm: 800 }, { text: ['Congo Basin (rainforest)', '刚果盆地（热带雨林气候）'], at: [0, 22], tolKm: 700 }, { text: ['Sahara (desert)', '撒哈拉沙漠（热带沙漠气候）'], at: [23, 8], tolKm: 800 }, { text: ['East African Plateau (savanna)', '东非高原（热带草原气候）'], at: [-3, 35], tolKm: 600 }],
+        why: ['Rainforests straddle the equator; the savanna of East Africa lies on a high plateau; the Sahara spreads across the Tropic of Cancer.', '热带雨林分布在赤道两侧；东非高原上是热带草原；撒哈拉沙漠横跨北回归线。'] },
     ],
   },
   {
@@ -187,6 +212,7 @@ export const CLIMATE_L: Lesson[] = [
       },
       {
         title: ['West coast and east coast', '大陆西岸和东岸'], cam: [48, 55, 4.8], sketch: true, items: ['bigben', 'forbidden'],
+        task: ['Compare the two graphs: notice that London\'s rain is spread through the year, while Beijing\'s falls mostly in July and August.', '比较两幅气候图：伦敦的降水各月比较均匀，而北京的降水集中在 7、8 月。'],
         paint: [{ fill: { k: 'climate', only: ['maritime', 'tmonsoon2'] }, a: 0.65 }], fig: { k: 'climo', city: 'london', b: 'beijing' },
         marks: [mk([51.5, -0.1], 'London: temperate maritime', '伦敦：温带海洋性气候', { dot: true, c: C.blue, t: 0.6 }), mk([39.9, 116.4], 'Beijing: temperate monsoon', '北京：温带季风气候', { dot: true, c: C.teal, t: 1 })],
         body: ['On the west coast of Europe, westerly winds from the Atlantic keep London mild and damp all year: no month is very hot or very cold, and it rains a little every month. On the east side of Asia, Beijing has a temperate monsoon climate: hot, rainy summers and cold, dry winters.',
@@ -201,6 +227,7 @@ export const CLIMATE_L: Lesson[] = [
       },
       {
         title: ['Cold climates', '寒冷的气候'], cam: [68, 100, 4.2], sketch: true, items: ['an_reindeer', 'an_polarbear'],
+        task: ['Turn the globe over Siberia and Canada: find the broad subarctic belt, with the tundra along the Arctic coast to its north.', '转动地球看西伯利亚和加拿大：找到宽阔的亚寒带针叶林气候带，以及它北边沿北冰洋沿岸分布的苔原气候。'],
         paint: [{ fill: { k: 'climate', only: ['subarctic', 'tundra', 'icecap'] }, a: 0.65 }], fig: { k: 'climo', city: 'yakutsk', b: 'utqiagvik' },
         marks: [mk([62.0, 129.7], 'Yakutsk: subarctic', '雅库茨克：亚寒带针叶林气候', { dot: true, c: C.violet, t: 0.6 }), mk([71.3, -156.8], 'Utqiaġvik: tundra', '乌特恰维克：苔原气候', { dot: true, c: C.ice, t: 1 }), mk([75, -40], 'Greenland: ice cap', '格陵兰岛：冰原气候', { c: C.white, t: 1.4 })],
         body: ['Across northern Russia and Canada the subarctic climate has long, bitter winters (Yakutsk averages −38 °C in January) and short, warm summers. Nearer the Arctic Ocean the tundra stays below 5 °C even in July. On Greenland and Antarctica the ice cap climate is below freezing all year.',
@@ -237,6 +264,15 @@ export const CLIMATE_L: Lesson[] = [
         why: ['They are at similar latitudes, but London is near the Atlantic and the warm Gulf Stream.', '两地纬度相近，但伦敦靠近大西洋，还受暖流影响。'] },
       { q: ['Lhasa is cool in summer though it is at a low latitude. Find Lhasa.', '拉萨纬度较低，夏季却很凉爽。在地球上点出拉萨。'], at: [29.65, 91.1], tolKm: 500,
         why: ['Lhasa is on the Tibetan Plateau, at about 3,650 m.', '拉萨位于青藏高原，海拔约 3650 米。'] },
+      { q: ['Match each city to its climate type.', '把城市和它的气候类型连起来。'],
+        match: [[['Shanghai', '上海'], ['Subtropical monsoon', '亚热带季风气候']], [['London', '伦敦'], ['Temperate maritime', '温带海洋性气候']], [['Moscow', '莫斯科'], ['Temperate continental', '温带大陆性气候']], [['Yakutsk', '雅库茨克'], ['Subarctic', '亚寒带针叶林气候']]],
+        why: ['Shanghai has hot, wet summers and mild winters; London is mild and damp all year; Moscow has cold winters and modest rain; Yakutsk has long, bitter winters.', '上海夏季高温多雨、冬季温和少雨；伦敦全年温和湿润；莫斯科冬季寒冷，降水较少；雅库茨克冬季漫长而严寒。'] },
+      { q: ['Which climates get most of their rain in summer? Pick all that apply.', '下列气候类型中，降水主要集中在夏季的有（多选）'],
+        options: [['Temperate monsoon', '温带季风气候'], ['Subtropical monsoon', '亚热带季风气候'], ['Mediterranean', '地中海气候'], ['Temperate maritime', '温带海洋性气候']], multi: [0, 1],
+        why: ['Monsoon climates are rainy in summer. Mediterranean climates are the opposite: hot and dry in summer, mild and wet in winter. Temperate maritime rain is spread evenly through the year.', '季风气候雨热同期，降水集中在夏季；地中海气候正好相反，夏季炎热干燥、冬季温和多雨；温带海洋性气候降水各月比较均匀。'] },
+      { q: ['Yakutsk\'s warmest month averages 19.5 °C and its coldest −38.6 °C. What is its annual temperature range?', '雅库茨克最热月平均气温 19.5 °C，最冷月 −38.6 °C。它的气温年较差是多少？'],
+        fig: { k: 'climo', city: 'yakutsk' }, num: { answer: 58.1, tol: 0.5, unit: ['°C', '°C'] },
+        why: ['19.5 − (−38.6) = 58.1 °C, one of the largest ranges on Earth. Far from any sea and at a high latitude, its winters are extremely cold.', '19.5 −（−38.6）= 58.1 °C，是世界上气温年较差最大的地方之一。它纬度高、远离海洋，冬季极其寒冷。'] },
     ],
   },
   {
@@ -251,6 +287,7 @@ export const CLIMATE_L: Lesson[] = [
     steps: [
       {
         title: ['From climate to vegetation', '从气候到植被'], cam: [15, 20, 4.8], sketch: true,
+        task: ['Turn the globe from the equator towards a pole and watch the vegetation colours change band by band.', '从赤道向两极转动地球，观察自然植被的颜色怎样一带一带地变化。'],
         paint: [{ fill: { k: 'biome' }, a: 0.6 }], fig: { k: 'key', set: 'biome' },
         body: ['Plants need warmth and water. Hot and wet gives rainforest; hot with a dry season gives savanna; very dry gives desert; cool and dry gives grassland; long cold winters give conifer forest; and the coldest lands have only tundra and ice. Compare this map with the climate map: they match closely.',
           '植物生长需要热量和水分。高温多雨形成热带雨林；高温而有干季形成热带草原；极其干旱形成荒漠；温带较干形成温带草原；冬季漫长寒冷形成针叶林；最寒冷的地方只有苔原和冰原。把这幅图和气候图对比，它们非常相似。'],
@@ -286,6 +323,7 @@ export const CLIMATE_L: Lesson[] = [
       },
       {
         title: ['Taiga and tundra', '针叶林和苔原'], cam: [65, 40, 4.4], sketch: true, items: ['an_reindeer', 'mg_caribou', 'an_moose'],
+        task: ['Find where the trees stop: trace the edge between the green taiga and the pale tundra across northern Russia.', '找到树木消失的地方：沿着俄罗斯北部，找出绿色的亚寒带针叶林和浅色苔原的分界线。'],
         paint: [{ fill: { k: 'biome', only: ['taiga', 'tundra'] }, a: 0.65 }], fig: { k: 'key', set: 'biome', only: ['taiga', 'tundra'] },
         marks: [mk([60, 90], 'Taiga', '亚寒带针叶林', { big: true, c: C.green, t: 0.6 }), mk([70, 60], 'Tundra', '苔原', { big: true, c: C.ice, t: 1 })],
         body: ['South of the Arctic, a belt of conifer forest (the taiga) circles the globe across Russia, Scandinavia and Canada. Its needle-leaved trees survive long, snowy winters. Farther north, summers are too short and cold for trees: the tundra has only mosses, lichens and low shrubs. Reindeer migrate between the two.',
@@ -301,6 +339,15 @@ export const CLIMATE_L: Lesson[] = [
         why: ['Only mosses, lichens and low shrubs can grow in such a short, cold summer.', '短暂寒冷的夏季只能长出苔藓、地衣和低矮灌木。'] },
       { q: ['Find the Amazon rainforest.', '在地球上点出亚马孙热带雨林。'], at: [-3.5, -62], tolKm: 1200,
         why: ['It covers the Amazon Basin in South America, along the equator.', '它覆盖南美洲赤道附近的亚马孙平原。'] },
+      { q: ['Match each biome to an animal adapted to it.', '把自然植被和适应那里环境的动物连起来。'],
+        match: [[['Tropical rainforest', '热带雨林'], ['Sloth', '树懒']], [['Savanna', '热带草原'], ['Giraffe', '长颈鹿']], [['Desert', '荒漠'], ['Camel', '骆驼']], [['Tundra', '苔原'], ['Reindeer', '驯鹿']]],
+        why: ['Sloths hang in rainforest trees, giraffes browse on savanna acacias, camels store fat and survive without water, and reindeer dig through snow for lichen.', '树懒生活在雨林的树上；长颈鹿吃稀树草原上的金合欢树叶；骆驼耐饥耐渴；驯鹿能刨开积雪找地衣吃。'] },
+      { q: ['Travelling north from the Congo Basin to the Arctic coast of Russia, in what order do you meet these?', '从刚果盆地一路向北到俄罗斯北冰洋沿岸，依次经过的自然植被是'],
+        order: [['Tropical rainforest', '热带雨林'], ['Savanna', '热带草原'], ['Desert', '荒漠'], ['Taiga', '亚寒带针叶林'], ['Tundra', '苔原']],
+        why: ['Vegetation changes with heat and rain: wet rainforest at the equator, savanna with a dry season, the dry Sahara near the tropic, then cold-tolerant conifers and finally treeless tundra.', '自然植被随热量和水分而变化：赤道附近是湿热的雨林，向北依次是有干湿季的热带草原、回归线附近干旱的撒哈拉荒漠，再到耐寒的针叶林，最后是没有树木的苔原。'] },
+      { q: ['Label these biomes on the globe.', '在地球上标出这些自然植被区。'],
+        place: [{ text: ['Serengeti savanna', '塞伦盖蒂热带草原'], at: [-2.5, 34.8], tolKm: 600 }, { text: ['North American prairie', '北美大草原'], at: [44.6, -103], tolKm: 800 }, { text: ['Siberian taiga', '西伯利亚针叶林'], at: [60, 95], tolKm: 800 }, { text: ['Sahara Desert', '撒哈拉沙漠'], at: [23, 8], tolKm: 800 }],
+        why: ['The Serengeti is in East Africa, the prairie in the middle of North America, the taiga across northern Russia, and the Sahara in North Africa.', '塞伦盖蒂在东非，北美大草原在北美洲中部，针叶林横跨俄罗斯北部，撒哈拉沙漠在非洲北部。'] },
     ],
   },
   {
@@ -322,6 +369,7 @@ export const CLIMATE_L: Lesson[] = [
       },
       {
         title: ['More and more CO2', '越来越多的二氧化碳'], cam: [20, -150, 3.8],
+        task: ['Find the red dot on Hawaii\'s Mauna Loa, far out in the Pacific, where clean air has been sampled since 1958.', '找到太平洋中夏威夷冒纳罗亚火山上的红点，那里从 1958 年起就在测量洁净空气中的二氧化碳。'],
         fig: { k: 'line', title: ['CO2 in the air (approx.)', '大气中的二氧化碳浓度（约）'], unit: ['ppm', 'ppm'], min: 260, max: 440,
           x: [1850, 1958, 1980, 2000, 2010, 2020, 2023],
           series: [{ name: ['CO2', '二氧化碳'], c: C.red, y: [280, 315, 340, 370, 390, 412, 420] }],
@@ -341,6 +389,7 @@ export const CLIMATE_L: Lesson[] = [
       },
       {
         title: ['Melting ice, rising seas', '冰雪融化，海平面上升'], cam: [55, -20, 4.4], items: ['an_polarbear', 'an_walrus'],
+        task: ['Turn from the Arctic down to the Indian Ocean and find the Maldives and Bangladesh: notice how low and flat they are.', '从北极转到印度洋，找到马尔代夫和孟加拉国：注意它们的地势多么低平。'],
         paint: [{ fill: { k: 'band', s: 75, n: 90, c: C.ice }, a: 0.45 }],
         marks: [
           mk([78, -30], 'Arctic sea ice is shrinking', '北冰洋海冰在减少', { big: true, c: C.ice, t: 0.4 }),
@@ -378,6 +427,14 @@ export const CLIMATE_L: Lesson[] = [
         why: ['It helps people live with rising seas rather than cutting emissions.', '它帮助人们应对海平面上升，而不是减少排放。'] },
       { q: ['Low islands here could be flooded by rising seas. Find the Maldives.', '海平面上升可能淹没这里的低平岛屿。在地球上点出马尔代夫。'], at: [3.2, 73.2], tolKm: 600,
         why: ['The Maldives lie in the Indian Ocean, south-west of India.', '马尔代夫位于印度洋，印度的西南方。'] },
+      { q: ['Put the steps of the greenhouse effect in order.', '把温室效应的过程排序。'],
+        order: [['Sunlight passes through the air', '太阳光穿过大气'], ['The ground is warmed and gives off heat', '地面增温，向外放出热量'], ['Greenhouse gases absorb the heat', '温室气体吸收这些热量'], ['Some heat is sent back down, keeping the air near the ground warm', '一部分热量返回地面，使近地面保持温暖']],
+        why: ['Sunlight warms the ground; the ground gives off heat; greenhouse gases trap part of it and send it back down. More gases trap more heat.', '太阳光使地面增温，地面向外放出热量，温室气体吸收其中一部分并返还给地面。温室气体越多，截留的热量越多。'] },
+      { q: ['Which of these are mitigation (cutting greenhouse gases)? Pick all that apply.', '下列做法中，属于减缓（减少温室气体排放）的有（多选）'],
+        options: [['Using solar and wind power', '利用太阳能和风能'], ['Planting forests', '植树造林'], ['Saving electricity', '节约用电'], ['Building higher sea walls', '加高海堤'], ['Growing drought-resistant crops', '种植耐旱作物']], multi: [0, 1, 2],
+        why: ['Clean energy and saving power cut emissions, and forests take in CO2. Sea walls and drought-resistant crops are adaptation: they prepare for change.', '清洁能源、节约用电能减少排放，森林能吸收二氧化碳；加高海堤和种植耐旱作物属于适应，是为应对已经发生的变化做准备。'] },
+      { q: ['CO2 rose from about 280 ppm before industry to about 420 ppm in 2023. By about what percentage did it rise?', '二氧化碳浓度从工业革命前的约 280 ppm 上升到 2023 年的约 420 ppm，约增加了百分之几？'], num: { answer: 50, tol: 3, unit: ['%', '%'] },
+        why: ['(420 − 280) ÷ 280 = 0.5, so about 50% more, mostly from burning coal, oil and gas.', '（420 − 280）÷ 280 = 0.5，约增加了 50%，主要来自燃烧煤、石油和天然气。'] },
     ],
   },
 ];

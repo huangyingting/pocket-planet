@@ -33,6 +33,7 @@ export const REGIONS_L: Lesson[] = [
       },
       {
         title: ['Rivers flow outward', '河流呈放射状'], cam: [42, 95, 4],
+        task: ['Follow each river down from the high centre: which ocean does each one reach?', '沿着每条河从中部高地向下游看：它们分别注入哪个大洋？'],
         paint: [{ fill: { k: 'poly', pts: REGIONS.asiaHigh, c: C.brown }, a: 0.45 }],
         lines: [flow(RIVERS.ob, 0.2), flow(RIVERS.yenisei, 0.4), flow(RIVERS.lena, 0.6), flow(RIVERS.yangtze, 0.8), flow(RIVERS.yellow, 1), flow(RIVERS.mekong, 1.2), flow(RIVERS.ganges, 1.4), flow(RIVERS.indus, 1.6)],
         marks: [mk([64, 70], 'Ob → Arctic Ocean', '鄂毕河 → 北冰洋', { t: 1.6, c: C.blue }), mk([31, 117], 'Yangtze → Pacific', '长江 → 太平洋', { t: 2, c: C.blue }), mk([24, 87], 'Ganges → Indian Ocean', '恒河 → 印度洋', { t: 2.4, c: C.blue })],
@@ -41,6 +42,7 @@ export const REGIONS_L: Lesson[] = [
       },
       {
         title: ['Monsoon winds', '季风气候显著'], cam: [25, 110, 3.8], sketch: true, items: ['halong'],
+        task: ['Follow the teal arrows from the sea onto the land: notice they reach East Asia and South Asia but not the dry interior.', '沿着青色箭头从海洋吹向陆地：注意它们到达了亚洲东部和南部，却到不了干旱的内陆。'],
         lines: arrows([[[5, 125], [22, 117]], [[10, 135], [28, 125]], [[0, 85], [15, 88]], [[2, 72], [18, 77]]], C.teal, 0, 2),
         marks: [mk([20, 128], 'Summer: wet winds from the sea', '夏季：海洋吹来湿润的风', { c: C.teal, t: 1 })],
         body: ['East and South Asia have monsoon climates. In summer, warm wet winds blow from the sea and bring heavy rain; in winter, cold dry winds blow from the land. Rainfall is concentrated in summer.',
@@ -56,6 +58,14 @@ export const REGIONS_L: Lesson[] = [
         why: ['It flows north across Siberia.', '它向北流经西伯利亚，注入北冰洋。'] },
       { q: ['Find the Qinghai–Tibet Plateau.', '在地球上点出青藏高原。'], at: [32.5, 88], tolKm: 700,
         why: ['It is in south-west China, north of the Himalayas.', '它位于我国西南部，喜马拉雅山脉以北。'] },
+      { q: ['Which of these rivers flow into the Pacific Ocean? Pick all that apply.', '下列河流中，注入太平洋的有（多选）'],
+        options: [['Yangtze', '长江'], ['Yellow River', '黄河'], ['Mekong', '湄公河'], ['Ob', '鄂毕河'], ['Ganges', '恒河'], ['Indus', '印度河']], multi: [0, 1, 2],
+        why: ['Rivers flowing east from the high centre reach the Pacific; the Ob flows north to the Arctic Ocean, and the Ganges and Indus flow south to the Indian Ocean.', '从中部高地向东流的河流注入太平洋；鄂毕河向北注入北冰洋，恒河和印度河向南注入印度洋。'] },
+      { q: ['Label where these rivers reach the sea.', '在地球上标出这些河流的入海口。'],
+        place: [{ text: ['Ob', '鄂毕河'], at: [66.5, 72], tolKm: 500 }, { text: ['Yangtze', '长江'], at: [31.4, 121.8], tolKm: 500 }, { text: ['Ganges', '恒河'], at: [22, 90], tolKm: 500 }, { text: ['Mekong', '湄公河'], at: [10, 106.5], tolKm: 500 }],
+        why: ['The mouths face north, east and south: the river pattern of Asia spreads outward from the high middle.', '这些河口分别朝北、朝东、朝南，说明亚洲的河流从中部高地呈放射状流向四周。'] },
+      { q: ['Asia covers about 44 million km² of the world\'s 149 million km² of land. About what percentage is that?', '亚洲面积约 4400 万平方千米，世界陆地总面积约 1.49 亿平方千米。亚洲约占世界陆地面积的百分之几？'], num: { answer: 29.5, tol: 1, unit: ['%', '%'] },
+        why: ['44 ÷ 149 ≈ 0.295, so almost 30%: nearly a third of all the land on Earth.', '44 ÷ 149 ≈ 0.295，约占 29.5%，接近世界陆地面积的三分之一。'] },
     ],
   },
   {
@@ -70,6 +80,7 @@ export const REGIONS_L: Lesson[] = [
     steps: [
       {
         title: ['Japan: an island country', '日本：岛国'], cam: [36, 138, 1.9], tectonics: true, items: ['fuji', 'vo_sakurajima'],
+        task: ['Find Japan\'s four main islands from north to south: Hokkaido, Honshu, Shikoku and Kyushu.', '从北到南找到日本的四个大岛：北海道、本州、四国和九州。'],
         paint: [{ fill: { k: 'land', a2: ['JP'], c: C.red }, a: 0.55 }],
         marks: [mk([43.5, 142.5], 'Hokkaido', '北海道', { t: 0.5 }), mk([36.5, 139], 'Honshu', '本州', { t: 0.8 }), mk([33.6, 133.4], 'Shikoku', '四国', { t: 1.1 }), mk([32.6, 130.9], 'Kyushu', '九州', { t: 1.4 })],
         body: ['Japan is made of four big islands, Hokkaido, Honshu, Shikoku and Kyushu, and many small ones. Mountains cover most of the land, and Mount Fuji is the highest peak.',
@@ -84,6 +95,7 @@ export const REGIONS_L: Lesson[] = [
       },
       {
         title: ['The Strait of Malacca', '马六甲海峡'], cam: [8, 105, 2.6], items: ['vy_zhenghe'],
+        task: ['Follow the gold shipping route between the Malay Peninsula and Sumatra, from the South China Sea out into the Indian Ocean.', '沿着金色航线，从南海穿过马来半岛和苏门答腊岛之间，驶入印度洋。'],
         lines: [{ pts: [[22, 116], [10, 110], [1.3, 104.3], [2.5, 101.3], [5.8, 97.5], [6, 80]], c: C.gold, w: 1.6, flow: true, arrow: true, dur: 2.2 }],
         marks: [mk([2.6, 101], 'Strait of Malacca', '马六甲海峡', { dot: true, big: true, c: C.gold, t: 1.6 })],
         body: ['Southeast Asia sits between the Pacific and Indian Oceans and between Asia and Oceania. Ships between East Asia and Europe pass through the Strait of Malacca: it is one of the busiest sea lanes in the world. Zheng He\'s fleet sailed through it 600 years ago.',
@@ -104,6 +116,15 @@ export const REGIONS_L: Lesson[] = [
         why: ['It is the shortcut between the two oceans.', '它是两大洋之间的捷径。'] },
       { q: ['Find the Strait of Malacca.', '在地球上点出马六甲海峡。'], at: [2.6, 101], tolKm: 500,
         why: ['It runs between the Malay Peninsula and Sumatra.', '它位于马来半岛和苏门答腊岛之间。'] },
+      { q: ['Match each description to one of Japan\'s four main islands.', '把描述和日本的四个大岛连起来。'],
+        match: [[['The largest island, with Tokyo', '面积最大，首都东京所在的岛'], ['Honshu', '本州']], [['The northernmost main island', '最北面的大岛'], ['Hokkaido', '北海道']], [['The south-western island, nearest to China', '西南部的大岛，离我国最近'], ['Kyushu', '九州']], [['The smallest of the four', '四个大岛中最小的'], ['Shikoku', '四国']]],
+        why: ['Honshu is the main island; Hokkaido lies to the north; Kyushu is in the south-west facing the East China Sea; Shikoku is the smallest.', '本州是日本的主岛；北海道在最北面；九州在西南部，隔东海与我国相望；四国面积最小。'] },
+      { q: ['Which of these countries are on the Indochina Peninsula? Pick all that apply.', '下列国家中，位于中南半岛的有（多选）'],
+        options: [['Vietnam', '越南'], ['Thailand', '泰国'], ['Myanmar', '缅甸'], ['Philippines', '菲律宾'], ['Indonesia', '印度尼西亚']], multi: [0, 1, 2],
+        why: ['Vietnam, Thailand and Myanmar are on the Indochina Peninsula. The Philippines and Indonesia are island countries in the Malay Archipelago.', '越南、泰国、缅甸位于中南半岛；菲律宾和印度尼西亚是马来群岛上的岛国。'] },
+      { q: ['Label these countries on the globe.', '在地球上标出这些国家。'],
+        place: [{ text: ['Japan', '日本'], at: [36.5, 138.5], tolKm: 450 }, { text: ['Philippines', '菲律宾'], at: [12.5, 122], tolKm: 500 }, { text: ['Vietnam', '越南'], at: [16, 107], tolKm: 350 }, { text: ['Thailand', '泰国'], at: [15.5, 101], tolKm: 350 }],
+        why: ['Japan is an island arc east of China; the Philippines lie south-east across the South China Sea; Vietnam stretches along the coast of the Indochina Peninsula, with Thailand to its west.', '日本是我国东面的岛国；菲律宾隔南海位于我国东南；越南沿中南半岛东部海岸伸展，泰国在它的西边。'] },
     ],
   },
   {
@@ -118,6 +139,7 @@ export const REGIONS_L: Lesson[] = [
     steps: [
       {
         title: ['A country that is a continent', '独占一块大陆'], cam: [-25, 135, 2.8],
+        task: ['Watch the Tropic of Capricorn line appear: notice it crosses the middle of Australia.', '观察南回归线的出现：注意它从澳大利亚中部穿过。'],
         paint: [{ fill: { k: 'land', a2: ['AU'], c: C.orange }, a: 0.55 }],
         lines: [par(-23.44, C.orange, 0.6, { dur: 1.4 })],
         marks: [mk([-25, 134], 'Australia', '澳大利亚', { big: true, t: 0.4 }), mk([-23.44, 150], 'Tropic of Capricorn', '南回归线', { c: C.orange, t: 1.4 })],
@@ -137,6 +159,7 @@ export const REGIONS_L: Lesson[] = [
       },
       {
         title: ['Three landform regions', '三大地形区'], cam: [-24, 135, 2.8], items: ['uluru', 'reef'], sketch: true,
+        task: ['Turn the globe from west to east across Australia: find the western plateau, the central plains and the eastern mountains in turn.', '从西向东转动澳大利亚：依次找到西部高原、中部平原和东部山地。'],
         paint: [{ fill: { k: 'poly', pts: [[-12, 113], [-12, 133], [-35, 133], [-35, 113]], c: C.brown, clip: ['AU'] }, a: 0.45 },
           { fill: { k: 'poly', pts: [[-12, 133], [-12, 145], [-38, 145], [-38, 133]], c: C.lime, clip: ['AU'] }, t: 0.6, a: 0.45 },
           { fill: { k: 'poly', pts: [[-10, 145], [-10, 154], [-44, 154], [-44, 145]], c: C.green, clip: ['AU'] }, t: 1.2, a: 0.5 }],
@@ -152,6 +175,14 @@ export const REGIONS_L: Lesson[] = [
         why: ['It is the only country that does.', '它是唯一独占一块大陆的国家。'] },
       { q: ['Find Uluru, the great red rock.', '在地球上点出乌鲁鲁巨石。'], at: [-25.3, 131], tolKm: 600,
         why: ['It stands in the middle of Australia.', '它位于澳大利亚中部。'] },
+      { q: ['Match each landform region of Australia to its description.', '把澳大利亚的地形区和它的特点连起来。'],
+        match: [[['Western plateau', '西部高原'], ['Low, dry plateau with large deserts', '地势较低的高原，沙漠广布']], [['Central plains', '中部平原'], ['Lowland with the Great Artesian Basin underground', '地势低平，地下有大自流盆地']], [['Eastern mountains', '东部山地'], ['The Great Dividing Range near the east coast', '靠近东海岸的大分水岭']]],
+        why: ['The west is a broad, dry plateau; the middle is a low plain with huge stores of groundwater; the Great Dividing Range runs down the east coast.', '西部是广阔干旱的高原；中部是低平的平原，地下水丰富；大分水岭沿东海岸延伸。'] },
+      { q: ['Australia covers about 7.69 million km² and has about 26 million people. What is its population density?', '澳大利亚面积约 769 万平方千米，人口约 2600 万。它的人口密度约是多少？'], num: { answer: 3.4, tol: 0.3, unit: ['people/km²', '人/平方千米'] },
+        why: ['26,000,000 ÷ 7,690,000 ≈ 3.4 people per km², one of the lowest in the world, because the dry interior is almost empty.', '2600 万 ÷ 769 万 ≈ 3.4 人/平方千米，是世界上人口密度最小的国家之一，因为干旱的内陆几乎无人居住。'] },
+      { q: ['Label these Australian cities.', '在地球上标出这些澳大利亚城市。'],
+        place: [{ text: ['Sydney', '悉尼'], at: [-33.87, 151.21], tolKm: 350 }, { text: ['Melbourne', '墨尔本'], at: [-37.81, 144.96], tolKm: 350 }, { text: ['Brisbane', '布里斯班'], at: [-27.47, 153.03], tolKm: 350 }, { text: ['Perth', '珀斯'], at: [-31.95, 115.86], tolKm: 400 }],
+        why: ['Most Australians live in cities on the wetter south-east coast; Perth is the big city of the south-west.', '澳大利亚人口和城市集中在较湿润的东南沿海；珀斯是西南部的大城市。'] },
     ],
   },
   {
@@ -180,6 +211,7 @@ export const REGIONS_L: Lesson[] = [
       },
       {
         title: ['Polar day and night', '极昼极夜'], cam: [-60, 60, 3.6], night: true, sun: true,
+        task: ['Watch the year run: notice when the Antarctic Circle stays lit all day and when it stays dark.', '观察一年的变化：注意南极圈以内什么时候整天都有阳光，什么时候整天黑夜。'],
         clock: { mode: 'year', start: T.marchNoonChina, rate: 24 },
         lines: [par(-66.56, C.ice, 0, { dur: 1.2 }), par(66.56, C.ice, 0.3, { dur: 1.2 })],
         body: ['In the polar regions the Sun may not set for months, or not rise for months. Scientists go to Antarctica in its summer (around our winter), when there is daylight all the time.',
@@ -187,6 +219,7 @@ export const REGIONS_L: Lesson[] = [
       },
       {
         title: ['China\'s research stations', '我国的极地科考站'], cam: [-75, 80, 3.4],
+        task: ['Find Great Wall Station on an island near South America, then Kunlun Station high on the ice sheet.', '找到靠近南美洲的岛上的长城站，再找到冰盖高处的昆仑站。'],
         marks: [mk([-62.22, -58.96], 'Great Wall (1985)', '长城站（1985）', { dot: true, c: C.gold, t: 0.2 }), mk([-69.37, 76.37], 'Zhongshan (1989)', '中山站（1989）', { dot: true, c: C.gold, t: 0.5 }),
           mk([-80.42, 77.12], 'Kunlun (2009)', '昆仑站（2009）', { dot: true, c: C.gold, t: 0.8 }), mk([-73.86, 76.97], 'Taishan (2014)', '泰山站（2014）', { dot: true, c: C.gold, t: 1.1 }),
           mk([-74.94, 163.7], 'Qinling (2024)', '秦岭站（2024）', { dot: true, c: C.gold, t: 1.4 }), mk([78.92, 11.93], 'Yellow River (Arctic, 2004)', '黄河站（北极，2004）', { dot: true, c: C.teal, t: 1.7 })],
@@ -203,6 +236,12 @@ export const REGIONS_L: Lesson[] = [
         why: ['Great Wall Station, built in 1985.', '长城站，建于 1985 年。'] },
       { q: ['Find the North Pole.', '在地球上点出北极点。'], at: [90, 0], tolKm: 700,
         why: ['It is in the middle of the Arctic Ocean, where all meridians meet.', '它在北冰洋中部，所有经线在这里相交。'] },
+      { q: ['Under the Antarctic Treaty, which activities are allowed in Antarctica? Pick all that apply.', '根据《南极条约》，在南极可以进行的活动有（多选）'],
+        options: [['Scientific research', '科学考察'], ['Peaceful international cooperation', '和平的国际合作'], ['Military bases', '建立军事基地'], ['Mining for minerals', '开采矿产'], ['Dumping waste', '倾倒垃圾']], multi: [0, 1],
+        why: ['Antarctica is kept for peace and science. Military use is banned, mining is forbidden, and waste must be taken away to protect its fragile environment.', '南极只用于和平与科学研究，禁止军事活动和矿产开采，垃圾必须运走，以保护南极脆弱的环境。'] },
+      { q: ['Label China\'s research stations in Antarctica.', '在地球上标出我国的南极科考站。'],
+        place: [{ text: ['Great Wall Station', '长城站'], at: [-62.22, -58.96], tolKm: 400 }, { text: ['Zhongshan Station', '中山站'], at: [-69.37, 76.37], tolKm: 400 }, { text: ['Kunlun Station', '昆仑站'], at: [-80.42, 77.12], tolKm: 400 }, { text: ['Qinling Station', '秦岭站'], at: [-74.94, 163.7], tolKm: 400 }],
+        why: ['Great Wall is on King George Island near South America; Zhongshan is on the coast of East Antarctica; Kunlun is at Dome A, the highest part of the ice sheet; Qinling is on the Ross Sea.', '长城站在靠近南美洲的乔治王岛上；中山站在南极大陆东部沿海；昆仑站在冰盖最高处的冰穹 A；秦岭站在罗斯海沿岸。'] },
     ],
   },
 ];

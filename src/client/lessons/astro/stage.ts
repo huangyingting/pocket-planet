@@ -50,6 +50,8 @@ export class AstroStage {
   frac = 0;
   playing = true;
   onClock: (() => void) | null = null;
+  /** Lab sliders' values (see `AstroScene.params`). */
+  readonly params: Record<string, number> = {};
   /** A tap on the scene (not a drag): the tag of the pickable object under it, or null. */
   onPick: ((tag: string | null, x: number, y: number) => void) | null = null;
 
@@ -93,6 +95,8 @@ export class AstroStage {
     this.setActive(true);
     this.clear();
     this.cur = s;
+    for (const k of Object.keys(this.params)) delete this.params[k];
+    for (const p of s.params ?? []) this.params[p.id] = p.value;
     this.frac = s.clock?.at ?? 0;
     this.playing = !s.clock?.hold;
     this.elapsed = 0;
@@ -116,6 +120,21 @@ export class AstroStage {
 
   relabel(): void {
     for (const l of this.labels) this.writeLabel(l);
+    this.onClock?.();
+  }
+
+  /** The scene's lab sliders and tasks. */
+  get lab(): { params: NonNullable<AstroScene['params']>; tasks: NonNullable<AstroScene['tasks']> } | null {
+    const s = this.cur;
+    return s?.params?.length || s?.tasks?.length ? { params: s.params ?? [], tasks: s.tasks ?? [] } : null;
+  }
+  /** Which lab tasks are done now. */
+  tasksDone(): boolean[] { return (this.cur?.tasks ?? []).map(t => { try { return t.done(this.params, this.value); } catch { return false; } }); }
+  /** Moves a lab slider. */
+  setParam(id: string, v: number): void {
+    if (!(id in this.params)) return;
+    this.params[id] = v;
+    this.kit?.update(this.value, 0, this.elapsed);
     this.onClock?.();
   }
 
@@ -217,6 +236,7 @@ export class AstroStage {
         return L;
       },
       pickable: (obj: THREE.Object3D, tag: string) => { this.picks.push({ obj, tag }); },
+      param: (id: string) => this.params[id] ?? NaN,
     };
   }
 

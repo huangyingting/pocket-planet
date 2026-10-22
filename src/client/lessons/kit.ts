@@ -18,6 +18,16 @@ export interface Quiz {
   astro?: AstroScene;
   /** "find it in the scene" question: tap the object the kit tagged with this name (`ctx.pickable`) */
   pick?: string;
+  /** with `options`: several right answers (indices); all of them, and only them, must be picked */
+  multi?: number[];
+  /** "put in order": the items as written are the right order; they are shown shuffled */
+  order?: Pair[];
+  /** "match the pairs": [left, right] as written belong together; the right column is shown shuffled */
+  match?: (readonly [Pair, Pair])[];
+  /** "work it out": a number typed in, right within ± `tol` */
+  num?: { answer: number; tol: number; unit?: Pair };
+  /** "label the map": tap where each label goes on the globe; right when every one is within its `tolKm` (default 500) */
+  place?: { text: Pair; at: LL; tolKm?: number }[];
   why: Pair;
 }
 interface StepText {
@@ -28,11 +38,16 @@ interface StepText {
   sky?: 'seasons';
   /** a chart or diagram shown in the card, next to what the globe draws */
   fig?: Fig;
+  /** "try it": something for the learner to do in the scene (turn the globe, drag a slider…) */
+  task?: Pair;
 }
 /** A step draws on the globe (`StageScene`) or, in astronomy lessons, runs a 3D kit on its own board (`astro`). */
 export type Step = (StepText & StageScene & { astro?: undefined }) | (StepText & { astro: AstroScene });
-/** Volumes of the Chinese PEP (人教版) middle-school geography textbooks. */
-export type Grade = 'g7a' | 'g7b' | 'g8a' | 'g8b';
+/**
+ * Volumes of the Chinese PEP (人教版) geography textbooks: middle school (grades 7–8), and senior high school
+ * (`h1` compulsory volume 1, `h2` elective volume 1: physical geography).
+ */
+export type Grade = 'g7a' | 'g7b' | 'g8a' | 'g8b' | 'h1' | 'h2';
 /** The big themes every curriculum shares; the "all topics" view and the international tracks group by these. */
 export type Strand = 'maps' | 'physical' | 'climate' | 'human' | 'world' | 'china';
 /** Astronomy themes. */
@@ -54,6 +69,16 @@ export interface Lesson {
   /** the take-aways, shown with the score */
   keys: Pair[];
   steps: Step[]; quiz: Quiz[];
+  /** a lesson about the learner's own place: steps and quiz are made once the learner says where they live */
+  build?: (home: Home) => { steps: Step[]; quiz: Quiz[] };
+}
+/** The learner's home, and what the map says about it. */
+export interface Home {
+  ll: LL;
+  /** the country it is in (ISO a2 and name), when on land */
+  country?: { a2: string; name: Pair };
+  climate?: import('./climate.ts').Climate;
+  biome?: import('./climate.ts').Biome;
 }
 
 export const C = {
