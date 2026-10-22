@@ -88,7 +88,7 @@ export class Radio {
   private hidden: Set<string>;
   private pool: number[];
 
-  constructor(private globe: Globe, private st: Station[], private onActive: (on: boolean) => void, private snapshot = '') {
+  constructor(private globe: Globe, private st: Station[], private snapshot = '') {
     this.favs = new Set(load<string[]>(FAV_KEY, []));
     this.hidden = new Set(load<string[]>(HIDE_KEY, []));
     this.pool = st.flatMap((s, i) => musicOnly(s.tags) ? [i] : []);
@@ -138,7 +138,6 @@ export class Radio {
       this.hover(-1, null);
       cancelAnimationFrame(this.raf);
     }
-    this.onActive(want);
     this.render();
   }
 
@@ -329,12 +328,12 @@ export class Radio {
 let inst: Promise<Radio> | null = null;
 
 /** Loads the station list once and builds the radio. */
-export function getRadio(globe: Globe, root: HTMLElement, onActive: (on: boolean) => void): Promise<Radio> {
+export function getRadio(globe: Globe, root: HTMLElement): Promise<Radio> {
   return inst ??= fetch(url('data/radio/stations.json')).then(r => r.json()).then((d: { tags: string[]; s: Row[]; at?: string }) => {
     const st: Station[] = d.s.map(([name, cc, lat, lon, u, f, codec, kbps, tg]) => ({
       name, cc, lat, lon, url: u, hls: !!(f & 1), approx: !!(f & 2), codec, kbps, tags: tg.map(i => d.tags[i]),
     }));
-    const r = new Radio(globe, st, onActive, d.at ?? '');
+    const r = new Radio(globe, st, d.at ?? '');
     r.mount(root);
     return r;
   }, e => { inst = null; throw e; });

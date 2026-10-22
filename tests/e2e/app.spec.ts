@@ -231,7 +231,8 @@ test('Quiz: 2 players pass-and-play to podium', async ({ page }) => {
 });
 
 test('Daily Planet: guesses, hints, share, persisted state', async ({ page }) => {
-  await openApp(page, '/?lowfx=1&notut#daily');
+  await openApp(page, '/?lowfx=1&notut');
+  await fromHub(page, 'play', 'menu-daily');
   await expect(page.getByTestId('daily-input')).toBeVisible();
   await page.getByTestId('daily-pick').click();
   await expect(page.getByTestId('daily-pick-hud')).toBeVisible();
@@ -250,6 +251,7 @@ test('Daily Planet: guesses, hints, share, persisted state', async ({ page }) =>
   await shot(page, 'desktop_16_daily_done');
   await page.reload();
   await expect.poll(() => page.evaluate(() => !!(window as any).__pp?.ready), { timeout: 90_000 }).toBe(true);
+  await fromHub(page, 'play', 'menu-daily');
   await expect(page.getByTestId('daily-result')).toBeVisible();
 });
 
@@ -258,7 +260,7 @@ test('account: magic link sign-in, nickname, sync, guestbook', async ({ page }) 
   await page.getByTestId('zoom-close').click();
   await page.getByTestId('add-dex').click();
   await page.keyboard.press('Escape');
-  await page.evaluate(() => { location.hash = 'account'; });
+  await fromHub(page, 'me', 'menu-account');
   await page.getByTestId('email').fill('kid.explorer@example.com');
   await page.getByTestId('send-link').click();
   const link = await page.getByTestId('dev-link').getAttribute('href');
@@ -275,7 +277,7 @@ test('account: magic link sign-in, nickname, sync, guestbook', async ({ page }) 
   expect(Object.keys(server.progress.dex)).toContain('an_lion');
   await shot(page, 'desktop_17_account');
   await page.keyboard.press('Escape');
-  await page.evaluate(() => { location.hash = 'guestbook'; });
+  await fromHub(page, 'me', 'menu-guestbook');
   await page.getByTestId('gb-text').fill('Hello from the e2e test! https://spam.example');
   await page.getByTestId('gb-post').click();
   await expect(page.getByTestId('gb-list')).toContainText('Hello from the e2e test! 🔗');

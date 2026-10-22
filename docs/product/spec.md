@@ -49,7 +49,7 @@ Companion to the [PRD](prd.md). The constants listed here are the source of trut
 * Hash is updated to `#<key>` while open and cleared on close.
 
 ## 5. Menu [`src/client/ui/shell.ts`]
-Sections: **Map**: terrain, names, borders & grid, day & night. **On the globe**: landmarks, animals, discoveries, vehicles. **Settings**: sound effects, language (en/ko/ja/zh), reset view & settings (confirm), account, guestbook, about/encyclopedia, credits. All settings persist (`pp.settings`).
+Sections: **Surface mode** (satellite / minimal / political, the only surface switch). **Atmosphere** preset. **Layers**: place names, borders, latitude & longitude lines, day & night, clouds, auroras, plates. **On the globe**: one switch per item type. **Settings**: sound effects, language (en/ko/ja/zh), reset view & settings (confirm), account, guestbook, about/encyclopedia, credits. All settings persist (`pp.settings`).
 
 ## 6. Collection [`src/client/ui/collection.ts`]
 Hub with 4 cards: Animal dex (n/33), Discovery log (n/14), Stickers (n/12), Photo album (n photos). Dex grids are grouped by `sub`, with locked entries shown as ❔/???. Tapping an entry flies to it. Stickers can be sorted (default / earned first), and the choice is persisted.

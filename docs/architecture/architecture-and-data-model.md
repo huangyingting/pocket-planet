@@ -87,7 +87,7 @@ Cities: `[name, cc, lat, lon, pop, capital?]` tuples. Geography: Natural Earth 1
 ### 3.2 Client state (localStorage, namespace `pp.`)
 | Key | Shape |
 |---|---|
-| `pp.settings` | `{ terrain, names, borders, shadows, landmarks, animals, discoveries, vehicles, sfx, bgm }` (booleans) |
+| `pp.settings` | `{ surfaceMode, auraPreset, names, borders, graticule, shadows, clouds, aurora, tectonics, <one boolean per item type>, sfx, bgm }` |
 | `pp.lang` | `'en' \| 'ko' \| 'ja' \| 'zh'` |
 | `pp.progress` | `Progress` (below) |
 | `pp.dailyState` | `{ day, guesses: {key, km, band, arrow}[], done, won }` (today only) |

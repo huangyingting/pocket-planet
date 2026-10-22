@@ -67,7 +67,7 @@ async function boot(): Promise<void> {
   await Promise.race([document.fonts?.ready, new Promise(r => setTimeout(r, 150))]);
   const countries = loadCountries(topo);
   const texWidth = quality.mapW;
-  const paint = () => paintEarth(topo, countries, { terrain: store.settings.terrain, borders: store.settings.borders, width: texWidth });
+  const paint = () => paintEarth(topo, countries, { political: store.settings.surfaceMode === 'political', borders: store.settings.borders, width: texWidth });
 
   const globeEl = h('div', { id: 'globe' });
   app.append(globeEl);
@@ -110,7 +110,7 @@ async function boot(): Promise<void> {
     if (!navigator.onLine && !radio?.active) { toast('📡 ' + t('radioOffline'), 4000); return; }
     try {
       const m = await withBusy(loadRadio());
-      radio = await m.getRadio(globe, app, on => { const b = document.getElementById('btn-radio'); b?.classList.toggle('active', on); b?.setAttribute('aria-pressed', String(on)); });
+      radio = await m.getRadio(globe, app);
     } catch { toast(t('radioLoadFail')); return; }
     if (gaming || inSolar || inSky) return;
     if (!radio.active) shell.time.toggle(false);
@@ -349,12 +349,12 @@ async function boot(): Promise<void> {
   shell.levelSlot.append(rail.el);
   shell.applySettings(store.settings);
 
-  let painted = { terrain: store.settings.terrain, borders: store.settings.borders };
+  let painted = { mode: store.settings.surfaceMode, borders: store.settings.borders };
   subscribe(() => {
     const s = store.settings;
     if (!gaming) shell.applySettings(s); else globe.applySettings({ ...s, names: globe.settings.names });
-    if (s.terrain !== painted.terrain || s.borders !== painted.borders) {
-      painted = { terrain: s.terrain, borders: s.borders };
+    if ((s.surfaceMode === 'political') !== (painted.mode === 'political') || s.borders !== painted.borders) {
+      painted = { mode: s.surfaceMode, borders: s.borders };
       setTimeout(() => { earthCv = paint(); globe.setEarthTexture(earthCv); solar?.view.setEarthCanvas(earthCv); }, 0);
     }
   });
@@ -399,12 +399,7 @@ async function boot(): Promise<void> {
       if (!inSolar) void enterSolar({ focus, scale }); else solar?.goTo(focus, scale);
       return;
     }
-    if (hsh === 'daily' || hsh === 'placeit' || hsh === 'quiz') openGame(hsh);
-    else if (hsh === 'games') shell.toggleHub(true, 'play');
-    else if (hsh === 'collection') showCollection();
-    else if (hsh === 'passport') showPassport();
-    else if (HAS_API && hsh === 'guestbook' && !classroom()) account(m => void m.openGuestbook());
-    else if (HAS_API && (hsh === 'account' || hsh === 'signed-in')) { if (hsh === 'signed-in') toast('👋 ' + t('synced')); account(m => m.openAccount()); }
+    if (HAS_API && hsh === 'signed-in') { toast('👋 ' + t('synced')); account(m => m.openAccount()); }
     else if (hsh === 'auth-error') toast('⚠️ ' + t('linkExpired'));
     else {
       const it = BY_KEY.get(hsh);

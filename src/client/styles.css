@@ -804,12 +804,6 @@ body.photo-mode .topbar, body.photo-mode .bl, body.photo-mode .br, body.photo-mo
 .shutter { width: 72px; height: 72px; border-radius: 50%; border: 5px solid #fff; background: var(--accent); box-shadow: 0 0 24px rgba(125, 211, 252, 0.6); }
 
 /* ---- games & bottom-docked Place It! console ---- */
-.game-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
-.game-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; background: var(--panel2); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
-.game-card:hover { border-color: rgba(255, 255, 255, 0.16); background: var(--hover); }
-[data-testid=game-placeit] .hub-ico { --c: #fca5a5; } [data-testid=game-quiz] .hub-ico { --c: #c4b5fd; }
-.game-card strong { font-size: 1rem; font-weight: 600; } .gc-sub { color: var(--muted); font-size: 0.84rem; line-height: 1.45; }
-.gc-badge { position: absolute; top: 12px; right: 12px; background: rgba(125, 211, 252, 0.2); color: var(--accent); border: 1px solid rgba(125, 211, 252, 0.4); border-radius: 999px; padding: 2px 8px; font-style: normal; font-size: .68rem; font-family: var(--font-mono); font-weight: 700; }
 .diff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .diff { display: flex; flex-direction: column; gap: 4px; background: var(--panel2); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
 .diff:hover { border-color: var(--accent); background: rgba(125, 211, 252, 0.12); }

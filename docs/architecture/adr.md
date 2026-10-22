@@ -776,7 +776,7 @@ Above the Solar System the scenes were also static apart from rigid disc spin.
 - Settings is only settings: look, layers, sound, classroom, language, backup, reset, hide controls, About and Privacy.
 - Every activity has exactly one entry point:
   - the collection modal now holds only the dexes and stickers;
-  - the games picker modal is gone (`#games` opens the Play shelf; `#daily`, `#placeit` and `#quiz` start a game; `#passport` is new);
+  - the games picker modal is gone, and so are the `#games`, `#daily`, `#placeit`, `#quiz`, `#collection`, `#account` and `#guestbook` deep links (activities open only from the hub; `#signed-in` stays for the login redirect);
   - the help bubble keeps only the tutorial.
 
 **Consequences.**

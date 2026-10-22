@@ -51,7 +51,7 @@ function labelPoint(f: Feature<Polygon | MultiPolygon>): { lat: number; lon: num
   return { lon, lat: cy / (3 * a), area: total };
 }
 
-export interface PaintOpts { terrain: boolean; borders: boolean; width: number }
+export interface PaintOpts { political: boolean; borders: boolean; width: number }
 
 // Deterministic multi-octave value-noise for AuraFM satellite biome & elevation synthesis.
 function hash(x: number, y: number): number {
@@ -210,7 +210,7 @@ export function paintEarth(topo: Topology, countries: CountryInfo[], opts: Paint
     colourIdx[i] = k;
   });
 
-  if (opts.terrain) {
+  if (!opts.political) {
     // Build anti-aliased land mask, then fill land pixels with procedural satellite biome colours.
     const mask = document.createElement('canvas'); mask.width = W; mask.height = H;
     const mctx = mask.getContext('2d')!;
@@ -263,7 +263,7 @@ export function paintEarth(topo: Topology, countries: CountryInfo[], opts: Paint
 
   if (opts.borders) {
     const m = mesh(topo, obj as never, (a, b) => a !== b);
-    ctx.strokeStyle = opts.terrain ? 'rgba(125, 211, 252, 0.35)' : 'rgba(15, 23, 42, 0.65)';
+    ctx.strokeStyle = !opts.political ? 'rgba(125, 211, 252, 0.35)' : 'rgba(15, 23, 42, 0.65)';
     ctx.lineWidth = Math.max(1, W / 1600);
     for (const line of m.coordinates) {
       ctx.beginPath();

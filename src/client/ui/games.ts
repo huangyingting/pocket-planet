@@ -201,7 +201,7 @@ function guessables(): Guessable[] {
   return out;
 }
 
-export function openDaily(host: GameHost): void {
+function openDaily(host: GameHost): void {
   const day = dayIndex();
   const target = puzzleFor(POOL, day);
   let state = load<DailyState | null>('dailyState', null);

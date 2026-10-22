@@ -71,11 +71,10 @@ export class Shell {
   readonly time: TimeMachine;
 
   constructor(private root: HTMLElement, private globe: Globe, private hooks: ShellHooks) {
-    this.time = new TimeMachine(globe, it => this.showItem(it), () => {});
+    this.time = new TimeMachine(globe, it => this.showItem(it));
   }
 
   mount(): void {
-    // Global tools stay on every level; `earth-only` ones need the globe and hide in space.
     const tool = (id: string, ico: IconName, key: string, fn: () => void, cls = '') =>
       h('button', { class: 'tool' + (cls ? ' ' + cls : ''), id, 'data-testid': id, title: t(key), html: icon(ico, 19), onclick: () => { sfx.tap(); fn(); } },
         h('span', { class: 'sr-only', 'data-i18n': key }, t(key)));
@@ -263,10 +262,9 @@ export class Shell {
     $('#btn-help').setAttribute('aria-expanded', String(show));
   }
 
-  /** Opens the Explore hub, optionally on a given shelf. */
-  toggleHub(force?: boolean, tab?: HubTab): void {
-    const show = force ?? (tab ? true : this.hub.classList.contains('hidden'));
-    if (tab) this.tab = tab;
+  /** Opens or closes the Explore hub (on the shelf used last). */
+  toggleHub(force?: boolean): void {
+    const show = force ?? this.hub.classList.contains('hidden');
     if (show) { this.toggleMenu(false); this.toggleHints(false); this.renderHub(); }
     this.hub.classList.toggle('hidden', !show);
     $('#btn-hub')?.classList.toggle('active', show);
@@ -297,11 +295,7 @@ export class Shell {
       const input = h('input', { type: 'checkbox', role: 'switch', 'data-testid': 'set-' + key, checked: Boolean(s[key]) });
       input.addEventListener('change', () => {
         sfx.tap();
-        if (key === 'terrain') {
-          updateSettings({ terrain: input.checked, surfaceMode: input.checked ? 'realistic' : 'political' });
-        } else {
-          updateSettings({ [key]: input.checked });
-        }
+        updateSettings({ [key]: input.checked });
       });
       return h('label', { class: 'switch-card sw-chip' }, input, h('span', { class: 'sw-emoji', html: icon(ic, 15) }), h('span', { class: 'sw-label' }, t(key)));
     };
@@ -311,21 +305,21 @@ export class Shell {
       input.addEventListener('change', () => { sfx.tap(); set(input.checked); });
       return h('label', { class: 'switch-card sw-chip', title: tip }, input, h('span', { class: 'sw-emoji', html: icon(ic, 15) }), h('span', { class: 'sw-label' }, t(label)));
     };
-    const curMode: SurfaceMode = s.surfaceMode ?? (s.terrain ? 'realistic' : 'political');
+    const curMode = s.surfaceMode;
     const modeRow = h('div', { class: 'seg-row' },
       ...([
-        ['realistic', t('modeSat'), { terrain: true, surfaceMode: 'realistic' as SurfaceMode }],
-        ['minimal', t('modeVec'), { surfaceMode: 'minimal' as SurfaceMode }],
-        ['political', t('modePol'), { terrain: false, surfaceMode: 'political' as SurfaceMode }],
-      ] as const).map(([m, label, patch]) =>
+        ['realistic', t('modeSat')],
+        ['minimal', t('modeVec')],
+        ['political', t('modePol')],
+      ] as const).map(([m, label]) =>
         h('button', {
           class: 'pill' + (curMode === m ? ' active' : ''),
           'data-testid': 'mode-' + m,
-          onclick: () => { sfx.tap(); updateSettings(patch); },
+          onclick: () => { sfx.tap(); updateSettings({ surfaceMode: m as SurfaceMode }); },
         }, label)
       )
     );
-    const curAura: AuraPreset = s.auraPreset ?? 'waves';
+    const curAura = s.auraPreset;
     const auraRow = h('div', { class: 'seg-row aura-row' },
       ...AURA_ORDER.map(p =>
         h('button', {
@@ -344,9 +338,8 @@ export class Shell {
     const earth = this.space ? [] : [
       h('h3', {}, t('surfaceMode')), modeRow,
       h('h3', {}, t('auraPreset')), auraRow,
-      h('h3', {}, t('mMap')), h('div', { class: 'chip-wrap' }, sw('terrain', 'mountain'), sw('names', 'tag'), sw('borders', 'globe'), sw('shadows', 'contrast')),
+      h('h3', {}, t('mLayers')), h('div', { class: 'chip-wrap' }, sw('names', 'tag'), sw('borders', 'globe'), sw('graticule', 'grid'), sw('shadows', 'contrast'), sw('clouds', 'cloud'), sw('aurora', 'aurora'), sw('tectonics', 'plates')),
       h('h3', {}, t('mGlobe')), h('div', { class: 'chip-wrap' }, ...TYPE_ORDER.filter(ty => BY_TYPE[ty].length).map(ty => sw(TYPE_META[ty].layer, TYPE_ICON[ty]))),
-      h('h3', {}, t('mLayers')), h('div', { class: 'chip-wrap' }, sw('graticule', 'grid'), sw('tectonics', 'plates'), sw('clouds', 'cloud'), sw('aurora', 'aurora')),
     ];
     this.menu.classList.toggle('menu-space', this.space);
     const small = (id: string, ic: IconName, label: string, fn: () => void) =>

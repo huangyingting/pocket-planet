@@ -35,7 +35,7 @@ The game works fully without an account; progress is stored in `localStorage` an
 | `?lowfx=1` | reduced motion + the `low` tier (DPR 1, no antialiasing, 512 px map texture); also on when `prefers-reduced-motion` is set (`lowfx=0` overrides) |
 | `?notut` | skip the first-visit tutorial |
 | `#<key>` | deep link to an item, e.g. `/#eiffel`, `/#an_lion` |
-| `#daily` | open Daily Planet |
+| `#lesson/<id>` | open a geography lesson, e.g. `#lesson/revolution` |
 | `#solar`, `#solar/<body>`, `#solar/<feature>` | open the Solar System (overview, e.g. `#solar/mars`, or a feature such as `#solar/sf_mars_olympus_mons`) |
 | `#milkyway`, `#localgroup`, `#laniakea`, `#universe` (each with optional `/<key>`) | open a deep-space scale, e.g. `#milkyway/dp_orion_nebula` |
 | `#sky`, `#sky/<event-id>` | open the sky theatre, e.g. `#sky/solar-eclipse-2026-08-12` |

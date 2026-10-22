@@ -35,7 +35,7 @@
 * { scrollbar-color: rgba(125, 211, 252, 0.3) transparent; }
 
 /* ---- the slab: shared geometry for everything that carries the cut-corner silhouette ---- */
-.tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .tour-card, .photo-bar, .hints, .zoom-ctl, .round-btn, .toast, .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info, .solar-ui .solar-hint, .hub-card, .game-card, .dex-card, .near-card, .diff, .opt, .reader-continue, .cta, .pill, .seg button, .react, .read-more, .hero-btn, .switch-card, .lv-cur, .lv-list {
+.tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .tour-card, .photo-bar, .hints, .zoom-ctl, .round-btn, .toast, .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info, .solar-ui .solar-hint, .hub-card, .dex-card, .near-card, .diff, .opt, .reader-continue, .cta, .pill, .seg button, .react, .read-more, .hero-btn, .switch-card, .lv-cur, .lv-list {
   --cut: 12px; --edge: var(--hud-line);
   --pp-clip: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
   --pp-cuts:
@@ -45,7 +45,7 @@
   border-radius: 0;
 }
 .zoom-ctl, .round-btn, .toast, .solar-ui .solar-hint { --cut: 9px; }
-.hub-card, .game-card, .dex-card, .near-card, .diff, .opt, .reader-continue, .switch-card { --cut: 10px; }
+.hub-card, .dex-card, .near-card, .diff, .opt, .reader-continue, .switch-card { --cut: 10px; }
 .cta, .pill, .seg button, .react, .read-more, .hero-btn { --cut: 7px; }
 .pill-sm { --cut: 5px; }
 
@@ -100,7 +100,7 @@
 }
 
 /* ---- type: display / data / reading ---- */
-.modal-head h2, .info-body h2, .passport-head h3, .tut-card h2, .tour-card h2, .hub-card strong, .game-card strong, .result h3, .big-score, .reader-article h1 {
+.modal-head h2, .info-body h2, .passport-head h3, .tut-card h2, .tour-card h2, .hub-card strong, .result h3, .big-score, .reader-article h1 {
   font-family: var(--font-hud); letter-spacing: .02em;
 }
 .brand h1 { font-family: var(--font-hud); font-size: 1.14rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; text-shadow: 0 0 16px rgba(125, 211, 252, 0.4), 0 1px 10px #000; }
@@ -132,7 +132,7 @@
 .more summary { font-size: .92rem; }
 .fun { font-size: .94rem; border-left-color: var(--sig); }
 .hints { font-size: .92rem; font-family: var(--font-hud); letter-spacing: .02em; color: var(--hud-hi); }
-.hub-sub, .gc-sub { font-size: .88rem; }
+.hub-sub { font-size: .88rem; }
 .zoom-readout, .hub-stat, .reader-meta, .hud-score, .scoreline, .time-year, .rank, .solar-ui .solar-date, .solar-ui .solar-speed {
   font-family: var(--font-data); letter-spacing: .06em; font-variant-numeric: tabular-nums;
 }
@@ -240,46 +240,45 @@
 .time-ico { color: var(--hud-hi); }
 
 /* ---- cards: indexed slabs that lock on (amber cut edges + hatch band) on hover ---- */
-.hub-grid, .game-grid, .diff-grid { counter-reset: pp-card; }
-.hub-card, .game-card, .dex-card, .near-card, .diff, .opt, .reader-continue {
+.hub-grid, .diff-grid { counter-reset: pp-card; }
+.hub-card, .dex-card, .near-card, .diff, .opt, .reader-continue {
   position: relative; border-color: var(--line);
   background: var(--pp-cuts), rgba(125, 211, 252, 0.035);
   transition: --edge .25s, border-color .25s, background-color .25s, transform .2s var(--ease-out);
 }
-.hub-card, .game-card, .diff { counter-increment: pp-card; }
-.hub-card::after, .game-card::after, .diff::after {
+.hub-card, .diff { counter-increment: pp-card; }
+.hub-card::after, .diff::after {
   content: counter(pp-card, decimal-leading-zero); position: absolute; top: 12px; right: 14px; pointer-events: none;
   font: 500 .74rem/1 var(--font-data); letter-spacing: .1em; color: var(--hud-dim); transition: color .2s;
 }
-.hub-card::before, .game-card::before, .dex-card::before, .near-card::before, .diff::before, .reader-continue::before {
+.hub-card::before, .dex-card::before, .near-card::before, .diff::before, .reader-continue::before {
   content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; pointer-events: none;
   background: repeating-linear-gradient(115deg, var(--sig) 0 5px, transparent 5px 10px);
   transform: scaleX(0); transform-origin: left; transition: transform .38s var(--ease-out);
 }
-.hub-card:hover, .game-card:hover, .dex-card:hover, .near-card:hover, .diff:hover, .opt:hover:not([disabled]), .reader-continue:hover {
+.hub-card:hover, .dex-card:hover, .near-card:hover, .diff:hover, .opt:hover:not([disabled]), .reader-continue:hover {
   --edge: var(--sig); border-color: var(--line-strong); background-color: rgba(125, 211, 252, 0.07); transform: translateY(-2px);
 }
-:is(.hub-card, .game-card, .dex-card, .near-card, .diff, .reader-continue):hover::before { transform: scaleX(1); }
-:is(.hub-card, .game-card, .diff):hover::after { color: var(--sig); }
-.hub-card:hover .hub-ico, .game-card:hover .hub-ico { box-shadow: 0 0 16px rgba(125, 211, 252, 0.35); }
-.hub-card:hover .hub-ico .ico, .game-card:hover .hub-ico .ico { filter: drop-shadow(0 0 5px rgba(125, 211, 252, 0.9)); }
-.hub-card strong, .game-card strong { font-size: 1.1rem; }
+:is(.hub-card, .dex-card, .near-card, .diff, .reader-continue):hover::before { transform: scaleX(1); }
+:is(.hub-card, .diff):hover::after { color: var(--sig); }
+.hub-card:hover .hub-ico { box-shadow: 0 0 16px rgba(125, 211, 252, 0.35); }
+.hub-card:hover .hub-ico .ico { filter: drop-shadow(0 0 5px rgba(125, 211, 252, 0.9)); }
+.hub-card strong { font-size: 1.1rem; }
 .hub-foot { border-top-color: var(--hud-line); }
 .hub-stat { color: var(--hud-hi); }
 .opt.right { --edge: var(--good); border-color: var(--good); }
 .opt.wrong { --edge: var(--bad); border-color: var(--bad); }
-.gc-badge { border-radius: 0; font-family: var(--font-data); letter-spacing: .12em; }
 .dex-cell, .sticker, .stamp, .thumb { border-radius: 0; }
 .dex-cell.have { border-color: var(--hud-line); background: var(--hud-fill); box-shadow: inset 0 2px 0 var(--sig); }
 .sticker.have { border-color: var(--hud); }
 
 /* staggered materialise for grids */
-.hub-grid > *, .game-grid > *, .stamp-grid > *, .search-grid > *, .diff-grid > *, .opts > * { animation: hud-rise .42s var(--ease-out) both; }
-:is(.hub-grid, .game-grid, .stamp-grid, .search-grid, .diff-grid, .opts) > :nth-child(2) { animation-delay: .04s; }
-:is(.hub-grid, .game-grid, .stamp-grid, .search-grid, .diff-grid, .opts) > :nth-child(3) { animation-delay: .08s; }
-:is(.hub-grid, .game-grid, .stamp-grid, .search-grid, .diff-grid, .opts) > :nth-child(4) { animation-delay: .12s; }
-:is(.hub-grid, .game-grid, .stamp-grid, .search-grid, .diff-grid, .opts) > :nth-child(n+5) { animation-delay: .16s; }
-:is(.hub-grid, .game-grid, .stamp-grid, .search-grid) > :nth-child(n+9) { animation-delay: .22s; }
+.hub-grid > *, .stamp-grid > *, .search-grid > *, .diff-grid > *, .opts > * { animation: hud-rise .42s var(--ease-out) both; }
+:is(.hub-grid, .stamp-grid, .search-grid, .diff-grid, .opts) > :nth-child(2) { animation-delay: .04s; }
+:is(.hub-grid, .stamp-grid, .search-grid, .diff-grid, .opts) > :nth-child(3) { animation-delay: .08s; }
+:is(.hub-grid, .stamp-grid, .search-grid, .diff-grid, .opts) > :nth-child(4) { animation-delay: .12s; }
+:is(.hub-grid, .stamp-grid, .search-grid, .diff-grid, .opts) > :nth-child(n+5) { animation-delay: .16s; }
+:is(.hub-grid, .stamp-grid, .search-grid) > :nth-child(n+9) { animation-delay: .22s; }
 @keyframes hud-rise { from { opacity: 0; transform: translateY(10px) scale(.98); } }
 
 /* ---- passport: earned = amber, progress = hatched signal bar ---- */
@@ -405,7 +404,6 @@ body.q-low :is(.tools, .menu, .info, .modal-panel, .brand-mark)::after, body.q-l
 @media (prefers-reduced-motion: reduce) {
   :is(.tools, .menu, .info, .modal-panel, .brand-mark)::after, :is(.type-chip, .brand-mark)::before, .coord-reticle::after { animation: none; }
 }
-.game-card:has(.gc-badge)::after { content: none; }
 
 /* ---- tooltip (replaces the native title tooltip; see ui/tooltip.ts) ---- */
 .pp-tip {

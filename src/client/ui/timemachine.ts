@@ -18,7 +18,7 @@ export function stopLabel(s: Stop): string {
 export class TimeMachine {
   readonly el = h('div', { class: 'time-bar hidden', 'data-testid': 'time-bar', role: 'group' });
   private idx = STOPS.length - 1;
-  constructor(private globe: Globe, private go: (it: CatalogueItem) => void, private onToggle: (open: boolean) => void = () => {}) {}
+  constructor(private globe: Globe, private go: (it: CatalogueItem) => void) {}
 
   get open(): boolean { return !this.el.classList.contains('hidden'); }
 
@@ -28,7 +28,6 @@ export class TimeMachine {
     document.body.classList.toggle('time-travel', show);
     if (show) { this.idx = STOPS.length - 1; this.render(); }
     this.apply(show ? STOPS[this.idx] : 'now');
-    this.onToggle(show);
   }
 
   refresh(): void { if (this.open) this.render(); }

@@ -29,14 +29,14 @@ export const AURA_PRESETS: Record<AuraPreset, { label: string; colors: [string, 
 };
 
 export type Settings = Record<LayerKey, boolean> & {
-  terrain: boolean; names: boolean; borders: boolean; shadows: boolean; sfx: boolean; bgm: boolean;
+  names: boolean; borders: boolean; shadows: boolean; sfx: boolean; bgm: boolean;
   /** globe layers: plate boundaries, drifting clouds, polar aurora */
   tectonics: boolean; clouds: boolean; aurora: boolean; graticule: boolean;
-  auraPreset?: AuraPreset;
-  surfaceMode?: SurfaceMode;
+  auraPreset: AuraPreset;
+  surfaceMode: SurfaceMode;
 };
 export const DEFAULT_SETTINGS: Settings = {
-  terrain: true, names: true, borders: true, shadows: true,
+  names: true, borders: true, shadows: true,
   landmarks: true, animals: true, discoveries: true, vehicles: true,
   dinos: true, foods: true, festivals: true, space: true, plants: true, sports: true, volcanoes: true, migrations: true, voyages: true, people: true,
   tectonics: false, clouds: true, aurora: true, graticule: true,
@@ -1360,7 +1360,7 @@ export class Globe {
     this.earthUniforms.uLandMix.value += (targetLandMix - this.earthUniforms.uLandMix.value) * 0.12;
 
     // relief fades in once loaded: full on the satellite map, softer on the flat political / minimal maps
-    const targetRelief = !this.reliefReady ? 0 : this.settings.surfaceMode === 'realistic' || (!this.settings.surfaceMode && this.settings.terrain) ? 1.0 : 0.6;
+    const targetRelief = !this.reliefReady ? 0 : this.settings.surfaceMode === 'realistic' ? 1.0 : 0.6;
     const ru = this.earthUniforms.uReliefMix;
     if (Math.abs(targetRelief - ru.value) > 0.002) { ru.value += (targetRelief - ru.value) * 0.12; this.dirty = true; } else ru.value = targetRelief;
 
