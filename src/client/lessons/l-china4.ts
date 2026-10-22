@@ -622,6 +622,10 @@ export const CHINA_D: Lesson[] = [
         why: ['Hong Kong brought money, orders and marketing; the delta had land and workers.', '香港提供资金、订单和营销，珠三角提供土地和劳动力。'] },
       { q: ['Label the map.', '在地图上标出这些地方。'], place: [{ text: ['Hong Kong', '香港'], at: HK, tolKm: 35 }, { text: ['Macao', '澳门'], at: MO, tolKm: 35 }, { text: ['Guangzhou', '广州'], at: GZ, tolKm: 35 }],
         why: ['Hong Kong is east of the Pearl River mouth, Macao west of it, Guangzhou at its head.', '香港在珠江口东侧，澳门在西侧，广州在珠江口北面。'] },
+      { q: ['Why does the Hong Kong–Zhuhai–Macao Bridge dive into a tunnel in the middle?', '港珠澳大桥中段为什么要转入海底隧道？'],
+        options: [['So big ships can pass and planes near Hong Kong airport are not blocked', '不影响大型船舶通航，也不妨碍香港机场的航线'], ['Because the sea there is too shallow for a bridge', '因为那里海水太浅，无法建桥'],
+          ['To save money: tunnels are cheaper than bridges', '为了省钱：隧道比桥便宜'], ['To keep out typhoon rain', '为了躲避台风降雨']], answer: 0,
+        why: ['The 6.7 km tunnel, between two artificial islands, keeps the main shipping channel and the airport\'s flight paths clear.', '长约 6.7 千米的海底隧道连接东西两个人工岛，既保证了主航道通航，又避开了机场航线。'] },
     ],
   },
   {

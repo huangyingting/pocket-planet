@@ -80,6 +80,33 @@ const elementsFig: Fig = {
   },
 };
 
+/** A star's fate by its birth mass, on a logarithmic mass bar. */
+const fateFig: Fig = {
+  k: 'svg', draw: (L: Lx) => {
+    const x0 = 14, x1 = 306, lo = Math.log10(0.08), hi = Math.log10(100);
+    const X = (m: number) => x0 + ((x1 - x0) * (Math.log10(m) - lo)) / (hi - lo);
+    const seg: [a: number, b: number, c: string, name: Pair, path: Pair, end: Pair][] = [
+      [0.08, 0.5, '#ff8f6b', ['red dwarfs', '红矮星'], ['shine 100s of billions of years', '可燃烧数千亿年以上'], ['→ white dwarf (none yet)', '→ 白矮星（尚未出现）']],
+      [0.5, 8, '#ffd24a', ['Sun-like', '类太阳'], ['red giant → planetary nebula', '红巨星 → 行星状星云'], ['→ white dwarf ≤ 1.4 M☉', '→ 白矮星 ≤ 1.4 M☉']],
+      [8, 25, '#74c0fc', ['massive', '大质量'], ['red supergiant → supernova', '红超巨星 → 超新星'], ['→ neutron star, ~20 km', '→ 中子星，直径约 20 km']],
+      [25, 100, '#b197fc', ['very massive', '特大质量'], ['supergiant → collapse', '超巨星 → 坍缩'], ['→ black hole', '→ 黑洞']],
+    ];
+    let o = tx(160, 12, L(['Birth mass decides the ending (M☉ = Sun’s mass)', '出生时的质量决定结局（M☉ = 太阳质量）']), 'fg-title', 'm');
+    seg.forEach(([a, b, c, n, p, e], k) => {
+      const xa = X(a), xb = X(b), xm = (xa + xb) / 2, y = 34 + (k % 2) * 0;
+      o += `<g class="f-fade" style="--d:${0.15 + k * 0.3}s"><rect x="${xa.toFixed(1)}" y="${y}" width="${(xb - xa - 1).toFixed(1)}" height="16" rx="3" fill="${c}" fill-opacity=".3" stroke="${c}"/>`;
+      o += tx(xm, y + 11.5, L(n), 'fg-label', 'm');
+      const ty = 72 + k * 20;
+      o += `<line x1="${xm.toFixed(1)}" y1="${y + 16}" x2="${xm.toFixed(1)}" y2="${ty - 9}" stroke="${c}" stroke-opacity=".6" stroke-width=".8"/>`;
+      const anchor = k < 2 ? 's' : 'e', tx0 = k < 2 ? xm - 4 : xm + 4;
+      o += tx(tx0, ty, L(p), 'fg-sub', anchor) + tx(tx0, ty + 9, L(e), 'fg-label', anchor, ` style="fill:${c}"`) + '</g>';
+    });
+    for (const m of [0.1, 0.5, 1, 8, 25, 100]) o += tx(X(m), 60, `${m}`, 'fg-tick', 'm');
+    o += `<circle cx="${X(1).toFixed(1)}" cy="42" r="2.5" fill="#fff"/>`;
+    return svg(320, 150, o, L(['The fate of a star by its mass', '不同质量恒星的结局']));
+  },
+};
+
 // ------------------------------------------------------------------------------------------------ lessons
 
 const cosmos: Pair = ['Galaxies and the universe', '星系和宇宙'];
@@ -140,6 +167,14 @@ export const A_STARS: Lesson[] = [
       { q: ['Andromeda is 2.5 million light-years away. The light we see from it tonight left it…', '仙女星系距我们 250 万光年。我们今晚看到的它的光，是什么时候发出的？'],
         options: [['about 2.5 million years ago', '约 250 万年前'], ['about 2.5 years ago', '约 2.5 年前'], ['8 minutes ago', '8 分钟前'], ['just now', '刚刚']], answer: 0,
         why: ['Light takes one year to cross each light-year, so we see Andromeda as it was 2.5 million years ago.', '光走 1 光年要 1 年，所以我们看到的是 250 万年前的仙女星系。'] },
+      { q: ['Proxima Centauri is 4.2 light-years away, and 1 light-year ≈ 9.46 trillion km. About how many trillion km away is it?', '比邻星距我们 4.2 光年，1 光年约 9.46 万亿千米。它距我们约多少万亿千米？'],
+        num: { answer: 39.7, tol: 1, unit: ['trillion km', '万亿千米'] },
+        why: ['4.2 × 9.46 ≈ 39.7 trillion km (4 × 10¹³ km). Even the nearest star is 270 000 times farther than the Sun.', '4.2 × 9.46 ≈ 39.7 万亿千米（4 × 10¹³ 千米）。即使最近的恒星，也比太阳远 27 万倍。'] },
+      { q: ['Put these in order from nearest to farthest.', '把下面的天体按从近到远排序。'],
+        order: [['Proxima Centauri (nearest star)', '比邻星（最近的恒星）'], ['The centre of the Milky Way', '银河系中心'], ['The Large Magellanic Cloud', '大麦哲伦云'], ['The Andromeda Galaxy', '仙女星系']],
+        why: ['4.2 light-years, 26 000 light-years, 160 000 light-years, 2.5 million light-years: each step is roughly 10 to 6 000 times farther.', '4.2 光年、2.6 万光年、16 万光年、250 万光年：每一步都远了几倍到几千倍。'] },
+      { q: ['Tap the Andromeda Galaxy, the biggest neighbour of the Milky Way.', '点出仙女星系——银河系最大的邻居。'], astro: { kit: 'galaxy', mode: 'local' }, pick: 'andromeda',
+        why: ['Andromeda is a large spiral 2.5 million light-years away, a little bigger than the Milky Way; the two will merge in about 4–5 billion years.', '仙女星系是一个距我们 250 万光年的大型旋涡星系，比银河系略大；两者约 40～50 亿年后会相撞并合。'] },
     ],
   },
   {
@@ -151,6 +186,8 @@ export const A_STARS: Lesson[] = [
       ['Apparent brightness falls as 1/d²; absolute magnitude compares stars as if all were 10 parsecs away.', '视亮度与距离的平方成反比；绝对星等是把恒星都放在 10 秒差距处比较的亮度。'],
       ['Parallax gives distance: d (parsecs) = 1 / p (arcseconds); 1 pc ≈ 3.26 light-years.', '用视差测距离：d（秒差距）= 1 / p（角秒），1 秒差距约 3.26 光年。'],
       ['Luminosity L = 4πR²σT⁴. The HR diagram plots L against T: main sequence, giants, supergiants and white dwarfs.', '光度 L = 4πR²σT⁴。赫罗图以温度为横轴、光度为纵轴，分出主序星、巨星、超巨星和白矮星。'],
+      ['Distance modulus: m − M = 5 log₁₀(d / 10 pc).', '距离模数：m − M = 5 log₁₀(d / 10 秒差距)。'],
+      ['On the main sequence L ∝ M^3.5 and lifetime t ≈ 10 billion years × (M/M☉)^−2.5: heavy stars die young.', '主序星的光度 L ∝ M^3.5，寿命 t ≈ 100 亿年 × (M/M☉)^−2.5：质量越大，寿命越短。'],
     ],
     steps: [
       {
@@ -170,9 +207,19 @@ export const A_STARS: Lesson[] = [
         astro: { kit: 'stars', mode: 'parallax', clock: { from: 0, to: 365, rate: 45, unit: 'day' } },
       },
       {
+        title: ['Magnitude and distance', '星等和距离'],
+        body: ['Sirius (m = −1.46) is the brightest star of our night sky, and Rigel (m = +0.13) looks a little fainter. But Sirius is only 2.64 pc (8.6 light-years) away, Rigel about 260 pc. The distance modulus m − M = 5 log₁₀(d / 10 pc) turns that into absolute magnitudes: Sirius M = +1.4, Rigel M ≈ −7.0. Rigel truly gives out about 5 000 times more light; it just lies 100 times farther away.', '天狼星（视星等 −1.46）是夜空中最亮的恒星，参宿七（+0.13）看起来稍暗一些。可是天狼星距我们只有 2.64 秒差距（8.6 光年），参宿七却远在约 260 秒差距。用距离模数 m − M = 5 log₁₀(d / 10 秒差距) 换算成绝对星等：天狼星 M = +1.4，参宿七 M ≈ −7.0。参宿七实际的发光本领约是天狼星的 5000 倍，只是它远了 100 倍。'],
+        astro: { kit: 'sky', view: 'dome', look: [180, 30], fov: 72, t: Date.UTC(2025, 0, 15, 13), cons: ['ori', 'cma', 'tau'], names: true, stars: ['Sirius', 'Rigel', 'Betelgeuse'] },
+      },
+      {
         title: ['Luminosity and the HR diagram', '光度和赫罗图'],
         fig: hrFig(false),
         body: ['A star’s luminosity L is the total power it gives out. It depends on size and temperature: L = 4πR²σT⁴. Plot luminosity against temperature and most stars, including the Sun, fall on one band: the main sequence. Stars that are cool but very bright must be huge (giants and supergiants); hot but dim ones must be tiny (white dwarfs).', '光度 L 是恒星每秒发出的总能量，它由大小和温度决定：L = 4πR²σT⁴。以温度为横轴、光度为纵轴画图，就是赫罗图。大多数恒星（包括太阳）都落在一条带上，叫主序星。温度低却很亮的恒星一定非常大（巨星和超巨星）；温度高却很暗的恒星一定非常小（白矮星）。'],
+        astro: { kit: 'stars', mode: 'hr', named: true },
+      },
+      {
+        title: ['The main sequence is a mass sequence', '主序就是质量序列'],
+        body: ['Along the main sequence, mass decides everything. Luminosity rises steeply with mass, roughly L ∝ M^3.5: a 10 M☉ B star is about 3 000 times as luminous as the Sun, a 0.5 M☉ red dwarf less than 1/10. Since fuel ∝ M but burning rate ∝ L, lifetime t ≈ 10 billion years × M^−2.5: about 30 million years for 10 M☉, 1.8 billion for 2 M☉ and over 50 billion for 0.5 M☉. Top left is massive, hot and short-lived; bottom right is small, cool and almost immortal.', '在主序上，质量决定一切。光度随质量急剧增大，大约 L ∝ M^3.5：10 倍太阳质量的 B 型星光度约是太阳的 3000 倍，0.5 倍太阳质量的红矮星不到太阳的 1/10。燃料与 M 成正比，消耗速度与 L 成正比，所以寿命 t ≈ 100 亿年 × M^−2.5：10 倍太阳质量约 3000 万年，2 倍约 18 亿年，0.5 倍超过 500 亿年。主序左上方的恒星质量大、温度高、寿命短；右下方的恒星小、冷，几乎“长生不老”。'],
         astro: { kit: 'stars', mode: 'hr', named: true },
       },
       {
@@ -193,6 +240,18 @@ export const A_STARS: Lesson[] = [
         why: ['d = 1/p = 1/0.1 = 10 parsecs, about 33 light-years.', 'd = 1/p = 1/0.1 = 10 秒差距，约 33 光年。'] },
       { q: ['Tap the Sun on the HR diagram.', '在赫罗图上点出太阳。'], astro: { kit: 'stars', mode: 'hr' }, pick: 'sun',
         why: ['The Sun is a middle-of-the-road main-sequence star: about 5 800 K, luminosity 1.', '太阳是一颗普通的主序星：表面温度约 5800 K，光度为 1。'] },
+      { q: ['A star has apparent magnitude m = +5 and absolute magnitude M = 0. Using m − M = 5 log₁₀(d / 10 pc), how many parsecs away is it?', '一颗恒星的视星等 m = +5，绝对星等 M = 0。用 m − M = 5 log₁₀(d / 10 秒差距) 计算，它距我们多少秒差距？'],
+        num: { answer: 100, tol: 2, unit: ['pc', '秒差距'] },
+        why: ['5 = 5 log₁₀(d/10), so d/10 = 10 and d = 100 pc (326 light-years). Each 5 magnitudes of dimming means 10 times the distance.', '5 = 5 log₁₀(d/10)，所以 d/10 = 10，d = 100 秒差距（326 光年）。暗 5 个星等就相当于远 10 倍。'] },
+      { q: ['A main-sequence star has twice the Sun’s mass. Lifetime scales as M^−2.5. How many times shorter is its life than the Sun’s?', '一颗主序星的质量是太阳的 2 倍。寿命与 M^−2.5 成正比。它的寿命比太阳短多少倍？'],
+        num: { answer: 5.66, tol: 0.3, unit: ['times', '倍'] },
+        why: ['2^2.5 = 5.66, so it lives about 10 / 5.66 ≈ 1.8 billion years. It has twice the fuel but burns it about 11 times faster (2^3.5).', '2^2.5 = 5.66，所以它只能存在约 100 / 5.66 ≈ 18 亿年。燃料是太阳的 2 倍，燃烧速度却约是 11 倍（2^3.5）。'] },
+      { q: ['Put these spectral classes in order from hottest to coolest.', '把这些光谱型按从热到冷排序。'],
+        order: [['O (blue, over 30 000 K)', 'O 型（蓝色，30000 K 以上）'], ['B (blue-white, e.g. Rigel)', 'B 型（蓝白色，如参宿七）'], ['A (white, e.g. Sirius, Vega)', 'A 型（白色，如天狼星、织女星）'], ['G (yellow, the Sun)', 'G 型（黄色，太阳）'], ['M (red, e.g. Betelgeuse)', 'M 型（红色，如参宿四）']],
+        why: ['The sequence is O B A F G K M, from over 30 000 K down to below 3 700 K. Colour goes from blue through white and yellow to red.', '光谱型顺序是 O、B、A、F、G、K、M，温度从 30000 K 以上降到 3700 K 以下，颜色从蓝、白、黄变到红。'] },
+      { q: ['Match each star with its surface temperature.', '把恒星和它的表面温度配对。'],
+        match: [[['Betelgeuse (red)', '参宿四（红色）'], ['about 3 600 K', '约 3600 K']], [['The Sun (yellow-white)', '太阳（黄白色）'], ['about 5 800 K', '约 5800 K']], [['Sirius (white)', '天狼星（白色）'], ['about 9 900 K', '约 9900 K']], [['Rigel (blue-white)', '参宿七（蓝白色）'], ['about 12 000 K', '约 12000 K']]],
+        why: ['Wien’s law: λmax = 2.9 × 10⁻³ / T. Betelgeuse peaks in the infrared (≈ 800 nm), the Sun in green-yellow (500 nm), Rigel in the ultraviolet (≈ 240 nm).', '维恩定律：λmax = 2.9 × 10⁻³ / T。参宿四的辐射峰值在红外（约 800 nm），太阳在黄绿光（500 nm），参宿七在紫外（约 240 nm）。'] },
     ],
   },
   {
@@ -203,6 +262,7 @@ export const A_STARS: Lesson[] = [
       ['Stars shine by fusing hydrogen into helium; the lost mass becomes energy (E = mc²).', '恒星靠氢聚变成氦而发光，减少的质量转化为能量（E = mc²）。'],
       ['A star’s mass decides its life. Sun-like: red giant → planetary nebula → white dwarf.', '质量决定恒星的一生。类太阳恒星：红巨星 → 行星状星云 → 白矮星。'],
       ['Massive stars: red supergiant → supernova → neutron star or black hole.', '大质量恒星：红超巨星 → 超新星爆发 → 中子星或黑洞。'],
+      ['By birth mass: under 0.5 M☉ red dwarfs; 0.5–8 M☉ white dwarfs (at most 1.4 M☉, the Chandrasekhar limit); 8–25 M☉ neutron stars; above ~25 M☉ black holes.', '按出生质量分：0.5 M☉ 以下是红矮星；0.5～8 M☉ 最终成为白矮星（不超过 1.4 M☉，即钱德拉塞卡极限）；8～25 M☉ 成为中子星；约 25 M☉ 以上成为黑洞。'],
       ['Almost every element heavier than helium was made in stars: we are made of star stuff.', '几乎所有比氦重的元素都是在恒星中产生的：我们身体里的原子来自恒星。'],
       ['The Sun is 4.6 billion years old; in about 5 billion years it will become a red giant, then a white dwarf.', '太阳约 46 亿岁，再过约 50 亿年它将变成红巨星，最后成为白矮星。'],
     ],
@@ -228,6 +288,12 @@ export const A_STARS: Lesson[] = [
         astro: { kit: 'life', mode: 'massive', end: 'ns', clock: { from: 0, to: 5, rate: 0.32, unit: 'x', fmt: ['Massive star', '大质量恒星'], once: true } },
       },
       {
+        title: ['Four endings by mass', '按质量分的四种结局'],
+        fig: fateFig,
+        body: ['Birth mass sorts stars into four fates. Red dwarfs under 0.5 M☉ burn so slowly that none has died yet in the universe’s 13.8 billion years. Stars of 0.5–8 M☉ end as white dwarfs, which can hold at most 1.4 M☉ (the Chandrasekhar limit, 1930). From about 8 to 25 M☉ the collapsing core becomes a neutron star: 1.4–2 M☉ squeezed into a ball 20 km across. Above about 25 M☉ even neutrons cannot stop the collapse, and a black hole forms.', '出生质量把恒星分成四种结局。0.5 M☉ 以下的红矮星燃烧得非常慢，宇宙诞生 138 亿年以来还没有一颗死去。0.5～8 M☉ 的恒星最终成为白矮星，白矮星的质量最多 1.4 M☉（钱德拉塞卡极限，1930 年）。约 8～25 M☉ 的恒星，坍缩的核心成为中子星：1.4～2 M☉ 的物质挤在直径约 20 千米的球里。约 25 M☉ 以上，连中子也挡不住坍缩，形成黑洞。'],
+        astro: { kit: 'life', mode: 'both' },
+      },
+      {
         title: ['We are made of star stuff', '我们来自恒星'],
         fig: elementsFig,
         body: ['Hydrogen and helium came from the Big Bang. Carbon, oxygen, iron and most other elements were made by fusion inside stars, and many heavier ones, like gold and uranium, in supernovae and collisions of neutron stars. These explosions scatter the elements into space, where they become part of new stars and planets — and of us.', '氢和氦来自宇宙大爆炸。碳、氧、铁等大多数元素是在恒星内部通过核聚变产生的；金、铀等许多更重的元素产生于超新星爆发和中子星并合。这些爆发把元素撒向太空，成为新的恒星、行星——以及我们身体的一部分。'],
@@ -251,6 +317,15 @@ export const A_STARS: Lesson[] = [
       { q: ['About when will the Sun become a red giant?', '太阳大约什么时候会变成红巨星？'],
         options: [['In about 5 billion years', '约 50 亿年后'], ['In about 5 million years', '约 500 万年后'], ['It already is one', '它已经是红巨星了'], ['Never: it will explode first', '永远不会：它会先爆炸']], answer: 0,
         why: ['The Sun is 4.6 billion years old, about halfway through its ~10-billion-year main-sequence life.', '太阳约 46 亿岁，大约走完了约 100 亿年主序阶段的一半。'] },
+      { q: ['Put the stages in the life of a 20 M☉ star in order.', '把一颗 20 倍太阳质量恒星一生的阶段排好顺序。'],
+        order: [['Nebula of gas and dust', '气体和尘埃组成的星云'], ['Main-sequence star fusing hydrogen', '主序星，氢聚变'], ['Red supergiant fusing up to iron', '红超巨星，聚变到铁'], ['Supernova', '超新星爆发'], ['Neutron star', '中子星']],
+        why: ['Nebula → main sequence (about 10 million years) → red supergiant → core collapse and supernova → a neutron star about 20 km across.', '星云 → 主序星（约 1000 万年）→ 红超巨星 → 核心坍缩、超新星爆发 → 直径约 20 千米的中子星。'] },
+      { q: ['Match each birth mass with how the star ends.', '把恒星的出生质量和它的结局配对。'],
+        match: [[['0.2 M☉', '0.2 M☉'], ['still shining as a red dwarf', '仍是一颗红矮星']], [['1 M☉ (the Sun)', '1 M☉（太阳）'], ['white dwarf', '白矮星']], [['15 M☉', '15 M☉'], ['neutron star', '中子星']], [['40 M☉', '40 M☉'], ['black hole', '黑洞']]],
+        why: ['Red dwarfs outlive the present universe; up to 8 M☉ a white dwarf remains; 8–25 M☉ leaves a neutron star; above ~25 M☉ a black hole.', '红矮星的寿命比现在的宇宙年龄还长；8 M☉ 以下留下白矮星；8～25 M☉ 留下中子星；约 25 M☉ 以上留下黑洞。'] },
+      { q: ['Each second the Sun turns about 4 million tonnes of mass into energy. Using E = mc² with c = 3 × 10⁸ m/s, how many × 10²⁶ watts is that?', '太阳每秒约有 400 万吨质量转化为能量。用 E = mc²（c = 3 × 10⁸ m/s）计算，太阳的功率约是多少 × 10²⁶ 瓦？'],
+        num: { answer: 3.6, tol: 0.3, unit: ['× 10²⁶ W', '× 10²⁶ 瓦'] },
+        why: ['m = 4 × 10⁹ kg; E = 4 × 10⁹ × (3 × 10⁸)² = 3.6 × 10²⁶ J every second. The measured luminosity is 3.8 × 10²⁶ W.', 'm = 4 × 10⁹ 千克；E = 4 × 10⁹ × (3 × 10⁸)² = 3.6 × 10²⁶ 焦，每秒如此。实测太阳光度为 3.8 × 10²⁶ 瓦。'] },
     ],
   },
 ];

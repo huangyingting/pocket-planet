@@ -5,7 +5,7 @@ import type { AstroScene } from './types.ts';
 
 const unitSky: Pair = ['The night sky', '星空'];
 const unitModels: Pair = ['Planets and models of the universe', '行星运动和宇宙模型'];
-const DAY = 864e5, H = 36e5;
+const DAY = 864e5;
 const OPP = Date.UTC(2025, 0, 16);
 const VIC = Date.UTC(2025, 2, 23);
 /** UTC instant of a Beijing (UTC+8) local time */
@@ -75,6 +75,7 @@ export const A_SKY: Lesson[] = [
     keys: [
       ['The sky is divided into 88 constellations; their patterns stay the same for centuries.', '全天划分为 88 个星座，它们的图形几百年都几乎不变。'],
       ['Earth rotates from west to east, so the stars seem to turn from east to west around the celestial pole, about 15° an hour.', '地球自西向东自转，所以星空看起来绕着天极自东向西转动，每小时约 15°。'],
+      ['The celestial sphere: Earth’s axis points at the celestial poles, its equator at the celestial equator; star positions are given by right ascension and declination.', '天球：地轴延长指向南北天极，赤道平面延伸成天赤道；恒星的位置用赤经和赤纬表示。'],
       ['Stars close to the pole never set: they are circumpolar stars.', '靠近天极的恒星永不落到地平线以下，叫作拱极星。'],
       ['Earth orbits the Sun, so the evening sky changes with the seasons: Orion in winter, the Summer Triangle in summer.', '地球绕太阳公转，所以傍晚的星空随季节变化：冬季看猎户座，夏季看夏季大三角。'],
       ['In the early evening the Big Dipper’s handle points roughly east in spring, south in summer, west in autumn and north in winter.', '初昏时北斗的斗柄：春季大致指东，夏季指南，秋季指西，冬季指北。'],
@@ -89,6 +90,11 @@ export const A_SKY: Lesson[] = [
         title: ['The sky turns round the pole', '星空绕着天极转'],
         body: ['Watch the northern sky for a few hours. Every star moves along a circle around one point, the north celestial pole, close to Polaris. The stars are not really moving: Earth rotates from west to east, so the sky seems to turn the other way, about 15° every hour.', '面向北方观察几个小时：每颗星都绕着同一个点——北天极——画圆，北天极就在北极星旁边。其实并不是星星在转，而是地球自西向东自转，所以星空看起来反方向转动，每小时约转 15°。'],
         astro: { kit: 'sky', view: 'dome', look: [0, 38], fov: 78, t: bj(2025, 2, 15, 18), trails: true, dipper: true, cons: ['umi', 'cas'], stars: ['Polaris'], clock: { from: 0, to: 10, rate: 1, unit: 'hour', once: true } },
+      },
+      {
+        title: ['The celestial sphere', '天球'],
+        body: ['Astronomers picture every star fixed on one huge celestial sphere with Earth at its centre. Extend Earth’s axis (gold) and it meets the sphere at the north and south celestial poles; extend the equator and you get the celestial equator (teal). A star’s address is its right ascension (0–24 h, measured along the celestial equator) and declination (−90° to +90°, like latitude): Polaris is at Dec +89.3°, Sirius at −16.7°. Because Earth turns, the whole sphere seems to spin once every 23 h 56 min, one sidereal day.', '天文学家把所有恒星想象成镶在一个以地球为中心的巨大球面上，这就是天球。把地轴（金色）延长，与天球相交于北天极和南天极；把赤道平面延伸，就是天赤道（青色）。恒星在天球上的“地址”用赤经（0～24 时，沿天赤道量）和赤纬（−90° 到 +90°，类似纬度）表示：北极星的赤纬是 +89.3°，天狼星是 −16.7°。由于地球自转，整个天球看起来每 23 小时 56 分转一圈，这叫一个恒星日。'],
+        astro: { kit: 'sky', view: 'outside', lat: 40, t: bj(2025, 2, 15, 18), arc: true, circles: true, cons: ['umi', 'ori', 'cas'], clock: { from: 0, to: 24, rate: 2, unit: 'hour' } },
       },
       {
         title: ['Circumpolar stars', '拱极星'],
@@ -124,6 +130,15 @@ export const A_SKY: Lesson[] = [
       { q: ['Why do we see different constellations on winter and summer evenings?', '为什么冬季和夏季傍晚看到的星座不同？'],
         options: [['Earth moves round the Sun, so night faces a different direction', '地球绕太阳公转，夜晚朝向的方向不同'], ['The stars move around the galaxy each season', '恒星每个季节在银河系中移动'], ['Earth’s axis flips over', '地轴翻转'], ['Clouds hide them', '被云遮住了']], answer: 0,
         why: ['Over a year Earth goes round the Sun, so our night side points at different parts of the sky; stars on the Sun’s side are lost in daylight.', '一年中地球绕太阳公转，夜半球朝向天空的不同方向；与太阳同一方向的星星淹没在白天的阳光里。'] },
+      { q: ['At 8 pm Vega is due east. The sky turns 15° an hour. How many degrees has Vega moved along its daily circle by 11 pm?', '晚上 8 点织女星在正东方。星空每小时转 15°。到晚上 11 点，织女星沿它的周日圆转过了多少度？'],
+        num: { answer: 45, tol: 1, unit: ['°', '°'] },
+        why: ['360° in about 24 hours is 15° per hour; 3 hours × 15° = 45°.', '24 小时约转 360°，即每小时 15°；3 小时 × 15° = 45°。'] },
+      { q: ['Match each season with the constellation that stands high in the south on its evenings.', '把季节和那个季节傍晚高挂南天的星座配对。'],
+        match: [[['Spring', '春季'], ['Leo', '狮子座']], [['Summer', '夏季'], ['Scorpius', '天蝎座']], [['Autumn', '秋季'], ['Square of Pegasus', '飞马座四边形']], [['Winter', '冬季'], ['Orion', '猎户座']]],
+        why: ['Each month the evening sky shifts about 30° westward, so a full season moves a new quarter of the sky into view: Leo, Scorpius, Pegasus, Orion.', '傍晚的星空每月向西移动约 30°，每过一个季节就换上四分之一个新的天区：狮子座、天蝎座、飞马座、猎户座。'] },
+      { q: ['At 40° N, stars within 40° of the north celestial pole (declination above +50°) never set. Which of these are circumpolar there? Choose all.', '在北纬 40°，离北天极 40° 以内（赤纬高于 +50°）的恒星永不落下。下面哪些在那里是拱极星？选出所有正确答案。'],
+        multi: [0, 1, 3], options: [['Dubhe in the Big Dipper (Dec +61.8°)', '北斗的天枢（赤纬 +61.8°）'], ['Cassiopeia (Dec about +60°)', '仙后座（赤纬约 +60°）'], ['Betelgeuse in Orion (Dec +7.4°)', '猎户座参宿四（赤纬 +7.4°）'], ['Kochab in the Little Dipper (Dec +74.2°)', '小熊座北极二（赤纬 +74.2°）'], ['Antares in Scorpius (Dec −26.4°)', '天蝎座心宿二（赤纬 −26.4°）']],
+        why: ['A star is circumpolar when its declination is greater than 90° − latitude = 50°. Dubhe, Cassiopeia and Kochab qualify; Betelgeuse and Antares rise and set.', '赤纬大于 90° − 纬度 = 50° 的恒星就是拱极星。天枢、仙后座和北极二符合；参宿四和心宿二有升有落。'] },
     ],
   },
   {
@@ -167,6 +182,12 @@ export const A_SKY: Lesson[] = [
         body: ['From Sydney (34° S) Polaris is always below the horizon, and no bright star marks the south celestial pole. Use the Southern Cross instead: extend its long bar about 4½ times to find the pole, then drop straight down to the horizon for south. The pole is 34° high there: altitude equals latitude again.', '在悉尼（南纬 34°）永远看不到北极星，南天极附近也没有亮星。可以用南十字座：把十字架的长轴延长约 4.5 倍，就到了南天极，从那里向地平线垂直往下就是正南方。那里的南天极高度是 34°，同样等于当地纬度。'],
         astro: { kit: 'sky', view: 'dome', look: [180, 30], fov: 80, lat: -34, lon: 151.2, tz: 10, t: Date.UTC(2025, 4, 15, 10), pointer: 'crux', arc: true, trails: 3.5, cons: ['cru', 'cen'], stars: ['Alpha Centauri', 'Hadar'], clock: { from: 0, to: 6, rate: 0.8, unit: 'hour', once: true } },
       },
+      {
+        title: ['Pole stars change', '北极星会换'],
+        body: ['Earth’s axis wobbles slowly like a spinning top: it traces a circle of radius 23.4° around the ecliptic pole every 25,800 years (precession). So the pole star changes. When the pyramids were built, about 2700 BC, the pole was near Thuban in Draco. Polaris will be closest to the pole around AD 2100 (0.45° away), and in about AD 14,000 bright Vega will be near the pole, though 4–5° away.', '地轴像旋转的陀螺一样缓慢晃动，每 25,800 年绕黄极画一个半径 23.4° 的圆，这叫岁差。所以北极星会换：约公元前 2700 年修建金字塔时，北天极在天龙座的右枢附近；北极星在公元 2100 年前后离天极最近（约 0.45°）；大约公元 14000 年，明亮的织女星将来到天极附近，但仍相差 4～5°。'],
+        astro: { kit: 'sky', view: 'dome', look: [0, 55], fov: 90, t: bj(2025, 8, 20, 21), cons: ['umi', 'dra', 'lyr'], stars: ['Polaris', 'Vega'],
+          marks: [{ ra: 211.10, dec: 64.38, name: ['Thuban: pole star c. 2700 BC', '右枢：约公元前 2700 年的北极星'], c: '#ffa94d' }, { ra: 270, dec: 66.56, name: ['ecliptic pole: centre of the precession circle', '北黄极：岁差圆的中心'], c: '#74c0fc' }] },
+      },
     ],
     quiz: [
       { q: ['Tap Polaris.', '点出北极星。'], pick: 'polaris',
@@ -181,6 +202,15 @@ export const A_SKY: Lesson[] = [
       { q: ['A student in Sydney (34° S) wants to find south at night. What should she use?', '悉尼（南纬 34°）的学生夜里想辨认南方，应该用什么？'],
         options: [['The Southern Cross', '南十字座'], ['Polaris', '北极星'], ['The Big Dipper’s handle', '北斗的斗柄'], ['The Moon, which is always in the south', '月亮，它总在南方']], answer: 0,
         why: ['Polaris is below the horizon in the southern hemisphere. The long bar of the Southern Cross points toward the south celestial pole.', '在南半球看不到北极星。南十字座的长轴指向南天极。'] },
+      { q: ['Harbin is at 45.8° N. How many degrees above the northern horizon is Polaris there?', '哈尔滨位于北纬 45.8°。在那里北极星高出北方地平线多少度？'],
+        num: { answer: 45.8, tol: 1, unit: ['°', '°'] },
+        why: ['Altitude of the pole = latitude, so about 46° (Polaris itself is within 0.7° of the pole).', '天极高度 = 当地纬度，约 46°（北极星离天极不到 0.7°）。'] },
+      { q: ['Match each place with the altitude of Polaris there.', '把地点和那里北极星的高度配对。'],
+        match: [[['Guangzhou (23° N)', '广州（北纬 23°）'], ['about 23°', '约 23°']], [['Beijing (40° N)', '北京（北纬 40°）'], ['about 40°', '约 40°']], [['North Pole', '北极点'], ['90°, overhead', '90°，头顶']], [['Equator', '赤道'], ['0°, on the horizon', '0°，贴着地平线']]],
+        why: ['The rule altitude = latitude works everywhere in the northern hemisphere, from 0° on the equator to 90° at the pole.', '“北极星高度 = 纬度”在整个北半球都成立：赤道 0°，北极点 90°。'] },
+      { q: ['Put the steps for finding north at night in order.', '把夜里辨认北方的步骤排好顺序。'],
+        order: [['Find the seven stars of the Big Dipper', '找到北斗七星'], ['Pick the two pointer stars, Merak and Dubhe', '找到两颗指极星：天璇和天枢'], ['Extend the line about 5 times to Polaris', '把连线延长约 5 倍，找到北极星'], ['Drop straight down from Polaris to the horizon: that is north', '从北极星垂直向下到地平线，那里就是正北']],
+        why: ['Dipper → pointers → Polaris → down to the horizon. Polaris is less than 1° from the pole, so the point below it is true north.', '北斗 → 指极星 → 北极星 → 垂直向下到地平线。北极星离天极不到 1°，它正下方就是正北。'] },
     ],
   },
   {
@@ -192,6 +222,7 @@ export const A_SKY: Lesson[] = [
       ['In the Sun-centred view, retrograde motion happens when the faster Earth overtakes Mars on the inside.', '在日心说中，逆行是因为跑得更快的地球从内侧超过了火星。'],
       ['Ptolemy kept Earth at the centre and explained the loops with epicycles moving on deferents.', '托勒密以地球为中心，用本轮在均轮上运动来解释逆行的圈。'],
       ['Galileo saw Venus go through a full set of phases and Jupiter’s moons: evidence against Ptolemy’s model.', '伽利略观测到金星有完整的相位变化、木星有卫星，这些是反对托勒密模型的证据。'],
+      ['Loops repeat every synodic period, 1/S = 1 − 1/P: 780 days for Mars, 399 for Jupiter, 378 for Saturn.', '逆行每隔一个会合周期出现一次，1/S = 1 − 1/P：火星 780 天，木星 399 天，土星 378 天。'],
     ],
     steps: [
       {
@@ -221,6 +252,11 @@ export const A_SKY: Lesson[] = [
         fig: { k: 'svg', draw: figVenus },
         astro: { kit: 'retro', mode: 'venus', clock: { from: VIC - 290 * DAY, to: VIC + 290 * DAY, rate: 30, unit: 'date', at: 0.3 } },
       },
+      {
+        title: ['How often do loops come?', '多久逆行一次'],
+        body: ['A loop happens each time Earth laps a planet, at every opposition. The time between laps is the synodic period S, from 1/S = 1/1 yr − 1/P. Mars (P = 1.88 yr) gives S = 2.14 yr = 780 days: after 16 January 2025 the next opposition is 19 February 2027. Jupiter (11.86 yr) gives 399 days and Saturn (29.5 yr) 378 days, so those slow giants loop almost every year, each loop lasting about 4 months.', '每当地球“套圈”超过一颗外行星，也就是每次冲日，就会出现一次逆行。两次超车之间的时间叫会合周期 S，满足 1/S = 1/1 年 − 1/P。火星（P = 1.88 年）的 S = 2.14 年 = 780 天：2025 年 1 月 16 日冲日之后，下一次是 2027 年 2 月 19 日。木星（11.86 年）是 399 天，土星（29.5 年）是 378 天，所以这些慢吞吞的巨行星几乎每年逆行一次，每次约 4 个月。'],
+        astro: { kit: 'retro', mode: 'helio', every: 20, clock: { from: OPP - 60 * DAY, to: OPP + 840 * DAY, rate: 50, unit: 'date' } },
+      },
     ],
     quiz: [
       { q: ['During retrograde motion, Mars appears to move…', '逆行时，火星看起来'],
@@ -237,7 +273,18 @@ export const A_SKY: Lesson[] = [
       { q: ['In the Sun-centred model, why does Mars go retrograde around opposition?', '在日心说中，火星为什么在冲日前后逆行？'],
         options: [['Earth, moving faster on the inside orbit, overtakes Mars', '地球在内圈跑得更快，超过了火星'], ['Mars stops and reverses on its orbit', '火星在轨道上停下并倒退'], ['The Sun’s gravity pulls Mars backwards', '太阳引力把火星往回拉'], ['Mars moves on an epicycle', '火星在本轮上运动']], answer: 0,
         why: ['Like overtaking a slower car: our line of sight to Mars swings backwards against the distant stars.', '就像超过一辆慢车：我们看火星的视线在遥远恒星背景上向后扫。'] },
+      { q: ['Jupiter orbits the Sun in 11.86 years. Using 1/S = 1 − 1/P, how many days are there between two oppositions of Jupiter?', '木星绕太阳一周需 11.86 年。用 1/S = 1 − 1/P 计算，木星两次冲日相隔多少天？'],
+        num: { answer: 399, tol: 5, unit: ['days', '天'] },
+        why: ['1/S = 1 − 1/11.86 = 0.9157, so S = 1.092 yr × 365.25 ≈ 399 days. Earth needs just over a year to catch up with slow Jupiter again.', '1/S = 1 − 1/11.86 = 0.9157，S = 1.092 年 × 365.25 ≈ 399 天。地球只要一年多一点就能再次追上慢吞吞的木星。'] },
+      { q: ['Put these steps in the history of the Sun-centred model in order.', '把日心说发展史上的这些事件按时间排序。'],
+        order: [['Ptolemy’s Almagest: Earth-centred epicycles (c. AD 150)', '托勒密《天文学大成》：地心说和本轮（约公元 150 年）'], ['Copernicus puts the Sun at the centre (1543)', '哥白尼把太阳放在中心（1543 年）'], ['Kepler: planets move on ellipses (1609)', '开普勒：行星沿椭圆轨道运动（1609 年）'], ['Galileo sees the phases of Venus (1610)', '伽利略看到金星的相位（1610 年）']],
+        why: ['About 1,400 years separate Ptolemy and Copernicus; Kepler’s ellipses (1609) and Galileo’s telescope (1610) came within a year of each other.', '托勒密和哥白尼相隔约 1400 年；开普勒的椭圆轨道（1609 年）和伽利略的望远镜观测（1610 年）只相差一年。'] },
+      { q: ['Which did Galileo discover with his telescope in 1609–1610? Choose all.', '伽利略在 1609～1610 年用望远镜发现了哪些？选出所有正确答案。'],
+        multi: [0, 1, 2], options: [['Venus shows a full set of phases', '金星有完整的相位变化'], ['Four moons circling Jupiter', '四颗卫星绕木星运动'], ['Mountains and craters on the Moon', '月球上的山和环形山'], ['Planets move on ellipses', '行星沿椭圆轨道运动'], ['The planet Neptune', '海王星']],
+        why: ['Galileo saw Venus’ phases, Jupiter’s four large moons and the Moon’s mountains. Ellipses were Kepler’s result from Tycho’s data; Neptune was found only in 1846.', '伽利略看到了金星相位、木星的四颗大卫星和月球上的山。椭圆轨道是开普勒根据第谷的数据得出的；海王星直到 1846 年才被发现。'] },
+      { q: ['Match each person with the idea.', '把人物和他的观点配对。'],
+        match: [[['Ptolemy', '托勒密'], ['epicycles on deferents around a still Earth', '静止地球周围均轮上的本轮']], [['Copernicus', '哥白尼'], ['the Sun at the centre, Earth a planet', '太阳在中心，地球是行星']], [['Kepler', '开普勒'], ['elliptical orbits', '椭圆轨道']], [['Galileo', '伽利略'], ['telescope evidence: Venus’ phases', '望远镜证据：金星相位']]],
+        why: ['Ptolemy described the loops, Copernicus re-centred the system, Kepler made it accurate and Galileo’s telescope supplied the evidence.', '托勒密描述了逆行圈，哥白尼把中心换成太阳，开普勒让它变得精确，伽利略的望远镜提供了证据。'] },
     ],
   },
 ];
-void H;

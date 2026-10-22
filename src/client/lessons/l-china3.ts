@@ -116,7 +116,7 @@ const yzProfile: Fig = {
   k: 'svg', draw: (L, id) => {
     const X = (km: number) => 30 + (km / 6300) * 278, Y = (e: number) => 136 - (e / 5500) * 96;
     const prof: [number, number][] = [[0, 5400], [60, 5000], [350, 4500], [1200, 3500], [1800, 2600], [2300, 1820], [2600, 1000], [3000, 600],
-      [3464, 270], [3840, 160], [4504, 40], [4900, 20], [5442, 14], [6300, 0]];
+      [3464, 270], [3840, 160], [4440, 40], [4900, 20], [5375, 14], [6300, 0]];
     const xy = prof.map(([k, e]) => [X(k), Y(e)] as [number, number]);
     let o = arrowDef(`${id}a`, C.gold) + tx(4, 12, L(['The Yangtze from source to sea', '长江干流纵剖面示意']), 'fg-title');
     o += tx(4, 23, L(['height above sea level along the river (approx.)', '沿干流的海拔（近似）']), 'fg-sub');
@@ -124,11 +124,11 @@ const yzProfile: Fig = {
     o += tx(27, Y(5500) - 6, 'm', 'fg-tick', 'e');
     o += `<polygon points="${pts([[X(0), Y(0)], ...xy, [X(6300), Y(0)]])}" class="fg-landfill"/>`;
     o += `<polyline points="${pts(xy)}" fill="none" stroke="${C.blue}" stroke-width="2.2" class="f-draw" pathLength="1"/>`;
-    o += fade(0.9, vline(X(4504), 30, Y(0)) + vline(X(5442), 30, Y(0))
-      + tx(X(2252), 38, L(['Upper course 4,504 km', '上游 4504 千米']), 'fg-label', 'm')
-      + tx(X(4973), 38, L(['Mid', '中游']), 'fg-tick', 'm') + tx(X(5871), 38, L(['Lower', '下游']), 'fg-tick', 'm'));
+    o += fade(0.9, vline(X(4440), 30, Y(0)) + vline(X(5375), 30, Y(0))
+      + tx(X(2220), 38, L(['Upper course ≈4,500 km', '上游约 4500 千米']), 'fg-label', 'm')
+      + tx(X(4908), 38, L(['Mid', '中游']), 'fg-tick', 'm') + tx(X(5838), 38, L(['Lower', '下游']), 'fg-tick', 'm'));
     const city = (km: number, e: number, p: Pair, d: number, a: 's' | 'm' | 'e' = 'm') => fade(d, dot(X(km), Y(e), C.white, 2) + tx(X(km), 148, L(p), 'fg-tick', a));
-    o += city(3464, 270, ['Yibin', '宜宾'], 1.2) + city(4504, 40, ['Yichang', '宜昌'], 1.4) + city(5442, 14, ['Hukou', '湖口'], 1.6, 'e') + city(6300, 0, ['Shanghai', '上海'], 1.8, 'e');
+    o += city(3464, 270, ['Yibin', '宜宾'], 1.2) + city(4440, 40, ['Yichang', '宜昌'], 1.4) + city(5375, 14, ['Hukou', '湖口'], 1.6, 'e') + city(6300, 0, ['Shanghai', '上海'], 1.8, 'e');
     o += fade(1.0, dot(X(0), Y(5400), C.ice, 2.4) + tx(X(0) + 5, Y(5400) + 7, L(['Geladandong', '各拉丹冬']), 'fg-tick'));
     o += fade(1.1, dot(X(2300), Y(1820), C.white, 2) + tx(X(2300) + 5, Y(1820) - 3, L(['Shigu bend', '石鼓']), 'fg-tick'));
     o += fade(2.0, `<path d="M${X(2500)} ${Y(3500)} L${X(1950)} ${Y(2750)}" class="fg-arrow" marker-end="url(#${id}a)"/>`
@@ -166,7 +166,7 @@ const raisedBedFig: Fig = {
   k: 'svg', draw: (L, id) => {
     const g = 124, bed = 104;
     let o = arrowDef(`${id}a`, C.white) + tx(4, 12, L(['A "river above the ground"', '“地上河”剖面示意']), 'fg-title');
-    o += tx(4, 23, L(['at Kaifeng the bed is about 10 m above the city', '开封一带河床高出城区地面约 10 米']), 'fg-sub');
+    o += tx(4, 23, L(['usually 3–5 m above the plain; about 10 m at Kaifeng', '一般高出两岸地面 3～5 米，开封段达 10 米']), 'fg-sub');
     o += tx(4, 33, L(['it is a watershed: rivers flow away from it', '成为海河流域与淮河流域的分水岭']), 'fg-sub');
     o += `<rect x="0" y="${g}" width="320" height="26" class="fg-land"/>`;
     o += `<rect x="146" y="${bed}" width="108" height="${g - bed}" class="fg-landfill"/>` + [110, 116, 121].map(y => hline(150, 250, y, 'fg-guide')).join('');
@@ -178,7 +178,7 @@ const raisedBedFig: Fig = {
     o += fade(0.9, tx(138, 56, L(['Levee', '大堤']), 'fg-label', 'm') + tx(262, 56, L(['Levee', '大堤']), 'fg-label', 'm') + tx(200, 95, L(['river', '河水']), 'fg-label', 'm'));
     o += fade(1.2, tx(200, 117, L(['silt raises the bed', '泥沙淤积，河床抬高']), 'fg-tick', 'm'));
     o += fade(1.6, `<line x1="12" x2="158" y1="${bed}" y2="${bed}" class="fg-guide"/><line x1="104" x2="104" y1="${bed + 1}" y2="${g - 1}" stroke="${C.white}" stroke-width="1.2" marker-start="url(#${id}a)" marker-end="url(#${id}a)"/>`
-      + tx(4, bed - 4, L(['bed 4–5 m higher', '河床高出地面 4—5 米']), 'fg-label'));
+      + tx(4, bed - 4, L(['bed 3–5 m higher', '河床高出地面 3～5 米']), 'fg-label'));
     o += tx(60, g + 16, L(['North China Plain', '华北平原']), 'fg-tick', 'm');
     return svg(320, 150, o, L(['Cross-section of the lower Yellow River', '黄河下游河道剖面']));
   },
@@ -466,6 +466,8 @@ export const CHINA_C: Lesson[] = [
         why: ['It is set apart by height: almost all of it is above 3,000 m.', '青藏地区以海拔划分，几乎全部在 3000 米以上。'] },
       { q: ['The Qinling–Huaihe line is roughly the isohyet of how many mm a year?', '秦岭—淮河一线大致是年降水量多少毫米的等降水量线？'], num: { answer: 800, tol: 50, unit: ['mm', '毫米'] },
         why: ['800 mm: north of it is semi-humid, south of it humid.', '800 毫米：线以北为半湿润区，以南为湿润区。'] },
+      { q: ['Tap the Qinling Mountains, the western half of the north–south dividing line.', '在地球上点出秦岭——南北分界线的西段。'], at: [33.9, 108.3], tolKm: 250,
+        why: ['The Qinling runs west–east across southern Shaanxi, south of Xi\'an; the Huaihe continues the line to the east.', '秦岭东西横亘于陕西南部、西安以南，淮河向东延续这条分界线。'] },
     ],
   },
   {
@@ -523,8 +525,8 @@ export const CHINA_C: Lesson[] = [
         lines: [{ pts: YANGTZE.slice(16, YZ.yichang + 1), c: C.ice, w: 3, dur: 1.6 }, { pts: YANGTZE.slice(32, YZ.yichang + 1), c: C.violet, w: 5, dur: 1, t: 1.6 }],
         marks: [mk([30.82, 111.0], 'Three Gorges Dam', '三峡大坝', { dot: true, big: true, c: C.gold, t: 1.2 }), mk([31.15, 109.6], 'Qutang · Wu · Xiling gorges', '瞿塘峡 · 巫峡 · 西陵峡', { c: C.violet, t: 2 }),
           mk([27.2, 102.9], 'Baihetan', '白鹤滩', { dot: true, c: C.gold, t: 1.6 }), mk([28.26, 103.65], 'Xiluodu', '溪洛渡', { dot: true, c: C.gold, t: 1.8 }),
-          mk([26.3, 102.2], 'Wudongde', '乌东德', { dot: true, c: C.gold, t: 2 }), mk([28.65, 104.4], 'Xiangjiaba', '向家坝', { dot: true, c: C.gold, t: 2.2 }),
-          mk([30.82, 111.3], 'Gezhouba', '葛洲坝', { dot: true, c: DIM, t: 2.4 })],
+          mk([26.2, 102.63], 'Wudongde', '乌东德', { dot: true, c: C.gold, t: 2 }), mk([28.65, 104.4], 'Xiangjiaba', '向家坝', { dot: true, c: C.gold, t: 2.2 }),
+          mk([30.74, 111.27], 'Gezhouba', '葛洲坝', { dot: true, c: DIM, t: 2.4 })],
         fig: { k: 'bars', title: ['Power stations on the Yangtze (capacity, approx.)', '长江干流上的水电站（装机容量，约）'], unit: ['GW', '吉瓦'], rows: [
           { name: ['Three Gorges', '三峡'], v: 22.5, c: C.gold }, { name: ['Baihetan', '白鹤滩'], v: 16, c: C.gold }, { name: ['Xiluodu', '溪洛渡'], v: 13.9, c: C.gold },
           { name: ['Wudongde', '乌东德'], v: 10.2, c: C.gold }, { name: ['Xiangjiaba', '向家坝'], v: 6.4, c: C.gold }] },
@@ -599,7 +601,7 @@ export const CHINA_C: Lesson[] = [
     blurb: ['The mother river: irrigation, silt from the Loess Plateau, a riverbed above the plain, and how it is tamed.', '母亲河：灌溉之利、黄土高原的泥沙、高出地面的“地上河”，以及黄河的治理。'],
     keys: [
       ['The Yellow River rises in the Bayan Har Mountains, is about 5,464 km long and enters the Bohai Sea.', '黄河发源于巴颜喀拉山脉，全长约 5464 千米，注入渤海。'],
-      ['Hekou town and (old) Mengjin divide its upper, middle and lower course.', '河口镇、旧孟津是黄河上、中、下游的分界点。'],
+      ['Hekou town (Inner Mongolia) and Taohuayu (Zhengzhou, Henan) divide its upper, middle and lower course.', '内蒙古河口镇、河南郑州桃花峪是黄河上、中、下游的分界点。'],
       ['The middle course crosses the Loess Plateau and picks up huge amounts of silt; the lower course is a raised "above-ground river".', '中游流经黄土高原，带入大量泥沙；下游泥沙淤积，形成“地上河”。'],
       ['Treatment: soil conservation in the middle course, stronger dykes downstream, and reservoirs to regulate water and silt.', '治理：中游保持水土，下游加固黄河大堤，利用水库调水调沙。'],
     ],
@@ -626,33 +628,33 @@ export const CHINA_C: Lesson[] = [
         fig: { k: 'bars', title: ['Yinchuan: rain and evaporation (approx., per year)', '银川的年降水量与蒸发量（约）'], unit: ['mm', '毫米'], rows: [
           { name: ['Rain', '降水量'], v: 190, c: C.ice }, { name: ['Evaporation', '蒸发量'], v: 1800, c: C.orange }] },
         task: ['Yinchuan gets under 200 mm of rain: how can rice grow there?', '银川年降水量不足 200 毫米，那里为什么能种水稻？'],
-        body: ['Above Hekou town is the upper course. In the deep gorges near its start, dams such as Longyangxia and Liujiaxia produce power. Then the river crosses the dry lands of Ningxia and Inner Mongolia. Rain is far too little for crops, but canals from the river have watered the flat Ningxia and Hetao plains for over 2,000 years, so there are rice and wheat fields in the desert: "the south of the Yangtze beyond the Great Wall".',
-          '河口镇以上为上游。上游峡谷段落差大，建有龙羊峡、刘家峡等水电站。随后黄河流经宁夏、内蒙古的干旱地区，降水稀少，但地势平坦，引黄灌溉已有两千多年的历史。宁夏平原和河套平原成为荒漠中的“塞上江南”，盛产小麦和水稻。'],
+        body: ['Above Hekou town is the upper course, about 3,470 km — more than half the river. In the deep gorges near its start, dams such as Longyangxia and Liujiaxia produce power. Then the river crosses the dry lands of Ningxia and Inner Mongolia. Rain is far too little for crops, but canals from the river have watered the flat Ningxia and Hetao plains for over 2,000 years, so there are rice and wheat fields in the desert: "the south of the Yangtze beyond the Great Wall".',
+          '河口镇以上为上游，长约 3470 千米，占全河一半以上。上游峡谷段落差大，建有龙羊峡、刘家峡等水电站。随后黄河流经宁夏、内蒙古的干旱地区，降水稀少，但地势平坦，引黄灌溉已有两千多年的历史。宁夏平原和河套平原成为荒漠中的“塞上江南”，盛产小麦和水稻。'],
       },
       {
         title: ['Middle course: the silt', '中游：泥沙的来源'], cam: [36.8, 109.5, 1.4], sketch: true, items: [],
         paint: [{ fill: { k: 'poly', pts: LOESS_PLATEAU, c: C.gold, clip: CN }, a: 0.38 }],
-        lines: [{ pts: YELLOW.slice(YR.hekou, YR.mengjin + 1), c: C.orange, w: 3.4, dur: 1.6 }, { pts: YR_TRIBS.wei as LL[], c: C.orange, w: 2, dur: 1, t: 1.2 },
+        lines: [{ pts: YELLOW.slice(YR.hekou, YR.taohuayu + 1), c: C.orange, w: 3.4, dur: 1.6 }, { pts: YR_TRIBS.wei as LL[], c: C.orange, w: 2, dur: 1, t: 1.2 },
           { pts: YR_TRIBS.fen as LL[], c: C.orange, w: 2, dur: 1, t: 1.4 }, { pts: YR_TRIBS.wuding as LL[], c: C.orange, w: 2, dur: 0.8, t: 1.6 }],
-        marks: [mk(YELLOW[YR.mengjin], 'Mengjin (old)', '旧孟津', { dot: true, big: true, c: C.white, t: 1.6 }), mk([36.15, 110.45], 'Hukou Falls', '壶口瀑布', { dot: true, c: C.gold, t: 0.8 }),
+        marks: [mk(YELLOW[YR.taohuayu], 'Taohuayu', '桃花峪', { dot: true, big: true, c: C.white, t: 1.6 }), mk([36.15, 110.45], 'Hukou Falls', '壶口瀑布', { dot: true, c: C.gold, t: 0.8 }),
           mk([34.35, 108.2], 'Wei', '渭河', { c: C.orange, t: 1.4 }), mk([37.5, 112.1], 'Fen', '汾河', { c: C.orange, t: 1.6 }), mk([38.3, 109.2], 'Wuding', '无定河', { c: C.orange, t: 1.8 }),
           mk([36.0, 107.6], 'Loess Plateau', '黄土高原', { big: true, c: C.gold, t: 0.4 })],
         fig: { k: 'bars', title: ['Silt carried each year (approx., before 2000)', '多年平均输沙量（约，2000 年前）'], unit: ['100 million t', '亿吨'], rows: [
           { name: ['Yellow', '黄河'], v: 16, c: C.gold }, { name: ['Yangtze', '长江'], v: 5, c: C.ice }, { name: ['Pearl', '珠江'], v: 0.8, c: C.teal }] },
         task: ['Which tributaries in this step drain the Loess Plateau? What do they add to the river?', '这一步中哪些支流流经黄土高原？它们给黄河带来了什么？'],
-        body: ['From Hekou town to old Mengjin is the middle course. The river cuts a gorge between Shanxi and Shaanxi (Hukou Falls is here) and, with tributaries like the Wuding, Fen and Wei, crosses the loose loess. Summer rainstorms wash huge amounts of soil into the water. Over 90% of the river\'s silt comes from this stretch, making it the muddiest big river in the world.',
-          '河口镇到旧孟津为中游。黄河在晋陕峡谷中奔流（壶口瀑布在此），与无定河、汾河、渭河等支流一起流经黄土高原。黄土疏松，夏季多暴雨，大量泥沙被冲入河中。黄河 90% 以上的泥沙来自中游，使它成为世界上含沙量最大的河流。'],
+        body: ['From Hekou town to Taohuayu, near Zhengzhou, is the middle course, about 1,200 km long (older maps put the boundary at old Mengjin). The river cuts a gorge between Shanxi and Shaanxi (Hukou Falls is here) and, with tributaries like the Wuding, Fen and Wei, crosses the loose loess. Summer rainstorms wash huge amounts of soil into the water. Over 90% of the river\'s silt comes from this stretch, making it the muddiest big river in the world.',
+          '河口镇到郑州桃花峪为中游，长约 1200 千米（旧时以旧孟津为界）。黄河在晋陕峡谷中奔流（壶口瀑布在此），与无定河、汾河、渭河等支流一起流经黄土高原。黄土疏松，夏季多暴雨，大量泥沙被冲入河中。黄河 90% 以上的泥沙来自中游，使它成为世界上含沙量最大的河流。'],
       },
       {
         title: ['Lower course: a river above the land', '下游：地上河'], cam: [36, 115.5, 1.05], sketch: true,
-        lines: [{ pts: YELLOW.slice(YR.mengjin), c: C.gold, w: 4, dur: 1.8 }],
+        lines: [{ pts: YELLOW.slice(YR.taohuayu), c: C.gold, w: 4, dur: 1.8 }],
         marks: [mk([34.75, 113.65], 'Zhengzhou', '郑州', { dot: true, t: 0.4 }), mk([34.8, 114.3], 'Kaifeng', '开封', { dot: true, t: 0.8 }), mk([36.67, 116.98], 'Jinan', '济南', { dot: true, t: 1.2 }),
           mk([37.43, 118.67], 'Dongying', '东营', { dot: true, t: 1.6 }), mk([35.6, 114.4], 'Riverbed 3–5 m above the land (10 m at Kaifeng)', '河床高出两岸 3～5 米（开封段达 10 米）', { c: C.orange, t: 2 }),
           mk([33.8, 116.6], 'North China Plain', '华北平原', { c: C.white, t: 2.4 })],
         fig: raisedBedFig,
         task: ['On the cross-section, compare the riverbed with the town: why must the dykes never break?', '在剖面图上比较河床和城镇的高低：为什么大堤绝不能决口？'],
-        body: ['Below old Mengjin the river spreads out on the flat North China Plain and slows down, so silt settles on its bed. People raised the dykes again and again, and the bed rose with them. Now the riverbed is higher than the land on both sides: an "above-ground river". No tributaries can flow into it, and it divides the Huai basin from the Hai basin. If a dyke breaks, the water floods the plain.',
-          '旧孟津以下为下游。黄河进入华北平原，地势平坦，流速变慢，泥沙大量淤积，河床不断抬高，人们只好不断加高大堤。如今河床高出两岸地面，成为“地上河”（悬河）。下游几乎没有支流汇入，成为淮河与海河流域的分水岭。一旦决口，洪水将淹没大片平原。'],
+        body: ['Below Taohuayu, the last 786 km of the river spreads out on the flat North China Plain and slows down, so silt settles on its bed. People raised the dykes again and again, and the bed rose with them. Now the riverbed is higher than the land on both sides: an "above-ground river". Almost no tributaries can flow into it, and it divides the Huai basin from the Hai basin. If a dyke breaks, the water floods the plain.',
+          '桃花峪以下为下游，长约 786 千米。黄河进入华北平原，地势平坦，流速变慢，泥沙大量淤积，河床不断抬高，人们只好不断加高大堤。如今河床高出两岸地面，成为“地上河”（悬河）。下游几乎没有支流汇入，成为淮河与海河流域的分水岭。一旦决口，洪水将淹没大片平原。'],
       },
       {
         title: ['Ice-jam floods', '凌汛'], cam: [38, 112, 2.2], sketch: true,
@@ -680,8 +682,8 @@ export const CHINA_C: Lesson[] = [
       {
         title: ['Taming the Yellow River', '黄河的治理'], cam: [37, 109, 2.2], sketch: true, items: [],
         paint: [{ fill: { k: 'poly', pts: LOESS_PLATEAU, c: C.green, clip: CN }, a: 0.32, t: 0.4 }],
-        lines: [{ pts: YELLOW.slice(0, YR.hekou + 1), c: C.violet, w: 3, dur: 1.2 }, { pts: YELLOW.slice(YR.hekou, YR.mengjin + 1), c: C.orange, w: 3, dur: 1, t: 1.2 },
-          { pts: YELLOW.slice(YR.mengjin), c: C.gold, w: 3, dur: 1, t: 2.2 }],
+        lines: [{ pts: YELLOW.slice(0, YR.hekou + 1), c: C.violet, w: 3, dur: 1.2 }, { pts: YELLOW.slice(YR.hekou, YR.taohuayu + 1), c: C.orange, w: 3, dur: 1, t: 1.2 },
+          { pts: YELLOW.slice(YR.taohuayu), c: C.gold, w: 3, dur: 1, t: 2.2 }],
         marks: [mk([37.2, 103], 'Upper: dams, saving water', '上游：建水库，节约用水', { c: C.violet, t: 1 }), mk([36.4, 108.2], 'Middle: soil conservation', '中游：保持水土', { c: C.green, t: 2 }),
           mk([35.6, 116.6], 'Lower: stronger dykes, flushing silt', '下游：加固大堤，调水调沙', { c: C.gold, t: 3 })],
         task: ['Why is soil conservation in the middle course called the "root" of taming the river?', '为什么说中游保持水土是治理黄河的根本？'],
@@ -704,9 +706,9 @@ export const CHINA_C: Lesson[] = [
       { q: ['How long is the Yellow River?', '黄河全长约多少千米？'], num: { answer: 5464, tol: 150, unit: ['km', '千米'] },
         why: ['About 5,464 km, China\'s second longest river.', '约 5464 千米，是我国第二长河。'] },
       { q: ['Label the map.', '标注地图。'],
-        place: [{ text: ['Hekou town', '河口镇'], at: YELLOW[YR.hekou], tolKm: 180 }, { text: ['Mengjin (old)', '旧孟津'], at: YELLOW[YR.mengjin], tolKm: 180 },
+        place: [{ text: ['Hekou town', '河口镇'], at: YELLOW[YR.hekou], tolKm: 180 }, { text: ['Taohuayu', '桃花峪'], at: YELLOW[YR.taohuayu], tolKm: 180 },
           { text: ['Ningxia Plain', '宁夏平原'], at: [38.3, 106.1], tolKm: 180 }, { text: ['River mouth', '黄河入海口'], at: [37.75, 119.15], tolKm: 180 }],
-        why: ['Hekou town and old Mengjin split the three courses; the Ningxia Plain is in the upper course.', '河口镇、旧孟津把黄河分为上、中、下游；宁夏平原在上游。'] },
+        why: ['Hekou town and Taohuayu split the three courses; the Ningxia Plain is in the upper course.', '河口镇、桃花峪把黄河分为上、中、下游；宁夏平原在上游。'] },
       { q: ['Why do ice-jam floods happen on these reaches? (choose all)', '这些河段为什么会发生凌汛？（多选）'],
         options: [['The river flows from lower to higher latitudes', '河流由较低纬度流向较高纬度'], ['The lower part freezes earlier and thaws later', '下游结冰早、解冻晚'],
           ['Upstream ice and water pile up against the ice', '上游的冰凌和河水在下游堆积'], ['Summer rainstorms', '夏季暴雨'], ['Too much water is used', '用水过多']], multi: [0, 1, 2],
@@ -843,9 +845,9 @@ export const CHINA_C: Lesson[] = [
       {
         title: ['A plateau of yellow earth', '黄土堆成的高原'], cam: [36.8, 108.5, 1.6], sketch: true,
         paint: [{ fill: { k: 'poly', pts: LOESS_PLATEAU, c: C.gold, clip: CN }, a: 0.5, t: 0.3 }],
-        lines: [{ pts: YELLOW.slice(14, YR.mengjin + 2), c: C.ice, w: 2.4, dur: 2 }, { pts: LOESS_PLATEAU, c: C.gold, w: 1.6, dur: 2, closed: true }],
-        marks: [mk([40.6, 106.5], 'Yinshan →', '阴山 →', { c: C.white, t: 1 }), mk([33.9, 108.3], 'Qinling', '秦岭', { c: C.white, t: 1.2 }), mk([38.2, 114.5], 'Taihang', '太行山', { c: C.white, t: 1.4 }),
-          mk([37.3, 101.8], 'Wushaoling', '乌鞘岭', { c: C.white, t: 1.6 }), mk([36.6, 109.49], "Yan'an", '延安', { dot: true, t: 2 }), mk([36.06, 103.83], 'Lanzhou', '兰州', { dot: true, t: 2.2 })],
+        lines: [{ pts: YELLOW.slice(14, YR.taohuayu + 2), c: C.ice, w: 2.4, dur: 2 }, { pts: LOESS_PLATEAU, c: C.gold, w: 1.6, dur: 2, closed: true }],
+        marks: [mk([39.15, 109.2], 'Great Wall', '长城', { c: C.white, t: 1 }), mk([33.9, 108.3], 'Qinling', '秦岭', { c: C.white, t: 1.2 }), mk([38.2, 114.5], 'Taihang', '太行山', { c: C.white, t: 1.4 }),
+          mk([37.2, 102.87], 'Wushaoling', '乌鞘岭', { c: C.white, t: 1.6 }), mk([36.6, 109.49], "Yan'an", '延安', { dot: true, t: 2 }), mk([36.06, 103.83], 'Lanzhou', '兰州', { dot: true, t: 2.2 })],
         task: ['Find the four edges: which mountains or ranges border the plateau on each side?', '找出四条边界：高原的东、南、西、北分别以什么为界？'],
         body: ['Between the Taihang Mountains in the east, Wushaoling in the west, the Qinling in the south and the Great Wall in the north lies the Loess Plateau: about 640,000 km², mostly 1,000–2,000 m high. It is covered by loess, a fine, yellow, crumbly soil, usually 50–80 m deep and over 300 m near Lanzhou. It is the largest area of loess on Earth.',
           '黄土高原东起太行山，西至乌鞘岭，南连秦岭，北抵长城，面积约 64 万平方千米，海拔多在 1000～2000 米。这里覆盖着深厚的黄土，黄土颗粒细、质地疏松，厚度一般在 50～80 米，兰州附近超过 300 米，是世界上最大的黄土堆积区。'],
@@ -1021,7 +1023,7 @@ export const CHINA_C: Lesson[] = [
         title: ['A railway on frozen ground', '冻土上的天路'], cam: [33.5, 96, 1.8], sketch: true, items: ['vh_qinghaitibet'],
         lines: [{ pts: QT_RAIL, c: C.orange, w: 3, dur: 3 }],
         marks: [mk([36.62, 101.78], 'Xining', '西宁', { dot: true, t: 0.2 }), mk([36.4, 94.9], 'Golmud', '格尔木', { dot: true, t: 1 }), mk([35.65, 94.06], 'Kunlun Pass', '昆仑山口', { t: 1.3 }),
-          mk([34.3, 96.4], 'Hoh Xil: wildlife passages', '可可西里：动物通道', { c: C.green, t: 1.5 }), mk([32.9, 91.4], 'Tanggula Pass 5,072 m', '唐古拉山口 5072 米', { dot: true, c: C.white, t: 1.8 }),
+          mk([34.7, 93.9], 'Hoh Xil: wildlife passages', '可可西里：动物通道', { c: C.green, t: 1.5 }), mk([32.9, 91.83], 'Tanggula Pass 5,072 m', '唐古拉山口 5072 米', { dot: true, c: C.white, t: 1.8 }),
           mk([31.48, 92.05], 'Nagqu', '那曲', { dot: true, t: 2.2 }), mk([29.65, 91.1], 'Lhasa', '拉萨', { dot: true, t: 2.8 })],
         fig: railFig,
         task: ['In the figure, how do the heat pipes and crushed rock keep the frozen ground frozen?', '看图：热棒和碎石路基怎样让冻土保持冻结？'],

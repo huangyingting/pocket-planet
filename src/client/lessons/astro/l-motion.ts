@@ -92,6 +92,7 @@ export const A_MOTION: Lesson[] = [
       ['Chang’e-4 made the first landing on the Moon’s far side (2019); Chang’e-5 (2020) and Chang’e-6 (2024) brought back Moon samples.', '嫦娥四号首次在月球背面着陆（2019 年），嫦娥五号（2020 年）和嫦娥六号（2024 年）带回了月球样品。'],
       ['Tianwen-1 reached Mars in 2021, and its rover Zhurong drove on the Martian surface.', '天问一号在 2021 年到达火星，祝融号火星车在火星表面巡视探测。'],
       ['Space telescopes such as Hubble and JWST see the universe without the blurring air.', '哈勃、韦布等空间望远镜在大气层外观测，看得更清楚。'],
+      ['Astronauts float not because there is no gravity, but because they and their station are falling round the Earth together.', '航天员飘浮起来不是因为没有引力，而是因为他们和空间站一起绕地球“下落”。'],
     ],
     steps: [
       {
@@ -103,6 +104,11 @@ export const A_MOTION: Lesson[] = [
         title: ['Tiangong, China’s space station', '中国空间站“天宫”'],
         body: ['Tiangong flies about 400 km above the ground and goes round the Earth about every 90 minutes, so its crew sees about 16 sunrises a day. Its core module Tianhe was launched in 2021 and the station was completed in 2022. Three astronauts usually live on board for about six months at a time.', '天宫空间站在离地面约 400 千米的高度飞行，大约每 90 分钟绕地球一圈，航天员一天能看到约 16 次日出。核心舱“天和”于 2021 年发射，空间站在 2022 年全面建成。通常有 3 名航天员在站上工作生活约 6 个月。'],
         astro: { kit: 'satellites', mode: 'leo', track: true, clock: { from: 0, to: 12, rate: 0.3, unit: 'hour', dp: 1 } },
+      },
+      {
+        title: ['Floating in orbit', '太空中的失重'],
+        body: ['At 400 km up, the Earth\'s gravity is still about 90% as strong as on the ground, so why do astronauts float? Because the station and everyone in it are falling round the Earth together, at the same rate. Nothing presses them against the floor, just as you feel light for a moment when a lift drops suddenly. This is weightlessness, or microgravity. In the Tiangong Classroom lessons, astronauts showed Chinese students how water forms floating balls and how a spinning top keeps its axis in orbit.', '在 400 千米高的轨道上，地球的引力仍有地面的约 90%，航天员为什么会飘起来？因为空间站和里面的一切都以相同的方式一起绕地球“下落”，没有什么东西把他们压向地板，就像电梯突然下降时你会感到身体一轻。这就是失重（微重力）。在“天宫课堂”上，航天员向同学们演示了太空中水会变成悬浮的水球、陀螺能稳稳保持方向等现象。'],
+        astro: { kit: 'satellites', mode: 'leo', clock: { from: 0, to: 3, rate: 0.1, unit: 'hour', dp: 1 } },
       },
       {
         title: ['To the Moon', '飞向月球'],
@@ -117,9 +123,14 @@ export const A_MOTION: Lesson[] = [
       },
       {
         title: ['Eyes above the air', '大气层外的“眼睛”'],
-        body: ['Air blurs and blocks starlight, so astronomers put telescopes in space. Hubble has orbited about 540 km up since 1990. The James Webb Space Telescope, launched in 2021, works 1.5 million km from Earth and sees in infrared. Satellites also bring us weather maps, navigation (BeiDou) and phone links.', '大气会让星光变模糊，还会挡住一部分光，所以天文学家把望远镜送上太空。哈勃空间望远镜自 1990 年起在约 540 千米高的轨道上运行；2021 年发射的詹姆斯·韦布空间望远镜在离地球约 150 万千米的地方用红外线观测。人造卫星还为我们提供天气云图、导航（北斗）和通信。'],
+        body: ['Air blurs and blocks starlight, so astronomers put telescopes in space. Hubble has orbited a little over 500 km up since 1990. The James Webb Space Telescope, launched in 2021, works 1.5 million km from Earth and sees in infrared. Satellites also bring us weather maps, navigation (BeiDou) and phone links.', '大气会让星光变模糊，还会挡住一部分光，所以天文学家把望远镜送上太空。哈勃空间望远镜自 1990 年起在 500 多千米高的轨道上运行；2021 年发射的詹姆斯·韦布空间望远镜在离地球约 150 万千米的地方用红外线观测。人造卫星还为我们提供天气云图、导航（北斗）和通信。'],
         fig: { k: 'svg', draw: L => timeline(L) },
         astro: { kit: 'satellites', mode: 'overview', clock: { from: 0, to: 48, rate: 1, unit: 'hour' } },
+      },
+      {
+        title: ['What comes next', '未来的探索'],
+        body: ['China\'s plans keep growing. Tianwen-2, launched in 2025, is flying to a small near-Earth asteroid to bring back a sample and then visit a comet. Chang\'e-7 and Chang\'e-8 are planned to explore the Moon\'s south pole, looking for water ice, and to test building a research station there. China aims to land astronauts on the Moon before 2030, using the new Long March 10 rocket, the Mengzhou spacecraft and the Lanyue lander. Mission dates can slip: space is hard, and safety comes first.', '我国的探索计划不断推进。2025 年发射的天问二号正飞往一颗近地小行星采样返回，之后还将探测一颗彗星。嫦娥七号、嫦娥八号计划探测月球南极，寻找水冰，并试验建设月球科研站的技术。我国计划在 2030 年前实现中国人首次登陆月球，将使用长征十号火箭、梦舟飞船和揽月着陆器。航天任务的日期可能推迟：太空探索很难，安全永远第一。'],
+        astro: { kit: 'satellites', mode: 'moon', clock: { from: 0, to: 6, rate: 0.7, unit: 'day', once: true } },
       },
     ],
     quiz: [
@@ -135,6 +146,16 @@ export const A_MOTION: Lesson[] = [
       { q: ['Which world did the rover Zhurong explore?', '祝融号巡视探测的是哪个星球？'],
         options: [['The Moon', '月球'], ['Venus', '金星'], ['Mars', '火星'], ['Jupiter', '木星']], answer: 2,
         why: ['Zhurong landed on Mars in May 2021, carried there by Tianwen-1.', '祝融号由天问一号送到火星，2021 年 5 月着陆。'] },
+      { q: ['Put these events in order, earliest first.', '把下列事件按时间先后排序。'],
+        order: [['Sputnik 1, the first satellite', '第一颗人造卫星斯普特尼克 1 号'], ['Gagarin, the first person in space', '加加林首次进入太空'], ['Apollo 11 lands on the Moon', '阿波罗 11 号登月'], ['Yang Liwei flies on Shenzhou-5', '杨利伟乘神舟五号飞天'], ['Chang’e-4 lands on the far side', '嫦娥四号在月球背面着陆']],
+        why: ['1957, 1961, 1969, 2003 and 2019.', '分别是 1957、1961、1969、2003 和 2019 年。'] },
+      { q: ['Match each mission to its target.', '把任务和它的探测目标连起来。'],
+        match: [[['Chang’e-6', '嫦娥六号'], ['Samples from the Moon’s far side', '月球背面样品']], [['Tianwen-1', '天问一号'], ['Mars', '火星']], [['Tianwen-2', '天问二号'], ['A near-Earth asteroid', '一颗近地小行星']], [['James Webb telescope', '韦布空间望远镜'], ['Distant galaxies in infrared light', '用红外线观测遥远星系']]],
+        why: ['Chang’e-6 returned far-side samples in 2024, Tianwen-1 reached Mars in 2021, Tianwen-2 launched to an asteroid in 2025, and JWST observes in the infrared.', '嫦娥六号 2024 年带回月背样品，天问一号 2021 年到达火星，天问二号 2025 年飞往小行星，韦布望远镜在红外波段观测。'] },
+      { q: ['Tiangong goes once round the Earth in about 90 minutes. About how many times does it go round in one day (24 hours)?', '天宫大约 90 分钟绕地球一圈，一天（24 小时）大约绕多少圈？'], num: { answer: 16, tol: 0.6, unit: ['times', '圈'] },
+        why: ['24 × 60 = 1,440 minutes; 1,440 ÷ 90 = 16 laps, so the crew sees about 16 sunrises a day.', '24 × 60 = 1440 分钟，1440 ÷ 90 = 16 圈，所以航天员一天能看到约 16 次日出。'] },
+      { q: ['Why do astronauts float inside Tiangong? Pick all that are true.', '航天员为什么能在天宫里飘浮？选出所有正确的说法。'], options: [['The station and the crew are falling round the Earth together', '空间站和航天员一起绕地球“下落”'], ['Gravity up there is still about 90% of that on the ground', '那里的引力仍有地面的约 90%'], ['There is no gravity in space', '太空中没有引力'], ['The station is too far away for the Earth to pull it', '空间站太远，地球拉不到它']], multi: [0, 1],
+        why: ['Gravity keeps the station in orbit; without it, Tiangong would fly off in a straight line. Everything falls together, so nothing presses on the floor.', '正是引力让空间站绕地球运行，没有引力它就会沿直线飞走。舱内一切一起下落，所以没有东西压在地板上。'] },
     ],
   },
   {

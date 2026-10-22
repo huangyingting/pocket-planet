@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import { Arrow, body, canvasTex, clamp, dirLight, glow, lerp, line, ramp, rng, setLine, starfield } from './draw.ts';
-import type { AstroClock, KitCtx, KitFactory, KitRun, V3 } from './types.ts';
+import type { AstroClock, KitCtx, KitFactory, KitRun, Pair, V3 } from './types.ts';
 
 export interface Opts {
   /**
@@ -14,8 +14,11 @@ export interface Opts {
    * - `redshift`: a receding galaxy and its spectrum; the clock (unit `x`, 0 … 0.3) is the redshift z
    * - `timeline`: the history of the universe as a widening cone; the clock (unit `gyr`, 0 … 13.8) is the age
    * - `cmb`: the cosmic microwave background as a sphere around us
+   * - `ladder`: the cosmic distance ladder on a logarithmic distance axis (1 AU … 10 Gpc): radar, parallax, Cepheids,
+   *   Type Ia supernovae and Hubble's law, each rung overlapping (and calibrated by) the one below; the clock (unit `x`,
+   *   0 … 5) reveals the rungs one by one. Pickable: `cepheid`, `snia`
    */
-  mode: 'grid' | 'redshift' | 'timeline' | 'cmb';
+  mode: 'grid' | 'redshift' | 'timeline' | 'cmb' | 'ladder';
   /** grid: the galaxy the arrows are measured from (index into the grid, default the middle one); `cycle` moves it */
   center?: number | 'cycle';
 }
@@ -80,6 +83,7 @@ const kit: KitFactory<Opts & { clock?: AstroClock }> = (ctx, o) => {
     case 'redshift': return redshift(ctx);
     case 'timeline': return timeline(ctx);
     case 'cmb': return cmb(ctx);
+    case 'ladder': return ladder(ctx);
     default: return grid(ctx, o.center ?? 'cycle');
   }
 };
@@ -396,5 +400,79 @@ function cmb(ctx: KitCtx): KitRun {
     update(_v, _dt, el) {
       (sph.material as THREE.MeshBasicMaterial).opacity = ramp(el, 0.2, 1.2);
     },
+  };
+}
+
+// ------------------------------------------------------------------------------------------------ distance ladder
+
+/** log10(distance / pc) → x */
+const LX = (lg: number) => -12 + (lg + 6) * 1.45;
+const RUNGS: { a: number; b: number; c: string; tag: string; name: Pair; how: Pair }[] = [
+  { a: -6, b: -3.6, c: '#63e6be', tag: 'radar', name: ['Radar and spacecraft', '雷达和航天器'], how: ['radar echoes time the AU: 149.6 million km', '雷达回波计时，测出 1 天文单位 = 1.496 亿千米'] },
+  { a: -0.4, b: 4.0, c: '#ffd24a', tag: 'parallax', name: ['Parallax (Gaia)', '三角视差（盖亚卫星）'], how: ['d = 1/p, using Earth’s 1 AU orbit as the baseline: out to ~10 000 pc', 'd = 1/p，以 1 天文单位为基线：可测到约 1 万秒差距'] },
+  { a: 2.6, b: 7.6, c: '#e599f7', tag: 'cepheid', name: ['Cepheid variables', '造父变星'], how: ['period → luminosity (Leavitt’s law), calibrated by parallax: out to ~40 Mpc', '周期 → 光度（勒维特定律），用视差校准：可测到约 4000 万秒差距'] },
+  { a: 6.3, b: 9.9, c: '#ff8787', tag: 'snia', name: ['Type Ia supernovae', 'Ia 型超新星'], how: ['all peak near M = −19.3, calibrated by Cepheids: out to billions of pc', '峰值绝对星等都约为 −19.3，用造父变星校准：可测到几十亿秒差距'] },
+  { a: 7.0, b: 10.25, c: '#74c0fc', tag: 'hubble', name: ['Hubble’s law (redshift)', '哈勃定律（红移）'], how: ['d = v / H0 with H0 ≈ 70 km/s/Mpc, calibrated by supernovae', 'd = v / H0，H0 ≈ 70 千米/秒/百万秒差距，用超新星校准'] },
+];
+const LANDMARKS: [lg: number, c: string, n: Pair][] = [
+  [-5.31, '#ffd24a', ['Sun · 1 AU', '太阳 · 1 天文单位']],
+  [0.11, '#ff9a7a', ['Proxima Cen · 4.2 ly', '比邻星 · 4.2 光年']],
+  [2.12, '#fff1d6', ['Polaris · 433 ly', '北极星 · 433 光年']],
+  [3.91, '#ffe3c4', ['Galactic centre · 26 000 ly', '银河系中心 · 2.6 万光年']],
+  [4.70, '#d0ebff', ['LMC · 160 000 ly', '大麦哲伦云 · 16 万光年']],
+  [5.89, '#d0ebff', ['Andromeda · 2.5 million ly', '仙女星系 · 250 万光年']],
+  [7.21, '#d0ebff', ['M100 (Virgo Cluster) · 55 million ly', 'M100（室女座星系团）· 5500 万光年']],
+  [8.0, '#d0ebff', ['Coma Cluster · 330 million ly', '后发星系团 · 3.3 亿光年']],
+  [9.8, '#ffc9c9', ['Supernovae at z ≈ 1 · light 8 billion years old', 'z ≈ 1 的超新星 · 光走了约 80 亿年']],
+];
+
+function ladder(ctx: KitCtx): KitRun {
+  const root = ctx.root, tex = galaxyTex();
+  root.add(line([[LX(-6), 0, 0], [LX(10.3), 0, 0]], '#ced4da', { opacity: 0.8 }));
+  const ticks: [number, Pair][] = [[-5.31, ['1 AU', '1 天文单位']], [0, ['1 pc = 3.26 ly', '1 秒差距 = 3.26 光年']], [3, ['1 kpc', '1 千秒差距']], [6, ['1 Mpc', '1 百万秒差距']], [9, ['1 Gpc', '1 十亿秒差距']]];
+  for (const [lg, t] of ticks) {
+    root.add(line([[LX(lg), 0.01, 0.25], [LX(lg), 0.01, -6.2]], '#ffffff', { opacity: 0.08 }), line([[LX(lg), 0, 0.2], [LX(lg), 0, -0.2]], '#ced4da', { opacity: 0.9 }));
+    ctx.label(new THREE.Vector3(LX(lg), 0, -0.25), t, { c: '#9aa7b4', dy: 12 });
+  }
+  ctx.label(new THREE.Vector3(LX(2), 0, -6.6), ['distance (each grid line ×1000) →', '距离（每条竖线相差 1000 倍）→'], { c: '#ced4da' });
+  LANDMARKS.forEach(([lg, c, n], i) => {
+    const x = LX(lg), up = i % 2 ? 2.45 : 1.15;
+    const s = lg > 4.5 && lg < 9 ? galaxySprite(tex, 0.75, c, i) : glow(c, 0.55, 0.95);
+    s.position.set(x, 0, 0);
+    root.add(s, line([[x, 0, 0.3], [x, 0, up]], c, { opacity: 0.4 }));
+    ctx.label(new THREE.Vector3(x, 0, up), n, { c, dy: -10, t: 0.2 + i * 0.12 });
+  });
+  const bars = RUNGS.map((r, k) => {
+    const z = -1.3 - k * 1.05, x0 = LX(r.a), x1 = LX(r.b);
+    const g = new THREE.Group();
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, 0.52), new THREE.MeshBasicMaterial({ color: r.c, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
+    m.rotation.x = Math.PI / 2; m.position.set((x0 + x1) / 2, 0, z);
+    g.add(m, line([[x0, 0, z - 0.26], [x1, 0, z - 0.26], [x1, 0, z + 0.26], [x0, 0, z + 0.26]], r.c, { opacity: 0.9, closed: true }));
+    if (k > 0) {
+      // the overlap with the rung below, where it is calibrated
+      const p = RUNGS[k - 1], xa = LX(Math.max(r.a, p.a)), xb = LX(Math.min(r.b, p.b)), zp = z + 1.05;
+      g.add(line([[xa, 0, zp - 0.3], [xa, 0, z + 0.3]], '#ffffff', { opacity: 0.55, dashed: true, dash: 0.12 }), line([[xb, 0, zp - 0.3], [xb, 0, z + 0.3]], '#ffffff', { opacity: 0.55, dashed: true, dash: 0.12 }));
+    }
+    ctx.pickable(m, r.tag);
+    root.add(g);
+    const lb = ctx.label(new THREE.Vector3((x0 + x1) / 2, 0, z), r.name, { c: r.c });
+    return { g, m, lb };
+  });
+  ctx.view([0, -1, 0.1], 29, [0.2, 0, -1.6], true);
+  return {
+    update(v, _dt, el) {
+      const k = clamp(v, 0, 5);
+      bars.forEach((b, i) => {
+        const a = clamp(k - i, 0, 1) * ramp(el, 0.3 + i * 0.05, 0.6);
+        b.g.visible = a > 0.02;
+        b.m.material.opacity = 0.18 + 0.45 * a * (Math.floor(Math.min(k, 4.999)) === i ? 1 : 0.7);
+        b.lb.on = a > 0.5;
+      });
+    },
+    readout(v) {
+      const r = RUNGS[clamp(Math.floor(Math.min(v, 4.999)), 0, 4)];
+      return [`${r.name[0]}: ${r.how[0]}`, `${r.name[1]}：${r.how[1]}`];
+    },
+    dispose() { tex.dispose(); },
   };
 }

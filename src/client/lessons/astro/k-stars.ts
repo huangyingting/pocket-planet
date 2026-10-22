@@ -4,7 +4,7 @@
  * diagram of ~150 stars (the Sun can walk its evolution track on the clock).
  */
 import * as THREE from 'three';
-import { body, canvasTex, circlePts, clamp, ease, glow, lerp, line, ramp, rng, setLine, star, starfield, sunLight, tempColor } from './draw.ts';
+import { body, canvasTex, circlePts, clamp, drawIn, ease, glow, lerp, line, ramp, rng, setLine, star, starfield, sunLight, tempColor } from './draw.ts';
 import { StarBall, dotTex, grainTex, pointScale, sizedPoints } from './k-life.ts';
 import type { KitCtx, KitFactory, Pair } from './types.ts';
 
@@ -14,8 +14,10 @@ export interface Opts {
    * - `bright`: light from a star spreads over 1, 4, 9 squares at 1, 2, 3 distances; the clock (1 → 3) moves a detector
    * - `parallax`: Earth orbits the Sun (clock in days) and a near star shifts against far ones
    * - `hr`: the Hertzsprung–Russell diagram (pickable: `sun`, `ms`, `giants`, `super`, `wd`)
+   * - `cepheid`: two Cepheid variables, δ Cephei (5.4 days) and ℓ Carinae (35.6 days), pulsing while their light
+   *   curves are drawn; the clock (unit `day`) is the time. Pickable: `short`, `long`
    */
-  mode: 'color' | 'bright' | 'parallax' | 'hr';
+  mode: 'color' | 'bright' | 'parallax' | 'hr' | 'cepheid';
   /** hr: the Sun moves along its evolution track; the clock is its age in billions of years (unit `gyr`, 0 … 13) */
   track?: boolean;
   /** hr: label a few famous stars */
@@ -28,6 +30,7 @@ const kit: KitFactory<Opts> = (ctx, o) => {
     case 'bright': return bright(ctx);
     case 'parallax': return parallax(ctx);
     case 'hr': return hr(ctx, o);
+    case 'cepheid': return cepheid(ctx);
     default: return colors(ctx);
   }
 };
@@ -310,6 +313,66 @@ function hr(ctx: KitCtx, o: Opts) {
       return [`Sun: ${s[0]} · ${fmtK(T, false)} · ${Ls} L☉`, `太阳：${s[1]} · ${fmtK(T, true)} · ${Ls} 倍太阳光度`];
     },
     dispose() { tex.dispose(); grain.dispose(); },
+  };
+}
+
+// ------------------------------------------------------------------------------------------------ Cepheid variables
+
+/** Light-curve shape of a classical Cepheid: a quick rise (20 % of the cycle) and a slow fall; 0 = faintest, 1 = brightest. */
+const cephShape = (ph: number) => { const p = ((ph % 1) + 1) % 1; return p < 0.2 ? 0.5 - 0.5 * Math.cos((Math.PI * p) / 0.2) : 0.5 + 0.5 * Math.cos((Math.PI * (p - 0.2)) / 0.8); };
+
+function cepheid(ctx: KitCtx) {
+  const root = ctx.root, grain = grainTex();
+  const DAYS = 36, NS = 480, X0 = -4.6, X1 = 10.4, H = 2.1, xOf = (d: number) => X0 + ((X1 - X0) * d) / DAYS;
+  // Leavitt's law (V band): M = −2.43 (log P − 1) − 4.05; L/L☉ = 10^(0.4 (4.83 − M))
+  const rows: { P: number; z: number; r: number; T: number; tag: string; name: Pair; c: string }[] = [
+    { P: 35.56, z: 2.3, r: 1.05, T: 5100, tag: 'long', name: ['ℓ Carinae', '船底座 ℓ'], c: '#ffc078' },
+    { P: 5.366, z: -3.1, r: 0.6, T: 5900, tag: 'short', name: ['δ Cephei', '造父一（仙王座 δ）'], c: '#ffe8a3' },
+  ];
+  const lum = (P: number) => 10 ** (0.4 * (4.83 + 2.43 * (Math.log10(P) - 1) + 4.05));
+  const balls: StarBall[] = [], curves: THREE.Line[] = [], heads: THREE.Sprite[] = [];
+  for (const rw of rows) {
+    const b = new StarBall(rw.T, rw.r, grain, 40);
+    b.position.set(-7.6, 0, rw.z);
+    root.add(b); balls.push(b);
+    ctx.pickable(b.mesh, rw.tag);
+    const base = rw.z - H / 2;
+    root.add(line([[X0, 0, base], [X1, 0, base]], '#ced4da', { opacity: 0.45 }), line([[X0, 0, base], [X0, 0, base + H]], '#ced4da', { opacity: 0.45 }));
+    for (let d = 0; d <= DAYS; d += 5) root.add(line([[xOf(d), 0, base], [xOf(d), 0, base - 0.15]], '#ced4da', { opacity: 0.6 }));
+    // one full cycle marked with a bracket
+    const yb = base + H + 0.3;
+    root.add(line([[xOf(0.2 * rw.P), 0, yb - 0.2], [xOf(0.2 * rw.P), 0, yb], [xOf(Math.min(DAYS, 1.2 * rw.P)), 0, yb], [xOf(Math.min(DAYS, 1.2 * rw.P)), 0, yb - 0.2]], rw.c, { opacity: 0.8 }));
+    const Ls = Math.round(lum(rw.P) / 100) * 100;
+    const per: Pair = [`period ${rw.P.toFixed(1)} days`, `周期 ${rw.P.toFixed(1)} 天`];
+    ctx.label(new THREE.Vector3(xOf(Math.min(DAYS - 3, 0.7 * rw.P)), 0, yb), per, { c: rw.c, dy: -12, t: 1 });
+    ctx.label(b, [`${rw.name[0]} · ≈ ${Ls.toLocaleString('en-US')} L☉`, `${rw.name[1]} · 约 ${Ls} 倍太阳光度`], { c: rw.c, dy: rw.r * 60 + 26, t: 0.4 });
+    const full: THREE.Vector3[] = [];
+    for (let i = 0; i <= NS; i++) { const d = (i / NS) * DAYS; full.push(new THREE.Vector3(xOf(d), 0, base + 0.15 + (H - 0.3) * cephShape(d / rw.P))); }
+    const cv = line(full, rw.c, { opacity: 0.95 });
+    root.add(cv); curves.push(cv);
+    const hd = glow(rw.c, 0.55, 0.95);
+    root.add(hd); heads.push(hd);
+  }
+  for (let d = 0; d <= DAYS; d += 10) ctx.label(new THREE.Vector3(xOf(d), 0, rows[1].z - H / 2), [`${d} d`, `${d} 天`], { c: '#9aa7b4', dy: 16 });
+  ctx.label(new THREE.Vector3(X0 - 0.5, 0, rows[0].z), ['brightness', '亮度'], { c: '#9aa7b4', dx: -10 });
+  ctx.label(new THREE.Vector3(xOf(DAYS / 2), 0, 5.3), ['Longer period → more luminous (Leavitt’s law, 1912)', '周期越长，光度越大（勒维特定律，1912 年）'], { c: '#ffd24a', big: true, t: 1.6 });
+  ctx.view([0, -1, 0.04], 24, [0.6, 0, 0.6], true);
+  return {
+    update(v: number, _dt: number, el: number) {
+      const t = clamp(v, 0, DAYS);
+      rows.forEach((rw, k) => {
+        const b = cephShape(t / rw.P);
+        // hotter and slightly larger near maximum light
+        balls[k].set(rw.T + 900 * (b - 0.5), rw.r * (1 + 0.08 * (b - 0.5)), 0.7 + 0.9 * b, el * 0.004);
+        drawIn(curves[k], (Math.floor((t / DAYS) * NS) + 1) / (NS + 1));
+        heads[k].position.set(xOf(t), 0, rw.z - H / 2 + 0.15 + (H - 0.3) * b);
+      });
+    },
+    readout(v: number): Pair | string {
+      const d = Math.floor(clamp(v, 0, DAYS));
+      return [`day ${d} · measure the period → know the luminosity → compare with the brightness → distance`, `第 ${d} 天 · 测周期 → 得光度 → 与视亮度比较 → 求距离`];
+    },
+    dispose() { grain.dispose(); },
   };
 }
 

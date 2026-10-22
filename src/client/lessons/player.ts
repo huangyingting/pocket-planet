@@ -60,9 +60,10 @@ function run(lesson: Lesson, host: LessonHost): void {
   /** Whichever board the current step uses (its clock drives the card's clock row). */
   const board = (): LessonStage | AstroStage => (astro?.shown ? astro : stage);
   // for the end-to-end tests: what the stages drew
-  const w = window as { __lesson?: LessonStage | null; __astro?: () => AstroStage | null };
+  const w = window as { __lesson?: LessonStage | null; __astro?: () => AstroStage | null; __quiz?: () => Quiz | null };
   w.__lesson = stage;
   w.__astro = () => astro;
+  w.__quiz = () => quiz[i - steps.length] ?? null;
   const sub = subjectOf(lesson.id);
   // a lesson about the learner's own place is made once they say where they live (`pickHome`)
   let steps = lesson.steps, quiz = lesson.quiz;
@@ -414,6 +415,7 @@ function run(lesson: Lesson, host: LessonHost): void {
     astro?.dispose();
     w.__lesson = null;
     w.__astro = () => null;
+    w.__quiz = () => null;
     root.remove();
     document.body.classList.remove('lessoning');
     if (active === self) active = null;

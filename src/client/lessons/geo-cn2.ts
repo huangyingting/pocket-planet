@@ -120,7 +120,7 @@ export const ROAD_AFRICA: LL[] = [[6.85, 79.8], [3.0, 68.0], [-1.5, 52.0], [-4.0
 /** China–Europe Railway Express, the northern route (Chongqing – Xi'an – Alashankou – Kazakhstan – Russia – Belarus – Poland – Duisburg). */
 export const CR_EXPRESS: LL[] = [[29.56, 106.55], [34.27, 108.95], [36.06, 103.83], [39.73, 98.5], [42.82, 93.5], [43.83, 87.62], [45.17, 82.57], [46.95, 79.66], [49.8, 73.1], [52.3, 76.95], [54.98, 73.37], [56.84, 60.6], [55.75, 37.62], [53.9, 27.57], [52.1, 23.7], [52.23, 21.0], [52.52, 13.4], [51.43, 6.76]];
 /** Belt and Road projects, as short lines. */
-export const CHINA_LAOS_RAIL: LL[] = [[25.04, 102.71], [22.0, 100.8], [20.0, 101.7], [17.97, 102.63]];
+export const CHINA_LAOS_RAIL: LL[] = [[25.04, 102.71], [22.8, 100.97], [22.0, 100.8], [21.18, 101.68], [19.89, 102.13], [17.97, 102.63]];
 export const JAKARTA_BANDUNG: LL[] = [[-6.2, 106.85], [-6.55, 107.2], [-6.92, 107.6]];
 export const MOMBASA_NAIROBI: LL[] = [[-4.05, 39.67], [-3.4, 38.55], [-2.2, 37.6], [-1.29, 36.82]];
-export const BUDAPEST_BELGRADE: LL[] = [[47.5, 19.04], [46.25, 20.1], [45.25, 19.85], [44.79, 20.45]];
+export const BUDAPEST_BELGRADE: LL[] = [[47.5, 19.04], [46.1, 19.67], [45.25, 19.85], [44.79, 20.45]];

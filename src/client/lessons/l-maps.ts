@@ -1,5 +1,6 @@
 /** Lessons: maps. 七上 · 地球和地图 (2): scale, direction and legend; contour lines; plus map projections and time zones. */
-import { C, T, arrows, mer, mk, par, type LL, type Lesson } from './kit.ts';
+import { C, T, arrows, mer, mk, par, type LL, type Lesson, type Pair } from './kit.ts';
+import { arrowDef, svg, tx, type Lx } from './figs.ts';
 import type { AstroClock } from './astro/types.ts';
 import type { Opts as ProjOpts } from './astro/k-projection.ts';
 import { RIVERS } from './geo.ts';
@@ -36,17 +37,88 @@ const ZONES: Paint[] = Array.from({ length: 24 }, (_, i) => {
 const DATE_LINE: LL[] = [[89.9, 180], [75, 180], [68, -169], [65.5, -169], [52.5, 170], [48, 180], [5, 180], [4, -150], [-10, -150], [-11, -171], [-16, -171.5], [-45, -172.5], [-51, 180], [-89.9, 180]];
 
 const BEIJING: LL = [39.9, 116.4], NEW_YORK: LL = [40.7, -74.0];
+const TIANJIN: LL = [39.12, 117.2], HARBIN: LL = [45.8, 126.53], SHANGHAI: LL = [31.23, 121.47], CHENGDU: LL = [30.66, 104.07], ULAANBAATAR: LL = [47.92, 106.92];
+const KUNMING: LL = [25.04, 102.71], QINGDAO: LL = [36.07, 120.38];
+
+/* ---- figures: reading maps ---- */
+const GOLD = '#ffd24a';
+/** a scale bar of `n` alternate blocks, each `w` px wide and worth `v` units */
+const bar = (x: number, y: number, n: number, w: number, v: number, unit: string) =>
+  Array.from({ length: n }, (_, i) => `<rect x="${x + i * w}" y="${y}" width="${w}" height="5" class="${i % 2 ? 'fg-bw' : 'fg-bb'}"/>`).join('')
+  + Array.from({ length: n + 1 }, (_, i) => tx(x + i * w, y + 14, String(i * v) + (i === n ? ' ' + unit : ''), 'fg-tick', i === n ? 's' : 'm')).join('');
+
+/** Beijing → Tianjin measured on a 1 : 5 000 000 map */
+const scaleCalcFig = (L: Lx, id: string) => {
+  const ax = 40, ay = 50, bx = 118, by = 112; // 2.2 "cm" = 100 px apart
+  const map = `<rect x="12" y="24" width="140" height="150" rx="4" class="fg-mapbox"/>`
+    + `<path d="M${ax} ${ay} L${bx} ${by}" stroke="${GOLD}" stroke-width="1.6" stroke-dasharray="4 3" class="f-fade" style="--d:.3s"/>`
+    + `<circle cx="${ax}" cy="${ay}" r="4" fill="#ff6b6b"/><circle cx="${bx}" cy="${by}" r="3.4" fill="#ffd24a"/>`
+    + tx(ax + 7, ay - 3, L(['Beijing', '北京']), 'fg-label') + tx(bx - 6, by + 14, L(['Tianjin', '天津']), 'fg-label', 'm')
+    + tx((ax + bx) / 2 + 10, (ay + by) / 2 - 4, L(['2.2 cm', '2.2 厘米']), 'fg-label', 's', ` style="fill:${GOLD}"`)
+    + bar(22, 150, 2, 46, 50, 'km') + tx(82, 38, '1 : 5 000 000', 'fg-sub', 'm');
+  const steps: Pair[] = [
+    ['① 1 cm on the map = 5 000 000 cm', '① 图上 1 厘米 = 实地 5 000 000 厘米'],
+    ['     = 50 000 m = 50 km', '     = 50 000 米 = 50 千米'],
+    ['② measure: 2.2 cm', '② 量得图上距离 2.2 厘米'],
+    ['③ 2.2 × 50 = 110 km', '③ 实地距离 = 2.2 × 50 = 110 千米'],
+    ['or: ground = map ÷ scale', '或：实地距离 = 图上距离 ÷ 比例尺'],
+    ['= 2.2 cm × 5 000 000 = 11 000 000 cm', '= 2.2 × 5 000 000 = 11 000 000 厘米'],
+  ];
+  const calc = steps.map((p, i) => `<g class="f-fade" style="--d:${(0.5 + i * 0.35).toFixed(2)}s">${tx(162, 46 + i * 20, L(p), i === 3 ? 'fg-label' : 'fg-sub', 's', i === 3 ? ` style="fill:${GOLD}"` : '')}</g>`).join('');
+  return svg(320, 180, arrowDef(`${id}a`) + tx(160, 13, L(['Working out a real distance', '用比例尺计算实地距离']), 'fg-title', 'm') + map + calc, L(['Scale calculation', '比例尺计算']));
+};
+
+/** direction from the latitude–longitude grid: Qingdao is north-east of Kunming */
+const gridFig = (L: Lx, id: string) => {
+  const X = (lon: number) => 40 + (lon - 100) * 9, Y = (lat: number) => 160 - (lat - 20) * 6.5;
+  const grid = [100, 105, 110, 115, 120, 125].map(o => `<line x1="${X(o)}" x2="${X(o)}" y1="${Y(42)}" y2="${Y(20)}" class="fg-grid"/>${tx(X(o), Y(20) + 11, o + '°E', 'fg-tick', 'm')}`).join('')
+    + [20, 25, 30, 35, 40].map(a => `<line x1="${X(100)}" x2="${X(125)}" y1="${Y(a)}" y2="${Y(a)}" class="fg-grid"/>${tx(X(100) - 3, Y(a) + 3, a + '°N', 'fg-tick', 'e')}`).join('');
+  const [ka, ko] = KUNMING, [qa, qo] = QINGDAO;
+  const path = `<path d="M${X(ko)} ${Y(ka)} L${X(ko)} ${Y(qa)}" class="fg-note" stroke="#74c0fc" fill="none"/>`
+    + `<path d="M${X(ko)} ${Y(qa)} L${X(qo)} ${Y(qa)}" class="fg-note" stroke="#ff8787" fill="none"/>`
+    + `<path d="M${X(ko)} ${Y(ka)} L${X(qo) - 4} ${Y(qa) + 3}" stroke="${GOLD}" stroke-width="1.6" fill="none" marker-end="url(#${id}a)" class="f-draw" pathLength="1" style="--d:.8s"/>`;
+  const dots = `<circle cx="${X(ko)}" cy="${Y(ka)}" r="3.5" fill="#63e6be"/><circle cx="${X(qo)}" cy="${Y(qa)}" r="3.5" fill="#ff6b6b"/>`
+    + tx(X(ko) + 6, Y(ka) + 4, L(['A Kunming 25°N 103°E', 'A 昆明 25°N 103°E']), 'fg-label')
+    + tx(X(qo), Y(qa) - 6, L(['B Qingdao 36°N 120°E', 'B 青岛 36°N 120°E']), 'fg-label', 'e')
+    + tx(X(ko) - 4, (Y(ka) + Y(qa)) / 2, L(['higher lat: north', '纬度更高：偏北']), 'fg-sub', 'e', ' style="fill:#74c0fc"')
+    + tx((X(ko) + X(qo)) / 2, Y(qa) - 6, L(['larger E long: east', '东经度数更大：偏东']), 'fg-sub', 'm', ' style="fill:#ff8787"');
+  return svg(300, 182, arrowDef(`${id}a`, GOLD) + tx(150, 13, L(['B lies north-east of A', 'B 在 A 的东北方']), 'fg-title', 'm') + grid + path + dots, L(['Direction on a grid', '经纬网定向']));
+};
+
+/** looking down on the North Pole: meridians radiate, east is anticlockwise */
+const polarFig = (L: Lx, id: string) => {
+  const cx = 150, cy = 98, R = 72;
+  const rings = [30, 60].map(a => `<circle cx="${cx}" cy="${cy}" r="${(R * (90 - a)) / 60}" class="fg-grid" fill="none"/>`).join('')
+    + tx(cx + 3, cy + R / 2 + 2, '60°N', 'fg-tick') + tx(cx + 3, cy + R + 9, '30°N', 'fg-tick');
+  // 0° at the bottom, 90°E to the right, 180° at the top, 90°W to the left
+  const lab: [number, string, Pair][] = [[0, 'm', ['0°', '0°']], [90, 's', ['90°E', '90°E']], [180, 'm', ['180°', '180°']], [-90, 'e', ['90°W', '90°W']]];
+  const mers = lab.map(([o, a, p]) => {
+    const t = (o * Math.PI) / 180, x = cx + R * Math.sin(t), y = cy + R * Math.cos(t);
+    return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#63e6be" stroke-width=".9"/>` + tx(x + (a === 's' ? 4 : a === 'e' ? -4 : 0), y + (o === 0 ? 11 : o === 180 ? -4 : 3), L(p), 'fg-label', a as 's' | 'm' | 'e');
+  }).join('');
+  const r = R * 0.75, a0 = 0.35, a1 = 1.2;
+  const arc = `<path d="M${cx + r * Math.sin(a0)} ${cy + r * Math.cos(a0)} A${r} ${r} 0 0 0 ${cx + r * Math.sin(a1)} ${cy + r * Math.cos(a1)}" stroke="${GOLD}" stroke-width="1.8" fill="none" marker-end="url(#${id}a)" class="f-draw" pathLength="1" style="--d:.5s"/>`;
+  const legend = tx(10, 40, L(['to the centre: north', '指向中心：北']), 'fg-sub') + tx(10, 52, L(['away from it: south', '背离中心：南']), 'fg-sub')
+    + tx(232, 150, L(['anticlockwise: east', '逆时针：东']), 'fg-label', 's', ` style="fill:${GOLD}"`) + tx(232, 162, L(['clockwise: west', '顺时针：西']), 'fg-sub');
+  return svg(300, 182, arrowDef(`${id}a`, GOLD) + tx(150, 13, L(['Over the North Pole', '北极上空俯视']), 'fg-title', 'm') + rings + mers + arc + `<circle cx="${cx}" cy="${cy}" r="3" fill="#ffd24a"/>` + legend, L(['Polar directions', '极地方向']));
+};
+
+/** a scale bar for the quiz: 1 cm (here 40 px) = 20 km */
+const quizBarFig = (L: Lx) =>
+  svg(300, 70, tx(150, 13, L(['Scale bar on a map', '某地图上的线段比例尺']), 'fg-title', 'm') + bar(70, 30, 3, 40, 20, 'km')
+    + tx(70, 62, L(['each block is 1 cm long', '每一小段长 1 厘米']), 'fg-sub'), L(['Scale bar', '线段比例尺']));
 
 export const MAPS: Lesson[] = [
   {
-    id: 'maps', strand: 'maps', grade: 'g7a', tracks: ['uk', 'us', 'ib', 'au'], unit, icon: 'compass', minutes: 5,
+    id: 'maps', strand: 'maps', grade: 'g7a', tracks: ['uk', 'us', 'ib', 'au'], unit, icon: 'compass', minutes: 8,
     title: ['Reading maps', '地图的阅读'],
     blurb: ['Scale, direction and legend: the three things you need to read any map.', '比例尺、方向和图例：读懂任何地图都离不开这三样。'],
     keys: [
       ['Scale = distance on the map ÷ distance on the ground; it can be a ratio, words or a scale bar.', '比例尺 = 图上距离 ÷ 实地距离，可以写成数字式、文字式或线段式。'],
       ['Larger scale: smaller area, more detail. Smaller scale: bigger area, less detail.', '比例尺越大，表示的范围越小，内容越详细；比例尺越小，范围越大，内容越简略。'],
+      ['Real distance = map distance ÷ scale; change units at the end (1 km = 100 000 cm).', '实地距离 = 图上距离 ÷ 比例尺，最后换算单位（1 千米 = 100 000 厘米）。'],
       ['Directions: follow the north arrow, or the grid (meridians N–S, parallels E–W), or else up is north.', '定方向：有指向标看指向标，有经纬网看经纬网（经线指南北，纬线指东西），都没有时“上北下南，左西右东”。'],
-      ['The legend explains what each symbol and colour means.', '图例说明地图上各种符号和颜色的含义。'],
+      ['The legend explains each symbol; labels give names and numbers. Choose a map by purpose, area and detail.', '图例说明各种符号的含义，注记写明名称和数字；要根据用途、范围和详略选择地图。'],
     ],
     steps: [
       {
@@ -54,60 +126,83 @@ export const MAPS: Lesson[] = [
         marks: [mk([51.5, -0.1], 'London', '伦敦', { dot: true, c: C.gold, big: true, t: 0.3 })],
         fig: { k: 'dia', id: 'scale' },
         task: ['Zoom in and out on London: notice how streets and buildings disappear as the area shown grows.', '在伦敦上空放大、缩小地图：注意范围变大时，街道和建筑是怎样消失的。'],
-        body: ['A map shrinks the real world. The scale tells you by how much: scale = distance on the map ÷ distance on the ground. 1 : 100 000 means 1 cm on the map stands for 100 000 cm, which is 1 km, on the ground. Zoomed in close like this, a map can show single streets and buildings.',
-          '地图把真实世界缩小了，比例尺告诉我们缩小了多少：比例尺 = 图上距离 ÷ 实地距离。1 : 100 000 表示图上 1 厘米代表实地 100 000 厘米，也就是 1 千米。像这样放得很近，地图上能画出一条条街道和一座座建筑。'],
+        body: ['A map shrinks the real world, and the scale tells you by how much: scale = distance on the map ÷ distance on the ground. It can be written three ways: as a ratio (1 : 100 000), in words ("1 cm on the map = 1 km on the ground") or as a scale bar you measure against. All three say the same thing here, because 1 km = 1 000 m = 100 000 cm. Zoomed in this close on London, a map can show single streets and buildings such as Tower Bridge.',
+          '地图把真实世界缩小了，比例尺告诉我们缩小了多少：比例尺 = 图上距离 ÷ 实地距离。比例尺有三种表示方法：数字式（1 : 100 000）、文字式（“图上 1 厘米代表实地距离 1 千米”）和线段式（画一段刻度尺来量）。这里三种写法意思相同，因为 1 千米 = 1000 米 = 100 000 厘米。像这样放大到伦敦市区，地图上能画出一条条街道和塔桥这样的建筑。'],
       },
       {
-        title: ['Zoom out: a country map', '缩小一点：国家地图'], cam: [51, 2, 2.4], names: true, borders: true,
-        marks: [mk([51.5, -0.1], 'London', '伦敦', { dot: true, c: C.gold }), mk([48.9, 2.35], 'Paris', '巴黎', { dot: true, c: C.teal, t: 0.4 })],
-        lines: [{ pts: [[51.5, -0.1], [48.9, 2.35]], c: C.gold, t: 0.8, dur: 1.2 }],
-        body: ['The same place on a smaller-scale map. London is now just a dot, but you can see the whole of Britain and its neighbours. London to Paris is about 340 km in a straight line, yet on the screen it is only a short line.',
-          '同一个地方，换成比例尺较小的地图。伦敦缩成了一个点，却能看到整个英国和周边国家。伦敦到巴黎的直线距离约 340 千米，在屏幕上却只是一条短短的线。'],
+        title: ['Using the scale: Beijing to Tianjin', '用比例尺算距离：北京到天津'], cam: [39.6, 116.8, 1.5], names: true, items: ['forbidden'],
+        lines: [{ pts: [BEIJING, TIANJIN], c: C.gold, t: 0.5, dur: 1.4, w: 1.5 }],
+        marks: [mk(BEIJING, 'Beijing', '北京', { dot: true, c: C.red, big: true, t: 0.3 }), mk(TIANJIN, 'Tianjin', '天津', { dot: true, c: C.gold, big: true, t: 0.6 }), mk([39.4, 116.15], '≈ 110 km', '≈ 110 千米', { c: C.gold, t: 1.8 })],
+        fig: { k: 'svg', draw: scaleCalcFig },
+        task: ['Follow the three steps on the diagram, then check the answer against the gold line between the two cities.', '按图中三步算一算，再对照两城之间的金色连线。'],
+        body: ['On a map of China at 1 : 5 000 000, Beijing and Tianjin are 2.2 cm apart. First turn the scale into words: 1 cm stands for 5 000 000 cm, which is 50 km. Then multiply: 2.2 × 50 = 110 km, close to the real straight-line distance. Always change the units at the end (100 000 cm = 1 km), and remember that roads and railways are longer than the straight line.',
+          '在比例尺为 1 : 5 000 000 的中国地图上，量得北京到天津的图上距离为 2.2 厘米。先把比例尺换成文字式：图上 1 厘米代表实地 5 000 000 厘米，即 50 千米；再相乘：2.2 × 50 = 110 千米，与两地实际直线距离很接近。计算时要注意单位换算（100 000 厘米 = 1 千米），而且公路、铁路的里程总比直线距离长。'],
       },
       {
-        title: ['Zoom out again: a world map', '再缩小：世界地图'], cam: [35, 15, 5.2],
-        paint: [{ fill: { k: 'continents' }, a: 0.35 }],
-        marks: [mk([51.5, -0.1], 'London', '伦敦', { dot: true, c: C.gold })],
-        fig: { k: 'dia', id: 'scale' },
-        body: ['On a world map, 1 cm may stand for 1,000 km or more, so the scale is very small. The rule: the larger the scale, the smaller the area shown and the more detail; the smaller the scale, the bigger the area and the less detail. Pick the scale that suits the job.',
-          '在世界地图上，图上 1 厘米可能代表 1000 千米甚至更多，比例尺很小。规律是：比例尺越大，表示的范围越小，内容越详细；比例尺越小，表示的范围越大，内容越简略。要根据用途选择合适的比例尺。'],
+        title: ['Zoom out: scale, area and detail', '缩小地图：比例尺与范围、详略'], cam: [50, 5, 3.2], names: true, borders: true,
+        marks: [mk([51.5, -0.1], 'London', '伦敦', { dot: true, c: C.gold }), mk([48.86, 2.35], 'Paris', '巴黎', { dot: true, c: C.teal, t: 0.4 })],
+        lines: [{ pts: [[51.5, -0.1], [48.86, 2.35]], c: C.gold, t: 0.8, dur: 1.2 }],
+        fig: { k: 'key', set: 'custom', title: ['Same page size, different scales', '图幅相同，比例尺不同'], items: [{ c: C.red, name: ['Town plan 1 : 10 000: streets, buildings', '城市街道图 1 : 10 000：街道、建筑'] }, { c: C.gold, name: ['Country map 1 : 5 000 000: cities, rivers', '国家地图 1 : 5 000 000：城市、河流'] }, { c: C.teal, name: ['World map 1 : 100 000 000: continents', '世界地图 1 : 100 000 000：大洲、大洋'] }] },
+        body: ['Zoom out and London shrinks to a dot, but now the whole of Britain, France and their neighbours fit on the screen. London to Paris is about 340 km in a straight line, so on a 1 : 10 000 000 map they would be only 3.4 cm apart. The rule: on maps of the same size, the larger the scale, the smaller the area shown and the more detailed the content; the smaller the scale, the larger the area and the simpler the content. A world map might use 1 : 100 000 000, where 1 cm stands for 1 000 km.',
+          '把地图缩小，伦敦缩成了一个点，但整个英国、法国和周边国家都进入了画面。伦敦到巴黎直线距离约 340 千米，在 1 : 10 000 000 的地图上只有 3.4 厘米。规律是：图幅相同时，比例尺越大，表示的范围越小，内容越详细；比例尺越小，表示的范围越大，内容越简略。世界地图的比例尺可能是 1 : 100 000 000，图上 1 厘米代表实地 1000 千米。'],
       },
       {
-        title: ['Which way is north?', '地图上的方向'], cam: [45, 10, 3.2], graticule: true,
-        lines: [mer(10, C.teal, 0, { w: 1.3 }), par(45, C.gold, 0.6, { w: 1.3 }), ...arrows([[[45, 10], [62, 10]], [[45, 10], [45, 30]]], C.red, 1.6, 2)],
-        marks: [mk([63, 10], 'N', '北', { c: C.red, big: true, t: 2 }), mk([45, 31], 'E', '东', { c: C.red, big: true, t: 2.2 })],
+        title: ['Which way is north?', '地图上的方向：一般定向法和指向标'], cam: [38, 114, 3.4], names: true,
+        lines: [BEIJING, BEIJING, BEIJING, BEIJING].map((b, i) => ({ pts: [b, [HARBIN, SHANGHAI, CHENGDU, ULAANBAATAR][i]], c: [C.red, C.teal, C.gold, C.violet][i], t: 0.4 + i * 0.4, dur: 1.2, arrow: true })),
+        marks: [mk(BEIJING, 'Beijing', '北京', { dot: true, c: C.red, big: true, t: 0.2 }), mk(HARBIN, 'Harbin: NE', '哈尔滨：东北', { dot: true, c: C.red, t: 1.4 }), mk(SHANGHAI, 'Shanghai: SE', '上海：东南', { dot: true, c: C.teal, t: 1.8 }), mk(CHENGDU, 'Chengdu: SW', '成都：西南', { dot: true, c: C.gold, t: 2.2 }), mk(ULAANBAATAR, 'Ulaanbaatar: NW', '乌兰巴托：西北', { dot: true, c: C.violet, t: 2.6 })],
         fig: { k: 'dia', id: 'compass' },
-        body: ['If a map has a north arrow, follow it. If it has a grid of latitude and longitude, meridians point north–south and parallels point east–west. If it has neither, the rule is: up is north, down is south, left is west, right is east.',
-          '如果地图上有指向标，就按指向标定方向，箭头一般指向北方。如果有经纬网，经线指示南北方向，纬线指示东西方向。如果两样都没有，就按“上北下南，左西右东”来判断。'],
+        task: ['From Beijing, read the direction of each city using "up north, right east" and the eight compass points.', '以北京为中心，按“上北下南，左西右东”说出每座城市在北京的什么方向。'],
+        body: ['Maps use three ways to show direction. With no north arrow and no grid, use the general rule: up is north, down is south, left is west, right is east. If there is a north arrow, its tip points north whichever way the map is turned. With eight compass points, Harbin is north-east of Beijing, Shanghai south-east, Chengdu south-west and Ulaanbaatar north-west.',
+          '地图上辨别方向有三种方法。没有指向标和经纬网时，用一般定向法：“上北下南，左西右东”。有指向标的地图，指向标的箭头指向北方，不管地图怎么摆放都按它定向。用八个方向来描述：哈尔滨在北京的东北方，上海在东南方，成都在西南方，乌兰巴托在西北方。'],
+      },
+      {
+        title: ['Direction by the latitude–longitude grid', '经纬网定向'], cam: [31, 112, 3], graticule: true,
+        lines: [par(QINGDAO[0], C.gold, 0.4, { w: 1.1 }), mer(KUNMING[1], C.teal, 0.2, { w: 1.1 }), { pts: [KUNMING, QINGDAO], c: C.red, t: 1, dur: 1.6, arrow: true, w: 1.5 }],
+        marks: [mk(KUNMING, 'A Kunming', 'A 昆明', { dot: true, c: C.teal, big: true, t: 0.3 }), mk(QINGDAO, 'B Qingdao', 'B 青岛', { dot: true, c: C.red, big: true, t: 0.6 })],
+        fig: { k: 'svg', draw: gridFig },
+        body: ['On a map with a grid, meridians point north–south and parallels point east–west, even when they are curved. Compare latitudes for north or south: in the Northern Hemisphere a higher number is further north. Compare longitudes for east or west: a larger east longitude (or smaller west longitude) is further east. Qingdao (36°N, 120°E) is both north and east of Kunming (25°N, 103°E), so it lies to the north-east.',
+          '在有经纬网的地图上，经线指示南北方向，纬线指示东西方向，即使经纬线是弯曲的也一样。先比纬度定南北：北半球纬度数值越大越偏北；再比经度定东西：东经度数越大越偏东（西经度数越大越偏西）。青岛（36°N，120°E）比昆明（25°N，103°E）纬度高、东经度数大，所以青岛在昆明的东北方。'],
       },
       {
         title: ['Directions near the pole', '极地附近的方向'], cam: [89, 0, 3.4], graticule: true,
         lines: [mer(0, C.teal, 0), mer(90, C.teal, 0.2), mer(180, C.teal, 0.4), mer(-90, C.teal, 0.6), par(70, C.gold, 0.8, { dur: 2.4 })],
-        marks: [mk([89.9, 0], 'North Pole', '北极点', { dot: true, c: C.gold, big: true, t: 0.3 })],
+        marks: [mk([89.9, 0], 'North Pole', '北极点', { dot: true, c: C.gold, big: true, t: 0.3 }), mk([66, 90], '90°E', '东经 90°', { c: C.teal, t: 1 }), mk([66, -90], '90°W', '西经 90°', { c: C.teal, t: 1 })],
+        fig: { k: 'svg', draw: polarFig },
         task: ['Pick any point on the gold circle: trace the way to the centre (north), then the way along the circle that is east.', '在金色纬线圈上任选一点：指出朝圆心的方向（北），再指出沿纬线圈向东是哪个方向。'],
-        body: ['Looking down on the North Pole, "up is north" no longer works. Use the grid: every meridian leads to the pole, so toward the centre is north and away from it is south in every direction. The Earth turns anticlockwise here, so east is anticlockwise round the circles.',
-          '从北极上空俯视时，“上北下南”就不管用了，要用经纬网判断：每条经线都通向北极点，朝中心是北，离开中心无论朝哪边都是南。这里地球逆时针自转，所以沿着纬线逆时针方向是东。'],
+        body: ['Looking down on the North Pole, "up is north" no longer works, so use the grid. Every meridian leads to the pole: toward the centre is north, and away from it is south in every direction. Seen from above the North Pole the Earth turns anticlockwise, so east is anticlockwise round the circles and west is clockwise. Over the South Pole it is the other way round: the Earth turns clockwise, and the centre is south.',
+          '从北极上空俯视时，“上北下南”就不管用了，要用经纬网判断。每条经线都通向北极点：朝中心是北，离开中心无论朝哪边都是南。从北极上空看，地球逆时针自转，所以沿纬线逆时针方向是东，顺时针方向是西。从南极上空看正好相反：地球顺时针自转，中心是南。'],
       },
       {
-        title: ['The legend', '图例和注记'], cam: [33, 105, 3.2], items: ['forbidden', 'greatwall', 'everest'],
+        title: ['Legend and labels', '图例和注记'], cam: [33, 105, 3.2], items: ['forbidden', 'greatwall', 'everest'],
         lines: [{ pts: RIVERS.yangtze, c: C.blue, t: 0.2, dur: 2.2 }, { pts: RIVERS.yellow, c: C.blue, t: 0.6, dur: 2.2 }],
-        marks: [mk([39.9, 116.4], 'Beijing (capital)', '北京（首都）', { dot: true, c: C.red, t: 0.4 }), mk([28, 86.9], '▲ Everest 8,849 m', '▲ 珠穆朗玛峰 8849 米', { c: C.brown, t: 1 }), mk([30.5, 112], 'Yangtze River', '长江', { c: C.blue, t: 2.2 })],
-        fig: { k: 'key', set: 'custom', title: ['Legend', '图例'], items: [{ c: C.red, name: ['Capital city', '首都'] }, { c: C.blue, name: ['River', '河流'] }, { c: C.brown, name: ['Mountain peak', '山峰'] }, { c: C.gold, name: ['Boundary', '国界'] }] },
-        body: ['Maps use symbols and colours to stand for real things: a star or red dot for a capital, blue lines for rivers, a triangle for a peak. The legend (map key) explains them, and labels (names and numbers) tell you what each place is called and how high it is.',
-          '地图用各种符号和颜色表示实际事物：首都用五角星或红点，河流用蓝色的线，山峰用三角形。图例告诉我们这些符号的含义，注记（文字和数字）说明地名和高度等。'],
+        marks: [mk([39.9, 116.4], 'Beijing (capital)', '北京（首都）', { dot: true, c: C.red, t: 0.4 }), mk([31.23, 121.47], 'Shanghai', '上海', { dot: true, c: C.gold, t: 0.7 }), mk([28, 86.9], '▲ Everest 8,848.86 m', '▲ 珠穆朗玛峰 8848.86 米', { c: C.brown, t: 1 }), mk([30.5, 112], 'Yangtze River', '长江', { c: C.blue, t: 2.2 })],
+        fig: { k: 'key', set: 'custom', title: ['Legend', '图例'], items: [{ c: C.red, name: ['Capital city', '首都'] }, { c: C.gold, name: ['Other city', '其他城市'] }, { c: C.blue, name: ['River', '河流'] }, { c: C.brown, name: ['▲ Mountain peak (altitude)', '▲ 山峰（海拔）'] }, { c: '#5fa4e6', name: ['National boundary', '国界'] }] },
+        body: ['Maps use symbols and colours to stand for real things: a star or red dot for a capital, blue lines for rivers, a triangle for a peak, and fine lines for national boundaries. The legend (map key) explains these symbols, so always read it first. Labels are the words and numbers on the map: place names such as "Yangtze River", and figures such as 8,848.86 m, the altitude of Everest. A complete map has a title, scale, direction sign, legend and labels.',
+          '地图用各种符号和颜色表示实际事物：首都用五角星或红点，河流用蓝色的线，山峰用三角形，国界用特定的线条。图例说明这些符号的含义，读图时要先看图例。注记是地图上的文字和数字：地名如“长江”，数字如珠穆朗玛峰的海拔 8848.86 米。一幅完整的地图通常有图名、比例尺、方向、图例和注记。'],
+      },
+      {
+        title: ['Choosing the right map', '地图的选择和应用'], cam: [40.1, 116.4, 1.3], items: ['forbidden', 'greatwall'], names: true,
+        marks: [mk(BEIJING, 'Tian\'anmen', '天安门', { dot: true, c: C.red, t: 0.3 }), mk([40.43, 116.57], 'Great Wall (Mutianyu)', '长城（慕田峪）', { dot: true, c: C.gold, t: 0.7 })],
+        fig: { k: 'key', set: 'custom', title: ['Need → map', '需要 → 地图'], items: [{ c: C.red, name: ['Visit the Palace Museum → a tourist map', '游览故宫 → 导游图'] }, { c: C.gold, name: ['Get round the city → a town plan or metro map', '在城里找路 → 城市交通图、地铁图'] }, { c: C.teal, name: ['Hike to the Great Wall → a large-scale topographic map', '徒步长城 → 大比例尺地形图'] }, { c: C.blue, name: ['Compare provinces → a small-scale political map', '比较各省 → 小比例尺政区图'] }, { c: C.violet, name: ['Plan a trip today → a digital map with satellite navigation', '规划今天的行程 → 带卫星导航的电子地图'] }] },
+        task: ['You have one day in Beijing: decide which map you need for the Palace Museum, the metro and a Great Wall hike.', '假如你在北京玩一天：游故宫、坐地铁、徒步长城，各需要哪种地图？'],
+        body: ['There is no single best map: choose by purpose and by how much area and detail you need. A tourist map of the Palace Museum shows halls and exits, a metro map shows lines and stations, and a large-scale topographic map with contours suits a hike to the Great Wall. To compare provinces you need a small-scale map covering all of China. Today digital maps join satellite images (remote sensing) with positioning from China\'s BeiDou system, so they can zoom from country to street and plan a route live.',
+          '没有“万能地图”，要根据用途，以及需要的范围大小和内容详略来选择地图。游览故宫用导游图，上面画着宫殿和出入口；坐地铁用地铁线路图；徒步去长城最好用带等高线的大比例尺地形图；比较各省份则要用表示全国范围的小比例尺地图。如今的电子地图结合了卫星遥感影像和我国北斗卫星导航系统的定位，能从全国一直放大到街道，并实时规划路线。'],
       },
     ],
     quiz: [
       { q: ['Which scale is the largest?', '下列比例尺中，最大的是'], options: [['1 : 10 000', '比例尺 1 : 10 000'], ['1 : 100 000', '比例尺 1 : 100 000'], ['1 : 1 000 000', '比例尺 1 : 1 000 000'], ['1 : 10 000 000', '比例尺 1 : 10 000 000']], answer: 0,
         why: ['1 : 10 000 is the biggest fraction (1/10 000), so it is the largest scale: small area, lots of detail.', '1 : 10 000 这个分数最大，所以比例尺最大：范围小，内容详细。'] },
-      { q: ['On a 1 : 100 000 map, two towns are 3 cm apart. How far apart are they really?', '在 1 : 100 000 的地图上，两镇相距 3 厘米，实地距离是'], options: [['3 km', '3 千米'], ['30 km', '30 千米'], ['300 m', '300 米'], ['300 km', '300 千米']], answer: 0,
-        why: ['3 cm × 100 000 = 300 000 cm = 3 km.', '3 厘米 × 100 000 = 300 000 厘米 = 3 千米。'] },
+      { q: ['On this map two villages are 4.5 cm apart. How far apart are they on the ground?', '在这幅地图上，两村相距 4.5 厘米，实地距离是多少千米？'], fig: { k: 'svg', draw: quizBarFig }, num: { answer: 90, tol: 0.5, unit: ['km', '千米'] },
+        why: ['Each 1 cm block of the bar stands for 20 km, so 4.5 × 20 = 90 km. As a ratio the scale is 1 : 2 000 000.', '线段比例尺上每 1 厘米代表 20 千米，4.5 × 20 = 90 千米。写成数字式是 1 : 2 000 000。'] },
+      { q: ['Point A is at 30°N, 100°E and point B at 40°N, 110°E. In which direction is B from A?', 'A 点位于 30°N、100°E，B 点位于 40°N、110°E。B 在 A 的什么方向？'], options: [['North-east', '东北方'], ['North-west', '西北方'], ['South-east', '东南方'], ['South-west', '西南方']], answer: 0,
+        why: ['B has the higher north latitude, so it is further north; it has the larger east longitude, so it is further east. Together: north-east.', 'B 的北纬度数大，偏北；东经度数大，偏东。合起来，B 在 A 的东北方。'] },
       { q: ['A map has no north arrow and no grid. The top of the map is…', '一幅地图没有指向标和经纬网，地图的上方是'], options: [['North', '北方'], ['South', '南方'], ['East', '东方'], ['It cannot be told', '无法判断']], answer: 0,
-        why: ['Then use the rule "up is north, down is south, left is west, right is east".', '这时按“上北下南，左西右东”判断。'] },
-      { q: ['Which part of a map explains what the symbols mean?', '地图上说明各种符号含义的是'], options: [['The legend', '图例'], ['The scale', '比例尺'], ['The north arrow', '指向标'], ['The title', '图名']], answer: 0,
-        why: ['The legend (map key) lists each symbol and colour with its meaning.', '图例列出了各种符号和颜色所代表的事物。'] },
-      { q: ['Find London, the city on our large-scale map.', '在地球上点出我们用大比例尺地图看过的城市——伦敦。'], at: [51.5, -0.1], tolKm: 500,
-        why: ['London is in south-east England, on the River Thames.', '伦敦位于英国英格兰东南部，泰晤士河畔。'] },
+        why: ['Then use the general rule "up is north, down is south, left is west, right is east".', '这时用一般定向法：“上北下南，左西右东”。'] },
+      { q: ['Match each task to the most suitable map.', '把要做的事和最合适的地图连起来。'],
+        match: [[['Find the exits of the Palace Museum', '找故宫的出口'], ['Tourist map', '导游图']], [['Change lines on the metro', '换乘地铁'], ['Metro map', '地铁线路图']], [['Choose a gentle path up a hill', '选一条坡缓的上山路'], ['Topographic (contour) map', '等高线地形图']], [['Compare the sizes of provinces', '比较各省区面积'], ['Small-scale political map', '小比例尺政区图']]],
+        why: ['Pick a map by purpose: detail of one site, routes, relief, or a large area at a glance.', '要根据用途选择地图：看一处景点的细节、找交通路线、看地势起伏，还是看大范围的概况。'] },
+      { q: ['Find Harbin, the city north-east of Beijing.', '在地球上点出位于北京东北方的哈尔滨。'], at: [45.8, 126.53], tolKm: 400,
+        why: ['Harbin is in Heilongjiang, about 1,050 km north-east of Beijing.', '哈尔滨在黑龙江省，位于北京东北方约 1050 千米处。'] },
       { q: ['Maps drawn on the same size of paper: put them in order from the largest scale to the smallest.', '用同样大小的纸画地图，把它们按比例尺从大到小排序。'],
         order: [['A plan of your school', '学校平面图'], ['A town plan', '城市街道图'], ['A map of a country', '国家地图'], ['A world map', '世界地图']],
         why: ['On the same sheet, the smaller the area shown, the larger the scale. A school plan shows the least ground in the most detail; a world map the most ground in the least detail.', '图幅相同时，表示的范围越小，比例尺越大。学校平面图范围最小、内容最详细，世界地图范围最大、内容最简略。'] },

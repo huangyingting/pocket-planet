@@ -368,7 +368,7 @@ export const SENIOR_A: Lesson[] = [
     blurb: ['Use earthquake waves to see inside the Earth: the Moho, the Gutenberg discontinuity, crust, mantle and core, and the spheres outside.', '借助地震波“看清”地球内部：莫霍面、古登堡面，地壳、地幔、地核，以及外部圈层。'],
     keys: [
       ['P waves (longitudinal) are faster and pass through solids, liquids and gases; S waves (transverse) are slower and pass through solids only.', '纵波（P 波）传播速度快，能通过固体、液体和气体；横波（S 波）速度慢，只能通过固体。'],
-      ['Moho: both waves speed up, about 33 km under the continents (17 km on average, thinner under oceans). Gutenberg: at 2,900 km S waves vanish and P waves slow down.', '莫霍面：纵波和横波速度都明显增加，大陆部分平均深约 33 千米（全球平均约 17 千米，海洋较薄）；古登堡面：约 2900 千米，横波消失，纵波速度突然下降。'],
+      ['Moho: both waves speed up, about 33 km under the continents (17 km on average; oceanic crust only about 7 km). Gutenberg: at 2,900 km S waves vanish and P waves slow down.', '莫霍面：纵波和横波速度都明显增加，大陆部分平均深约 33 千米（全球平均约 17 千米，大洋地壳平均仅约 7 千米）；古登堡面：约 2900 千米，横波消失，纵波速度突然下降。'],
       ['Crust above the Moho, mantle between, core below the Gutenberg discontinuity; the outer core is liquid, the inner core solid.', '莫霍面以上为地壳，两个不连续面之间为地幔，古登堡面以下为地核；外核为液态，内核为固态。'],
       ['The lithosphere is the crust plus the rigid top of the mantle, above the asthenosphere (about 80–400 km deep), where magma comes from.', '岩石圈包括地壳和上地幔顶部（软流层以上），由坚硬的岩石组成；软流层（约 80–400 千米深）一般认为是岩浆的发源地。'],
       ['Outside the solid Earth: the atmosphere, the hydrosphere and the biosphere, which overlaps them all.', '外部圈层包括大气圈、水圈和生物圈；生物圈渗透于其他圈层之中。'],
@@ -409,8 +409,8 @@ export const SENIOR_A: Lesson[] = [
           ],
         },
         task: ['Move the drill across the section and push it down to the Moho in each place.', '沿剖面移动钻头，在不同位置把它钻到莫霍面。'],
-        body: ['The crust is very uneven. Under the oceans it is only 5–10 km of dense basalt; under the continents it averages about 33 km, and under high plateaus such as Tibet it is 60–70 km thick, like the root of an iceberg. On average over the whole Earth it is about 17 km.',
-          '地壳厚度很不均匀：大洋地壳只有 5–10 千米，主要是玄武岩；大陆地壳平均约 33 千米，青藏高原等高大地形下可达 60–70 千米，像冰山伸入水下的“根”。全球地壳平均厚度约 17 千米。'],
+        body: ['The crust is very uneven. Under the oceans it is thin, about 7 km on average (5–10 km) of dense basalt; under the continents it averages about 33 km, and under high plateaus such as Tibet it is 60–70 km thick, like the root of an iceberg. On average over the whole Earth it is about 17 km.',
+          '地壳厚度很不均匀：大洋地壳较薄，平均约 7 千米（5–10 千米），主要是玄武岩；大陆地壳平均约 33 千米，青藏高原等高大地形下可达 60–70 千米，像冰山伸入水下的“根”。全球地壳平均厚度约 17 千米。'],
       },
       {
         title: ['Crust, mantle and core', '地壳、地幔和地核'], astro: { kit: 'layers', mode: 'cutaway' },
@@ -790,6 +790,7 @@ export const SENIOR_A: Lesson[] = [
       ['A change in one element spreads through the rest (“pull one hair and the whole body moves”).', '某一要素的变化会导致其他要素乃至整个环境的变化（牵一发而动全身）。'],
       ['Clearing forest on the Loess Plateau or in the Amazon sets off a chain: soil erosion, poorer soil, changes to rivers and climate.', '黄土高原、亚马孙雨林的植被破坏会引发连锁反应：水土流失、土壤肥力下降、河流和气候变化等。'],
       ['Restoring one element, such as returning farmland to forest, can set off a chain of improvements.', '恢复某一要素（如退耕还林还草）也能带动整体环境的改善。'],
+      ['Together the elements gain new functions: production (photosynthesis makes organic matter) and balance (keeping the air’s carbon–oxygen balance).', '各要素相互作用产生新功能：生产功能（绿色植物通过光合作用制造有机物）和平衡功能（维持大气的碳氧平衡）。'],
     ],
     steps: [
       {
@@ -804,6 +805,17 @@ export const SENIOR_A: Lesson[] = [
         marks: [mk([33, 88], 'Tibetan Plateau', '青藏高原', { big: true, t: 0.4 })],
         body: ['As India pushed into Asia over the last tens of millions of years, the Tibetan Plateau rose. Every element changed with it: the air grew thin and cold, glaciers formed, and great rivers such as the Yangtze, Yellow and Mekong began there; alpine meadows and cold-adapted animals replaced the warm forests whose fossils are still found in its rocks, and the plateau changed the monsoon of all East Asia.',
           '数千万年来，印度洋板块向北挤压亚欧板块，青藏高原逐渐隆升。各要素随之一起变化：气温降低，空气稀薄，形成高寒气候，发育了冰川；长江、黄河、澜沧江等大河在这里发源；原来的温暖森林（今天还能找到它们的化石）被高寒草甸和耐寒动物取代；高原还改变了整个东亚的季风环流。'],
+      },
+      {
+        title: ['New functions: production and balance', '产生新功能：生产功能和平衡功能'], cam: [8, -20, 4.6], wide: true,
+        paint: [{ fill: { k: 'biome', only: ['rainforest', 'desert'] }, a: 0.75 }],
+        marks: [
+          mk([-4, -62], 'Amazon: ≈ 2,000 g of plant matter per m² a year', '亚马孙雨林：每平方米每年约 2000 克', { c: C.green, t: 0.5 }),
+          mk([23, 10], 'Sahara: under 100 g', '撒哈拉荒漠：不足 100 克', { c: C.gold, t: 1 }),
+        ],
+        fig: { k: 'svg', draw: chainFig(['Producing something new', '产生新功能'], [[['Sunlight, water, CO₂ and soil nutrients', '太阳光、水、二氧化碳、土壤养分'], '#ffd43b'], [['Photosynthesis in green plants', '绿色植物的光合作用'], '#8ce99a'], [['Organic matter: food, wood (production)', '制造有机物：粮食、木材（生产功能）'], '#e9c46a'], [['CO₂ taken in, O₂ given out (balance)', '吸收二氧化碳、释放氧气（平衡功能）'], '#a5d8ff']]) },
+        body: ['When the elements work together they can do what none can do alone. Sunlight, water, carbon dioxide and the nutrients of the soil meet in green plants, which make organic matter by photosynthesis: this production function feeds every food chain, every farm and forest. A tropical rainforest produces about 2,000 g of dry plant matter per square metre a year, a hot desert less than 100 g, because there water is missing from the combination. At the same time plants take in CO₂ and give out O₂, keeping the carbon–oxygen balance of the air (oxygen steady at about 21%): the balance function.',
+          '各要素相互作用，能产生单个要素所不具备的新功能。阳光、水、二氧化碳和土壤中的养分在绿色植物中结合，通过光合作用制造有机物，这就是生产功能，它是食物链和农业、林业的基础：热带雨林每平方米每年生产约 2000 克干物质，热带荒漠缺水，不足 100 克。绿色植物同时吸收二氧化碳、释放氧气，使大气中的氧气稳定在约 21%，维持碳氧平衡，这就是平衡功能。'],
       },
       {
         title: ['Clearing the Amazon', '亚马孙雨林的破坏'], cam: [-5, -60, 2.8],
@@ -865,6 +877,14 @@ export const SENIOR_A: Lesson[] = [
         options: [['A whole: a change in one place and one element spreads', '整体性：一个要素、一个地区的变化会影响其他要素和地区'], ['Different from place to place', '地域差异性'], ['Unchanging', '稳定不变性'], ['Only affected by people', '只受人类影响']], answer: 0,
         why: ['Losing the vegetation changes the soil and the air, and the effect travels to other places: the environment works as a whole.', '植被的变化影响了土壤和大气，还影响到其他地区，体现了自然环境的整体性。'],
       },
+      {
+        q: ['Find the two regions of this lesson on the globe.', '在地球仪上找到本课的两个案例地区。'],
+        place: [
+          { text: ['Loess Plateau', '黄土高原'], at: [37, 108], tolKm: 500 },
+          { text: ['Amazon rainforest', '亚马孙雨林'], at: [-4, -62], tolKm: 1200 },
+        ],
+        why: ['The Loess Plateau lies in the middle reaches of the Yellow River; the Amazon basin straddles the equator in South America.', '黄土高原位于黄河中游；亚马孙雨林位于南美洲赤道附近的亚马孙平原。'],
+      },
     ],
   },
   {
@@ -875,7 +895,7 @@ export const SENIOR_A: Lesson[] = [
       ['Latitudinal zonation: from the equator to the poles, heat falls, so zones change north–south (they run east–west).', '纬度地带性：由赤道到两极，热量递减，自然带沿纬线方向延伸、沿经线方向更替。'],
       ['Zonation by moisture (longitudinal): from the coast inland, water falls, e.g. along 40° N in China: forest → grassland → desert.', '干湿度地带性（经度地带性）：由沿海向内陆，水分递减，如我国 40°N 附近由东向西依次为森林、草原、荒漠。'],
       ['Vertical zonation: up a mountain heat falls (≈ 0.6 °C per 100 m) and water changes; the belt at the foot matches the local horizontal zone.', '垂直地带性：随海拔升高，热量递减（约每 100 米降低 0.6 °C），水分也发生变化；山麓的自然带与当地水平自然带一致。'],
-      ['The lower the latitude and the higher the mountain, the more belts. Wet, windward slopes have more belts; dry slopes can have a higher snowline.', '纬度越低、山体越高，垂直自然带越多；迎风坡水分多，自然带更丰富；背风坡干燥，雪线可能更高。'],
+      ['The lower the latitude and the higher the mountain, the more belts. Wet, windward slopes have more belts; the snowline is highest in the dry subtropics and higher on dry, leeward and sunny slopes.', '纬度越低、山体越高，垂直自然带越多；迎风坡水分多，自然带更丰富；雪线在副热带干旱地区最高，背风坡、阳坡的雪线一般较高。'],
       ['Non-zonal (azonal) differences come from local landforms, sea currents, groundwater and so on.', '非地带性分异：受海陆分布、地形、洋流、地下水等因素影响，形成与地带性规律不符的现象。'],
     ],
     steps: [
@@ -918,16 +938,38 @@ export const SENIOR_A: Lesson[] = [
           '珠峰南坡山麓海拔约 1000 米，地处喜马拉雅山南侧的湿润谷地，迎着来自印度洋的西南季风，从常绿阔叶林到冰雪带，自然带多而完整。北坡从海拔约 4300 米的青藏高原上升起，处于背风坡，自然带少，从高山草原开始。但北坡降水少，雪线反而比南坡高（约 6000 米，南坡约 5500 米）。'],
       },
       {
-        title: ['Breaking the pattern', '非地带性现象'], cam: [-5, 30, 3.8], sketch: true, items: ['kilimanjaro'],
+        title: ['Kilimanjaro: snow on the equator', '乞力马扎罗山：赤道上的雪山'], astro: { kit: 'mountain', mode: 'lab', lat: 3, height: 5900 },
+        body: ['Kilimanjaro (5,895 m) stands only 3° south of the equator, yet glaciers cap its summit. Climbing it is like travelling from the equator to the poles: at 0.6 °C per 100 m the top is about 30 °C colder than the plain at its foot. The model starts from humid lowland at sea level; the real mountain rises from savanna at about 1,000 m (its foot matches the local zone), through montane forest, wettest on the south slope that faces the moist south-east trades, then heath and alpine meadow, alpine desert, and ice and snow above about 5,000 m. This is vertical zonation, not a non-zonal exception. Since 1912 its glaciers have shrunk by more than 80%.',
+          '乞力马扎罗山海拔 5895 米，位于南纬 3° 附近，山顶却有冰川。从山麓登上山顶，就像从赤道走到两极：按每升高 100 米降温 0.6 °C 计算，山顶比山麓平原低约 30 °C。模型的山麓是海平面的湿润低地；真实的乞力马扎罗山从海拔约 1000 米的热带草原上升起（山麓自然带与当地水平自然带一致），向上依次是山地森林（南坡迎着湿润的东南信风，降水最多）、灌丛和高山草甸、高山荒漠，约 5000 米以上为冰雪带。这是垂直地带性的典型例子，而不是非地带性现象。1912 年以来，山顶冰川已缩小了 80% 以上。'],
+      },
+      {
+        title: ['The snowline', '雪线'], cam: [28, 45, 4.6], wide: true, sketch: true,
+        marks: [
+          mk([-3.07, 37.35], 'Kilimanjaro, 3° S: ≈ 5,000 m', '乞力马扎罗山（3°S）：约 5000 米', { dot: true, c: C.white, t: 0.4 }),
+          mk([32, 88], 'Tibet, 30° N, dry: ≈ 6,000 m', '青藏高原（30°N，干燥）：约 6000 米', { dot: true, c: C.gold, t: 0.8 }),
+          mk([46.5, 8], 'Alps, 46° N: ≈ 3,000 m', '阿尔卑斯山（46°N）：约 3000 米', { dot: true, c: C.teal, t: 1.2 }),
+          mk([61.5, 7.5], 'Norway, 61° N: ≈ 1,500 m', '挪威（61°N）：约 1500 米', { dot: true, c: C.ice, t: 1.6 }),
+        ],
+        fig: {
+          k: 'line', title: ['Snowline height by latitude (northern hemisphere, approx.)', '雪线高度随纬度的变化（北半球，约值）'], unit: ['m · latitude °N', '米 · 纬度 °N'],
+          x: [0, 10, 20, 30, 40, 50, 60, 70], min: 0, max: 6500,
+          series: [{ name: ['Snowline', '雪线'], c: C.ice, y: [4900, 5100, 5600, 5800, 4000, 2800, 1500, 700] }],
+          notes: [{ x: 30, text: ['Highest: dry subtropics', '副热带干旱区最高'] }],
+        },
+        body: ['The snowline is the lower edge of permanent snow, where a year\'s snowfall just equals what melts. More heat lifts it, so it falls towards the poles: about 3,000 m in the Alps and 1,500 m in Norway. Yet it is highest not on the rainy equator (about 4,800–5,000 m) but in the dry subtropics, about 6,000 m in Tibet and over 6,000 m in the central Andes, because little snow falls under the sinking air. On one mountain the snowline is lower on the wet windward side and on shady slopes; Qomolangma\'s north slope is shady, but it is so dry that its snowline is higher than the south slope\'s.',
+          '雪线是终年积雪的下限，在这里一年的降雪量与消融量大致相等。热量越多，雪线越高，所以雪线总体由低纬向高纬降低：阿尔卑斯山约 3000 米，挪威约 1500 米。但雪线最高处不在多雨的赤道（约 4800–5000 米），而在副热带干旱地区：青藏高原约 6000 米，安第斯山脉中段超过 6000 米，因为那里盛行下沉气流，降雪少。同一座山，迎风坡降水多、阴坡热量少，雪线较低；珠峰北坡虽是阴坡，但处于背风坡、降水少，雪线反而比南坡高。'],
+      },
+      {
+        title: ['Breaking the pattern', '非地带性现象'], cam: [-6, -18, 4.8], wide: true, sketch: true,
         paint: [{ fill: { k: 'biome', only: ['rainforest', 'savanna', 'desert'] }, a: 0.8 }],
         lines: [{ pts: [[0.4, 33.2], [4.85, 31.6], [9.5, 31.65], [15.6, 32.5], [19.5, 33.3], [21.8, 31.3], [24.1, 32.9], [27.2, 31.2], [30, 31.2], [31.5, 31]], c: C.blue, w: 1.6, dur: 2.5 }],
         marks: [
           mk([-18.5, 49.2], 'East Madagascar: rainforest at 20° S', '马达加斯加岛东部：南纬 20° 的热带雨林', { dot: true, c: C.green, t: 0.6 }),
-          mk([-3.07, 37.35], 'Kilimanjaro: snow near the equator', '乞力马扎罗山：赤道附近的雪山', { dot: true, c: C.white, t: 1.2 }),
+          mk([-12, -77.5], 'Peru coast: desert reaching 5° S', '秘鲁沿岸：荒漠一直延伸到南纬 5° 附近', { dot: true, c: C.gold, t: 1.2 }),
           mk([20, 32.5], 'The Nile: a green ribbon through the desert', '尼罗河：穿过沙漠的绿色走廊', { c: C.blue, t: 1.8 }),
         ],
-        body: ['Some places do not follow the zones. The east coast of Madagascar, at 20° S, should be savanna, but warm currents and trade winds blowing from the sea against its mountains bring rain all year, so there is rainforest. Kilimanjaro carries snow almost on the equator because it is so high. The Nile carries water through the Sahara, so oases and farmland line it. Such local, non-zonal differences come from landforms, ocean currents, rivers and groundwater.',
-          '有些地方不符合地带性规律。马达加斯加岛东部位于南纬 20° 附近，按纬度本应是热带草原，但受来自海洋的东南信风、沿岸暖流和山地迎风坡的影响，全年多雨，形成了热带雨林。乞力马扎罗山海拔高，赤道附近也有积雪。尼罗河把水带进撒哈拉沙漠，两岸形成绿洲和农田。这些由地形、洋流、河流、地下水等局部因素造成的差异，属于非地带性分异。'],
+        body: ['Some places do not follow the zones. The east coast of Madagascar, at 20° S, should be savanna, but warm currents and trade winds blowing from the sea against its mountains bring rain all year, so there is rainforest. On the other side of the world, the coast of Peru lies in the latitudes of savanna and even rainforest, yet it is desert almost to 5° S: the cold Peru Current chills and steadies the air, and the Andes block the moist trade winds from the east. The Nile carries water through the Sahara, so oases and farmland line it. Such local, non-zonal differences come from landforms, ocean currents, rivers and groundwater.',
+          '有些地方不符合地带性规律。马达加斯加岛东部位于南纬 20° 附近，按纬度本应是热带草原，但受来自海洋的东南信风、沿岸暖流和山地迎风坡的影响，全年多雨，形成了热带雨林。南美洲西岸的秘鲁沿海，按纬度应是热带草原甚至雨林，荒漠却一直延伸到南纬 5° 附近：沿岸的秘鲁寒流降温减湿，安第斯山脉又阻挡了来自东面的湿润信风。尼罗河把水带进撒哈拉沙漠，两岸形成绿洲和农田。这些由地形、洋流、河流、地下水等局部因素造成的差异，属于非地带性分异。'],
       },
     ],
     quiz: [
@@ -965,6 +1007,11 @@ export const SENIOR_A: Lesson[] = [
         q: ['East Madagascar has rainforest at 20° S, where you would expect savanna. What kind of difference is this?', '马达加斯加岛东部在南纬 20° 附近却分布着热带雨林，这属于'],
         options: [['Non-zonal', '非地带性分异'], ['Latitudinal zonation', '纬度地带性'], ['Coast-to-interior zonation', '干湿度地带性'], ['Vertical zonation', '垂直地带性']], answer: 0,
         why: ['Moist trade winds rising over its mountains and warm currents offshore bring rain all year: a local, non-zonal cause.', '来自海洋的东南信风受山地抬升，加上沿岸暖流增温增湿，全年多雨，属于非地带性现象。'],
+      },
+      {
+        q: ['A mountain\'s foot is at 1,000 m and averages 21 °C. At 0.6 °C per 100 m, at about what height is the average 0 °C?', '某山山麓海拔 1000 米，年均温 21 °C。按每升高 100 米降温 0.6 °C 计算，年均温 0 °C 的位置海拔约是多少米？'],
+        num: { answer: 4500, tol: 100, unit: ['m', '米'] },
+        why: ['It must cool 21 °C: 21 ÷ 0.6 = 35 lots of 100 m, i.e. 3,500 m above the foot, so 1,000 + 3,500 = 4,500 m.', '需要降温 21 °C：21 ÷ 0.6 = 35，即比山麓高 3500 米，1000 + 3500 = 4500 米。'],
       },
     ],
   },

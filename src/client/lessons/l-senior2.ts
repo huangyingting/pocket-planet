@@ -53,7 +53,7 @@ function frontFig(kind: 'cold' | 'warm' | 'still', bare = false): (L: Lx, id: st
       clouds = cloudSvg(118, 104, 0.8) + cloudSvg(160, 92, 1) + cloudSvg(205, 76, 1) + cloudSvg(250, 56, 0.9);
       rain = rainSvg(100, 186, 104, G - 4, 0.6);
       arr = `<path d="M14 124 L70 126 Q170 116 270 40" fill="none" stroke="#ff8787" stroke-width="2.2" marker-end="url(#${id}r)"/>` +
-        `<path d="M290 126 L250 126" class="fg-arrow" stroke="#74c0fc" stroke-width="1.6" marker-end="url(#${id}b)"/>`;
+        `<path d="M240 126 L284 126" class="fg-arrow" stroke="#74c0fc" stroke-width="1.6" marker-end="url(#${id}b)"/>`;
       labs = tx(20, 70, L(['Warm air', '暖气团']), 'fg-label', 's', ' style="fill:#ffa8a8"') + tx(292, 100, L(['Cold air', '冷气团']), 'fg-label', 'e', ' style="fill:#a5d8ff"') +
         (bare ? '' : tx(150, 150, L(['Rain mostly ahead of the front: long and steady', '雨区主要在锋前，多连续性降水']), 'fg-sub', 'm'));
     } else {
@@ -130,6 +130,41 @@ const indianFig = (L: Lx, id: string) => {
   L(['Monsoon currents of the North Indian Ocean', '北印度洋季风洋流']));
 };
 
+/** Plan view of a northern-hemisphere frontal cyclone: cold front trailing south-west, warm front to the east, rain bands. */
+const frontalFig = (L: Lx, id: string) => {
+  type P2 = [number, number];
+  const q = (a: P2, c: P2, b: P2, t: number): { p: P2; n: P2 } => {
+    const p: P2 = [(1 - t) ** 2 * a[0] + 2 * (1 - t) * t * c[0] + t * t * b[0], (1 - t) ** 2 * a[1] + 2 * (1 - t) * t * c[1] + t * t * b[1]];
+    const dx = 2 * (1 - t) * (c[0] - a[0]) + 2 * t * (b[0] - c[0]), dy = 2 * (1 - t) * (c[1] - a[1]) + 2 * t * (b[1] - c[1]), m = Math.hypot(dx, dy);
+    return { p, n: [dy / m, -dx / m] };
+  };
+  const O: P2 = [140, 60], cc: P2 = [118, 100], ce: P2 = [76, 138], wc: P2 = [192, 76], we: P2 = [262, 90];
+  let sym = '';
+  for (const t of [0.22, 0.45, 0.68, 0.9]) {
+    const { p, n } = q(O, cc, ce, t), tx_ = -n[1], ty_ = n[0];
+    sym += `<path d="M${r1(p[0] - 5 * tx_)} ${r1(p[1] - 5 * ty_)} L${r1(p[0] + 5 * tx_)} ${r1(p[1] + 5 * ty_)} L${r1(p[0] + 7 * n[0])} ${r1(p[1] + 7 * n[1])} Z" fill="#4dabf7"/>`;
+  }
+  for (const t of [0.22, 0.45, 0.68, 0.9]) {
+    const { p, n } = q(O, wc, we, t), tx_ = -n[1], ty_ = n[0];
+    sym += `<path d="M${r1(p[0] - 5 * tx_)} ${r1(p[1] - 5 * ty_)} A5 5 0 0 1 ${r1(p[0] + 5 * tx_)} ${r1(p[1] + 5 * ty_)} Z" fill="#ff8787"/>`;
+  }
+  const inflow = [[56, 38, 96, 22, 132, 30], [236, 34, 214, 16, 168, 26], [214, 128, 188, 104, 168, 82]].map(([x0, y0, cx, cy, x1, y1]) =>
+    `<path d="M${x0} ${y0} Q${cx} ${cy} ${x1} ${y1}" fill="none" stroke="#e9ecef" stroke-width="1.4" marker-end="url(#${id}w)"/>`).join('');
+  return svg(300, 172, arrowDef(id + 'w', '#e9ecef') +
+    `<rect x="0" y="0" width="300" height="160" fill="${COLD}" opacity=".55"/>` +
+    `<path d="M140 60 Q192 76 262 90 L300 92 L300 160 L60 160 L76 138 Q118 100 140 60 Z" fill="${WARM}"/>` +
+    [38, 62].map((r, i) => `<ellipse cx="140" cy="64" rx="${r * 1.5}" ry="${r}" fill="none" stroke="rgba(255,255,255,.22)" stroke-dasharray="${i ? '4 4' : ''}"/>`).join('') +
+    `<path d="M131 54 Q109 94 67 132" fill="none" stroke="rgba(105,219,124,.38)" stroke-width="12" stroke-linecap="round"/>` +
+    `<path d="M140 44 Q194 58 262 70" fill="none" stroke="rgba(105,219,124,.38)" stroke-width="26" stroke-linecap="round"/>` +
+    `<path d="M140 60 Q118 100 76 138" fill="none" stroke="#4dabf7" stroke-width="2.4"/><path d="M140 60 Q192 76 262 90" fill="none" stroke="#ff8787" stroke-width="2.4"/>` +
+    sym + inflow + tx(140, 65, L(['L', '低']), 'fg-title', 'm', ' style="fill:#ff8787"') +
+    tx(60, 118, L(['cold front', '冷锋']), 'fg-label', 'e', ' style="fill:#a5d8ff"') + tx(236, 106, L(['warm front', '暖锋']), 'fg-label', 'm', ' style="fill:#ffa8a8"') +
+    tx(170, 140, L(['warm sector', '暖区']), 'fg-sub', 'm') + tx(12, 150, L(['cold air', '冷气团']), 'fg-sub', 's') +
+    `<path d="M252 14 L288 14" class="fg-arrow" stroke="#e9ecef" marker-end="url(#${id}w)"/>` + tx(248, 17, L(['moving east', '向东移动']), 'fg-tick', 'e') +
+    `<rect x="8" y="161" width="14" height="8" fill="rgba(105,219,124,.5)"/>` + tx(26, 169, L(['rain: narrow band behind the cold front, wide band ahead of the warm front', '雨区：冷锋锋后窄，暖锋锋前宽']), 'fg-tick', 's'),
+  L(['Frontal cyclone (northern hemisphere)', '锋面气旋（北半球）']));
+};
+
 // ——— globe helpers ———
 /** A rough ellipse around a centre (degrees of latitude and longitude), for pressure centres. */
 const blob = (lat: number, lon: number, rl: number, rn: number): LL[] => Array.from({ length: 24 }, (_, i) => [r1(lat + rl * Math.sin((i / 24) * 2 * Math.PI)), r1(lon + rn * Math.cos((i / 24) * 2 * Math.PI))] as LL);
@@ -159,6 +194,7 @@ export const SENIOR_B: Lesson[] = [
       ['Troposphere: heated from the ground, so it cools about 0.6 °C every 100 m; strong convection, all the weather; 17–18 km thick at low latitudes, 8–9 km at high latitudes.', '对流层：热量来自地面，气温随高度增加而递减（约 0.6 °C/100 米）；对流运动显著，天气现象复杂多变；低纬厚 17–18 千米，高纬 8–9 千米。'],
       ['Stratosphere: ozone absorbs UV, so it warms with height; the air is stable and moves mostly horizontally, which suits high-altitude flight.', '平流层：臭氧吸收紫外线，气温随高度增加而升高；大气稳定，以水平运动为主，有利于高空飞行。'],
       ['Upper atmosphere: the ionosphere reflects radio waves for long-distance communication; aurorae glow there.', '高层大气：电离层能反射无线电波，对无线电通信有重要作用；极光也出现在这里。'],
+      ['People change the air: CO₂ has risen from about 280 to 420 ppm, and CFCs thinned the ozone layer (the Antarctic ozone hole), now slowly healing.', '人类活动改变大气组成：二氧化碳浓度由约 280 ppm 升至约 420 ppm；氟氯烃破坏臭氧层（南极臭氧空洞），目前正缓慢恢复。'],
     ],
     steps: [
       {
@@ -183,6 +219,19 @@ export const SENIOR_B: Lesson[] = [
         title: ['The upper atmosphere', '高层大气'], astro: { kit: 'air', mode: 'layers', alt: 100 },
         body: ['Above 50 km the air is extremely thin. The temperature falls again, then rises once more as the gas absorbs the Sun\'s hardest radiation. Between about 80 and 500 km some of the gas is ionised: this ionosphere reflects radio waves, so short-wave radio can travel around the curve of the Earth. Charged particles from the Sun make the aurora glow here, and most meteors burn up on the way down.',
           '平流层顶以上是高层大气，空气极其稀薄。气温先随高度增加而降低，后又升高。在 80–500 千米高空有若干电离层，能反射无线电波，对无线电短波通信有重要作用。来自太阳的带电粒子在这里形成极光，大多数流星体也在高层大气中燃烧殆尽。'],
+      },
+      {
+        title: ['People change the air', '人类活动对大气的影响'], cam: [-72, 30, 3.4], wide: true, sketch: true,
+        paint: [{ fill: { k: 'band', s: -90, n: -63, c: C.violet }, a: 0.4, t: 0.4 }],
+        marks: [mk([-78, 30], 'Ozone hole: each September–October', '臭氧空洞：每年 9—10 月', { big: true, c: C.violet, t: 0.8 })],
+        fig: {
+          k: 'line', title: ['Carbon dioxide in the air (Mauna Loa, Hawaii)', '大气中二氧化碳浓度（夏威夷冒纳罗亚观测站）'], unit: ['ppm · year', 'ppm · 年'],
+          x: [1960, 1970, 1980, 1990, 2000, 2010, 2020, 2023], min: 300, max: 430,
+          series: [{ name: ['CO₂', '二氧化碳'], c: C.gold, y: [317, 326, 339, 354, 370, 390, 414, 421] }],
+          notes: [{ x: 1960, text: ['Before 1800: about 280 ppm', '工业革命前约 280 ppm'] }],
+        },
+        body: ['People are changing what the air is made of. Burning coal, oil and gas and clearing forests have raised carbon dioxide from about 280 ppm (parts per million) before 1800 to about 420 ppm today, strengthening the greenhouse effect. Chlorofluorocarbons (CFCs), once used in fridges and sprays, drifted up to the stratosphere and destroyed ozone: since the 1980s an "ozone hole" has opened over Antarctica every spring (September–October), often larger than North America. The 1987 Montreal Protocol phased CFCs out, and the ozone layer is slowly healing; over Antarctica it should be back to its 1980 state around 2066.',
+          '人类活动正在改变大气的组成。燃烧煤、石油、天然气和毁林，使大气中二氧化碳浓度从工业革命前的约 280 ppm（百万分之一）升至如今的约 420 ppm，温室效应增强。冰箱、喷雾剂中曾大量使用的氟氯烃进入平流层，破坏臭氧：20 世纪 80 年代以来，每年南半球春季（9—10 月），南极上空都会出现“臭氧空洞”，面积常超过北美洲。1987 年《蒙特利尔议定书》逐步淘汰了氟氯烃，臭氧层正在缓慢恢复，南极上空预计在 2066 年前后恢复到 1980 年的水平。'],
       },
       {
         title: ['Lab: climb through the atmosphere', '实验：穿越大气层'],
@@ -241,6 +290,12 @@ export const SENIOR_B: Lesson[] = [
         multi: [0, 1, 2],
         why: ['Ozone warms it from within, so it is stable and clear. Clouds belong to the troposphere; radio waves bounce off the ionosphere.', '臭氧吸收紫外线使其增温，大气稳定、天气晴朗。云雨发生在对流层；反射无线电波的是高层大气中的电离层。'],
       },
+      {
+        q: ['What mainly made the ozone hole over Antarctica?', '南极上空出现“臭氧空洞”，主要原因是'],
+        options: [['CFCs from fridges and sprays destroying stratospheric ozone', '人类排放的氟氯烃破坏了平流层中的臭氧'], ['Carbon dioxide from burning coal', '燃煤排放的二氧化碳'], ['Volcanic ash blocking sunlight', '火山灰遮挡了阳光'], ['Too little water vapour over Antarctica', '南极上空水汽太少']],
+        answer: 0,
+        why: ['CFCs release chlorine in the cold Antarctic stratosphere each spring, which breaks ozone apart; CO₂ affects the greenhouse effect, not the ozone layer.', '氟氯烃在南极平流层释放出氯原子，破坏臭氧；二氧化碳增多增强的是温室效应，而不是破坏臭氧层。'],
+      },
     ],
   },
   // ——— 2. how the atmosphere is heated ———
@@ -253,6 +308,7 @@ export const SENIOR_B: Lesson[] = [
       ['The air weakens sunlight by absorbing (ozone: UV; vapour, CO₂: infrared), reflecting (clouds) and scattering (blue light: blue sky).', '大气对太阳辐射有削弱作用：吸收（臭氧吸收紫外线，水汽、二氧化碳吸收红外线）、反射（云层）、散射（蓝紫光，晴空蔚蓝）。'],
       ['The air\'s counter-radiation returns heat to the ground and keeps it warm.', '大气逆辐射把热量还给地面，对地面起保温作用。'],
       ['Clear skies: strong sunshine by day, weak counter-radiation at night, so a big day–night range and frosts on clear nights; clouds do the opposite.', '晴天白天削弱作用弱、夜晚保温作用弱，昼夜温差大，霜冻多出现在晴朗的夜晚；多云则相反。'],
+      ['More greenhouse gases strengthen the counter-radiation: the world is about 1.1 °C warmer than in 1850–1900.', '温室气体增多，大气逆辐射增强，全球气候变暖：2011—2020 年全球平均气温比 1850—1900 年升高约 1.1 °C。'],
     ],
     steps: [
       {
@@ -282,6 +338,16 @@ export const SENIOR_B: Lesson[] = [
         fig: { k: 'climo', city: 'lhasa' },
         body: ['The plateau is over 4,000 m high. The air above it is thin, clean and dry, so it weakens sunlight little: the sunshine is the strongest in China, and Lhasa gets about 3,000 hours of it a year. But thin air holds little vapour and CO₂, so it absorbs little of the ground\'s radiation and gives back little counter-radiation. The plateau stays cold, with big swings between day and night.',
           '青藏高原平均海拔 4000 米以上，空气稀薄、洁净、水汽少，大气对太阳辐射的削弱作用弱，太阳辐射强，是我国太阳辐射最强的地区，拉萨年日照时数约 3000 小时。但空气稀薄，水汽和二氧化碳少，大气吸收的地面辐射少，大气逆辐射弱，保温作用弱，所以气温低，昼夜温差大。'],
+      },
+      {
+        title: ['A thicker blanket: global warming', '保温作用增强：全球变暖'], astro: { kit: 'air', mode: 'heating', part: 'flow' },
+        fig: {
+          k: 'line', title: ['Global surface temperature (NASA, compared with 1951–1980)', '全球地表平均气温距平（NASA，相对 1951—1980 年）'], unit: ['°C · year', '°C · 年'],
+          x: [1880, 1900, 1920, 1940, 1960, 1980, 2000, 2010, 2020, 2023], min: -0.4, max: 1.3,
+          series: [{ name: ['Temperature anomaly', '气温距平'], c: C.red, y: [-0.16, -0.07, -0.27, 0.12, -0.03, 0.26, 0.39, 0.72, 1.01, 1.17] }],
+        },
+        body: ['The keeping-warm effect is natural and vital: without the counter-radiation from water vapour and CO₂ the Earth\'s surface would average about −18 °C instead of about 15 °C. Adding greenhouse gases thickens this blanket: the air absorbs more of the ground\'s long-wave radiation ④ and sends more back as counter-radiation ⑤, so the surface warms. In 2011–2020 the world was about 1.1 °C warmer than in 1850–1900; glaciers are shrinking and the sea has risen about 20 cm since 1900. Cutting emissions and planting forests, which take up CO₂, are the main answers.',
+          '大气的保温作用是自然的，也是必需的：如果没有水汽和二氧化碳的大气逆辐射，地表平均气温将是约 −18 °C，而不是现在的约 15 °C。温室气体增多，相当于给地球“加厚了棉被”：大气吸收的地面长波辐射④增多，大气逆辐射⑤增强，地表增温。2011—2020 年全球平均气温比 1850—1900 年升高约 1.1 °C，冰川退缩，1900 年以来海平面上升了约 20 厘米。减少温室气体排放、植树造林增加碳吸收，是应对全球变暖的主要措施。'],
       },
       {
         title: ['Lab: clouds and height', '实验：云量与海拔'],
@@ -340,6 +406,11 @@ export const SENIOR_B: Lesson[] = [
         options: [['Short-wave sunlight gets in; long-wave heat cannot get out', '太阳短波辐射可以透入，地面长波辐射难以透出'], ['The plastic produces heat', '塑料薄膜本身能产生热量'], ['The plastic blocks the sunlight', '薄膜阻挡了太阳辐射'], ['Plants give off heat at night', '植物夜间放出大量热量']],
         answer: 0,
         why: ['Like thick air, the film lets short waves in and keeps long waves in.', '薄膜像大气一样，让短波辐射进来，把长波辐射留住。'],
+      },
+      {
+        q: ['A plain at 500 m averages 16 °C. If the air simply cooled 0.6 °C per 100 m, what would Lhasa, at 3,650 m, average?', '某平原海拔 500 米，年均温 16 °C。若只按每升高 100 米降温 0.6 °C 计算，海拔 3650 米的拉萨年均温应约为多少？'],
+        num: { answer: -2.9, tol: 0.5, unit: ['°C', '°C'] },
+        why: ['3,650 − 500 = 3,150 m, so 31.5 × 0.6 ≈ 18.9 °C colder: 16 − 18.9 ≈ −2.9 °C. Lhasa really averages about 8 °C, because the high plateau surface itself heats the thin air above it.', '高差 3650 − 500 = 3150 米，降温 31.5 × 0.6 ≈ 18.9 °C，16 − 18.9 ≈ −2.9 °C。拉萨实际年均温约 8 °C，因为高原地面本身就是其上空大气的直接热源。'],
       },
     ],
   },
@@ -664,6 +735,11 @@ export const SENIOR_B: Lesson[] = [
         multi: [0, 1, 2],
         why: ['The Asian high and the Aleutian low are winter centres.', '亚洲高压和阿留申低压是冬季（1 月）的气压中心。'],
       },
+      {
+        q: ['The overhead Sun is farthest north on about 22 June, and the belts lag it by about a month. In which month are the belts farthest north? (Give the month number.)', '太阳直射点 6 月 22 日前后到达最北，气压带风带的移动约滞后一个月。气压带风带位置最偏北的大约是几月？（填月份数字）'],
+        num: { answer: 7, tol: 0.4, unit: ['(month)', '月'] },
+        why: ['Land and sea take about a month to warm up fully, so the belts reach their northernmost in July (and southernmost in January).', '海陆增温需要时间，气压带风带约滞后一个月，大约 7 月位置最北（1 月最南）。'],
+      },
     ],
   },
   // ——— 6. how the belts make climates; monsoons ———
@@ -815,6 +891,7 @@ export const SENIOR_B: Lesson[] = [
       ['A front is where a cold and a warm air mass meet; the warm air always rises over the cold, cools and makes cloud and rain.', '锋面是冷、暖气团的交界面；暖气团总是沿锋面抬升，冷却凝结，形成云雨。'],
       ['Cold front: cold air advances, rain mostly behind the front, then colder, higher pressure and clear skies (cold waves; summer storms in the north). Warm front: warm air advances, steady rain ahead of the front, then warmer and clearer.', '冷锋：冷气团主动移动，降水多在锋后；过境后气温下降、气压升高、天气转晴（寒潮、北方夏季暴雨）。暖锋：暖气团主动移动，降水多在锋前，多连续性降水；过境后气温升高、天气转晴。'],
       ['Quasi-stationary front: the two air masses are evenly matched and the front stays put, bringing long rains (the Jianghuai plum rains, the Kunming front).', '准静止锋：冷暖气团势均力敌，锋面移动很慢，形成持续阴雨（江淮准静止锋——梅雨、昆明准静止锋）。'],
+      ['A frontal cyclone: in the northern hemisphere the cold front trails south-west of the low and the warm front runs east of it, with the warm sector between.', '锋面气旋：北半球低压中心的西南方为冷锋、东（南）方为暖锋，两者之间为暖区。'],
       ['In the northern hemisphere a cyclone (low) turns anticlockwise, converges and rises: cloud and rain (typhoons). An anticyclone (high) turns clockwise, diverges and sinks: fine weather (the summer drought under the subtropical high).', '北半球气旋（低压）呈逆时针辐合、中心气流上升，多阴雨（台风）；反气旋（高压）呈顺时针辐散、中心气流下沉，多晴朗（副高控制下的伏旱）。'],
     ],
     steps: [
@@ -880,6 +957,23 @@ export const SENIOR_B: Lesson[] = [
           '中心气压低于四周的是低压，水平气流呈逆时针方向（南半球顺时针）向中心辐合，称为气旋。辐合的气流在中心被迫上升，冷却凝结，多阴雨天气。台风是在热带洋面上形成的强烈的热带气旋，夏秋季节常给我国东南沿海带来狂风、暴雨和风暴潮。'],
       },
       {
+        title: ['Fronts and lows together: the frontal cyclone', '锋面气旋'], cam: [43, 118, 1.9], wide: true, sketch: true,
+        lines: [
+          ...spiral([46, 118], 7, 1.5, true, C.white, 0.2),
+          { pts: [[46, 118], [43, 114], [40.5, 110.5], [38, 108]], c: C.blue, t: 0.9, dur: 1.2, w: 2.6 },
+          { pts: [[46, 118], [45, 122.5], [43.5, 127], [42, 131]], c: C.red, t: 1.2, dur: 1.2, w: 2.6 },
+        ],
+        marks: [
+          mk([46, 118], 'Low', '低压中心', { big: true, c: C.red, t: 0.2 }),
+          mk([40, 108.5], 'Cold front', '冷锋', { c: C.blue, t: 1.2 }),
+          mk([42.4, 129.5], 'Warm front', '暖锋', { c: C.red, t: 1.5 }),
+          mk([40, 121], 'Warm sector', '暖区', { c: C.orange, t: 1.8 }),
+        ],
+        fig: { k: 'svg', draw: frontalFig },
+        body: ['Fronts and lows often come together. In the middle latitudes a low often forms on a front: warm air from the south and cold air from the north spiral in towards it, anticlockwise in the northern hemisphere, so a cold front trails to the south-west of the centre and a warm front runs to the east, with the warm sector between them. Rain falls in a narrow band behind the cold front and a wide band ahead of the warm front. The whole system drifts east with the westerlies, so a place usually gets warm-front rain first, then the mild warm sector, then the cold front. Frontal cyclones bring the changeable spring weather of northern China and most of western Europe\'s rain.',
+          '锋面和低压常常结合在一起。中纬度地区，锋面上常形成低压：南面的暖空气和北面的冷空气向低压中心辐合，北半球呈逆时针旋转，于是在低压中心的西南方形成冷锋、东（南）方形成暖锋，两者之间是暖区，这就是锋面气旋。冷锋锋后有狭窄的雨带，暖锋锋前有宽阔的雨带。整个系统在西风带中自西向东移动，所以某地一般先迎来暖锋降水，再受暖区控制，最后冷锋过境。锋面气旋常给我国北方春季带来多变的天气，也带来西欧的大部分降水。'],
+      },
+      {
         title: ['Anticyclone: fine weather and summer drought', '反气旋：晴朗与伏旱'], cam: [28, 128, 2.4], wide: true, sketch: true,
         paint: [{ fill: { k: 'poly', pts: blob(27, 140, 9, 14), c: C.gold }, a: 0.25 }],
         lines: spiral([27, 140], 2, 11, false, C.blue, 0.3),
@@ -937,6 +1031,12 @@ export const SENIOR_B: Lesson[] = [
         q: ['Tap the region of the plum rains.', '在地球仪上点出梅雨的主要地区。'],
         at: [31, 117], tolKm: 450,
         why: ['The Jianghuai front stalls over the middle and lower Yangtze in June and July.', '6—7 月江淮准静止锋停留在长江中下游地区，形成梅雨。'],
+      },
+      {
+        q: ['In a northern-hemisphere frontal cyclone, where is the cold front?', '北半球的锋面气旋中，冷锋位于'],
+        options: [['Trailing south-west of the low', '低压中心的西南方'], ['East of the low', '低压中心的东方'], ['North of the low', '低压中心的北方'], ['Right over the centre', '低压中心正上方']],
+        answer: 0,
+        why: ['Air spirals in anticlockwise: cold northerly air sweeps round the west side into a cold front to the south-west; warm southerly air rides north-east into a warm front to the east.', '北半球气流逆时针辐合：西侧南下的冷空气形成西南方的冷锋，东侧北上的暖空气形成东方的暖锋。'],
       },
     ],
   },
@@ -1009,6 +1109,9 @@ export const SENIOR_B: Lesson[] = [
           mk([47, -155], 'N Pacific Current', '北太平洋暖流', { c: C.red, t: 0.9 }),
           mk([30, -126], 'California Current (cold)', '加利福尼亚寒流', { c: C.blue, t: 1.2 }),
           mk([52, 158], 'Oyashio (cold)', '千岛寒流', { c: C.blue, t: 1.5 }),
+          mk([16, -150], 'N Equatorial Current (warm)', '北赤道暖流', { c: C.red, t: 0.3 }),
+          mk([-10, -140], 'S Equatorial Current (warm)', '南赤道暖流', { c: C.red, t: 1.8 }),
+          mk([-29, 158], 'E Australian Current (warm)', '东澳大利亚暖流', { c: C.red, t: 2.1 }),
           mk([-50, -150], 'West Wind Drift (cold)', '西风漂流', { c: C.blue, t: 2.4 }),
           mk([-22, -86], 'Peru Current (cold)', '秘鲁寒流', { c: C.blue, t: 2.7 }),
         ],
@@ -1039,6 +1142,8 @@ export const SENIOR_B: Lesson[] = [
           mk([30, -24], 'Canary', '加那利寒流', { c: C.blue, t: 1 }),
           mk([-27, 5], 'Benguela', '本格拉寒流', { c: C.blue, t: 2.1 }),
           mk([-25, 45], 'Mozambique', '莫桑比克暖流', { c: C.red, t: 2.7 }),
+          mk([56, -56], 'Labrador', '拉布拉多寒流', { c: C.blue, t: 1.2 }),
+          mk([-22, -37], 'Brazil', '巴西暖流', { c: C.red, t: 1.8 }),
           mk([-50, 40], 'West Wind Drift', '西风漂流', { c: C.blue, t: 3.4 }),
         ],
         fig: { k: 'key', set: 'custom', title: ['Ocean currents', '洋流'], items: [{ c: C.red, name: ['Warm current', '暖流'] }, { c: C.blue, name: ['Cold current', '寒流'] }] },
