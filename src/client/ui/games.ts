@@ -11,23 +11,16 @@ import { load, save } from '../lib/storage.ts';
 import { formatKm } from '../../shared/lib/geo.ts';
 import type { Globe } from '../globe/scene.ts';
 import { createModelPreview } from '../models/preview.ts';
-import { icon, type IconName } from './icons.ts';
+import { icon } from './icons.ts';
 import { DIFFS, ROUNDS, effectiveKm, scoreFor, verdict, pickRounds, updateRecord, type Difficulty } from '../../shared/games/placeit.ts';
 import { generateQuiz, applyAnswer, ranking, QUIZ_SETS, type QuizSet, type QuizLevel, type PlayerScore } from '../../shared/games/quiz.ts';
 import { buildPool, dayIndex, puzzleFor, evaluate, applyGuess, finishStats, hintsUnlocked, shareText, MAX_GUESSES, BAND_EMOJI, type DailyState } from '../../shared/games/daily.ts';
 
 export interface GameHost { globe: Globe; setGameMode: (on: boolean, names?: boolean) => void }
 
-export function openGames(host: GameHost): void {
-  const today = load<DailyState | null>('dailyState', null);
-  const doneToday = today?.day === dayIndex() && today.done;
-  const card = (id: string, ic: IconName, title: string, sub: string, fn: () => void, badge?: string) =>
-    h('button', { class: 'game-card', 'data-testid': id, onclick: () => { closeModal('games'); fn(); } },
-      h('span', { class: 'hub-ico', html: icon(ic, 20) }), h('strong', {}, title), h('span', { class: 'gc-sub' }, sub), badge ? h('em', { class: 'gc-badge' }, badge) : null);
-  openModal('games', t('chooseGame'), h('div', { class: 'game-grid' },
-    card('game-daily', 'calendar', t('daily'), t('dailySub'), () => openDaily(host), doneToday ? '✓' : t('badgeNew')),
-    card('game-placeit', 'pin', t('placeit'), t('placeitSub'), () => placeItSetup(host)),
-    card('game-quiz', 'brain', t('quiz'), t('quizSub'), () => quizSetup(host))), { wide: true });
+/** Starts one of the three games (the Explore hub lists them on its Play shelf). */
+export function startGame(host: GameHost, kind: 'daily' | 'placeit' | 'quiz'): void {
+  if (kind === 'daily') openDaily(host); else if (kind === 'placeit') placeItSetup(host); else quizSetup(host);
 }
 
 // ================= Place it! =================

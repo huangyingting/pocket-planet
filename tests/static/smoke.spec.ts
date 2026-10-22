@@ -13,8 +13,11 @@ test('static build works below a sub-path', async ({ page }) => {
   // the map and the catalogue loaded: an item is on the globe
   await expect.poll(() => page.evaluate(() => (window as any).__pp.itemScreen('eiffel_tower') !== null || document.querySelectorAll('canvas').length > 0)).toBe(true);
   // no account UI in the static edition
-  await page.locator('#btn-menu, [data-testid="btn-menu"]').first().click();
+  await page.locator('#btn-hub').click();
+  await page.getByTestId('hub-tab-me').click();
+  await expect(page.getByTestId('menu-passport')).toBeVisible();
   await expect(page.getByTestId('menu-account')).toHaveCount(0);
+  await page.locator('#btn-menu').click();
   await expect(page.getByTestId('backup-export')).toBeVisible();
 
   // deep link into a lazy scene (its chunk comes from the sub-path)

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openApp } from './helpers.ts';
+import { fromHub, openApp } from './helpers.ts';
 
 /** Buttons and links a screen reader would announce without a name (decorative `aria-hidden` content does not count). */
 async function nameless(page: Page): Promise<string[]> {
@@ -51,7 +51,7 @@ test('keyboard: Tab stays inside a dialog and focus shows the tooltip', async ({
   await page.keyboard.press('Escape');
   await expect(dlg).toHaveCount(0);
   // tab onto a titled toolbar button: the HUD tooltip appears for keyboard users too
-  await page.locator('#btn-time').focus();
+  await page.locator('#btn-hub').focus();
   await page.keyboard.press('Shift+Tab');
   await page.keyboard.press('Tab');
   await expect(page.locator('.pp-tip')).toBeVisible({ timeout: 10_000 });
@@ -109,7 +109,7 @@ test('radio asks before the first stream; “not now” makes no request', async
   const streams: string[] = [];
   await openApp(page);
   page.on('request', r => { if (!r.url().startsWith('http://localhost')) streams.push(r.url()); });
-  await page.locator('#btn-radio').click();
+  await fromHub(page, 'look', 'menu-radio');
   await expect(page.getByTestId('radio-bar')).toBeVisible({ timeout: 30_000 });
   await page.getByTestId('radio-play').click();
   await expect(page.locator('#radio-consent')).toBeVisible();
@@ -185,12 +185,18 @@ test('classroom mode: link turns it on for the visit, hides third-party content,
   await openApp(page, '/?lowfx=1&notut&class=1');
   await expect(page.locator('html')).toHaveClass(/classroom/);
   await expect(page.getByTestId('class-badge')).toBeVisible();
-  await expect(page.locator('#btn-radio')).toBeHidden();
+  await page.getByTestId('btn-hub').click();
+  await page.getByTestId('hub-tab-look').click();
+  await expect(page.getByTestId('menu-sky')).toBeVisible();
+  await expect(page.getByTestId('menu-radio')).toHaveCount(0);
+  await page.getByTestId('hub-tab-me').click();
+  await expect(page.getByTestId('menu-passport')).toBeVisible();
+  await expect(page.getByTestId('menu-guestbook')).toHaveCount(0);
+  await page.getByTestId('hub-tab-learn').click();
   await page.goto('/?lowfx=1&notut&class=1#eiffel');
   await expect(page.locator('.info:not(.hidden)')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId('read-more')).toBeHidden();
   await page.click('#btn-menu');
-  await expect(page.getByTestId('menu-guestbook')).toHaveCount(0);
   await page.getByTestId('set-still').check({ force: true });
   await expect(page.locator('body')).toHaveClass(/still/);
   const clock = () => page.evaluate(() => (window as any).__pp.globe.clock as number);
@@ -225,15 +231,13 @@ test('saved views: a versioned link restores the camera, bad links fall back, bo
   await expect(page.locator('.info:not(.hidden)')).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.toast').last()).toContainText('could not be restored');
   // save it, go elsewhere, reopen from the list
-  await page.click('#btn-menu');
-  await page.getByTestId('menu-bookmarks').click();
+  await fromHub(page, 'look', 'menu-bookmarks');
   await page.getByTestId('bm-save').click();
   await expect(page.getByTestId('bm-open')).toHaveCount(1);
   await page.keyboard.press('Escape');
   await page.goto('/?lowfx=1&notut#solar/mars');
   await page.waitForFunction(() => location.hash === '#solar/mars');
-  await page.click('#btn-menu');
-  await page.getByTestId('menu-bookmarks').click();
+  await fromHub(page, 'look', 'menu-bookmarks');
   await page.getByTestId('bm-save').click();
   await expect(page.getByTestId('bm-open')).toHaveCount(2);
   await expect(page.getByTestId('bm-list')).toContainText(/Mars/);
@@ -270,8 +274,7 @@ test('photos from every scene: Solar System and sky theatre save captioned postc
 
 test('compare bench: one measure per group, true scale vs clearly marked enlarged view', async ({ page }) => {
   await openApp(page);
-  await page.click('#btn-menu');
-  await page.getByTestId('menu-compare').click();
+  await fromHub(page, 'look', 'menu-compare');
   const cmp = page.getByTestId('compare');
   await expect(cmp).toBeVisible();
   await expect(page.getByTestId('cmp-ratio')).toContainText(/diameter of Earth is about 3\.7 times that of (the )?Moon/);
@@ -327,8 +330,7 @@ test('narration: user-started, highlights the sentence being read, stoppable, te
 
 test('tonight from my city: hand-picked city, peak vs local view, says there is no weather', async ({ page }) => {
   await openApp(page);
-  await page.click('#btn-menu');
-  await page.getByTestId('menu-tonight').click();
+  await fromHub(page, 'look', 'menu-tonight');
   await expect(page.getByTestId('tn-empty')).toBeVisible();
   await page.getByTestId('tn-city').selectOption('beijing');
   for (const s of ['night', 'moon', 'planets', 'showers', 'events']) await expect(page.getByTestId('tn-' + s)).toBeVisible();
@@ -336,8 +338,7 @@ test('tonight from my city: hand-picked city, peak vs local view, says there is 
   await expect(page.getByTestId('tn-weather')).toContainText(/No weather data/);
   // the choice is remembered, and an event opens in the sky theatre
   await page.getByTestId('modal-close').click();
-  await page.click('#btn-menu');
-  await page.getByTestId('menu-tonight').click();
+  await fromHub(page, 'look', 'menu-tonight');
   await expect(page.getByTestId('tn-city')).toHaveValue('beijing');
   const ev = page.getByTestId('tn-event').first();
   if (await ev.count()) {

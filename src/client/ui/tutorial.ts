@@ -4,7 +4,7 @@ import { save } from '../lib/storage.ts';
 
 const STEPS: { n: number; target?: string }[] = [
   { n: 1, target: '#globe' }, { n: 2, target: '#btn-zoom-in' }, { n: 3, target: '#globe' },
-  { n: 4, target: '#btn-collection' }, { n: 5, target: '#btn-game' }, { n: 6, target: '#btn-menu' }, { n: 7 },
+  { n: 4, target: '#btn-hub' }, { n: 5, target: '#btn-hub' }, { n: 6, target: '#btn-menu' }, { n: 7 },
 ];
 
 export function openTutorial(openTours?: () => void): void {

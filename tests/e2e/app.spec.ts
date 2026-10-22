@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openApp, flyTo, clickItem, shot } from './helpers.ts';
+import { fromHub, openApp, flyTo, clickItem, shot } from './helpers.ts';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -9,14 +9,25 @@ test('home: globe, top bar, zoom readout, hints @mobile', async ({ page }, info)
   await openApp(page);
   await expect(page.locator('h1')).toHaveText('Terrastra');
   await expect(page.getByTestId('zoom')).toHaveText('×4.0');
-  for (const id of ['btn-search', 'btn-photo', 'btn-collection', 'btn-menu', 'level-switch']) await expect(page.getByTestId(id)).toBeVisible();
-  if (info.project.name === 'mobile') {
-    // narrow phones: the Earth's own tools move from the top bar into the menu tiles
-    await expect(page.getByTestId('btn-game')).toBeHidden();
-    await page.getByTestId('btn-menu').click();
-    await expect(page.getByTestId('menu-game')).toBeVisible();
-    await page.keyboard.press('Escape');
-  } else await expect(page.getByTestId('btn-game')).toBeVisible();
+  for (const id of ['btn-search', 'btn-photo', 'btn-hub', 'btn-menu', 'level-switch']) await expect(page.getByTestId(id)).toBeVisible();
+  // one Explore hub holds every activity, on four shelves; the top bar keeps only search, photo, hub and settings
+  await expect(page.locator('.topbar .tool')).toHaveCount(4);
+  await page.getByTestId('btn-hub').click();
+  for (const [tab, ids] of [['learn', ['menu-lessons', 'menu-tours']], ['look', ['menu-sky', 'menu-tonight', 'menu-time', 'menu-compare', 'menu-bookmarks']], ['play', ['menu-daily', 'menu-placeit', 'menu-quiz']], ['me', ['menu-passport', 'menu-collection', 'menu-album']]] as const) {
+    await page.getByTestId('hub-tab-' + tab).click();
+    await expect(page.getByTestId('hub-tab-' + tab)).toHaveAttribute('aria-selected', 'true');
+    for (const id of ids) await expect(page.getByTestId(id)).toBeVisible();
+  }
+  await shot(page, `${info.project.name}_03b_hub`);
+  // opening settings closes the hub; the hub remembers its shelf
+  await page.getByTestId('btn-menu').click();
+  await expect(page.getByTestId('hub')).toBeHidden();
+  await page.keyboard.press('Escape');
+  await page.getByTestId('btn-hub').click();
+  await expect(page.getByTestId('menu-passport')).toBeVisible();
+  await page.getByTestId('hub-tab-learn').click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('hub')).toBeHidden();
   await expect(page.locator('canvas.globe-canvas')).toBeVisible();
   // terrain: the elevation maps load after the globe and the relief shading fades in
   await expect.poll(() => page.evaluate(() => (window as any).__pp.globe.earthUniforms.uReliefMix.value), { timeout: 20_000 }).toBeGreaterThan(0.5);
@@ -101,7 +112,7 @@ test('collect an animal into the dex and earn a sticker', async ({ page }) => {
   await expect(page.locator('#toast')).toContainText('Lion');
   await shot(page, 'desktop_05_dex_added');
   await page.keyboard.press('Escape');
-  await page.getByTestId('btn-collection').click();
+  await fromHub(page, 'me', 'menu-collection');
   await expect(page.getByTestId('hub-animals')).toContainText('1 / ');
   await shot(page, 'desktop_06_collection');
   await page.getByTestId('hub-animals').click();
@@ -117,9 +128,10 @@ test('passport stamps, time machine and sounds', async ({ page }) => {
   await page.getByTestId('say-hello').click();
   await expect(page.locator('#toast')).toContainText('Hello in French');
   await page.keyboard.press('Escape');
-  await page.getByTestId('btn-collection').click();
-  await expect(page.getByTestId('hub-passport')).toContainText('1 / ');
-  await page.getByTestId('hub-passport').click();
+  await page.getByTestId('btn-hub').click();
+  await page.getByTestId('hub-tab-me').click();
+  await expect(page.getByTestId('menu-passport')).toContainText('1 / ');
+  await page.getByTestId('menu-passport').click();
   await page.getByTestId('book-europe').click();
   await expect(page.getByTestId('stamp-eiffel')).toHaveClass(/have/);
   await shot(page, 'desktop_06b_passport');
@@ -131,7 +143,7 @@ test('passport stamps, time machine and sounds', async ({ page }) => {
   await page.getByTestId('hear-it').click();
   await page.keyboard.press('Escape');
 
-  await page.getByTestId('btn-time').click();
+  await fromHub(page, 'look', 'menu-time');
   await expect(page.getByTestId('time-bar')).toBeVisible();
   await expect(page.getByTestId('time-year')).toHaveText('Today');
   await page.getByTestId('time-range').fill('0');
@@ -143,10 +155,10 @@ test('passport stamps, time machine and sounds', async ({ page }) => {
   expect(await page.evaluate(() => (window as any).__pp.globe.itemFilter)).toBeNull();
 
   // live radio: the dock opens with the station count (no stream is played in CI)
-  await page.getByTestId('btn-radio').click();
+  await fromHub(page, 'look', 'menu-radio');
   await expect(page.getByTestId('radio-bar')).toBeVisible();
   await expect(page.getByTestId('radio-bar')).toContainText(/[\d,]+ stations · \d+ countries/);
-  await page.getByTestId('btn-radio').click();
+  await fromHub(page, 'look', 'menu-radio');
   await expect(page.getByTestId('radio-bar')).toBeHidden();
 });
 
@@ -176,9 +188,10 @@ test('photo mode saves to album', async ({ page }) => {
 
 test('Place it! full game (practice)', async ({ page }) => {
   await openApp(page);
-  await page.getByTestId('btn-game').click();
+  await page.getByTestId('btn-hub').click();
+  await page.getByTestId('hub-tab-play').click();
   await shot(page, 'desktop_09_games');
-  await page.getByTestId('game-placeit').click();
+  await page.getByTestId('menu-placeit').click();
   await page.getByTestId('diff-practice').click();
   for (let r = 0; r < 10; r++) {
     await expect(page.getByTestId('placeit-target')).toBeVisible();
@@ -199,8 +212,7 @@ test('Place it! full game (practice)', async ({ page }) => {
 
 test('Quiz: 2 players pass-and-play to podium', async ({ page }) => {
   await openApp(page);
-  await page.getByTestId('btn-game').click();
-  await page.getByTestId('game-quiz').click();
+  await fromHub(page, 'play', 'menu-quiz');
   await page.getByTestId('players-2').click();
   await page.getByTestId('level-hard').click();
   await shot(page, 'desktop_13_quiz_setup');
@@ -345,6 +357,9 @@ test('mobile layout: info card as bottom sheet @mobile', async ({ page }, info) 
   await page.keyboard.press('Escape');
   await page.getByTestId('btn-menu').click();
   await shot(page, 'mobile_03_menu');
+  await page.getByTestId('btn-hub').click();
+  await expect(page.getByTestId('menu-lessons')).toBeVisible();
+  await shot(page, 'mobile_03b_hub');
 });
 
 test('solar system: zoom out from Earth, visit Mars and a feature, land back on Earth @mobile', async ({ page }, info) => {
@@ -483,8 +498,7 @@ test('sky theatre: eclipse deep link, space view, calendar pick, close', async (
   await expect(page.locator('#sky-title')).toContainText(/lunar/i);
   await page.getByTestId('sky-close').click();
   await expect(sky).toHaveCount(0);
-  await page.getByTestId('btn-menu').click();
-  await page.getByTestId('btn-sky').click();
+  await fromHub(page, 'look', 'menu-sky');
   await expect(page.getByTestId('sky')).toBeVisible({ timeout: 30_000 });
   expect(errors).toEqual([]);
 });

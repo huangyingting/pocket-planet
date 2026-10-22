@@ -1,17 +1,16 @@
 import { test, expect } from '@playwright/test';
-import { openApp } from './helpers.ts';
+import { fromHub, openApp } from './helpers.ts';
 
 /** Each tour walks real scenes; screenshots go to test-results for a visual check of what the card covers. */
 test('guided tours: pick from the help panel, walk every step, leave or finish', async ({ page }, info) => {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await openApp(page);
-  await page.locator('#btn-help').click();
-  await page.getByTestId('btn-tours').click();
+  await fromHub(page, 'learn', 'menu-tours');
   await expect(page.getByTestId('tour-cosmos')).toBeVisible();
 
   const walk = async (id: string, check: (i: number) => Promise<void>) => {
-    if (!(await page.getByTestId('tour-' + id).isVisible())) { await page.getByTestId('menu-tours').click().catch(async () => { await page.locator('#btn-menu').click(); await page.getByTestId('menu-tours').click(); }); }
+    if (!(await page.getByTestId('tour-' + id).isVisible())) await fromHub(page, 'learn', 'menu-tours');
     await page.getByTestId('tour-' + id).click();
     const card = page.getByTestId('tour');
     await expect(card).toBeVisible();
@@ -31,7 +30,6 @@ test('guided tours: pick from the help panel, walk every step, leave or finish',
     if (i === 3) await expect(page.getByTestId('rail-galaxy')).toHaveClass(/on/, { timeout: 30_000 });
     if (i === 5) await expect(page.getByTestId('rail-group')).toHaveClass(/on/, { timeout: 30_000 });
   });
-  await page.locator('#btn-menu').click();
   await walk('eclipse', async i => {
     if (i === 1) { await expect(page.getByTestId('sky')).toBeVisible({ timeout: 60_000 }); await expect(page.getByTestId('sky-view-model')).toHaveAttribute('aria-selected', 'true'); }
     if (i === 2) await expect(page.getByTestId('sky-view-ground')).toHaveAttribute('aria-selected', 'true');

@@ -81,7 +81,7 @@ The e2e config builds nothing. It starts `node src/server/index.ts` on port 8790
 │   │   ├── solar/              Solar System and deep space (lazy chunk): view.ts (renderer, orbits, camera, labels), ui.ts (dock, time, cards), paint.ts + solar.worker.ts (procedural surfaces), sites.ts (mission sites), deep.ts + cosmos-paint.ts (galaxy → universe levels), fx.ts (belts, solar activity, planetary weather, comet), constellations.ts (sky overlay), nebulae.ts + nebulae/ (3D nebula models), galaxies.ts + galaxies/ (3D galaxy, cluster and quasar models)
 │   │   ├── sky/                sky theatre (lazy chunk): theatre.ts (dialog, timeline), ground.ts / space.ts (views), acts.ts (per-event staging), panel.ts (calendar)
 │   │   ├── models/             kit.ts primitives; heroes/ hand-built detailed models per content type
-│   │   ├── ui/                 shell (top bar, menu, info card), collection, passport, time machine, photo, games, account, tutorial, dom helpers
+│   │   ├── ui/                 shell (top bar, settings, info card), Explore hub, collection, passport, time machine, photo, games, account, tutorial, dom helpers
 │   │   └── lib/                api client, i18n (English + Simplified Chinese), storage, sfx (UI tones, procedural animal calls, speech)
 │   ├── server/                 index.ts (env/boot), app.ts (Express routes), db.ts (SQLite schema)
 │   └── shared/                 pure TS used by client, server and build script (no DOM)

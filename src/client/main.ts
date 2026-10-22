@@ -316,17 +316,16 @@ async function boot(): Promise<void> {
   const openBookmarks = () => bmMod(m => m.openBookmarks({ current: currentView, open: navTo }));
   const startTour = (id: string) => { endLesson(); toursMod(m => m.startTour(id, tourHost)); };
 
-  const showCollection = () => collectionMod(([{ openCollection }, { openPassport }]) => {
-    const passport = () => openPassport({
-      here: () => shell.current ? [shell.current.lat, shell.current.lon] : [globe.lat, globe.lon],
-      travel: (it, from) => { shell.showItem(it); if (Math.abs(from[0] - it.lat) + Math.abs(from[1] - it.lon) > 2) globe.showFlightArc(from, [it.lat, it.lon]); },
-    });
-    openCollection(it => { closeModal(); closeModal(); shell.showItem(it); }, passport);
-  });
+  const showCollection = () => collectionMod(([{ openCollection }]) => openCollection(it => { closeModal(); closeModal(); shell.showItem(it); }));
+  const showPassport = () => collectionMod(([, { openPassport }]) => openPassport({
+    here: () => shell.current ? [shell.current.lat, shell.current.lon] : [globe.lat, globe.lon],
+    travel: (it, from) => { shell.showItem(it); if (Math.abs(from[0] - it.lat) + Math.abs(from[1] - it.lon) > 2) globe.showFlightArc(from, [it.lat, it.lon]); },
+  }));
+  const openGame = (kind: 'daily' | 'placeit' | 'quiz') => { if (!gaming && !inSolar) gamesMod(m => m.startGame(host, kind)); };
   shell = new Shell(app, globe, {
     openPhoto,
     openCollection: showCollection,
-    openGames: () => { if (!gaming) gamesMod(m => m.openGames(host)); },
+    openGame, openPassport: showPassport, openAlbum: () => photoMod(m => void m.openAlbum()),
     openTutorial: () => openTutorial(openTours),
     openTours, openLessons, openBookmarks,
     openCompare: (id?: string) => cmpMod(m => m.openCompare(id)),
@@ -338,6 +337,7 @@ async function boot(): Promise<void> {
     toEarth: it => { if (!inSolar) return false; leaveSolar(it.lat, it.lon, () => shell.showItem(it)); return true; },
     zoom: inward => { if (!inSolar) return false; solar?.zoom(inward); return true; },
     overview: () => solar?.overview(),
+    toHome: () => { if (inSolar) leaveSolar(globe.lat, globe.lon); },
   });
   shell.mount();
   // One ladder for the whole system: universe → … → Solar System → Earth.
@@ -399,9 +399,10 @@ async function boot(): Promise<void> {
       if (!inSolar) void enterSolar({ focus, scale }); else solar?.goTo(focus, scale);
       return;
     }
-    if (hsh === 'daily') gamesMod(m => m.openDaily(host));
-    else if (hsh === 'placeit' || hsh === 'quiz' || hsh === 'games') gamesMod(m => m.openGames(host));
+    if (hsh === 'daily' || hsh === 'placeit' || hsh === 'quiz') openGame(hsh);
+    else if (hsh === 'games') shell.toggleHub(true, 'play');
     else if (hsh === 'collection') showCollection();
+    else if (hsh === 'passport') showPassport();
     else if (HAS_API && hsh === 'guestbook' && !classroom()) account(m => void m.openGuestbook());
     else if (HAS_API && (hsh === 'account' || hsh === 'signed-in')) { if (hsh === 'signed-in') toast('👋 ' + t('synced')); account(m => m.openAccount()); }
     else if (hsh === 'auth-error') toast('⚠️ ' + t('linkExpired'));

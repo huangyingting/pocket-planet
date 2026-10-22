@@ -760,3 +760,26 @@ Above the Solar System the scenes were also static apart from rigid disc spin.
 **Consequences.**
 - \+ Desktop Solar dock ~460 px instead of ~840 px; the time-machine panel loses a line.
 - − Names are not visible on touch devices until the item is tapped; the info card that opens then shows them.
+
+## ADR-033: One Explore hub for every activity
+
+**Context.**
+- Activities had grown up in five places: eight top-bar buttons, the help bubble (tutorial, tours), menu tiles (some repeating top-bar buttons on phones), and modals that held other entries (collection → passport and album; games → three games).
+- The same thing could be reached two or three ways, and some (passport, album) only from inside another window. The top bar needed a phone-only overflow rule.
+
+**Decision.**
+- The top bar keeps four tools on every level: search, photo, **Explore** (`btn-hub`) and **Settings** (`btn-menu`).
+- `ui/hub.ts` renders the Explore drawer with four shelves (Learn, Observe, Play, Me). Each activity is one row: icon, name, one line, progress where there is one (lessons and tours done, stamps, animals, today's daily).
+  - Row ids are stable `menu-*` test ids.
+  - The chosen shelf is remembered (`hubTab`).
+  - Globe-only rows (time machine, radio, games) step aside in space for a "Back to Earth" button.
+- Settings is only settings: look, layers, sound, classroom, language, backup, reset, hide controls, About and Privacy.
+- Every activity has exactly one entry point:
+  - the collection modal now holds only the dexes and stickers;
+  - the games picker modal is gone (`#games` opens the Play shelf; `#daily`, `#placeit` and `#quiz` start a game; `#passport` is new);
+  - the help bubble keeps only the tutorial.
+
+**Consequences.**
+- \+ The top bar is the same on desktop and phones (no overflow rule) and leaves more room for the scene.
+- \+ New activities are added in one place, on the shelf where they belong.
+- − The time machine, radio and sky theatre are one tap further away (hub → row).

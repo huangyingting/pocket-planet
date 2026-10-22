@@ -6,7 +6,7 @@ screenshots in [`docs/assets/screenshots/`](../assets/screenshots/)), `unit:` = 
 ## AC-1 Globe & shell (F1, F15)
 | # | Criterion | Verified by |
 |---|---|---|
-| 1.1 | Given a first visit, when the app loads, then the globe, top bar (Photo, Collection, Game, Menu), zoom readout "×4.0" and help hints are visible on desktop and mobile | e2e: *home: globe, top bar, zoom readout, hints* (desktop + mobile) |
+| 1.1 | Given a first visit, when the app loads, then the globe, top bar (Search, Photo, Explore hub, Settings; the hub lists every activity on four shelves), zoom readout "×4.0" and help hints are visible on desktop and mobile | e2e: *home: globe, top bar, zoom readout, hints* (desktop + mobile) |
 | 1.2 | When I click + / −, the zoom readout increases / decreases | e2e: *home* |
 | 1.3 | Countries, cities and oceans are labelled and labels do not overlap | visual: [`desktop_01_home.png`](../assets/screenshots/desktop_01_home.png), [`smoke_home.png`](../assets/screenshots/smoke_home.png) |
 | 1.4 | Given WebGL is unavailable, a friendly message replaces the globe | manual (code path `src/client/main.ts` fatal) |

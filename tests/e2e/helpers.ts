@@ -24,3 +24,10 @@ export async function clickItem(page: Page, key: string): Promise<void> {
 export async function shot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: `${SHOTS}/${name}.png`, timeout: 150_000, animations: 'disabled' });
 }
+
+/** Opens an activity from the Explore hub: shelf tab, then its row. */
+export async function fromHub(page: Page, tab: 'learn' | 'look' | 'play' | 'me', id: string): Promise<void> {
+  if (!(await page.getByTestId('hub').isVisible())) await page.getByTestId('btn-hub').click();
+  await page.getByTestId('hub-tab-' + tab).click();
+  await page.getByTestId(id).click();
+}

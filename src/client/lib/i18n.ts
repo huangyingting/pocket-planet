@@ -64,7 +64,7 @@ const en: Dict = {
   dHintCont: 'Continent: {c}', dHintCountry: 'Country: {c}', dHintName: 'Starts with “{c}”',
   shutter: 'Take photo', photoSaved: 'Saved to your album', save: 'Save', del: 'Delete', noPhotos: 'No photos yet — press 📷 to take one!',
   tut1t: 'Spin the planet', tut1b: 'Drag the globe with your finger or mouse.', tut2t: 'Zoom in', tut2b: 'Use the wheel, pinch, or the + button.', tut3t: 'Tap something', tut3b: 'Tap a landmark or animal to see its card.',
-  tut4t: 'Your collection', tut4b: 'Animals and discoveries you find are saved here.', tut5t: 'Play games', tut5b: 'Daily puzzle, Place it! and the quiz live here.', tut6t: 'Make it yours', tut6b: 'Turn layers, sounds and the language on and off in the menu.', tut7t: 'Have fun!', tut7b: 'Your progress is saved on this device. Sign in to keep it everywhere.',
+  tut4t: 'Explore', tut4b: 'Geography lessons, tours, sky shows and games all live here, on four shelves.', tut5t: 'Your finds', tut5b: 'Under “Me” in Explore: your passport, animal dex, stickers and photos.', tut6t: 'Make it yours', tut6b: 'Turn layers, sounds and the language on and off in Settings.', tut7t: 'Have fun!', tut7b: 'Your progress is saved on this device. Sign in to keep it everywhere.',
   emailLabel: 'Email', sendLink: 'Send sign-in link', linkSent: 'Check your inbox for a sign-in link.', devLink: 'Dev mode: open this link to sign in', signedInAs: 'Signed in as {e}', syncNow: 'Sync now', synced: 'Progress synced', offline: 'Offline — progress is kept on this device',
   handle: 'Nickname', gbPlaceholder: 'Say hello (max 200 characters)', post: 'Post', report: 'Report', gbNeedLogin: 'Sign in to write in the guestbook', gbEmpty: 'Be the first to say hi!',
   deleteAccount: 'Delete account', deleteConfirm: 'Delete your account and server copy of your progress? Your device copy stays.', saveBtn: 'Save', signedOut: 'Signed out', reported: 'Thanks — a grown-up will check it.',
@@ -266,12 +266,18 @@ const en: Dict = {
   tileLessons: "Geography",
   tileCompare: "Compare",
   tileBookmarks: "Saved",
+  hub: "Explore", settings: "Settings", hubLearn: "Learn", hubLook: "Observe", hubPlay: "Play", hubMe: "Me",
+  hubDone: "{n} done", hubLessonsSub: "Middle-school geography, animated on the globe", hubToursSub: "Guided routes and mission stories", hubEncSub: "Read about every place and object",
+  hubSkySub: "Eclipses, seasons and moon phases in 3D", hubTonightSub: "What you can see from your city tonight", hubTimeSub: "Travel back to ancient cities and dinosaurs",
+  hubCompareSub: "Sizes and distances side by side", hubBookmarksSub: "Views you saved, ready to reopen", hubRadioSub: "Live stations from around the world",
+  hubDexSub: "Animal and discovery dexes, stickers", hubAccountSub: "Keep your progress on every device", hubGuestbookSub: "Leave a note for other explorers",
+  hubEarthOnly: "These are on the Earth.",
 };
 
 const zh: Dict = {
   title: '寰星', badge: '测试版', loading: '正在唤醒星球…', webglFail: '你的浏览器无法启动 3D 图形。请换一个浏览器，或开启硬件加速。',
   counts: '{l} 个地标 · {c} 个国家 · {ci} 座城市 · {a} 种动物 · {d} 个发现 · {v} 种交通工具',
-  photo: '拍照', collection: '收藏', game: '游戏', menu: '菜单', close: '关闭', back: '返回', open: '打开', start: '开始', next: '下一步', done: '完成', skip: '跳过',
+  photo: '拍照', collection: '图鉴', game: '游戏', menu: '菜单', close: '关闭', back: '返回', open: '打开', start: '开始', next: '下一步', done: '完成', skip: '跳过',
   hintDrag: '<b>拖动</b> 旋转地球', hintZoom: '<b>滚轮 / 双指</b> 放大看到更多地方', hintTap: '<b>点击标记</b> 查看图片与介绍', tutorialAgain: '再看一次教程', hintSpaceDrag: '<b>拖动</b> 环顾四周', hintSpaceZoom: '<b>滚轮 / 双指</b> 缩放 · 一直缩小会升到上一层级', hintSpaceTap: '<b>点击名字</b> 查看图片与介绍', hintSpaceRail: '<b>左上角层级</b> 在各层级之间切换',
   fullscreen: '全屏', zoomIn: '放大', zoomOut: '缩小', help: '帮助',
   crumbs: '当前位置', radio: '直播电台', radioHint: '点一个绿点，收听当地电台', radioCount: '{n} 个电台 · {c} 个国家', radioTuning: '正在调台…',
@@ -305,7 +311,7 @@ const zh: Dict = {
   dHintCont: '大洲：{c}', dHintCountry: '国家：{c}', dHintName: '以“{c}”开头',
   shutter: '拍照', photoSaved: '已保存到相册', save: '保存', del: '删除', noPhotos: '还没有照片——按 📷 拍一张吧！',
   tut1t: '转动星球', tut1b: '用手指或鼠标拖动地球。', tut2t: '放大', tut2b: '使用滚轮、双指缩放或 + 按钮。', tut3t: '点一点', tut3b: '点击地标或动物，查看它的卡片。',
-  tut4t: '你的收藏', tut4b: '你找到的动物和发现都保存在这里。', tut5t: '玩游戏', tut5b: '每日谜题、在哪里？和问答游戏都在这里。', tut6t: '随心设置', tut6b: '在菜单里开关图层、声音并切换语言。', tut7t: '玩得开心！', tut7b: '你的进度保存在这台设备上。登录后可在任何设备上继续。',
+  tut4t: '探索', tut4b: '地理课、导览、天象和游戏都在这里，分成四类。', tut5t: '你的收获', tut5b: '在“探索”的“我的”里：护照、动物图鉴、贴纸和照片。', tut6t: '随心设置', tut6b: '在设置里开关图层、声音并切换语言。', tut7t: '玩得开心！', tut7b: '你的进度保存在这台设备上。登录后可在任何设备上继续。',
   emailLabel: '邮箱', sendLink: '发送登录链接', linkSent: '请在收件箱中查看登录链接。', devLink: '开发模式：打开此链接登录', signedInAs: '已登录：{e}', syncNow: '立即同步', synced: '进度已同步', offline: '离线——进度保存在这台设备上',
   handle: '昵称', gbPlaceholder: '打个招呼吧（最多 200 字）', post: '发布', report: '举报', gbNeedLogin: '登录后才能在留言板留言', gbEmpty: '来做第一个打招呼的人吧！',
   deleteAccount: '删除账户', deleteConfirm: '要删除你的账户以及服务器上的进度吗？这台设备上的进度会保留。', saveBtn: '保存', signedOut: '已退出登录', reported: '谢谢——大人会来检查的。',
@@ -530,7 +536,13 @@ const zh: Dict = {
   tileTonight: "今晚星空",
   tileLessons: "地理课",
   tileCompare: "对比",
-  tileBookmarks: "收藏",
+  tileBookmarks: "视角",
+  hub: "探索", settings: "设置", hubLearn: "学习", hubLook: "观察", hubPlay: "游戏", hubMe: "我的",
+  hubDone: "已完成 {n}", hubLessonsSub: "初中地理，在地球上用动画讲解", hubToursSub: "导览路线和任务故事", hubEncSub: "查阅每个地点和天体的介绍",
+  hubSkySub: "日食、月相和四季的 3D 演示", hubTonightSub: "今晚在你的城市能看到什么", hubTimeSub: "回到古代城市和恐龙时代",
+  hubCompareSub: "把大小和距离放在一起比一比", hubBookmarksSub: "你保存的视角，随时重新打开", hubRadioSub: "收听世界各地的直播电台",
+  hubDexSub: "动物和发现图鉴、贴纸", hubAccountSub: "登录后在任何设备上继续", hubGuestbookSub: "给其他探索者留言",
+  hubEarthOnly: "这些要在地球上进行。",
 };
 
 const DICTS: Record<Lang, Dict> = { en, zh };

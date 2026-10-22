@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openApp } from './helpers.ts';
+import { fromHub, openApp } from './helpers.ts';
 
 type W = { __lesson?: { painted: boolean; lineCount: number; sunLat: number; now: number; playing: boolean } | null; __pp: { globe: { captureTaps: boolean; forceNight: boolean; simTime: number | null; ev: { onGlobeTap?: (a: number, b: number) => void } } } };
 const lesson = (page: Page) => page.evaluate(() => { const l = (window as unknown as W).__lesson; return l ? { painted: l.painted, lines: l.lineCount, sunLat: l.sunLat, now: l.now, playing: l.playing } : null; });
@@ -12,8 +12,7 @@ test('geography class: pick a lesson, watch the steps, answer the quiz, leave cl
   await openApp(page);
 
   // the picker, from the menu, grouped by textbook volume
-  await page.locator('#btn-menu').click();
-  await page.getByTestId('menu-lessons').click();
+  await fromHub(page, 'learn', 'menu-lessons');
   await expect(page.getByTestId('lesson-list')).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.lesson-grade')).toHaveCount(3);
   await page.getByTestId('lesson-zones').click();

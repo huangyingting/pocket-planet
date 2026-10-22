@@ -2,33 +2,27 @@ import { subName } from '../../shared/data/subs.ts';
 import { h, openModal, closeModal } from './dom.ts';
 import { t, lang } from '../lib/i18n.ts';
 import { store } from '../store.ts';
-import { ANIMALS, DISCOVERIES, BY_TYPE, CATALOGUE } from '../../shared/data/catalogue.ts';
+import { ANIMALS, DISCOVERIES, BY_TYPE } from '../../shared/data/catalogue.ts';
 import { TYPE_META, TYPE_ORDER } from '../../shared/data/typemeta.ts';
 import { tr, type CatalogueItem } from '../../shared/data/types.ts';
 import { STICKERS } from '../../shared/lib/stickers.ts';
-import { photos, openAlbum } from './photo.ts';
 import { load, save } from '../lib/storage.ts';
 import { icon, TYPE_ICON, type IconName } from './icons.ts';
 
-export function openCollection(go: (it: CatalogueItem) => void, passport?: () => void): void {
+export function openCollection(go: (it: CatalogueItem) => void): void {
   const p = store.progress;
   const card = (id: string, cls: string, ic: IconName, title: string, sub: string, stat: string, fn: () => void) =>
     h('button', { class: 'hub-card ' + cls, 'data-testid': id, onclick: fn },
       h('span', { class: 'hub-ico', html: icon(ic, 20) }), h('strong', {}, title), h('span', { class: 'hub-sub' }, sub),
       h('span', { class: 'hub-foot' }, h('span', { class: 'hub-stat' }, stat), h('span', { class: 'hub-open', html: icon('arrow', 16) })));
-  const albumStat = h('span', {}, t('photos', { n: '…' }));
-  const pass = passport ? card('hub-passport', 'c-type', 'passport', t('passport'), t('passportSub'), t('stamps', { n: Object.keys(p.seen).length, t: CATALOGUE.length }), passport) : null;
-  const grid = h('div', { class: 'hub-grid' }, pass,
+  const grid = h('div', { class: 'hub-grid' },
     card('hub-animals', 'c-green', 'paw', t('animalDex'), t('animalDexSub'), t('found', { n: Object.keys(p.dex).length, t: ANIMALS.length }), () => dex(t('animalDex'), ANIMALS, p.dex, go)),
     card('hub-discoveries', 'c-purple', 'compass', t('discoveryDex'), t('discoveryDexSub'), t('found', { n: Object.keys(p.logs).length, t: DISCOVERIES.length }), () => dex(t('discoveryDex'), DISCOVERIES, p.logs, go)),
     ...TYPE_ORDER.filter(ty => TYPE_META[ty].collect === 'found' && BY_TYPE[ty].length).map(ty => {
       const m = TYPE_META[ty], items = BY_TYPE[ty], l = lang();
       return card('hub-' + ty, 'c-type', TYPE_ICON[ty], tr(m.many, l), tr(m.hint, l), t('found', { n: items.filter(i => i.key in p.found).length, t: items.length }), () => dex(tr(m.many, l), items, p.found, go));
     }),
-    card('hub-stickers', 'c-orange', 'sparkle', t('stickers'), t('stickersSub'), t('found', { n: Object.keys(p.stickers).length, t: STICKERS.length }), stickers),
-    card('hub-album', 'c-violet', 'camera', t('album'), t('albumSub'), '', () => { closeModal('collection'); void openAlbum(); }));
-  (grid.lastElementChild!.querySelector('.hub-stat') as HTMLElement).append(albumStat);
-  void photos.count().then(n => (albumStat.textContent = t('photos', { n })));
+    card('hub-stickers', 'c-orange', 'sparkle', t('stickers'), t('stickersSub'), t('found', { n: Object.keys(p.stickers).length, t: STICKERS.length }), stickers));
   openModal('collection', t('collection'), grid, { wide: true });
 }
 

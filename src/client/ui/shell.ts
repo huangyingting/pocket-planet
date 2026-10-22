@@ -25,6 +25,7 @@ import { searchAll, type SearchFilter } from '../lib/search.ts';
 import { groupOf } from '../lib/compare.ts';
 import { narrate, narrationSupported, splitSentences, stopNarration, type Narration } from '../lib/narrate.ts';
 import { classroom, setClassroom, setStill, motion, onClassroom } from '../lib/classroom.ts';
+import { renderHub, hubTab, type HubTab } from './hub.ts';
 
 export const DEX_ZOOM = 10;
 const LANG_LABEL: Record<Lang, string> = { en: 'English', zh: '中文' };
@@ -32,7 +33,7 @@ const typeName = (ty: CatalogueItem['type']) => tr(TYPE_META[ty].one, lang());
 const AURA_ORDER: AuraPreset[] = ['waves', 'aurora', 'ember', 'dusk', 'sculpture'];
 
 export interface ShellHooks {
-  openPhoto: () => void; openCollection: () => void; openGames: () => void; openTutorial: () => void; openTours: () => void; openLessons: () => void; openBookmarks: () => void; openCompare: (id?: string) => void; openTonight: () => void;
+  openPhoto: () => void; openCollection: () => void; openGame: (kind: 'daily' | 'placeit' | 'quiz') => void; openPassport: () => void; openAlbum: () => void; openTutorial: () => void; openTours: () => void; openLessons: () => void; openBookmarks: () => void; openCompare: (id?: string) => void; openTonight: () => void;
   openAccount: () => void; openGuestbook: () => void;
   openSolar: () => void;
   openSky: () => void;
@@ -43,6 +44,8 @@ export interface ShellHooks {
   /** In space the +/−/overview buttons drive the space view (true = handled). */
   zoom?: (inward: boolean) => boolean;
   overview?: () => void;
+  /** From space, back to the globe (the hub's globe-only shelves). */
+  toHome?: () => void;
 }
 
 export class Shell {
@@ -54,7 +57,10 @@ export class Shell {
   private info = h('aside', { id: 'info', class: 'info hidden', 'data-occludes': true, 'data-testid': 'info' }, this.infoMain);
   private reader: import('./reader.ts').Reader | null = null;
   private readerOpen = false;
-  private menu = h('div', { id: 'menu', class: 'menu hidden', 'data-occludes': true, role: 'dialog', 'aria-label': t('menu') });
+  private menu = h('div', { id: 'menu', class: 'menu hidden', 'data-occludes': true, role: 'dialog', 'aria-label': t('settings') });
+  /** The Explore hub: lessons, tours, sky, games and your collection, on four shelves. */
+  private hub = h('div', { id: 'hub', class: 'menu hub hidden', 'data-occludes': true, role: 'dialog', 'aria-label': t('hub'), 'data-testid': 'hub' });
+  private tab: HubTab = hubTab();
   private hints = h('div', { class: 'hints hidden', id: 'hints' });
   private rideBar = h('div', { class: 'ride-bar hidden', 'data-testid': 'ride-bar' });
   private tipEl = h('div', { id: 'tip', class: 'globe-tip hidden', 'aria-hidden': 'true' });
@@ -65,7 +71,7 @@ export class Shell {
   readonly time: TimeMachine;
 
   constructor(private root: HTMLElement, private globe: Globe, private hooks: ShellHooks) {
-    this.time = new TimeMachine(globe, it => this.showItem(it), open => { $('#btn-time')?.classList.toggle('active', open); $('#btn-time')?.setAttribute('aria-pressed', String(open)); });
+    this.time = new TimeMachine(globe, it => this.showItem(it), () => {});
   }
 
   mount(): void {
@@ -82,17 +88,11 @@ export class Shell {
         this.levelSlot),
       // Scene tools (only where they make sense) come first, then the tools every level shares, then the menu.
       h('nav', { class: 'tools', 'data-occludes': true, 'aria-label': t('tools') },
-        h('span', { class: 'tool-group local earth-only' },
-          tool('btn-game', 'game', 'game', this.hooks.openGames),
-          tool('btn-time', 'clock', 'timeMachine', () => this.time.toggle()),
-          tool('btn-radio', 'radio', 'radio', () => this.hooks.openRadio?.()),
-          h('span', { class: 'tools-sep', 'aria-hidden': 'true' })),
         tool('btn-search', 'search', 'searchKbd', () => this.openSearch()),
         tool('btn-photo', 'camera', 'photo', this.hooks.openPhoto),
-        tool('btn-collection', 'collection', 'collection', this.hooks.openCollection),
-        tool('btn-sky', 'eclipse', 'skyEvents', this.hooks.openSky),
         h('span', { class: 'tools-sep', 'aria-hidden': 'true' }),
-        tool('btn-menu', 'menu', 'menu', () => this.toggleMenu())));
+        tool('btn-hub', 'collection', 'hub', () => this.toggleHub(), 'tool-hub'),
+        tool('btn-menu', 'sliders', 'settings', () => this.toggleMenu())));
     const bottomLeft = h('div', { class: 'bl', 'data-occludes': true }, this.hints,
       h('button', { class: 'round-btn help', id: 'btn-help', 'aria-label': t('help'), 'aria-expanded': 'false', html: icon('help', 19), onclick: () => this.toggleHints() }));
     const zoom = (inward: boolean) => { if (!this.hooks.zoom?.(inward)) this.globe.zoomBy(inward ? 1.6 : 1 / 1.6); };
@@ -104,11 +104,12 @@ export class Shell {
         this.zoomEl,
         h('button', { id: 'btn-zoom-out', 'aria-label': t('zoomOut'), html: icon('minus', 17), onclick: () => zoom(false) })));
     foldable(this.info);
-    this.root.append(top, bottomLeft, bottomRight, this.coordEl, this.info, this.menu, this.rideBar, this.time.el, this.tipEl, this.immersiveExit);
+    this.root.append(top, bottomLeft, bottomRight, this.coordEl, this.info, this.hub, this.menu, this.rideBar, this.time.el, this.tipEl, this.immersiveExit);
     this.renderHints();
     this.renderMenu();
-    onClassroom(() => { if (!this.menu.classList.contains('hidden')) this.renderMenu(); });
-    subscribe(() => { if (this.current) this.renderInfo(this.current); if (!this.menu.classList.contains('hidden')) this.renderMenu(); });
+    const refresh = () => { if (!this.menu.classList.contains('hidden')) this.renderMenu(); if (!this.hub.classList.contains('hidden')) this.renderHub(); };
+    onClassroom(refresh);
+    subscribe(() => { if (this.current) this.renderInfo(this.current); refresh(); });
     onLang(() => { this.relabel(); this.reader?.relang(); });
     document.addEventListener('keydown', e => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -122,15 +123,16 @@ export class Shell {
       if (closeModal()) return;
       if (this.immersive) { this.setImmersive(false); return; }
       if (!this.menu.classList.contains('hidden')) { this.toggleMenu(false); return; }
+      if (!this.hub.classList.contains('hidden')) { this.toggleHub(false); return; }
       if (this.globe.ride) { this.exitRide(); return; }
       if (this.readerOpen) { this.toggleReader(false); return; }
       if (this.current) { this.showItem(null); return; }
       if (this.time.open) this.time.toggle(false);
     });
     document.addEventListener('pointerdown', e => {
-      if (this.menu.classList.contains('hidden')) return;
       const tgt = e.target as Node;
-      if (!this.menu.contains(tgt) && !$('#btn-menu').contains(tgt)) this.toggleMenu(false);
+      if (!this.menu.classList.contains('hidden') && !this.menu.contains(tgt) && !$('#btn-menu').contains(tgt)) this.toggleMenu(false);
+      if (!this.hub.classList.contains('hidden') && !this.hub.contains(tgt) && !$('#btn-hub').contains(tgt)) this.toggleHub(false);
     });
   }
 
@@ -244,6 +246,7 @@ export class Shell {
     this.space = on;
     this.toggleHints(false);
     this.toggleMenu(false);
+    this.toggleHub(false);
     this.renderHints();
   }
 
@@ -252,8 +255,7 @@ export class Shell {
     this.hints.replaceChildren(
       ...keys.map(k => h('p', { html: t(k) })),
       h('div', { class: 'row' },
-        h('button', { class: 'chip', id: 'btn-tutorial', onclick: () => { this.toggleHints(false); this.hooks.openTutorial(); } }, t('tutorialAgain')),
-        h('button', { class: 'chip', 'data-testid': 'btn-tours', onclick: () => { this.toggleHints(false); this.hooks.openTours(); } }, t('tours'))));
+        h('button', { class: 'chip', id: 'btn-tutorial', onclick: () => { this.toggleHints(false); this.hooks.openTutorial(); } }, t('tutorialAgain'))));
   }
   toggleHints(force?: boolean): void {
     const show = force ?? this.hints.classList.contains('hidden');
@@ -261,9 +263,29 @@ export class Shell {
     $('#btn-help').setAttribute('aria-expanded', String(show));
   }
 
+  /** Opens the Explore hub, optionally on a given shelf. */
+  toggleHub(force?: boolean, tab?: HubTab): void {
+    const show = force ?? (tab ? true : this.hub.classList.contains('hidden'));
+    if (tab) this.tab = tab;
+    if (show) { this.toggleMenu(false); this.toggleHints(false); this.renderHub(); }
+    this.hub.classList.toggle('hidden', !show);
+    $('#btn-hub')?.classList.toggle('active', show);
+    $('#btn-hub')?.setAttribute('aria-expanded', String(show));
+  }
+
+  private renderHub(): void {
+    const hk = this.hooks;
+    this.hub.replaceChildren(...renderHub(this.tab, this.space, {
+      lessons: hk.openLessons, tours: hk.openTours,
+      sky: hk.openSky, tonight: hk.openTonight, time: () => this.time.toggle(), compare: () => hk.openCompare(), bookmarks: hk.openBookmarks, radio: () => hk.openRadio?.(),
+      game: hk.openGame, passport: hk.openPassport, collection: hk.openCollection, album: hk.openAlbum, account: hk.openAccount, guestbook: hk.openGuestbook,
+      toEarth: () => this.hooks.toHome?.(),
+    }, tab => { this.tab = tab; this.renderHub(); }, () => this.toggleHub(false)));
+  }
+
   toggleMenu(force?: boolean): void {
     const show = force ?? this.menu.classList.contains('hidden');
-    if (show) this.renderMenu();
+    if (show) { this.toggleHub(false); this.renderMenu(); }
     this.menu.classList.toggle('hidden', !show);
     $('#btn-menu').classList.toggle('active', show);
     $('#btn-menu').setAttribute('aria-expanded', String(show));
@@ -327,27 +349,9 @@ export class Shell {
       h('h3', {}, t('mLayers')), h('div', { class: 'chip-wrap' }, sw('graticule', 'grid'), sw('tectonics', 'plates'), sw('clouds', 'cloud'), sw('aurora', 'aurora')),
     ];
     this.menu.classList.toggle('menu-space', this.space);
-    // Activities as one row of tiles; the short label sits under the icon, the full name is the tooltip.
-    const tile = (id: string, ic: IconName, short: string, full: string, fn: () => void, cls = '') =>
-      h('button', { class: 'menu-tile' + (cls ? ' ' + cls : ''), 'data-testid': id, title: t(full), onclick: () => { sfx.tap(); fn(); } },
-        h('span', { class: 'mt-ico', html: icon(ic, 20) }), h('span', { class: 'mt-label' }, t(short)));
-    const away = (fn: () => void) => () => { this.toggleMenu(false); fn(); };
     const small = (id: string, ic: IconName, label: string, fn: () => void) =>
       h('button', { class: 'pill pill-sm', 'data-testid': id, html: icon(ic, 14), onclick: fn }, h('span', {}, label));
     this.menu.replaceChildren(
-      h('div', { class: 'menu-tiles' },
-        // on narrow phones the scene tools leave the top bar and live here
-        ...(this.space ? [] : [
-          tile('menu-game', 'game', 'game', 'game', away(this.hooks.openGames), 'tile-dup'),
-          tile('menu-time', 'clock', 'timeMachine', 'timeMachine', away(() => this.time.toggle()), 'tile-dup'),
-          tile('menu-radio', 'radio', 'tileRadio', 'radio', away(() => this.hooks.openRadio?.()), 'tile-dup'),
-          tile('menu-sky', 'eclipse', 'tileSky', 'skyEvents', away(this.hooks.openSky), 'tile-dup')]),
-        tile('menu-lessons', 'book', 'tileLessons', 'lessons', away(this.hooks.openLessons)),
-        tile('menu-tours', 'compass', 'tours', 'tours', away(this.hooks.openTours)),
-        tile('menu-tonight', 'telescope', 'tileTonight', 'tonight', away(this.hooks.openTonight)),
-        tile('menu-compare', 'ruler', 'tileCompare', 'compare', away(this.hooks.openCompare)),
-        tile('menu-bookmarks', 'pin', 'tileBookmarks', 'bookmarks', away(this.hooks.openBookmarks)),
-        tile('menu-immersive', 'eye', 'hideUi', 'hideUi', () => this.setImmersive(true))),
       ...earth,
       h('h3', {}, t('mSettings')),
       h('div', { class: 'chip-wrap' }, sw('sfx', 'sound'), sw('bgm', 'music'),
@@ -360,12 +364,10 @@ export class Shell {
       ...(sessionOnly() ? [h('p', { class: 'menu-warn', role: 'status' }, t('sessionOnly'))] : []),
       h('div', { class: 'menu-line' }, h('span', { class: 'sw-emoji', html: icon('reset', 15) }), h('span', { class: 'grow' }, t('reset')),
         small('reset', 'reset', t('resetBtn'), () => { if (confirm(t('resetConfirm'))) { resetSettings(); this.globe.flyTo(25, 40, 2.2); } })),
-      ...(HAS_API ? [h('div', { class: 'menu-line' }, h('span', { class: 'sw-emoji', html: icon('user', 15) }),
-        h('span', { class: 'grow' }, store.me ? t('signedInAs', { e: store.me.handle ?? store.me.email }) : t('account')),
-        small('menu-account', 'user', store.me ? t('account') : t('signIn'), away(this.hooks.openAccount)),
-        ...(classroom() ? [] : [small('menu-guestbook', 'chat', t('guestbook'), away(this.hooks.openGuestbook))]))] : []),
+      h('div', { class: 'menu-line' }, h('span', { class: 'sw-emoji', html: icon('eye', 15) }), h('span', { class: 'grow' }, t('hideUi') + ' · H'),
+        small('menu-immersive', 'eye', t('hideUiGo'), () => { this.toggleMenu(false); this.setImmersive(true); })),
       h('footer', { class: 'menu-links' },
-        ...([['about/', 'about', 'bulb'], ['encyclopedia/', 'encyclopedia', 'book'], ['privacy/', 'privacy', 'eye']] as const).map(([href, key, ic]) =>
+        ...([['about/', 'about', 'bulb'], ['privacy/', 'privacy', 'eye']] as const).map(([href, key, ic]) =>
           h('a', { href: url(href), 'data-testid': 'menu-link-' + key }, h('span', { class: 'ml-ico', html: icon(ic, 15) }), h('span', {}, t(key))))));
   }
 

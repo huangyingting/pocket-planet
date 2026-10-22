@@ -5,7 +5,7 @@ Companion to the [PRD](prd.md). The constants listed here are the source of trut
 ## 1. Screen layout
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ Terrastra [BETA]                    📷 Photo 📚 Collection 🎯 Game ☰ Menu │  top bar (tools hidden in game mode)
+│ Terrastra [Earth ▾]                     🔍 Search 📷 Photo ▦ Explore ⚙ Settings │  top bar (tools hidden in game mode)
 │ ×4.0                                                                         │  zoom readout
 │                                                                ┌───────────┐ │
 │                    ( 3D globe canvas + 2D label canvas )       │ info card │ │  desktop: right card
@@ -14,6 +14,13 @@ Companion to the [PRD](prd.md). The constants listed here are the source of trut
 │ (?)                                                                          │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
+* **Explore hub** (`ui/hub.ts`, ▦): every activity in one drawer, on four shelves. The last shelf used is remembered.
+  * Learn: geography lessons, guided tours and mission stories, encyclopedia.
+  * Observe: sky theatre, tonight from my city, time machine\*, compare bench, saved views, radio\* (not in classroom mode).
+  * Play\*: Daily Planet, Place it!, globe quiz.
+  * Me: passport, collection (dexes and stickers), photo album, account and guestbook (server edition).
+  * Entries marked \* need the globe; in space they are replaced by a "Back to Earth" button.
+* **Settings** (⚙): globe look and layers (Earth only), sound, classroom mode, language, backup, reset, hide controls (H), About and Privacy.
 * Modals (`role=dialog`, `aria-modal`) are stacked. Esc or ✕ closes the top one. A backdrop click closes it too.
 * Toasts stack (max 3, bottom centre, `role=status`).
 
@@ -99,7 +106,7 @@ Entering game mode sets `body.gaming`, closes the card/menu and hides items. For
 * State is persisted per day (`pp.dailyState`), so a reload shows the finished result. Stats `{played, won, streak, maxStreak, lastWonDay, dist[6]}`. The streak continues only if yesterday was won.
 
 ## 10. Tutorial & hints [`src/client/ui/tutorial.ts`]
-* 7 steps that spotlight real UI elements (globe, zoom, card, collection, games, photo, menu). Dots, Skip and Next; Esc skips.
+* 7 steps that spotlight real UI elements (globe, zoom, card, Explore hub twice, settings). Dots, Skip and Next; Esc skips.
 * Shown automatically when `pp.tutorial` is unset, there is no hash and there is no `?notut`. It can be reopened from the hints.
 
 ## 11. i18n [`src/client/lib/i18n.ts`]
