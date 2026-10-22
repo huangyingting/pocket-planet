@@ -8,7 +8,8 @@ import * as THREE from 'three';
 import type { Globe } from '../globe/scene.ts';
 import { densify, RENDER_ORDER } from '../globe/layers.ts';
 import { tracePath, type CountryInfo } from '../globe/painter.ts';
-import { latLonToVec } from '../../shared/lib/geo.ts';
+import { latLonToVec, vecToLatLon } from '../../shared/lib/geo.ts';
+import { BY_KEY } from '../../shared/data/catalogue.ts';
 import { subsolar } from '../../shared/lib/sun.ts';
 import type { Continent } from '../../shared/data/iso.ts';
 import { BIOMES, CLIMATES, biomeOf, climateAt, coastDistances, type Biome, type Climate } from './climate.ts';
@@ -47,7 +48,10 @@ export interface Clock {
   mode: 'day' | 'year'; start: number; rate: number; span?: number;
 }
 export interface StageScene {
+  /** where to look; the stage zooms in further when the step's drawing covers a smaller region (see `fitView`) */
   cam: [lat: number, lon: number, h: number];
+  /** keep `cam` as written: the step is about the whole globe even though its drawing is small */
+  wide?: boolean;
   /** keep the camera this many degrees east of the sub-solar point (watch the Earth turn under a fixed Sun) */
   follow?: number;
   paint?: Paint[]; lines?: Line[]; marks?: Mark[];
@@ -242,7 +246,64 @@ interface LiveLine { def: Line; mesh: THREE.Mesh; mat: THREE.ShaderMaterial; hea
 interface LiveMark { def: Mark; v: THREE.Vector3; el: HTMLElement }
 interface LiveLayer { def: Paint; cv: HTMLCanvasElement | null; shown: number }
 
-export interface StageOpts { low?: boolean; lang: () => 'en' | 'zh' }
+export interface StageOpts {
+  low?: boolean; lang: () => 'en' | 'zh';
+  /** the part of the viewport (px) left free for the globe, i.e. not under the lesson card */
+  frame?: () => { left: number; top: number; width: number; height: number } | null;
+}
+
+/**
+ * The camera that fits a set of places into a free area of `fw` × `fh` px (screen height `H`, vertical field of view
+ * `fov` degrees), looking straight down: [lat, lon, height above the surface in Earth radii]. Null when the places are
+ * spread over too much of the globe to frame (then the step keeps its whole-globe view).
+ */
+export function fitView(pts: LL[], fw: number, fh: number, H: number, fov: number, fill = 0.72): [number, number, number] | null {
+  if (!pts.length) return null;
+  const v = pts.map(([la, lo]) => latLonToVec(la, lo));
+  let c = v.reduce((a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], [0, 0, 0]);
+  const n0 = Math.hypot(...c);
+  if (n0 / v.length < 0.4) return null;
+  const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const basis = (cc: number[]) => {
+    const [la, lo] = vecToLatLon(cc[0], cc[1], cc[2]), p = la * Math.PI / 180, l = lo * Math.PI / 180;
+    return { la, lo, c: latLonToVec(la, lo), e: [Math.cos(l), 0, -Math.sin(l)], n: [-Math.sin(p) * Math.sin(l), Math.cos(p), -Math.sin(p) * Math.cos(l)] };
+  };
+  let b = basis(c);
+  // re-centre on the middle of the bounding box (the mean leans toward densely sampled outlines)
+  for (let it = 0; it < 3; it++) {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const p of v) {
+      const z = dot(p, b.c);
+      if (z < 0.2) return null;
+      const x = dot(p, b.e) / z, y = dot(p, b.n) / z;
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+    }
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    c = [b.c[0] + b.e[0] * mx + b.n[0] * my, b.c[1] + b.e[1] * mx + b.n[1] * my, b.c[2] + b.e[2] * mx + b.n[2] * my];
+    b = basis(c);
+  }
+  const t = Math.tan((fov * Math.PI) / 360) * fill, tx = (t * fw) / H, ty = (t * fh) / H;
+  // a place at p shows at angle atan(p·e / (d − p·c)) from the view axis, for a camera at distance d from the centre
+  let d = 1, minZ = 1;
+  for (const p of v) {
+    const z = dot(p, b.c);
+    minZ = Math.min(minZ, z);
+    d = Math.max(d, z + Math.abs(dot(p, b.e)) / tx, z + Math.abs(dot(p, b.n)) / ty);
+  }
+  if (minZ < 0.42) return null; // wider than about 65° from the centre
+  d = Math.max(d, 1.05 / minZ);
+  return [b.la, b.lo, Math.max(0.8, d - 1)]; // closer than this the base map turns soft and loses its context
+}
+
+/** A country's main outline (its biggest polygon), thinned. */
+function outline(c: CountryInfo): LL[] {
+  const g = c.feature.geometry;
+  const polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+  let ring = polys[0][0];
+  for (const p of polys) if (p[0].length > ring.length) ring = p[0];
+  const step = Math.max(1, Math.floor(ring.length / 60));
+  return ring.filter((_, i) => i % step === 0).map(([lo, la]) => [la, lo] as LL);
+}
 
 export class LessonStage {
   private root = new THREE.Group();
@@ -274,6 +335,7 @@ export class LessonStage {
 
   constructor(private globe: Globe, private opts: StageOpts) {
     this.W = opts.low ? 1024 : 2048;
+    globe.flatView = true;
     this.cv = document.createElement('canvas');
     this.cv.width = this.W; this.cv.height = this.W / 2;
     this.ctx = this.cv.getContext('2d')!;
@@ -314,9 +376,8 @@ export class LessonStage {
     g.forceNight = !!s.night;
     this.time = s.clock ? s.clock.start : Date.now();
     g.simTime = s.clock ? this.time : null;
-    let lon = s.cam[1];
-    if (s.follow !== undefined) lon = subsolar(this.time)[1] + s.follow;
-    g.flyTo(s.cam[0], lon, s.cam[2], 1500);
+    // aim once the caller has laid out its card, so the free area is known
+    queueMicrotask(() => { if (this.scene === s) this.aim(s); });
     this.layers = (s.paint ?? []).map(def => ({ def, cv: null, shown: -1 }));
     for (const def of s.lines ?? []) this.lines.push(this.buildLine(def));
     for (const def of s.marks ?? []) {
@@ -620,6 +681,52 @@ export class LessonStage {
     this.sphere.visible = false;
   }
 
+  /** Flies to the step's view: centred in the area the card leaves free, zoomed to what the step draws. */
+  private aim(s: StageScene): void {
+    const g = this.globe;
+    const W = innerWidth, H = innerHeight;
+    const fr = this.opts.frame?.();
+    const a = fr && fr.width > 160 && fr.height > 160 ? fr : { left: 0, top: 0, width: W, height: H };
+    g.setViewShift(a.left + a.width / 2 - W / 2, a.top + a.height / 2 - H / 2);
+    let [lat, lon, h] = s.cam;
+    if (s.follow !== undefined) lon = subsolar(this.time)[1] + s.follow;
+    else if (!s.wide) {
+      const pts = this.extent(s);
+      const f = pts && fitView(pts, a.width, a.height, H, g.camera.fov);
+      if (f && f[2] < h) [lat, lon, h] = f;
+    }
+    g.flyTo(lat, lon, h, 1500);
+  }
+
+  /** Every place a step draws or shows; null when it paints the whole globe (bands, climate maps…). */
+  private extent(s: StageScene): LL[] | null {
+    const pts: LL[] = [];
+    for (const p of s.paint ?? []) {
+      const f = p.fill;
+      if (f.k === 'poly') pts.push(...f.pts);
+      else if (f.k === 'land') {
+        const set = f.a2 ? new Set(f.a2) : null;
+        for (const c of this.globe.countryShapes()) if ((!set || set.has(c.a2)) && (!f.continent || c.continent === f.continent)) pts.push(...outline(c));
+      } else return null;
+    }
+    for (const l of s.lines ?? []) {
+      if (l.pts.length > 1 && !fitView(l.pts, 1, 1, 1, 90)) continue; // a parallel or meridian round the globe is only a reference
+      pts.push(...l.pts);
+      for (let i = 1; i < l.pts.length; i++) { // great-circle midpoints bulge poleward
+        const a = latLonToVec(...l.pts[i - 1]), b = latLonToVec(...l.pts[i]);
+        pts.push(vecToLatLon(a[0] + b[0], a[1] + b[1], a[2] + b[2]));
+      }
+    }
+    for (const m of s.marks ?? []) pts.push(m.ll);
+    for (const k of s.items ?? []) {
+      const it = BY_KEY.get(k);
+      if (!it) continue;
+      if (it.route?.kind === 'orbit') return null;
+      if (it.route) pts.push(...(it.route.pts as LL[])); else pts.push([it.lat, it.lon]);
+    }
+    return pts.length ? pts : null;
+  }
+
   /** Removes the stage and gives the globe back exactly as it was. */
   dispose(): void {
     this.clear();
@@ -634,6 +741,8 @@ export class LessonStage {
     g.setLessonItems(null);
     g.forceNight = false;
     g.simTime = null;
+    g.flatView = false;
+    g.setViewShift(0, 0);
     g.markDirty();
     this.scene = null;
   }

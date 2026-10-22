@@ -51,7 +51,7 @@ export function startLesson(id: string, host: LessonHost): void {
 function run(lesson: Lesson, host: LessonHost): void {
   stopLesson();
   const g = host.globe;
-  const stage = new LessonStage(g, { low: host.low, lang });
+  const stage = new LessonStage(g, { low: host.low, lang, frame: () => freeArea(card) });
   // for the end-to-end tests: what the stage drew
   (window as { __lesson?: LessonStage | null }).__lesson = stage;
   const steps = lesson.steps, quiz = lesson.quiz;
@@ -208,6 +208,19 @@ function run(lesson: Lesson, host: LessonHost): void {
   document.body.append(root);
   document.body.classList.add('lessoning');
   go(0);
+}
+
+/** The biggest clear part of the screen beside the card (below the top bar, above the bottom controls). */
+function freeArea(card: HTMLElement): { left: number; top: number; width: number; height: number } | null {
+  const r = card.getBoundingClientRect();
+  if (!r.width) return null;
+  const W = innerWidth, top = 70, bottom = innerHeight - 56, gap = 12, side = 64;
+  const cands = [
+    { left: r.right + gap, top, width: W - side - r.right - gap, height: bottom - top },
+    { left: side, top, width: r.left - gap - side, height: bottom - top },
+    { left: 0, top, width: W, height: Math.min(bottom, r.top - gap) - top },
+  ];
+  return cands.reduce((b, c) => (c.width > 0 && c.height > 0 && c.width * c.height > b.width * b.height ? c : b), { left: 0, top: 0, width: 0, height: 0 });
 }
 
 /** Options in a stable shuffled order (the right answer is written first in the data). */

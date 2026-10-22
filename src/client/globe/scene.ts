@@ -413,6 +413,11 @@ export class Globe {
   readonly frameHooks = new Set<(dt: number) => void>();
   /** Taps on the globe go to `ev.onGlobeTap` instead of picking (lesson "find it on the globe" questions). */
   captureTaps = false;
+  /** Lessons: keep a top-down, map-like view at every height (no pitch toward the horizon when zoomed in). */
+  flatView = false;
+  /** Where the globe's centre is drawn, in px from the canvas centre (eased), so a side card does not cover it. */
+  private shift = { x: 0, y: 0, tx: 0, ty: 0 };
+  setViewShift(x: number, y: number): void { this.shift.tx = x; this.shift.ty = y; this.dirty = true; }
   countryShapes(): readonly CountryInfo[] { return this.countries; }
   /** Temporary layer switches on top of the user's settings (lessons hide clouds, labels…); never saved. */
   private layerOverride: Partial<Settings> | null = null;
@@ -1161,6 +1166,15 @@ export class Globe {
     this.dirty = true;
   }
 
+  private applyShift(dt: number): void {
+    const sh = this.shift, k = 1 - Math.exp(-dt / 160);
+    sh.x += (sh.tx - sh.x) * k; sh.y += (sh.ty - sh.y) * k;
+    if (Math.abs(sh.tx - sh.x) < 0.5 && Math.abs(sh.ty - sh.y) < 0.5) { sh.x = sh.tx; sh.y = sh.ty; } else this.dirty = true;
+    const w = this.container.clientWidth, h = this.container.clientHeight;
+    if ((sh.x || sh.y) && w && h) this.camera.setViewOffset(w, h, -sh.x, -sh.y, w, h);
+    else if (this.camera.view?.enabled) this.camera.clearViewOffset();
+  }
+
   private modelScale(item: CatalogueItem): number {
     const base = TYPE_META[item.type].scale;
     return base * Math.max(0.06, Math.min(1.12, Math.pow(this.h / DEFAULT_H, 0.72)));
@@ -1210,6 +1224,7 @@ export class Globe {
       return;
     }
     this.camera.near = Math.max(0.0008, this.h * 0.05);
+    this.applyShift(dt);
     this.camera.updateProjectionMatrix();
 
     const T = new THREE.Vector3(...latLonToVec(this.lat, this.lon));
@@ -1217,7 +1232,7 @@ export class Globe {
     const north = this.northAt(this.lat, this.lon);
     // Smoothly pitch toward the horizon as the user zooms in from orbital view.
     const z = this.zoom;
-    const tilt = z <= 4.15 ? 0 : Math.min(0.86, Math.pow(Math.min(1, (z - 4.15) / 8.5), 0.72) * 0.86);
+    const tilt = this.flatView || z <= 4.15 ? 0 : Math.min(0.86, Math.pow(Math.min(1, (z - 4.15) / 8.5), 0.72) * 0.86);
     const dir = N.clone().multiplyScalar(Math.cos(tilt)).add(north.clone().multiplyScalar(-Math.sin(tilt)));
     this.camera.position.copy(T).add(dir.multiplyScalar(this.h));
     this.camera.up.copy(north.clone().multiplyScalar(Math.cos(tilt)).add(N.clone().multiplyScalar(Math.sin(tilt))));

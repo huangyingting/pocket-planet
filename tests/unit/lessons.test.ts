@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LESSONS, GRADES, STRANDS, VIEWS, course, lessonById, nextLesson, type View } from '../../src/client/lessons/data.ts';
 import { CITIES, DIAGRAMS, PYRAMIDS, renderFig, type Fig } from '../../src/client/lessons/figs.ts';
 import { biomeOf, climateAt } from '../../src/client/lessons/climate.ts';
-import { oceanAt, tempAt } from '../../src/client/lessons/stage.ts';
+import { fitView, oceanAt, tempAt } from '../../src/client/lessons/stage.ts';
 import { subsolar } from '../../src/shared/lib/sun.ts';
 import { BY_KEY } from '../../src/shared/data/catalogue.ts';
 import type { LL, Pair } from '../../src/client/lessons/kit.ts';
@@ -80,6 +80,23 @@ describe('geography lessons data', () => {
 });
 
 describe('lesson geometry', () => {
+  it('zooms the camera to what a step draws, and leaves whole-globe steps alone', () => {
+    // Japan, framed in a 860 × 660 px area of an 800 px tall screen
+    const japan: LL[] = [[45.5, 141.7], [31, 130.5], [35.7, 139.7], [33.5, 135.8]];
+    const [la, lo, h] = fitView(japan, 860, 660, 800, 35)!;
+    expect(la).toBeGreaterThan(36); expect(la).toBeLessThan(40);
+    expect(lo).toBeGreaterThan(134); expect(lo).toBeLessThan(138);
+    expect(h).toBeGreaterThanOrEqual(0.8); expect(h).toBeLessThan(1.4);
+    // a bigger region needs a higher camera; a narrower free area too
+    expect(fitView([[50, -5], [36, 28], [60, 25], [40, -9]], 860, 660, 800, 35)![2]).toBeGreaterThan(h);
+    expect(fitView(japan, 200, 660, 800, 35)![2]).toBeGreaterThan(h);
+    // a single place still shows its surroundings
+    expect(fitView([[27.99, 86.93]], 860, 660, 800, 35)![2]).toBe(0.8);
+    // places around the world can't be framed from above
+    expect(fitView([[0, 0], [0, 120], [0, -120]], 860, 660, 800, 35)).toBeNull();
+    expect(fitView([[60, 0], [-60, 150]], 860, 660, 800, 35)).toBeNull();
+  });
+
   it('sorts well-known cities into their textbook climate types', () => {
     const cases: [string, number, number, number, number, string][] = [
       ['Singapore', 1.3, 103.8, 1, 1, 'rainforest'], ['Manaus', -3.1, -60, 20, 15, 'rainforest'], ['Mumbai', 19, 72.9, 0.3, 15, 'tmonsoon'],
