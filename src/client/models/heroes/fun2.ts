@@ -1,3 +1,4 @@
+import { human, passerby } from '../human.ts';
 import * as THREE from 'three';
 import {
   type Builder, type Paint, type V3, add, g, mat, box, cyl, cone, gable, lathe, prism,
@@ -200,30 +201,21 @@ interface Pose {
 function fig(p: THREE.Object3D, x: number, y: number, z: number, ry: number, h: number, o: Pose): THREE.Group {
   const f = grp(p, x, y, z, ry, h);
   const sk = o.skin ?? SK[Math.floor(hash3(x * 31, z * 17, 3) * 4)], hr = o.hair ?? HR[Math.floor(hash3(x * 13, z * 7, 5) * 5)];
-  const bw = o.bulk ?? 1, lean = o.lean ?? 0;
-  const feet = o.feet ?? [[-0.07, 0, 0.01], [0.07, 0, 0.01]], hands = o.hands ?? [[-0.2, 0.42, 0.03], [0.2, 0.42, 0.03]];
-  const hipY = 0.46;
-  for (let i = 0; i < 2; i++) {
-    const sx = i ? 1 : -1, hip: V3 = [sx * 0.065 * bw, hipY, 0], ft = feet[i];
-    const knee: V3 = [(hip[0] + ft[0]) / 2, (hip[1] + ft[1]) / 2 + 0.02, (hip[2] + ft[2]) / 2 + 0.06];
-    limb(f, hip, knee, 0.11 * bw, o.b ?? '#1f2937');
-    limb(f, knee, ft, 0.085 * bw, o.legs ?? o.b ?? '#1f2937');
-    add(f, BOXG(), mat(o.shoes ?? '#27272a'), ft[0], ft[1] + 0.018, ft[2] + 0.03, 0.08, 0.04, 0.14);
+  // targets are given with soles at y = 0; the rig wants ankles
+  const feet = o.feet ? (o.feet.map(([fx, fy, fz]) => [fx, fy + 0.032, fz]) as [V3, V3]) : undefined;
+  const rig = human(f, 0, 0, 0, {
+    h: 1, detail: h > 0.06 ? 'hi' : 'lo', top: o.c, skin: sk, shoes: o.shoes ?? '#27272a', build: o.bulk,
+    feet, hands: o.hands, hipY: feet ? 0.46 : undefined, lean: (o.lean ?? 0) * 0.6, sleeve: 0.4,
+    bottom: o.legs ?? o.b ?? '#1f2937', hair: o.noHair ? null : hr, dress: o.skirt ? 'ankle' : undefined,
+  });
+  if (o.hat) {
+    // hats were authored for a head at (0, 0.9, 0) of radius ≈0.11: map that frame onto the rig's head
+    const k = 0.6, hf = new THREE.Group();
+    hf.position.set(rig.head[0], rig.head[1] - 0.9 * k, rig.head[2]);
+    hf.scale.setScalar(k);
+    f.add(hf);
+    o.hat(hf);
   }
-  if (o.skirt) add(f, g('f2-skirt', () => new THREE.CylinderGeometry(0.5, 1, 1, 7, 1, true)), mat(o.skirt), 0, 0.3, lean * 0.03, 0.17 * bw, 0.4, 0.15 * bw);
-  const ch: V3 = [0, 0.62, lean * 0.11];
-  blob(f, o.c, ch[0], ch[1], ch[2], 0.14 * bw, 0.23, 0.1 * bw, 0, lean * 0.6);
-  const hd: V3 = [0, 0.9, lean * 0.26];
-  blob(f, sk, hd[0], hd[1], hd[2], 0.105, 0.115, 0.105);
-  if (!o.noHair) blob(f, hr, hd[0], hd[1] + 0.035, hd[2] - 0.02, 0.112, 0.085, 0.108);
-  for (let i = 0; i < 2; i++) {
-    const sx = i ? 1 : -1, sh: V3 = [sx * 0.15 * bw, 0.76, ch[2]], hn = hands[i];
-    const el: V3 = [(sh[0] + hn[0]) / 2 + sx * 0.03, (sh[1] + hn[1]) / 2, (sh[2] + hn[2]) / 2 - 0.03];
-    limb(f, sh, el, 0.085 * bw, o.sleeve ?? o.c);
-    limb(f, el, hn, 0.07 * bw, sk);
-    add(f, BOXG(), mat(sk), hn[0], hn[1], hn[2], 0.07, 0.07, 0.07);
-  }
-  o.hat?.(f);
   return f;
 }
 const RUN = (ph = 0): Pick<Pose, 'feet' | 'hands' | 'lean'> => {
@@ -232,11 +224,9 @@ const RUN = (ph = 0): Pick<Pose, 'feet' | 'hands' | 'lean'> => {
 };
 const CHEER: Pick<Pose, 'hands'> = { hands: [[-0.26, 1.12, 0.02], [0.26, 1.12, 0.02]] };
 /** Spectator pawn (2 parts) for cheap crowds. */
-function fan(p: THREE.Object3D, x: number, y: number, z: number, h: number, c: string, arms = false): void {
-  const sk = SK[Math.floor(hash3(x * 9, z * 4, 1) * 5)];
-  blob(p, c, x, y + h * 0.32, z, h * 0.2, h * 0.34, h * 0.16);
-  dot(p, sk, x, y + h * 0.8, z, h * 0.15, 5);
-  if (arms) { limb(p, [x - h * 0.15, y + h * 0.55, z], [x - h * 0.24, y + h * 1.05, z], h * 0.1, c); limb(p, [x + h * 0.15, y + h * 0.55, z], [x + h * 0.24, y + h * 1.05, z], h * 0.1, c); }
+function fan(p: THREE.Object3D, x: number, y: number, z: number, h: number, c: string, arms = false, sit = false): void {
+  // spectators face the middle of the scene; a seated fan's h is the seated height
+  passerby(p, x, y, z, sit ? h * 1.55 : h, 2, { top: c, ry: Math.atan2(-x, -z), pose: sit ? 'sitGround' : arms ? 'cheer' : undefined });
 }
 interface Beast { body: string; mane?: string; hump?: boolean; neckUp?: number; gait?: number; long?: number }
 /** Quadruped (horse/pony/camel), length ≈ s, facing +z of its group. */

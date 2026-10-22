@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import {
   type Builder, type V3, type Paint, BOX, g, add, mat, box, cyl, cone, rbox, rod, strut, skin, sweep, prism, panel, archPath,
@@ -32,8 +33,7 @@ function grp(p: THREE.Object3D, x = 0, y = 0, z = 0, ry = 0): THREE.Group {
   const q = new THREE.Group(); q.position.set(x, y, z); q.rotation.y = ry; p.add(q); return q;
 }
 function person(p: THREE.Object3D, x: number, y: number, z: number, c: string, s = 1, skinC = '#c58c64'): void {
-  cyl(p, c, x, y, z, 0.0035 * s, 0.011 * s, 5);
-  blob(p, skinC, x, y + 0.0135 * s, z, 0.0028 * s);
+  passerby(p, x, y, z, 0.0165 * s, 1, { top: c, skin: skinC });
 }
 /** Rectangular beam from a to b (w across, h up); roll follows the minimal rotation from +x. */
 function beam(p: THREE.Object3D, a: V3, b: V3, w: number, h: number, c: string): THREE.Mesh {

@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import {
   type Builder, type V3, add, g, mat, box, ball, cyl, cone, rod, slab, shade as shade0, mix, fbm, hash3,
@@ -222,8 +223,7 @@ const umbrellaPine = (p: THREE.Object3D, x: number, y: number, z: number, s: num
   ball(p, '#4c7c3f', x + s * 0.18, y + s * 1.07, z + s * 0.05, s * 0.56, s * 0.18, s * 0.52);
 };
 const person = (p: THREE.Object3D, x: number, y: number, z: number, c: string, s = 0.012) => {
-  box(p, c, x, y, z, s * 0.45, s * 1.2, s * 0.35);
-  box(p, '#e8c4a0', x, y + s * 1.2, z, s * 0.3, s * 0.35, s * 0.3);
+  passerby(p, x, y, z, s * 1.55, 1, { top: c });
 };
 
 // ---------------------------------------------------------------------------------------------------------

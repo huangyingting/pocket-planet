@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import { type Builder, type Paint, type V3, g, add, mat, box, cyl, rod, slab, rbox, ball, ellip, gable, paintFaces, shade, mix, fbm, hash3, worley } from '../prims.ts';
 import { type HFn, island, ripple, strataSide, EARTH, sstep } from '../nature.ts';
@@ -137,14 +138,7 @@ const calm = (c: string): Paint => (x, _y, z) => {
 
 /** Tiny visitor for scale (height ≈ 0.022·s), facing +z rotated by ry. */
 function person(p: THREE.Object3D, x: number, y: number, z: number, shirt: string, s = 1, ry = 0, o: { hat?: string; pants?: string; skin?: string } = {}): void {
-  const q = new THREE.Group(); q.position.set(x, y, z); q.rotation.y = ry; q.scale.setScalar(s); p.add(q);
-  const pants = o.pants ?? '#3b4a63', skin = o.skin ?? '#e2b48c';
-  for (const sx of [-1, 1]) box(q, pants, sx * 0.0016, 0, 0, 0.0026, 0.0105, 0.003);
-  rbox(q, shirt, 0, 0.0102, 0, 0.0072, 0.0078, 0.0042, 0.0012);
-  for (const sx of [-1, 1]) box(q, shirt, sx * 0.0043, 0.011, 0, 0.0018, 0.0066, 0.0022);
-  add(q, g('pl:head', () => new THREE.SphereGeometry(1, 10, 7)), mat(skin, { flat: false }), 0, 0.0208, 0, 0.0029, 0.0032, 0.0029);
-  if (o.hat) { cyl(q, o.hat, 0, 0.0226, 0, 0.0048, 0.0006, 10); cyl(q, o.hat, 0, 0.0226, 0, 0.0028, 0.0026, 10); }
-  else add(q, g('pl:head', () => new THREE.SphereGeometry(1, 10, 7)), mat('#3b2a20', { flat: false }), 0, 0.0218, -0.0004, 0.003, 0.0025, 0.003);
+  passerby(p, x, y, z, 0.023 * s, 1, { top: shirt, ry, bottom: o.pants, skin: o.skin, hat: o.hat, hatStyle: 'brim' });
 }
 
 /** Leafy clump cluster around (cx,cy,cz): n flattened low-poly blobs with colour jitter. */

@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import {
   type Builder, type V3, type Paint, g, add, mat, box, cyl, rbox, rod, strut, skin, sweep, lathe, prism, gable, slab, tbox, panel,
@@ -32,8 +33,7 @@ function conifer(p: THREE.Object3D, x: number, y: number, z: number, s: number, 
   strut(p, [x, y + s * 0.15, z], [x, y + s * 1.1, z], s * 0.32, 0.001, c, 6);
 }
 function person(p: THREE.Object3D, x: number, y: number, z: number, c: string, s = 1): void {
-  cyl(p, c, x, y, z, 0.0035 * s, 0.011 * s, 5);
-  blob(p, '#e0b48c', x, y + 0.0135 * s, z, 0.0028 * s);
+  passerby(p, x, y, z, 0.0165 * s, 1, { top: c });
 }
 const STAR = (n: number, ro: number, ri: number, rot = 0): [number, number][] =>
   Array.from({ length: n * 2 }, (_, i) => { const a = rot + (i * Math.PI) / n, rr = i % 2 ? ri : ro; return [Math.sin(a) * rr, Math.cos(a) * rr]; });

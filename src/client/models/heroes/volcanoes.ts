@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import { type Builder, type V3, g, add, mat, box, cyl, cone, rod, gable, shade, hash3 } from '../prims.ts';
 import { type HFn, sstep } from '../nature.ts';
@@ -301,8 +302,7 @@ function palm(p: THREE.Object3D, x: number, y: number, z: number, s: number, see
   blob(p, '#3a6b35', top[0], top[1], top[2], s * 0.08);
 }
 function person(p: THREE.Object3D, x: number, y: number, z: number, c: string, s = 1): void {
-  cyl(p, c, x, y, z, 0.0032 * s, 0.01 * s, 5);
-  blob(p, '#d9a77c', x, y + 0.0125 * s, z, 0.0026 * s);
+  passerby(p, x, y, z, 0.0155 * s, 1, { top: c });
 }
 function house(p: THREE.Object3D, x: number, y: number, z: number, w: number, ry: number, wall: string, roof: string, hgt = w * 0.7): void {
   box(p, wall, x, y - 0.002, z, w, hgt + 0.002, w * 0.75, ry);

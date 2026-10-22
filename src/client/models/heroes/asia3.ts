@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
@@ -57,8 +58,7 @@ const sea = (c: string, cell = 0.025, glint = 0.975): Paint => (x, _y, z) => {
 
 /** Tiny visitor for scale. */
 function person(p: THREE.Object3D, x: number, y: number, z: number, c: string, s = 1, head = '#e9c9a4'): void {
-  cyl(p, c, x, y, z, 0.0042 * s, 0.014 * s, 6);
-  box(p, head, x, y + 0.014 * s, z, 0.0055 * s, 0.006 * s, 0.0055 * s);
+  passerby(p, x, y, z, 0.018 * s, 1, { top: c, skin: head });
 }
 
 const LB = () => g('a3:lb', () => new THREE.SphereGeometry(0.5, 6, 4));

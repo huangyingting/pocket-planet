@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import {
   type Builder, type V3, type MatOpts, type Paint, g, add, mat, box, cyl, cone, rod, tbox, gable, skin, prism, panel, archPath,
@@ -156,9 +157,7 @@ const SKIN = ['#8d5a3b', '#c68b5e', '#5a3825', '#e0b48a'];
 const PCOL = ['#ef4444', '#3b82f6', '#facc15', '#22c55e', '#f97316', '#a855f7', '#f8fafc', '#0ea5e9'];
 /** Tiny visitor for scale (3 meshes, ~70 triangles). */
 function person(p: THREE.Object3D, x: number, y: number, z: number, c: string, k = 0, s = 1): void {
-  cyl(p, '#3b3b46', x, y, z, 0.0034 * s, 0.008 * s, 5);
-  cyl(p, c, x, y + 0.0075 * s, z, 0.0044 * s, 0.0085 * s, 6);
-  pebble(p, SKIN[k % 4], x, y + 0.0195 * s, z, 0.0034 * s);
+  passerby(p, x, y, z, 0.023 * s, k, { top: c, skin: SKIN[k % 4] });
 }
 function crowd(p: THREE.Object3D, n: number, seed: number, at: (i: number) => [number, number, number] | null, s = 1): void {
   for (let i = 0; i < n; i++) { const q = at(i); if (q) person(p, q[0], q[1], q[2], PCOL[Math.floor(hash3(i, seed, 3) * 8)], i, s); }

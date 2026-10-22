@@ -1,3 +1,4 @@
+import { human } from '../human.ts';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
@@ -170,34 +171,20 @@ const THROW: [V3, V3] = [[-0.02, 0.07, 0.035], [0.036, 0.13, -0.012]];
 function kid(p: THREE.Object3D, x: number, y: number, z: number, ry: number, o: Fig, s = 1): THREE.Group {
   const f = grp(p, x, y, z, ry, s);
   const sk = o.skin ?? SKINS[Math.floor(hash3(x * 31, z * 17, 3) * 4)], hr = o.hair ?? HAIRS[Math.floor(hash3(x * 13, z * 7, 5) * 5)];
-  const pants = o.pants ?? '#334155', shoes = o.shoes ?? '#1f2937';
-  if (o.sit) {
-    for (const sx of [-1, 1]) {
-      rod(f, [sx * 0.011, 0.012, 0], [sx * 0.012, 0.012, 0.036], 0.0085, pants);
-      ellip(f, shoes, sx * 0.012, 0.008, 0.042, 0.007, 0.007, 0.01);
-    }
-    ellip(f, o.shirt, 0, 0.038, -0.004, 0.021, 0.026, 0.016);
-  } else {
-    for (const sx of [-1, 1]) {
-      cyl(f, pants, sx * 0.0105, 0.004, 0, 0.0085, 0.036, 7);
-      ellip(f, shoes, sx * 0.0105, 0.005, 0.004, 0.0085, 0.006, 0.012);
-    }
-    if (o.dress) cone(f, o.shirt, 0, 0.022, 0, 0.026, 0.05, 10);
-    ellip(f, o.shirt, 0, 0.06, 0, 0.021, 0.026, 0.016);
+  // seated kids keep their gestures, lowered with the torso
+  const H = 0.12, dy = o.sit ? -0.425 : 0, hands = (o.hands ?? DOWN).map(([hx, hy, hz]) => [hx / H, hy / H + dy, hz / H]) as [V3, V3];
+  const rig = human(f, 0, 0, 0, {
+    h: H, detail: s >= 0.9 ? 'hi' : 'lo', top: o.shirt, bottom: o.pants ?? '#334155', shoes: o.shoes ?? '#1f2937', skin: sk, hair: hr,
+    pose: o.sit ? 'sitGround' : 'stand', hands: o.sit && !o.hands ? undefined : hands, dress: o.dress ? 'knee' : undefined, sleeve: 0.4, build: 1.05,
+  });
+  if (o.hat) {
+    // hats were authored for a head centred at (0, 0.1, 0) of radius ≈0.02: map that frame onto the rig's head
+    const k = 0.4, hf = new THREE.Group();
+    hf.position.set(rig.head[0], rig.head[1] - 0.1 * k, rig.head[2]);
+    hf.scale.setScalar(k);
+    f.add(hf);
+    o.hat(hf);
   }
-  const yo = o.sit ? -0.024 : 0;
-  ellip(f, sk, 0, 0.1 + yo, 0, 0.02, 0.021, 0.019);
-  ellip(f, hr, 0, 0.106 + yo, -0.004, 0.021, 0.019, 0.019);
-  dot(f, '#1f2937', -0.007, 0.101 + yo, 0.018, 0.0028, 6);
-  dot(f, '#1f2937', 0.007, 0.101 + yo, 0.018, 0.0028, 6);
-  const hands = o.hands ?? DOWN;
-  for (const [i, sx] of [[0, -1], [1, 1]] as const) {
-    const h = hands[i], sh: V3 = [sx * 0.019, 0.074 + yo, 0];
-    const hh: V3 = [h[0], h[1] + yo, h[2]];
-    rod(f, sh, hh, 0.0058, o.shirt, 6);
-    dot(f, sk, hh[0], hh[1], hh[2], 0.0068, 6);
-  }
-  o.hat?.(f);
   return f;
 }
 
@@ -425,16 +412,22 @@ function paddler(p: THREE.Object3D, x: number, y: number, z: number, side: numbe
   // seated, facing +x; `side` = which world-z side the paddle goes in
   const f = grp(p, x, y, z, Math.PI / 2);
   const out = -side; // local x pointing outboard
-  ellip(f, shirt, 0, 0.024, 0, 0.016, 0.022, 0.013, 0, 0.3, 0);
-  ellip(f, '#d9a27a', 0, 0.056, 0.008, 0.013, 0.014, 0.013);
-  ellip(f, '#1c1917', 0, 0.061, 0.004, 0.0135, 0.011, 0.013);
-  cyl(f, '#dc2626', 0, 0.056, 0.006, 0.0138, 0.005, 8);
-  const top: V3 = [out * 0.012, 0.075 - ph * 0.01, 0.022 + ph * 0.01], low: V3 = [out * 0.04, 0.02, 0.03 - ph * 0.01];
-  const blade: V3 = [out * 0.06, -0.04, 0.045 - ph * 0.03];
-  rod(f, top, blade, 0.0025, '#a16207', 5);
-  ellip(f, '#c2410c', blade[0] - out * 0.004, blade[1] + 0.008, blade[2] - 0.004, 0.003, 0.014, 0.008);
-  rod(f, [-out * 0.012, 0.04, 0.004], top, 0.0045, shirt, 5);
-  rod(f, [out * 0.013, 0.038, 0.004], low, 0.0045, shirt, 5);
+  const h = 0.1, y0 = 0.004 - 0.2 * h;
+  // hands in rig space: top hand over the inboard knee at brow height, lower hand outboard by the hip; phase = catch / pull
+  const topU: V3 = [out * 0.04, 0.66 - ph * 0.06, 0.34 - ph * 0.1], lowU: V3 = [out * 0.27, 0.3, 0.28 - ph * 0.12];
+  const F = (v: V3): V3 => [v[0] * h, v[1] * h + y0, v[2] * h];
+  const top = F(topU), low = F(lowU);
+  // shaft through both hands, from just above the grip down to the blade in the water
+  const d = [low[0] - top[0], low[1] - top[1], low[2] - top[2]], t = (-0.04 - top[1]) / d[1];
+  const grip: V3 = [top[0] - d[0] * 0.15, top[1] - d[1] * 0.15, top[2] - d[2] * 0.15];
+  const blade: V3 = [top[0] + d[0] * t, -0.04, top[2] + d[2] * t];
+  rod(f, grip, blade, 0.0022, '#a16207', 5);
+  ellip(f, '#c2410c', blade[0], blade[1] + 0.008, blade[2], 0.003, 0.014, 0.008);
+  const rig = human(f, 0, y0, 0, {
+    h, pose: 'row', top: shirt, bottom: '#1f2937', skin: '#d9a27a', hair: '#1c1917', sleeve: 0.4, detail: 'lo',
+    hands: out > 0 ? [topU, lowU] : [lowU, topU], feet: [[-0.07, 0.03, 0.3], [0.07, 0.03, 0.3]],
+  });
+  cyl(f, '#dc2626', rig.head[0], rig.head[1] - 0.0005, rig.head[2], 0.0068, 0.0022, 8); // headband
 }
 const fs_dragonboat: Builder = (gp) => {
   const hf = (x: number, z: number) => sstep(-0.24, -0.36, z) * (0.05 + fbm(x * 8, 1, z * 8, 2) * 0.01);

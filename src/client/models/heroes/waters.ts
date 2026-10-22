@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { type Builder, type Paint, g, add, mat, lathe, prism, paintFaces, fbm, vnoise, hash3, worley } from '../prims.ts';
 import { type HFn, sstep } from '../nature.ts';
+import { passerby } from '../human.ts';
 import { mergeVertices as mergeV } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 // Hero builders for: grandcanyon, niagara, victoriafalls, iguazu, reef.
@@ -217,17 +218,9 @@ const wcol = (c: string, x: number, z: number, k = 1, dir = 0.6, amp = 0.2): str
   return mx(sh(c, 0.9 + 0.2 * n), '#e8f7fb', l * amp);
 };
 
-/** Tiny standing figures (merged) for scale. */
-function people(list: [number, number, number][], seed: number, cols = ['#dc2626', '#2563eb', '#f8fafc', '#f59e0b', '#16a34a', '#7c3aed']): Item[] {
-  const out: Item[] = [];
-  list.forEach(([x, y, z], i) => {
-    const c = cols[Math.floor(hash3(i, seed, 1) * cols.length)];
-    out.push({ p: [x, y + 0.006, z], s: [0.0035, 0.012, 0.0035], c });
-  });
-  return out;
-}
-function heads(list: [number, number, number][]): Item[] {
-  return list.map(([x, y, z]) => ({ p: [x, y + 0.0145, z], s: [0.0032, 0.0032, 0.0032], c: '#e0b48a' }));
+/** Tiny visitors for scale, feet on each listed ground point. */
+function people(p: THREE.Object3D, list: [number, number, number][], seed: number, cols = ['#dc2626', '#2563eb', '#f8fafc', '#f59e0b', '#16a34a', '#7c3aed']): void {
+  list.forEach(([x, y, z], i) => passerby(p, x, y, z, 0.0185, seed * 31 + i, { top: cols[Math.floor(hash3(i, seed, 1) * cols.length)] }));
 }
 
 /** Conifer (ponderosa / pinyon) as merged parts: trunk + 3 stacked cones. */
@@ -487,8 +480,8 @@ const grandcanyon: Builder = gp => {
       }
     }
     const fig: [number, number, number][] = [[-0.03, 0.002, 0.0], [-0.012, 0.002, -0.006], [0.012, 0.002, -0.004], [0.028, 0.002, 0.01], [0.0, 0.002, 0.03]];
-    inst(ov, BOXG(), [...posts, ...rails, ...people(fig, 4)], { flat: true });
-    inst(ov, SPH(), heads(fig));
+    inst(ov, BOXG(), [...posts, ...rails], { flat: true });
+    people(ov, fig, 4);
   }
   // Desert View Watchtower on the opposite rim
   {
@@ -654,8 +647,7 @@ const niagara: Builder = gp => {
   railing(bx, [[0.425, -0.08], [0.418, -0.04], ...railPts.slice(0, 1).map(([x, z]) => [x + 0.004, z] as P2), ...railPts.slice(1)], gy);
   const fig: [number, number, number][] = [];
   for (let k = 0; k < 9; k++) { const [x, z] = railPts[Math.min(railPts.length - 1, k)]; fig.push([x + 0.008, gy(x + 0.008, z), z + (hash3(k, 4, 1) - 0.5) * 0.01]); }
-  bx.push(...people(fig, 6));
-  bb.push(...heads(fig));
+  people(gp, fig, 6);
   const tx = 0.36, tz = 0.27, ty = gy(tx, tz);
   lathe(gp, [[0, 0], [0.016, 0], [0.011, 0.02], [0.008, 0.2], [0, 0.2]], '#d8d4cc', tx, ty, tz, 10);
   lathe(gp, [[0, 0], [0.012, 0], [0.03, 0.014], [0.032, 0.026], [0.024, 0.036], [0.026, 0.042], [0.012, 0.05], [0.006, 0.07], [0, 0.07]], '#e7e3da', tx, ty + 0.185, tz, 14);
@@ -815,8 +807,7 @@ const victoriafalls: Builder = gp => {
   // Visitors on the rim path (Danger Point) in rain ponchos
   const fig: [number, number, number][] = [];
   for (let k = 0; k < 7; k++) { const x = -0.3 + k * 0.022 + hash3(k, 44, 1) * 0.01, z = frZ(x) + 0.012; fig.push([x, gy(x, z), z]); }
-  bx.push(...people(fig, 8, ['#facc15', '#ef4444', '#3b82f6', '#f8fafc']));
-  bb.push(...heads(fig));
+  people(gp, fig, 8, ['#facc15', '#ef4444', '#3b82f6', '#f8fafc']);
   // Victoria Falls Bridge spanning the second gorge
   const [ax, az] = zig[1], [bx2, bz] = zig[2];
   archBridge(bx, { x: (ax + bx2) / 2 + 0.01, y: 0, z: (az + bz) / 2 + 0.015, ry: -Math.atan2(-(ax - bx2), bz - az) + Math.PI / 2, span: 0.1, deckY: Y0 + FRONT + 0.004, springY: Y0 + 0.07, w: 0.022, c: '#7d7f7a' });
@@ -979,8 +970,7 @@ const iguazu: Builder = root => {
   for (let k = 0; k < 6; k++) fig.push([-0.112 + (k % 3) * 0.008, Y0 + UR + 0.0135, -0.2 + Math.floor(k / 3) * 0.009]);
   for (let k = 0; k < 4; k++) fig.push([0.06 + (k % 2) * 0.008, Y0 + BW + 0.0155, -0.095 + Math.floor(k / 2) * 0.009]);
   for (let k = 0; k < 5; k++) { const [x, z] = cat[2 + k * 2]; fig.push([x, Y0 + UR + 0.0135, z]); }
-  bx.push(...people(fig, 12, ['#facc15', '#f97316', '#22c55e', '#3b82f6', '#f8fafc']));
-  bb.push(...heads(fig));
+  people(root, fig, 12, ['#facc15', '#f97316', '#22c55e', '#3b82f6', '#f8fafc']);
   // Inflatable adventure boat nosing toward the throat
   bx.push({ p: [0.02, Y0 + BW + 0.003, -0.02], s: [0.045, 0.006, 0.018], c: '#374151', r: [0, 1.3, 0] });
   for (let k = 0; k < 6; k++) bb.push({ p: [0.02 + (k % 2 - 0.5) * 0.008 + Math.cos(1.3) * (Math.floor(k / 2) - 1) * 0.011, Y0 + BW + 0.009, -0.02 - Math.sin(1.3) * (Math.floor(k / 2) - 1) * 0.011], s: [0.0035, 0.0035, 0.0035], c: '#f59e0b' });
@@ -1313,8 +1303,7 @@ const reef: Builder = gp => {
     box.push({ p: L(-0.033, 0.045, 0), s: [0.014, 0.009, 0.001], c: '#dc2626', r: [0, a, 0] });
     box.push({ p: L(-0.033, 0.045, 0), s: [0.016, 0.0018, 0.0012], c: '#ffffff', r: [0, a, 0] }); 
     const fig: [number, number, number][] = [L(0.025, 0.011, 0.008), L(-0.03, 0.011, -0.008)];
-    box.push(...people(fig, 7, ['#f59e0b', '#111827']));
-    sphL.push(...heads(fig));
+    people(gp, fig, 7, ['#f59e0b', '#111827']);
     const dx = 0.3, dy = Y0 + 0.12, dz = 0.29, da = 2.4;
     box.push({ p: [dx, dy, dz], s: [0.032, 0.008, 0.01], c: '#111827', r: [0, da, 0.1] });
     box.push({ p: [dx + 0.002, dy + 0.007, dz], s: [0.016, 0.006, 0.006], c: '#facc15', r: [0, da, 0.1] });

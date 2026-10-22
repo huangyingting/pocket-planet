@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import {
   type Builder, type V3, type Paint, add, mat, box, cyl, ball, rbox, rod, sweep, lathe, slab, skin, tbox,
@@ -35,8 +36,7 @@ import { paintFaces as paintFaces2 } from '../prims.ts';
 
 /** Tiny visitor for scale. */
 function person(p: THREE.Object3D, x: number, y: number, z: number, c: string, s = 1): void {
-  cyl(p, c, x, y, z, 0.0042 * s, 0.014 * s, 6);
-  box(p, '#e9c9a4', x, y + 0.014 * s, z, 0.0055 * s, 0.006 * s, 0.0055 * s);
+  passerby(p, x, y, z, 0.018 * s, 1, { top: c });
 }
 
 /** Balustrade: square posts with a continuous rail between a and b. */

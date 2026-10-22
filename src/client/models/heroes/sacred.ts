@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import {
   type Builder, type Paint, type V3, add, g, mat, box, cyl, cone, ball, CONE, rbox, rod, prism, gable, slab, tbox, skin,
@@ -120,8 +121,7 @@ function mergeGroup(src: THREE.Object3D, flat = true): THREE.Mesh {
 
 /** Tiny person for scale. */
 function person(p: THREE.Object3D, x: number, y: number, z: number, s: number, c: string): void {
-  box(p, c, x, y, z, s * 0.3, s * 0.62, s * 0.2);
-  add(p, SPH(6), mat('#e8c4a0'), x, y + s * 0.76, z, s * 0.24, s * 0.24, s * 0.24);
+  passerby(p, x, y, z, s, 1, { top: c });
 }
 
 /** Hip roof over a convex plan: walls' top ring rising to an inset ring. */

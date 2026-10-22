@@ -1,3 +1,4 @@
+import { human, type HumanPose } from '../human.ts';
 import * as THREE from 'three';
 import type { Builder, Paint, V3 } from '../prims.ts';
 import { add, mat, g, sweep, rbox, box, cyl, prism, hash3, vnoise } from '../prims.ts';
@@ -508,17 +509,13 @@ function letters(p: THREE.Object3D, text: string, o: V3, ax: V3, ay: V3, r: numb
   });
 }
 /** Little standing figure (~0.14 tall at s = 1) with coat, head, optional hat and arms (reach: arm angle forward). */
-function person(p: THREE.Object3D, at: V3, yaw: number, s: number, coat: string, o: { hat?: string; skin?: string; legs?: string; reach?: number; hair?: string; robe?: boolean } = {}): THREE.Group {
+function person(p: THREE.Object3D, at: V3, yaw: number, s: number, coat: string, o: { hat?: string; skin?: string; legs?: string; reach?: number; hair?: string; robe?: boolean; pose?: HumanPose } = {}): THREE.Group {
   const b = grp(p, at, [0, yaw, 0], s);
-  const skin = o.skin ?? '#e2ad86';
-  if (o.robe) vblob(b, coat, 0, 0.045, 0, 0.024, 0.046, 0.02, undefined, [0, 0, 0], 10);
-  else for (const sx of [-1, 1]) rod(b, [sx * 0.009, 0, 0], [sx * 0.009, 0.052, 0], 0.0075, o.legs ?? '#3a3a42', 5);
-  vblob(b, coat, 0, 0.078, 0, 0.021, 0.03, 0.015, undefined, [0, 0, 0], 10);
-  ellip(b, skin, 0, 0.12, 0.002, 0.0135, 0.015, 0.0135);
-  if (o.hair) ellip(b, o.hair, 0, 0.125, -0.003, 0.014, 0.012, 0.013);
-  if (o.hat) { cyl(b, o.hat, 0, 0.128, 0, 0.02, 0.003, 9); cyl(b, o.hat, 0, 0.13, 0, 0.012, 0.013, 9); }
   const rc = o.reach ?? 0.3;
-  for (const sx of [-1, 1]) rod(b, [sx * 0.022, 0.098, 0], [sx * 0.026, 0.07 + rc * 0.02, 0.012 + rc * 0.03], 0.0055, coat, 5);
+  human(b, 0, 0, 0, {
+    h: 0.14, top: coat, skin: o.skin ?? '#e2ad86', bottom: o.legs ?? '#3a3a42', hair: o.hair ?? '#3b2a20', hat: o.hat, hatStyle: 'brim',
+    dress: o.robe ? 'ankle' : undefined, pose: o.pose ?? (rc >= 0.6 ? 'carry' : 'relax'), detail: 'lo',
+  });
   return b;
 }
 /** Small husky / dog: body, head with snout and ears, curled tail. */
@@ -1122,7 +1119,7 @@ export const H_ROUTES2: Record<string, Builder> = {
       paint: (_u, d) => (d < 0.15 ? '#e9dfc6' : '#a8342a'), deck: '#6a4a2e',
     });
     for (let i = 0; i < 3; i++) {
-      const u = 0.3 + i * 0.2, sd = i % 2 ? 1 : -1, b = person(pg, [0, P.top(u) - 0.035, P.z(u)], 0, 0.8, ['#a8804e', '#6a7a4a', '#8a3a2a'][i], { hat: i === 1 ? '#5a4028' : undefined, hair: '#2a1a12', legs: '#6a4a2e', reach: 0.6 });
+      const u = 0.3 + i * 0.2, sd = i % 2 ? 1 : -1, b = person(pg, [0, P.top(u) - 0.035, P.z(u)], 0, 0.8, ['#a8804e', '#6a7a4a', '#8a3a2a'][i], { hat: i === 1 ? '#5a4028' : undefined, hair: '#2a1a12', legs: '#6a4a2e', pose: 'row' });
       rod(b, [sd * 0.03, 0.1, 0.03], [sd * 0.07, -0.02, -0.03], 0.003, '#8a6a40', 4);
       blade(b, '#8a6a40', [sd * 0.062, 0.0, -0.02], [sd * 0.075, -0.05, -0.04], 0.012, 0.003, [1, 0, 0]);
     }

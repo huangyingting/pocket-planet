@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
@@ -98,9 +99,7 @@ function stepGable(p: THREE.Object3D, c: string, x: number, y: number, z: number
 
 const SKIN = ['#8d5a3b', '#c68b5e', '#5a3825', '#e0b48a'];
 function person(p: THREE.Object3D, x: number, y: number, z: number, c: string, k = 0, s = 1): void {
-  cyl(p, '#3b3b46', x, y, z, 0.0034 * s, 0.008 * s, 5);
-  cyl(p, c, x, y + 0.0075 * s, z, 0.0044 * s, 0.0085 * s, 6);
-  blob(p, SKIN[k % 4], x, y + 0.0195 * s, z, 0.0034 * s);
+  passerby(p, x, y, z, 0.023 * s, k, { top: c, skin: SKIN[k % 4] });
 }
 const PCOL = ['#ef4444', '#3b82f6', '#facc15', '#22c55e', '#f97316', '#a855f7', '#f8fafc', '#0ea5e9'];
 function crowd(p: THREE.Object3D, n: number, seed: number, at: (i: number) => [number, number, number] | null, s = 1): void {

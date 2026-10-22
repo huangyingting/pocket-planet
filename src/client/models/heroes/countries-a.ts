@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import {
   type Builder, type Paint, type V3, CYL, g, add, mat, box, cyl, cone, rbox, rod, skin, prism, panel, archPath, lathe, tbox, gable,
@@ -35,9 +36,7 @@ function grp(p: THREE.Object3D, x = 0, y = 0, z = 0, ry = 0): THREE.Group {
 }
 const SKINS = ['#c58c64', '#e0b18f', '#8d5a3b', '#f1c9a5'];
 function person(p: THREE.Object3D, x: number, y: number, z: number, c: string, s = 1, skinC = SKINS[Math.floor(hash3(x * 91, z * 37, 3) * 4)]): void {
-  cyl(p, c, x, y, z, 0.0036 * s, 0.011 * s, 5);
-  cyl(p, '#374151', x, y, z, 0.0026 * s, 0.004 * s, 5);
-  blob(p, skinC, x, y + 0.0138 * s, z, 0.0029 * s);
+  passerby(p, x, y, z, 0.0168 * s, 1, { top: c, skin: skinC });
 }
 const SHIRTS = ['#dc2626', '#2563eb', '#f8fafc', '#16a34a', '#f59e0b', '#7c3aed', '#0891b2', '#db2777'];
 function crowd(p: THREE.Object3D, pts: [number, number][], y: number | ((x: number, z: number) => number), s = 1): void {

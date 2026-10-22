@@ -1,3 +1,4 @@
+import { humanSoup } from '../human.ts';
 import * as THREE from 'three';
 import {
   type Builder, type V3, add, g, mat, cone, rod, paintFaces, shade as shade0, mix, fbm, hash3,
@@ -227,8 +228,7 @@ function rect4(cx: number, cz: number, hx: number, hz: number, f: (T: Xf, i: num
 const rect = (cx: number, cz: number, hx: number, hz: number): [number, number][] => [[cx - hx, cz - hz], [cx + hx, cz - hz], [cx + hx, cz + hz], [cx - hx, cz + hz]];
 const PEOPLE = ['#1e3a8a', '#b91c1c', '#f8fafc', '#0f766e', '#a16207', '#4c1d95', '#334155'];
 function person(m: Mesh3, x: number, y: number, z: number, i: number, s = 0.011): void {
-  m.box(ID, x, y, z, s * 0.42, s * 1.15, s * 0.32, PEOPLE[i % PEOPLE.length]);
-  m.box(ID, x, y + s * 1.15, z, s * 0.28, s * 0.32, s * 0.28, '#e8c4a0');
+  humanSoup(m.pos, m.col, x, y, z, s * 1.45, i, { top: PEOPLE[i % PEOPLE.length] });
 }
 function car(m: Mesh3, T: Xf, x: number, y: number, z: number, c: string, s = 1): void {
   m.box(T, x, y + 0.0012 * s, z, 0.0085 * s, 0.0048 * s, 0.018 * s, c);

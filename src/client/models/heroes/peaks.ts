@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import { type Builder, type V3, g, add, mat, box, cyl, cone, rod, gable, shade, hash3 } from '../prims.ts';
 import { type HFn, sstep } from '../nature.ts';
@@ -182,8 +183,7 @@ function acacia(p: THREE.Object3D, x: number, y: number, z: number, s: number, s
   blob(p, '#6f8c3e', tx + s * 0.06, y + s * 0.94, z - s * 0.04, s * 0.3, s * 0.05, s * 0.26, seed);
 }
 function person(p: THREE.Object3D, x: number, y: number, z: number, c: string, s = 1): void {
-  cyl(p, c, x, y, z, 0.0032 * s, 0.01 * s, 5);
-  blob(p, '#d9a77c', x, y + 0.0125 * s, z, 0.0026 * s);
+  passerby(p, x, y, z, 0.0155 * s, 1, { top: c });
 }
 /** Reflection-tinted water: mirrors a mountain silhouette (half-width `hw(h)`, colour `mc(h, x)`) about the far shore. */
 function mirrorWater(zFar: (x: number) => number, k: number, hw: (h: number) => number, mc: (h: number, x: number) => string | null, cx: number, base: string, sky: string): VCol {

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Builder, V3 } from '../prims.ts';
 import { add, box, cone, cyl, ellip as ellipHi, g, gable, lathe, mat, panel, archPath, prism, rbox, rod, shade, skin, slab, tube } from '../prims.ts';
-import { figure, figureBase, type ArmPose, type FigureAnchors, type FigureOpts } from '../figure.ts';
+import { figure, figureBase, type FigureAnchors, type FigureOpts } from '../figure.ts';
 
 // ---------------------------------------------------------------- shared helpers (explorers, aviators, athletes...)
 
@@ -16,72 +16,7 @@ const ellip = (p: THREE.Object3D, c: string, x: number, y: number, z: number, rx
   return add(p, g('pc-sph' + s, () => new THREE.SphereGeometry(1, s, Math.max(4, Math.round(s * 0.7)))), mat(c, { flat: false }), x, y, z, rx, ry, rz, roty, rotx, rotz);
 };
 
-/** Same arm maths as figure.ts, so bare forearms / sleeves can be overlaid in body-local space. */
-function armJoints(o: FigureOpts, sgn: -1 | 1): { sh: V3; el: V3; wr: V3 } {
-  const u = o.h ?? 0.62, P: ArmPose = (sgn < 0 ? o.armL : o.armR) ?? {};
-  const f = P.fwd ?? 0.12, s = P.side ?? 0.12, b = P.bend ?? 0.25, inw = P.inward ?? 0;
-  const sh: V3 = [sgn * 0.135 * u, 0.735 * u, 0];
-  const d1 = new THREE.Vector3(sgn * Math.sin(s) * Math.cos(f), -Math.cos(s) * Math.cos(f), Math.sin(f)).normalize();
-  const fb = f + b;
-  const d2 = new THREE.Vector3(sgn * Math.sin(s) * Math.cos(fb) - sgn * inw, -Math.cos(s) * Math.cos(fb), Math.sin(fb)).normalize();
-  const e = new THREE.Vector3(...sh).addScaledVector(d1, 0.17 * u), w = e.clone().addScaledVector(d2, 0.155 * u);
-  return { sh, el: [e.x, e.y, e.z], wr: [w.x, w.y, w.z] };
-}
 const bodyOf = (a: FigureAnchors) => a.group.children[0] as THREE.Group;
-
-/** Bare skin over the arms: from the elbow (short sleeves) or the shoulder (vest). */
-function bareArms(a: FigureAnchors, o: FigureOpts, skinC: string, fromShoulder = false): void {
-  const b = bodyOf(a), u = a.u;
-  for (const sgn of [-1, 1] as const) {
-    const { sh, el, wr } = armJoints(o, sgn);
-    if (fromShoulder) tube(b, [sh, el], 0.044 * u, 0.04 * u, skinC, { radial: 9, sub: 3 });
-    else {
-      const mid: V3 = [el[0] + (sh[0] - el[0]) * 0.35, el[1] + (sh[1] - el[1]) * 0.35, el[2] + (sh[2] - el[2]) * 0.35];
-      tube(b, [mid, el], 0.041 * u, 0.0405 * u, skinC, { radial: 9, sub: 2 });
-    }
-    tube(b, [el, wr], 0.0405 * u, 0.036 * u, skinC, { radial: 9, sub: 3 });
-  }
-}
-
-/** Removes the default straight legs + shoes so a builder can pose its own (running, kicking). */
-function dropLegs(a: FigureAnchors): void {
-  const b = bodyOf(a), u = a.u, bb = new THREE.Box3();
-  for (const m of [...b.children]) {
-    const mesh = m as THREE.Mesh;
-    if (!mesh.isMesh) continue;
-    mesh.updateMatrix();
-    if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
-    bb.copy(mesh.geometry.boundingBox!).applyMatrix4(mesh.matrix);
-    if (bb.max.y < 0.525 * u && Math.abs((bb.min.x + bb.max.x) / 2) < 0.1 * u) b.remove(mesh);
-  }
-}
-
-interface LegSpec { knee: V3; ankle: V3; pitch?: number }
-/** Posed legs in figure-local space (u units). Shorts cover the upper thigh, socks the shin. */
-function poseLegs(a: FigureAnchors, lean: number, L: LegSpec, R: LegSpec, c: { skin: string; shorts: string; socks?: string; shoe: string; trim?: string }): void {
-  const u = a.u, p = a.group;
-  const S = (v: V3): V3 => [v[0] * u, v[1] * u, v[2] * u];
-  // hips/pelvis in shorts (inside the leaning body)
-  const b = bodyOf(a);
-  const pel = lathe(b, [[0, 0.4 * u], [0.122 * u, 0.4 * u], [0.124 * u, 0.46 * u], [0.118 * u, 0.53 * u], [0, 0.53 * u]], c.shorts, 0, 0, 0, 18);
-  pel.scale.z = 0.76;
-  if (c.trim) { const t = lathe(b, [[0.123 * u, 0.515 * u], [0.125 * u, 0.515 * u], [0.125 * u, 0.535 * u], [0.123 * u, 0.535 * u]], c.trim, 0, 0, 0, 18); t.scale.z = 0.78; }
-  for (const [sgn, spec] of [[-1, L], [1, R]] as const) {
-    const hip = new THREE.Vector3(sgn * 0.058 * u, 0.45 * u, 0).applyEuler(new THREE.Euler(lean, 0, 0));
-    const h: V3 = [hip.x, hip.y, hip.z], k = S(spec.knee), an = S(spec.ankle);
-    const t = 0.55, mid: V3 = [h[0] + (k[0] - h[0]) * t, h[1] + (k[1] - h[1]) * t, h[2] + (k[2] - h[2]) * t];
-    tube(p, [h, mid], 0.064 * u, 0.06 * u, c.shorts, { radial: 10, sub: 2 });
-    if (c.trim) tube(p, [[mid[0] + (h[0] - mid[0]) * 0.08, mid[1] + (h[1] - mid[1]) * 0.08, mid[2] + (h[2] - mid[2]) * 0.08], mid], 0.0615 * u, 0.0605 * u, c.trim, { radial: 10, sub: 1 });
-    tube(p, [mid, k], 0.05 * u, 0.044 * u, c.skin, { radial: 9, sub: 2 });
-    if (c.socks) {
-      const s0: V3 = [k[0] + (an[0] - k[0]) * 0.12, k[1] + (an[1] - k[1]) * 0.12, k[2] + (an[2] - k[2]) * 0.12];
-      tube(p, [k, s0], 0.043 * u, 0.042 * u, c.skin, { radial: 9, sub: 1 });
-      tube(p, [s0, an], 0.044 * u, 0.034 * u, c.socks, { radial: 9, sub: 2 });
-    } else tube(p, [k, an], 0.043 * u, 0.034 * u, c.skin, { radial: 9, sub: 2 });
-    const pt = spec.pitch ?? 0, fz = Math.cos(pt) * 0.04 * u, fy = -Math.sin(pt) * 0.04 * u;
-    ellip(p, c.shoe, an[0], an[1] + fy - 0.01 * u, an[2] + fz, 0.04 * u, 0.03 * u, 0.068 * u, 0, pt);
-  }
-}
 
 /** Blocky 3×5 letters (CCCP, USA, 10, 733) — readable on the big turntable and baked like the rest. */
 const GLYPH: Record<string, number[][]> = {
@@ -1006,12 +941,9 @@ const BUILDERS: Record<string, Builder> = {
     const o: FigureOpts = {
       y, x: 0.0, z: 0.0, skin: '#6b4630', top: '#facc15', accent: '#15803d', outfit: 'tunic', hair: '#111111', hairStyle: 'short',
       armL: { fwd: 0.35, side: 0.75, bend: 0.4 }, armR: { fwd: -0.45, side: 0.55, bend: 0.5 }, lean: -0.05,
+      stance: 'kick', sleeve: 0.45, shorts: true, bottom: '#1d4ed8', socks: '#f8fafc', shoes: '#111111',
     };
     const a = figure(gp, o), b = bodyOf(a), u = a.u;
-    dropLegs(a);
-    poseLegs(a, -0.05, { knee: [-0.065, 0.25, -0.02], ankle: [-0.07, 0.055, -0.03] }, { knee: [0.07, 0.3, 0.14], ankle: [0.075, 0.13, 0.27], pitch: -0.35 },
-      { skin: '#6b4630', shorts: '#1d4ed8', socks: '#f8fafc', shoe: '#111111' });
-    bareArms(a, o, '#6b4630');
     // collar & cuffs, crest, number 10 on the back
     ellip(b, '#16a34a', 0, 0.77 * u, 0.02 * u, 0.075 * u, 0.018 * u, 0.06 * u);
     ellip(b, '#1d4ed8', -0.055 * u, 0.67 * u, 0.088 * u, 0.02 * u, 0.024 * u, 0.008 * u);
@@ -1048,13 +980,9 @@ const BUILDERS: Record<string, Builder> = {
     const o: FigureOpts = {
       y, x: -0.04, z: 0.07, ry: 1.15, skin: '#5d3b26', top: '#f8fafc', accent: '#1e3a8a', outfit: 'tunic', hair: '#111111', hairStyle: 'short', lean: 0.14,
       armL: { fwd: -0.7, side: 0.15, bend: 1.3 }, armR: { fwd: 0.95, side: 0.12, bend: 1.2 },
+      stance: 'run', sleeve: 0, shorts: true, bottom: '#f1f5f9', shoes: '#1f2937',
     };
     const a = figure(gp, o), b = bodyOf(a), u = a.u;
-    dropLegs(a);
-    poseLegs(a, 0.14, { knee: [-0.052, 0.33, 0.17], ankle: [-0.054, 0.15, 0.08], pitch: 0.35 }, { knee: [0.056, 0.26, -0.08], ankle: [0.058, 0.06, -0.17], pitch: 0.7 },
-      { skin: '#5d3b26', shorts: '#f1f5f9', shoe: '#1f2937' });
-    bareArms(a, o, '#5d3b26', true);
-    for (const h of [a.handL, a.handR]) ellip(gp, '#5d3b26', h[0], h[1], h[2], 0.02);
     // race bib 733 and US shield
     box(b, '#f1ead8', 0, 0.56 * u, 0.087 * u, 0.13 * u, 0.09 * u, 0.006 * u);
     letters(b, '733', '#111111', 0, 0.595 * u, 0.091 * u, 0.0085 * u, 0, 0, 0.004 * u);

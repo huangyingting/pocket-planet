@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import { type Builder, type Paint, type V3, add, mat, shade, fbm, hash3, paintFaces, g, rod, sweep, slab } from '../prims.ts';
 import { island, sstep, type HFn } from '../nature.ts';
@@ -141,8 +142,7 @@ const at = (h: HFn) => (x: number, z: number) => Y0 + h(x, z);
 
 /** Tiny person for scale. */
 function person(p: THREE.Object3D, x: number, y: number, z: number, s = 0.03, c = '#2b5d9c'): void {
-  cyl(p, c, x, y, z, s * 0.16, s * 0.62, 6);
-  ell(p, '#e0b48c', x, y + s * 0.76, z, s * 0.13, s * 0.13, s * 0.13, 0, 6);
+  passerby(p, x, y, z, s * 0.9, 1, { top: c });
 }
 /** Round broadleaf tree / bush. */
 function bush(p: THREE.Object3D, x: number, y: number, z: number, s: number, c = '#3f7d3a', trunk = true): void {

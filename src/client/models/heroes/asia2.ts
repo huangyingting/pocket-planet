@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import {
   type Builder, type V3, type Paint, add, g, mat, box, cyl, cone, rod, sweep, lathe, slab, skin, prism, gable, panel, archPath,
@@ -41,8 +42,7 @@ const sea = (c: string, cell = 0.025): Paint => (x, _y, z) => {
 
 /** Tiny visitor for scale. */
 function person(p: THREE.Object3D, x: number, y: number, z: number, c: string, s = 1): void {
-  cyl(p, c, x, y, z, 0.0042 * s, 0.014 * s, 6);
-  box(p, '#e9c9a4', x, y + 0.014 * s, z, 0.0055 * s, 0.006 * s, 0.0055 * s);
+  passerby(p, x, y, z, 0.018 * s, 1, { top: c });
 }
 
 /** Solid flight of n steps rising toward -z from (x, y0, zFront) to y1 over the run. */

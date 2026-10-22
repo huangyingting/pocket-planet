@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import { type Builder, type Paint, type V3, g, add, mat, box, cyl, cone, lathe, rod, slab, tree, gable, hash3, fbm, paintFaces } from '../prims.ts';
 import { island, sstep, type HFn } from '../nature.ts';
@@ -173,8 +174,7 @@ function palm(p: THREE.Object3D, x: number, y: number, z: number, s: number, lea
 }
 /** Tiny person for scale. */
 function person(p: THREE.Object3D, x: number, y: number, z: number, s = 0.02, c = '#2b5d9c'): void {
-  cyl(p, c, x, y, z, s * 0.16, s * 0.62, 6);
-  add(p, PUFF(), mat('#e0b48c', { flat: false }), x, y + s * 0.76, z, s * 0.13, s * 0.13, s * 0.13);
+  passerby(p, x, y, z, s * 0.9, 1, { top: c });
 }
 /** Flat terrain disc helper: island with cheaper tessellation. */
 const ground = (gp: THREE.Object3D, h: HFn, paint: Paint, base = 0.035, rings = 26, segs = 72, R = 0.5, side?: (y: number) => string) =>

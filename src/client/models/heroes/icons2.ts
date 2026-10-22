@@ -1,3 +1,4 @@
+import { humanSoup } from '../human.ts';
 import * as THREE from 'three';
 import {
   type Builder, type V3, type Paint, add, skin, sweep, mat, shade as shade0, mix, fbm, hash3,
@@ -70,8 +71,7 @@ function cap(m: Mesh3, pts: P2[], y: number, c: string, down = false): void {
 
 /** Tiny visitor for scale. */
 function person(m: Mesh3, x: number, y: number, z: number, c: string, s = 1): void {
-  m.prism(ID, x, y, z, 0.0032 * s, 0.011 * s, 5, c, 0.0026 * s);
-  m.box(ID, x, y + 0.011 * s, z, 0.0042 * s, 0.0045 * s, 0.0042 * s, '#d9b48f');
+  humanSoup(m.pos, m.col, x, y, z, 0.0155 * s, 1, { top: c });
 }
 
 /** Low-poly broadleaf canopy (rainforest, parks). */

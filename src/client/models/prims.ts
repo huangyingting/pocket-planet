@@ -156,6 +156,8 @@ export function sweep(p: THREE.Object3D, st: Station[], c: string, o: SweepOpts 
   const pts = st.map(s => new THREE.Vector3(...s.p));
   const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
   const n = Math.max(2, (st.length - 1) * sub);
+  // three's default arc-length table samples 200 points per curve; a few per output ring is plenty
+  curve.arcLengthDivisions = Math.max(24, n * 6);
   // Interpolate widths with the same parameterisation (smoothstep between stations)
   const lerpW = (t: number, key: 'w' | 'h') => {
     const f = t * (st.length - 1), i = Math.min(st.length - 2, Math.floor(f)), u = f - i;

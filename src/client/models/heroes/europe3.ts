@@ -1,6 +1,7 @@
+import { human, humanSoup, soupOf } from '../human.ts';
 import * as THREE from 'three';
 import {
-  type Builder, type V3, add, mat, shade as shade0, mix, fbm, hash3,
+  type Builder, type V3, add, mat, shade as shade0, mix, fbm, hash3, SPH,
 } from '../prims.ts';
 import { island, strataSide, EARTH } from '../nature.ts';
 
@@ -224,8 +225,7 @@ function rect4(cx: number, cz: number, hx: number, hz: number, f: (T: Xf, i: num
 }
 const PEOPLE = ['#1e3a8a', '#b91c1c', '#f8fafc', '#0f766e', '#a16207', '#4c1d95', '#334155'];
 function person(m: Mesh3, x: number, y: number, z: number, i: number, s = 0.011): void {
-  m.box(ID, x, y, z, s * 0.42, s * 1.15, s * 0.32, PEOPLE[i % PEOPLE.length]);
-  m.box(ID, x, y + s * 1.15, z, s * 0.28, s * 0.32, s * 0.28, '#e8c4a0');
+  humanSoup(m.pos, m.col, x, y, z, s * 1.45, i, { top: PEOPLE[i % PEOPLE.length] });
 }
 function car(m: Mesh3, T: Xf, x: number, y: number, z: number, c: string, s = 1): void {
   m.box(T, x, y + 0.0012 * s, z, 0.0085 * s, 0.0048 * s, 0.018 * s, c);
@@ -851,13 +851,16 @@ function band(m: Mesh3, inner: (t: number) => [number, number], outer: (t: numbe
   }
 }
 /** Small marble figure (world coords) facing +z: drapery, torso, head and a gesturing arm. */
+/** Carved statue on the human rig, all one stone colour: 0 arm out, 1 arm raised, 2/3 holding an urn/shell. */
 function figure(m: Mesh3, x: number, y: number, z: number, h: number, c: string, pose = 0): void {
-  m.prism(ID, x, y, z, h * 0.17, h * 0.55, 6, c, h * 0.12);
-  m.box(ID, x, y + h * 0.55, z, h * 0.26, h * 0.24, h * 0.15, c);
-  m.blob(ID, x, y + h * 0.88, z + h * 0.01, h * 0.085, h * 0.11, h * 0.085, shade(c, 1.05), 5);
-  const s = pose % 2 ? 1 : -1, sh: V3 = [x + s * h * 0.13, y + h * 0.75, z];
-  if (pose < 2) m.beam(sh, [x + s * h * 0.28, y + h * (pose ? 1.02 : 0.55), z + h * 0.1], h * 0.07, c);
-  else { m.beam(sh, [x + s * h * 0.2, y + h * 0.45, z + h * 0.14], h * 0.07, c); m.blob(ID, x - s * h * 0.2, y + h * 0.62, z + h * 0.06, h * 0.12, h * 0.16, h * 0.08, shade(c, 0.95), 5); }
+  const s = pose % 2 ? 1 : -1, hold = pose >= 2;
+  const lead: V3 = pose === 1 ? [s * 0.22, 1.06, 0.08] : hold ? [s * 0.1, 0.6, 0.16] : [s * 0.33, 0.66, 0.12];
+  const rest: V3 = hold ? [-s * 0.1, 0.62, 0.16] : [-s * 0.19, 0.5, 0.05];
+  const hands: [V3, V3] = s > 0 ? [rest, lead] : [lead, rest];
+  soupOf(m.pos, m.col, g => {
+    human(g, x, y, z, { h, ry: 0, pose: 'stand', top: c, bottom: c, skin: c, hair: shade(c, 0.94), shoes: c, dress: 'ankle', sleeve: 0.3, hands, detail: 'lo' });
+    if (hold) add(g, SPH(6), mat(shade(c, 0.95)), x, y + h * 0.6, z + h * 0.2, h * 0.22, h * 0.26, h * 0.16);
+  });
 }
 const cobble = (base: string) => (x: number, _y: number, z: number): string => {
   const h = hash3(Math.floor(x * 70), 5, Math.floor(z * 70));

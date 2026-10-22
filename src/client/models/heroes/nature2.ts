@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import type { Builder, V3 } from '../prims.ts';
 import { add, mat, g, box, cyl, cone, strut, sweep, slab, hash3, lathe, tbox, gable, SPH, CONE, CYL } from '../prims.ts';
@@ -173,10 +174,7 @@ const lerp3 = (a: V3, b: V3, t: number): V3 => [a[0] + (b[0] - a[0]) * t, a[1] +
 
 /** Tiny person for scale (≈0.07 tall at s=1), facing +z rotated by ry. */
 function person(p: THREE.Object3D, x: number, y: number, z: number, top: string, ry = 0, s = 1, skin = '#b07850', legs = '#3b3f4a'): void {
-  const gp = new THREE.Group(); gp.position.set(x, y, z); gp.rotation.y = ry; gp.scale.setScalar(s); p.add(gp);
-  cyl(gp, legs, -0.006, 0, 0, 0.005, 0.03, 5); cyl(gp, legs, 0.006, 0, 0, 0.005, 0.03, 5);
-  add(gp, CONE(6), mat(top), 0, 0.044, 0, 0.026, 0.032, 0.02);
-  sph(gp, skin, 0, 0.066, 0, 0.0085, 0.0095, 0.0085, 6);
+  passerby(p, x, y, z, 0.075 * s, 1, { top, ry, skin, bottom: legs });
 }
 
 // ---- shared bits -----------------------------------------------------------------------------------------

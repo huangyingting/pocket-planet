@@ -1,3 +1,4 @@
+import { passerby } from '../human.ts';
 import * as THREE from 'three';
 import {
   type Builder, type V3, type Paint, type MatOpts, g, add, mat, box, cyl, cone, ball, rbox, rod, strut, tube, lathe, prism, gable,
@@ -82,9 +83,7 @@ function beam(p: THREE.Object3D, a: V3, b: V3, w: number, t: number, c: string):
 
 const SKIN = ['#8d5a3b', '#c68b5e', '#5a3825', '#e0b48a'];
 function person(p: THREE.Object3D, x: number, y: number, z: number, c: string, k = 0, s = 1): void {
-  cyl(p, '#3b3b46', x, y, z, 0.0034 * s, 0.008 * s, 5);
-  cyl(p, c, x, y + 0.0075 * s, z, 0.0044 * s, 0.0085 * s, 6);
-  blob(p, SKIN[k % 4], x, y + 0.0195 * s, z, 0.0034 * s);
+  passerby(p, x, y, z, 0.023 * s, k, { top: c, skin: SKIN[k % 4] });
 }
 function leafTree(p: THREE.Object3D, x: number, y: number, z: number, s: number, c: string, seed = 0): void {
   cyl(p, '#5b4636', x, y, z, s * 0.09, s * 0.55, 5);
