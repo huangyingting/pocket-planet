@@ -5,9 +5,14 @@ const unit = ['The Earth and maps', '地球和地图'] as const;
 
 export const EARTH_A: Lesson[] = [
   {
-    id: 'shape', grade: 'g7a', unit, icon: 'globe', minutes: 4,
+    id: 'shape', strand: 'maps', tracks: ['us',  'ib'], grade: 'g7a', unit, icon: 'globe', minutes: 4,
     title: ['The shape and size of the Earth', '地球的形状和大小'],
     blurb: ['A sphere slightly flattened at the poles: how we know, and how big it is.', '地球是两极稍扁的球体：人们是怎么知道的，它有多大。'],
+    keys: [
+      ["The Earth is a sphere, slightly flattened at the poles.", "地球是一个两极稍扁的球体。"],
+      ["Average radius about 6,371 km; equator about 40,000 km.", "平均半径约 6371 千米，赤道周长约 4 万千米。"],
+      ["Evidence: Magellan's voyage, ships vanishing hull first, Earth's round shadow in a lunar eclipse.", "证据：麦哲伦环球航行、远去帆船船身先消失、月食时地球的圆形影子。"],
+    ],
     steps: [
       {
         title: ['A sphere in space', '太空中的球体'], cam: [20, 110, 3.2],
@@ -45,9 +50,14 @@ export const EARTH_A: Lesson[] = [
     ],
   },
   {
-    id: 'graticule', grade: 'g7a', unit, icon: 'grid', minutes: 5,
+    id: 'graticule', strand: 'maps', tracks: ['uk',  'us',  'ib',  'au'], grade: 'g7a', unit, icon: 'grid', minutes: 5,
     title: ['Latitude and longitude', '经线和纬线'],
     blurb: ['Parallels and meridians: the grid that gives every place an address.', '纬线和经线：给地球上每个地方一个“地址”。'],
+    keys: [
+      ["Lines of latitude are circles parallel to the equator; latitude runs 0–90° N or S.", "纬线是与赤道平行的圆圈，纬度从 0° 到南北各 90°。"],
+      ["Lines of longitude run pole to pole; longitude runs 0–180° E or W from the prime meridian.", "经线连接南北两极，经度从本初子午线向东西各 180°。"],
+      ["A latitude and a longitude together pin down any place.", "经度和纬度一起可以确定任何地点的位置。"],
+    ],
     steps: [
       {
         title: ['Parallels', '纬线'], cam: [25, 100, 3.8],
@@ -92,9 +102,14 @@ export const EARTH_A: Lesson[] = [
     ],
   },
   {
-    id: 'hemispheres', grade: 'g7a', unit, icon: 'compass', minutes: 4,
+    id: 'hemispheres', strand: 'maps', tracks: ['uk',  'us',  'ib',  'au'], grade: 'g7a', unit, icon: 'compass', minutes: 4,
     title: ['Hemispheres', '半球的划分'],
     blurb: ['North and south, east and west, and why the east–west line is at 20°W and 160°E.', '南北半球和东西半球，以及为什么东西半球以 20°W 和 160°E 为界。'],
+    keys: [
+      ["The equator splits the Northern and Southern hemispheres.", "赤道把地球分为南、北半球。"],
+      ["20° W and 160° E split the Eastern and Western hemispheres.", "20°W 和 160°E 组成的经线圈把地球分为东、西半球。"],
+      ["Most land and most people are in the Northern Hemisphere.", "大部分陆地和人口都在北半球。"],
+    ],
     steps: [
       {
         title: ['Northern and Southern', '南北半球'], cam: [10, 100, 4.2],
@@ -138,9 +153,14 @@ export const EARTH_A: Lesson[] = [
     ],
   },
   {
-    id: 'rotation', grade: 'g7a', unit, icon: 'reset', minutes: 5,
+    id: 'rotation', strand: 'maps', tracks: ['uk',  'us',  'ib'], grade: 'g7a', unit, icon: 'reset', minutes: 5,
     title: ['The Earth\'s rotation', '地球的自转'],
     blurb: ['West to east, once a day: day and night, and why clocks differ around the world.', '自西向东，一天一圈：昼夜交替和时间差异。'],
+    keys: [
+      ["The Earth spins west to east once a day.", "地球自西向东自转，周期约一天。"],
+      ["Rotation gives day and night and the Sun's daily path.", "自转产生昼夜交替和太阳的东升西落。"],
+      ["Places to the east see sunrise first, so they have later clock times.", "东边的地方先看到日出，时间更早到来。"],
+    ],
     steps: [
       {
         title: ['West to east', '自西向东转'], cam: [20, 0, 3.6], follow: 55, night: true,

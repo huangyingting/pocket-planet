@@ -7,9 +7,14 @@ const climate = ['Weather and climate', '天气与气候'] as const;
 
 export const LAND: Lesson[] = [
   {
-    id: 'landforms', grade: 'g7a', unit: land, icon: 'mountain', minutes: 5,
+    id: 'landforms', strand: 'physical', tracks: ['uk',  'us',  'ib',  'au'], grade: 'g7a', unit: land, icon: 'mountain', minutes: 5,
     title: ['Five basic landforms', '五种基本地形'],
     blurb: ['Plains, plateaus, mountains, hills and basins: all of them can be found in China.', '平原、高原、山地、丘陵和盆地，在中国都能找到。'],
+    keys: [
+      ["Five basic landforms: plains, plateaus, mountains, hills, basins.", "五种基本地形：平原、高原、山地、丘陵、盆地。"],
+      ["They differ by height and by relief (how much the ground rises and falls).", "它们的区别在于海拔和起伏。"],
+      ["Contour colours on a layered map show height.", "分层设色地形图用颜色表示海拔。"],
+    ],
     steps: [
       {
         title: ['Plains', '平原'], cam: [36, 116, 1.9], items: ['forbidden', 'cn_taishan'],
@@ -57,9 +62,14 @@ export const LAND: Lesson[] = [
     ],
   },
   {
-    id: 'continents', grade: 'g7a', unit: land, icon: 'globe', minutes: 5,
+    id: 'continents', strand: 'physical', tracks: ['uk',  'us',  'ib',  'au'], grade: 'g7a', unit: land, icon: 'globe', minutes: 5,
     title: ['Seven continents, four oceans', '七大洲和四大洋'],
     blurb: ['Where each continent ends, and how much of the Earth is sea.', '各大洲的分界在哪里，地球上海洋占多少。'],
+    keys: [
+      ["Seven continents; Asia is the largest, Australia (Oceania's mainland) the smallest.", "七大洲中亚洲最大、大洋洲最小。"],
+      ["Four oceans; the Pacific is the largest.", "四大洋中太平洋最大。"],
+      ["About 71% of the surface is ocean.", "地球表面约 71% 是海洋。"],
+    ],
     steps: [
       {
         title: ['Seven continents', '七大洲'], cam: [20, 60, 5.2],
@@ -105,9 +115,14 @@ export const LAND: Lesson[] = [
     ],
   },
   {
-    id: 'plates', grade: 'g7a', unit: land, icon: 'plates', minutes: 5,
+    id: 'plates', strand: 'physical', tracks: ['uk',  'us',  'ib',  'au'], grade: 'g7a', unit: land, icon: 'plates', minutes: 5,
     title: ['Plates on the move', '板块的运动'],
     blurb: ['Six great plates drift slowly; where they meet, mountains rise and volcanoes erupt.', '六大板块缓慢漂移，在交界处形成山脉、火山和地震。'],
+    keys: [
+      ["The crust is broken into about six large plates that slowly move.", "岩石圈由六大板块组成，板块在缓慢移动。"],
+      ["Earthquakes and volcanoes cluster along plate boundaries.", "火山和地震多分布在板块交界处。"],
+      ["Collisions build mountains, like the Himalayas.", "板块碰撞挤压形成高大山脉，如喜马拉雅山。"],
+    ],
     steps: [
       {
         title: ['Six great plates', '六大板块'], cam: [20, 60, 5.4], tectonics: true, sketch: true,
@@ -147,9 +162,14 @@ export const LAND: Lesson[] = [
     ],
   },
   {
-    id: 'climate', grade: 'g7a', unit: climate, icon: 'cloud', minutes: 5,
+    id: 'climate', strand: 'climate', tracks: ['uk',  'us',  'ib',  'au'], grade: 'g7a', unit: climate, icon: 'cloud', minutes: 5,
     title: ['Temperature and rainfall', '气温和降水'],
     blurb: ['How temperature changes with latitude and season, and where it rains most.', '气温随纬度和季节怎样变化，哪里降水最多。'],
+    keys: [
+      ["Weather is short-term; climate is the long-term average.", "天气是短时间的，气候是多年的平均状况。"],
+      ["Temperature falls from the equator to the poles and with height.", "气温从低纬向高纬、随海拔升高而降低。"],
+      ["Rainfall is highest near the equator and on windward coasts.", "赤道附近和迎风海岸降水多。"],
+    ],
     steps: [
       {
         title: ['January', '1 月'], cam: [25, 100, 4.6], sketch: true, sun: true,

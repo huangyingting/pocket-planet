@@ -7,9 +7,14 @@ const CIRCLES = [par(66.56, C.ice, 0.6, { dur: 1.6 }), par(-66.56, C.ice, 0.9, {
 
 export const EARTH_B: Lesson[] = [
   {
-    id: 'revolution', grade: 'g7a', unit, icon: 'sun', minutes: 6,
+    id: 'revolution', strand: 'maps', tracks: ['uk',  'us',  'ib',  'au'], grade: 'g7a', unit, icon: 'sun', minutes: 6,
     title: ['Revolution and the seasons', '地球的公转与四季'],
     blurb: ['A year around the Sun on a tilted axis: the overhead Sun wanders between the tropics.', '地轴倾斜着绕太阳公转一年：太阳直射点在南北回归线之间来回移动。'],
+    keys: [
+      ["The Earth orbits the Sun once a year, its axis tilted 23.5°.", "地球绕太阳公转一周约一年，地轴倾斜约 23.5°。"],
+      ["The overhead Sun moves between the tropics, giving the seasons.", "太阳直射点在南北回归线之间移动，产生四季。"],
+      ["Seasons are opposite in the two hemispheres.", "南北半球的季节相反。"],
+    ],
     steps: [
       {
         title: ['The overhead Sun moves', '太阳直射点的移动'], cam: [10, 120, 3.8], follow: 0, night: true, sun: true,
@@ -55,9 +60,14 @@ export const EARTH_B: Lesson[] = [
     ],
   },
   {
-    id: 'zones', grade: 'g7a', unit, icon: 'sun', minutes: 4,
+    id: 'zones', strand: 'maps', tracks: ['us',  'ib'], grade: 'g7a', unit, icon: 'sun', minutes: 4,
     title: ['The five heat zones', '五带的划分'],
     blurb: ['The tropics and polar circles cut the Earth into five zones by how much sunshine they get.', '回归线和极圈把地球分成五个热量带。'],
+    keys: [
+      ["The tropics and polar circles divide the Earth into five heat zones.", "回归线和极圈把地球分为五带。"],
+      ["Tropical: the Sun can be overhead; polar: polar day and night.", "热带有太阳直射，寒带有极昼极夜。"],
+      ["The temperate zones have clear seasons.", "温带四季分明。"],
+    ],
     steps: [
       {
         title: ['The Torrid Zone', '热带'], cam: [5, -60, 3.8], items: ['an_jaguar', 'pl_kapok'],

@@ -7,9 +7,14 @@ const CN = ['CN', 'TW'];
 
 export const CHINA: Lesson[] = [
   {
-    id: 'steps', grade: 'g8a', unit, icon: 'mountain', minutes: 5,
+    id: 'steps', strand: 'china', tracks: ['uk',  'us'], grade: 'g8a', unit, icon: 'mountain', minutes: 5,
     title: ['China\'s three steps', '地势西高东低，呈三级阶梯'],
     blurb: ['From the roof of the world down to the sea, in three big steps.', '从世界屋脊到大海，分三级阶梯逐级下降。'],
+    keys: [
+      ["China's land falls in three steps from west to east.", "中国地势西高东低，呈三级阶梯。"],
+      ["Big rivers flow east, carrying water and transport links.", "大河向东流，便利了东西交通。"],
+      ["Step boundaries bring falling water and hydropower.", "阶梯交界处落差大，水能丰富。"],
+    ],
     steps: [
       {
         title: ['Where is China?', '中国的位置'], cam: [34, 105, 3.2], items: ['forbidden'],
@@ -51,9 +56,14 @@ export const CHINA: Lesson[] = [
     ],
   },
   {
-    id: 'china-climate', grade: 'g8a', unit, icon: 'cloud', minutes: 6,
+    id: 'china-climate', strand: 'china', tracks: ['uk',  'us'], grade: 'g8a', unit, icon: 'cloud', minutes: 6,
     title: ['China\'s climate and rivers', '中国的气候和河流'],
     blurb: ['Monsoons, the Qinling–Huaihe line, and the Yangtze and Yellow Rivers.', '季风、秦岭—淮河一线，以及长江和黄河。'],
+    keys: [
+      ["Winters are cold and dry; the north–south temperature gap is large.", "冬季南北温差大，普遍寒冷干燥。"],
+      ["The summer monsoon brings rain, decreasing from southeast to northwest.", "夏季风带来降水，降水从东南沿海向西北内陆递减。"],
+      ["The Qinling–Huaihe line divides north and south.", "秦岭—淮河一线是南北方的重要分界线。"],
+    ],
     steps: [
       {
         title: ['Summer and winter monsoons', '夏季风和冬季风'], cam: [32, 112, 3.4], sketch: true,

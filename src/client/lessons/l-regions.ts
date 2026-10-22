@@ -8,9 +8,14 @@ const flow = (pts: [number, number][], t: number) => ({ pts, c: C.blue, t, w: 1.
 
 export const REGIONS_L: Lesson[] = [
   {
-    id: 'asia', grade: 'g7b', unit: regions, icon: 'mountain', minutes: 5,
+    id: 'asia', strand: 'world', tracks: ['uk',  'us',  'ib'], grade: 'g7b', unit: regions, icon: 'mountain', minutes: 5,
     title: ['Asia', '亚洲'],
     blurb: ['The biggest continent: high in the middle, rivers running out in every direction, monsoon winds.', '最大的大洲：中部高、四周低，河流呈放射状，季风显著。'],
+    keys: [
+      ["Asia is the largest continent with the most people.", "亚洲是面积最大、人口最多的大洲。"],
+      ["High in the middle, low around the edges; rivers flow outward.", "地势中部高、四周低，河流呈放射状流向四周。"],
+      ["Monsoons dominate the east and south.", "东部和南部季风气候显著。"],
+    ],
     steps: [
       {
         title: ['The largest continent', '面积最大的大洲'], cam: [40, 95, 4.6],
@@ -54,9 +59,14 @@ export const REGIONS_L: Lesson[] = [
     ],
   },
   {
-    id: 'neighbours', grade: 'g7b', unit: regions, icon: 'volcano', minutes: 5,
+    id: 'neighbours', strand: 'world', tracks: ['us',  'ib',  'au'], grade: 'g7b', unit: regions, icon: 'volcano', minutes: 5,
     title: ['Japan and Southeast Asia', '日本和东南亚'],
     blurb: ['An island country on shaky ground, and the crossroads between two oceans.', '多火山地震的岛国，和两大洋之间的“十字路口”。'],
+    keys: [
+      ["Japan is an island country on plate boundaries: many earthquakes and volcanoes.", "日本是位于板块交界处的岛国，多火山地震。"],
+      ["Southeast Asia lies at the crossroads of two oceans and two continents.", "东南亚处在两大洲、两大洋的十字路口。"],
+      ["Hot, wet climates suit rice, rubber and oil palm.", "湿热气候适合水稻、橡胶和油棕。"],
+    ],
     steps: [
       {
         title: ['Japan: an island country', '日本：岛国'], cam: [36, 138, 1.9], tectonics: true, items: ['fuji', 'vo_sakurajima'],
@@ -97,9 +107,14 @@ export const REGIONS_L: Lesson[] = [
     ],
   },
   {
-    id: 'australia', grade: 'g7b', unit: regions, icon: 'paw', minutes: 4,
+    id: 'australia', strand: 'world', tracks: ['au',  'us'], grade: 'g7b', unit: regions, icon: 'paw', minutes: 4,
     title: ['Australia', '澳大利亚'],
     blurb: ['A whole continent for one country, and animals found nowhere else.', '一个国家占据一整个大陆，还有世界独有的动物。'],
+    keys: [
+      ["Australia is a whole continent on its own and very dry inside.", "澳大利亚独占一个大陆，内陆十分干旱。"],
+      ["Long isolation gave unique animals: kangaroos, koalas.", "长期孤立形成了袋鼠、考拉等独特动物。"],
+      ["People and cities cluster on the southeast coast.", "人口和城市集中在东南沿海。"],
+    ],
     steps: [
       {
         title: ['A country that is a continent', '独占一块大陆'], cam: [-25, 135, 2.8],
@@ -140,9 +155,14 @@ export const REGIONS_L: Lesson[] = [
     ],
   },
   {
-    id: 'polar', grade: 'g7b', unit: poles, icon: 'aurora', minutes: 5,
+    id: 'polar', strand: 'world', tracks: ['uk',  'us',  'ib',  'au'], grade: 'g7b', unit: poles, icon: 'aurora', minutes: 5,
     title: ['The polar regions', '极地地区'],
     blurb: ['An icy continent and a frozen ocean, polar days and nights, and China\'s research stations.', '冰雪大陆和冰封的大洋、极昼极夜，以及我国的科考站。'],
+    keys: [
+      ["The Arctic is an ocean ringed by land; Antarctica is a continent covered in ice.", "北极是被陆地包围的海洋，南极是冰雪覆盖的大陆。"],
+      ["Polar day and night; extreme cold.", "有极昼极夜，非常寒冷。"],
+      ["The Antarctic Treaty keeps the continent for peace and science.", "《南极条约》规定南极只用于和平与科研。"],
+    ],
     steps: [
       {
         title: ['Antarctica: an icy continent', '南极：冰雪高原大陆'], cam: [-70, 40, 3.4], items: ['an_penguin'],

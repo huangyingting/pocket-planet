@@ -1,0 +1,503 @@
+/** Physical geography: drifting continents, rocks, rivers, coasts, ice, the water cycle and natural hazards. */
+import { C, arrows, mk, type LL, type Lesson } from './kit.ts';
+import { PLATES, REGIONS, RING_OF_FIRE, RIVERS } from './geo.ts';
+
+const land = ['Land and sea', '陆地和海洋'] as const;
+const shaping = ['Shaping the land', '塑造地表的力量'] as const;
+const water = ['Water on Earth', '地球上的水'] as const;
+const hazards = ['Natural hazards', '自然灾害'] as const;
+
+// Sketch traces for this file (lat, lon).
+const SA_EAST: LL[] = [[10, -62], [5, -52], [0, -50], [-5, -35.5], [-8, -35], [-13, -38.5], [-23, -42], [-25, -48], [-33, -52], [-38, -57], [-41, -63], [-52, -68]];
+const AF_WEST: LL[] = [[35, -6], [30, -10], [21, -17], [15, -17.5], [10, -15], [5, -8], [4.5, -2], [6, 3], [4, 9], [0, 9.5], [-6, 12], [-12, 13.5], [-17, 11.8], [-23, 14.5], [-29, 16.5], [-34.4, 18.5]];
+const MID_ATLANTIC: LL[] = [[71, -8], [66, -18], [60, -29], [52, -30], [45, -28], [38, -30], [30, -42], [20, -45], [10, -40], [2, -30], [0, -20], [-5, -12], [-15, -14], [-25, -13], [-35, -16], [-45, -15], [-52, -5]];
+const NILE: LL[] = [[0.4, 33.2], [2, 31.4], [4.85, 31.6], [9.5, 31.65], [15.6, 32.5], [17.7, 34], [19.5, 33.3], [19.2, 30.5], [21.8, 31.3], [24.1, 32.9], [25.7, 32.6], [27.2, 31.2], [30.0, 31.2], [31.5, 31.0]];
+const AMAZON: LL[] = [[-15.5, -71.8], [-12, -73.5], [-8.4, -74.5], [-5, -74], [-3.75, -73.25], [-4.2, -69.9], [-3.4, -64.7], [-3.1, -60], [-1.9, -55.5], [-2.4, -54.7], [-1.5, -52], [-0.2, -50]];
+const MISSISSIPPI: LL[] = [[47.2, -95.2], [45, -93.3], [41.5, -90.6], [38.6, -90.2], [35.1, -90.1], [33.3, -91.1], [31.0, -91.6], [30.45, -91.2], [29.95, -90.07], [29.15, -89.25]];
+const NILE_DELTA: LL[] = [[30.1, 31.2], [31.5, 29.9], [31.6, 32.3]];
+const AMAZON_BASIN: LL[] = REGIONS.amazon;
+const GBR: LL[] = [[-10.5, 142.5], [-10.5, 145], [-17, 147.5], [-24, 153], [-24.8, 152.5], [-19, 146.5], [-14.5, 144.5]];
+const SOUTH_CHINA_KARST: LL[] = [[27, 103], [27.5, 108], [26, 111], [23.5, 111.5], [21, 108], [22.5, 104.5], [25, 103]];
+const LAURENTIDE: LL[] = [[69, -140], [60, -135], [50, -123], [47, -115], [49, -100], [40, -95], [39, -85], [41, -73], [45, -63], [52, -55], [60, -63], [66, -62], [75, -75], [80, -90], [78, -120], [72, -130]];
+const EURASIAN_ICE: LL[] = [[60, -10], [53, -10], [51.5, -4], [52, 2], [52, 10], [52, 20], [55, 35], [60, 50], [66, 60], [72, 60], [78, 40], [80, 15], [72, 0], [65, -5]];
+const BERINGIA_W: LL[] = [[71, 160], [71, 179.9], [57, 179.9], [62, 165]];
+const BERINGIA_E: LL[] = [[71, -179.9], [71, -157], [60, -157], [54, -163], [57, -179.9]];
+
+export const PHYSICAL: Lesson[] = [
+  {
+    id: 'drift', strand: 'physical', grade: 'g7a', tracks: ['uk', 'us', 'ib'], unit: land, icon: 'plates', minutes: 6,
+    title: ['Changing land and sea', '海陆的变迁'],
+    blurb: ['How a jigsaw-shaped coastline and some old fossils showed that continents move.', '从拼图般的海岸线和古老化石出发，看看大陆是怎样漂移的。'],
+    keys: [
+      ['Wegener\'s continental drift: the continents were once joined in Pangaea and drifted apart.', '魏格纳的大陆漂移假说：大陆原来连成一片（泛大陆），后来分裂漂移。'],
+      ['Evidence: matching coastlines, matching fossils (Mesosaurus, Glossopteris) and rocks.', '证据：海岸轮廓吻合、古生物化石（中龙、舌羊齿）和岩石相同。'],
+      ['The Earth has a crust, mantle and core.', '地球内部分为地壳、地幔和地核。'],
+      ['New sea floor forms at mid-ocean ridges, so the Atlantic is still widening.', '大洋中脊处不断生成新的洋底，大西洋仍在扩大。'],
+    ],
+    steps: [
+      {
+        title: ['A giant jigsaw', '一幅巨大的拼图'], cam: [-10, -15, 3.6],
+        paint: [{ fill: { k: 'continents', only: ['south-america', 'africa'] }, a: 0.55 }],
+        lines: [{ pts: SA_EAST, c: C.gold, w: 1.8, dur: 2.2 }, { pts: AF_WEST, c: C.gold, w: 1.8, t: 1, dur: 2.2 }],
+        marks: [mk([-10, -55], 'South America', '南美洲', { big: true, t: 0.4 }), mk([5, 20], 'Africa', '非洲', { big: true, t: 1.2 }),
+          mk([-5, -32], 'Brazil\'s "bump"…', '巴西东部的凸出…', { c: C.gold, t: 2.4 }), mk([2, 6], '…fits the Gulf of Guinea', '…正好嵌进几内亚湾', { c: C.gold, t: 2.8 })],
+        body: ['Look at the two coasts of the Atlantic. The bulge of Brazil would slot neatly into the bend of West Africa, like two pieces of a jigsaw. In 1912 the German scientist Alfred Wegener asked: were they once joined?',
+          '看看大西洋两岸的海岸线：巴西东部的凸出部分，正好能嵌进非洲西部的海湾，就像两块拼图。1912 年，德国科学家魏格纳提出疑问：它们原来是不是连在一起的？'],
+      },
+      {
+        title: ['Fossil clues', '化石的证据'], cam: [-35, 20, 4.4], sketch: true,
+        lines: [{ pts: [[-27, -50], [-26, 17]], c: C.gold, w: 1.4, t: 1, dur: 1.6, flow: true }],
+        marks: [
+          mk([-27, -50], 'Mesosaurus', '中龙化石', { dot: true, c: C.gold, t: 0.3 }), mk([-26, 17], 'Mesosaurus', '中龙化石', { dot: true, c: C.gold, t: 0.6 }),
+          mk([22, 80], 'Glossopteris', '舌羊齿化石', { dot: true, c: C.green, t: 1.6 }), mk([-30, 145], 'Glossopteris', '舌羊齿化石', { dot: true, c: C.green, t: 1.9 }),
+          mk([-84, 170], 'Glossopteris', '舌羊齿化石', { dot: true, c: C.green, t: 2.2 }), mk([-28, 28], 'Glossopteris', '舌羊齿化石', { dot: true, c: C.green, t: 2.5 }),
+        ],
+        body: ['Mesosaurus was a small freshwater reptile, yet its fossils are found only in southern Brazil and southern Africa: it could never have swum the ocean. The fern-like plant Glossopteris is found in India, Africa, Australia and even Antarctica.',
+          '中龙是一种生活在淡水中的小型爬行动物，它的化石却只出现在南美洲南部和非洲南部，它不可能游过大洋。舌羊齿这种植物的化石，在印度、非洲、澳大利亚甚至南极洲都能找到。'],
+      },
+      {
+        title: ['Pangaea breaks apart', '泛大陆的分裂'], cam: [5, -20, 4.8], sketch: true,
+        paint: [{ fill: { k: 'continents' }, a: 0.45 }],
+        lines: arrows([[[0, -45], [-5, -60]], [[20, -55], [30, -80]], [[0, 0], [5, 15]], [[30, -15], [35, 0]]], C.red, 0.6, 2),
+        marks: [mk([15, -35], 'Atlantic opening up', '大西洋张开', { big: true, c: C.red, t: 1.4 })],
+        body: ['Wegener said all the land was once one supercontinent, Pangaea. About 200 million years ago it began to split, and the pieces slowly drifted to where they are today. Most scientists did not believe him, because he could not explain what pushed the continents.',
+          '魏格纳认为，地球上的陆地原来是一块完整的泛大陆（联合古陆）。大约 2 亿年前，它开始分裂，碎块慢慢漂移到今天的位置。当时很多科学家不相信，因为他说不清是什么力量推动大陆移动。'],
+      },
+      {
+        title: ['Inside the Earth', '地球的内部'], cam: [0, 20, 3.2], fig: { k: 'dia', id: 'earth' },
+        body: ['Under the thin rocky crust lies the mantle, hot rock that flows very slowly, like thick toffee. In the centre is the core: liquid iron outside, solid iron inside. Slow currents in the mantle help drag the plates of crust around.',
+          '薄薄的岩石地壳下面是地幔，那里的岩石炽热，能像很稠的糖浆一样缓慢流动。中心是地核：外核是液态的铁，内核是固态的。地幔里缓慢的对流，带动地壳板块移动。'],
+      },
+      {
+        title: ['Sea-floor spreading', '海底扩张'], cam: [25, -30, 4.2], tectonics: true, items: ['vo_eyjafjallajokull'],
+        fig: { k: 'line', title: ['Age of the Atlantic sea floor (approx.)', '大西洋洋底岩石的年龄（约）'], unit: ['million years, by distance from the ridge (km)', '百万年，按距大洋中脊的距离（千米）'], x: [0, 500, 1000, 1500, 2000, 2500, 3000], series: [{ name: ['Age', '年龄'], c: C.orange, y: [0, 25, 50, 75, 100, 125, 150] }] },
+        lines: [{ pts: MID_ATLANTIC, c: C.orange, w: 2, dur: 3 }, ...arrows([[[30, -40], [30, -55]], [[30, -44], [30, -29]], [[0, -22], [-2, -36]], [[0, -18], [2, -4]]], C.red, 2.4, 1.8)],
+        marks: [mk([40, -30], 'Mid-Atlantic Ridge', '大西洋中脊', { big: true, c: C.orange, t: 1 }), mk([64.5, -19], 'Iceland: the ridge above sea level', '冰岛：露出海面的海岭', { dot: true, c: C.gold, t: 2 })],
+        body: ['In the 1960s ships mapped a long underwater mountain chain down the middle of the Atlantic. Magma rises here and makes new sea floor, which spreads out to both sides: rocks get older the further they are from the ridge. The Atlantic widens by a few centimetres a year.',
+          '20 世纪 60 年代，科学家发现大西洋中部有一条长长的海底山脉——大西洋中脊。岩浆在这里上涌，形成新的洋底，并向两侧推开：离中脊越远，岩石越古老。大西洋每年还在扩大几厘米。'],
+      },
+    ],
+    quiz: [
+      { q: ['Who first put forward the idea of continental drift?', '最早提出大陆漂移假说的是'], options: [['Alfred Wegener', '魏格纳'], ['Isaac Newton', '牛顿'], ['Charles Darwin', '达尔文'], ['Christopher Columbus', '哥伦布']], answer: 0,
+        why: ['Wegener published it in 1912.', '魏格纳在 1912 年提出了这一假说。'] },
+      { q: ['Mesosaurus fossils in both Brazil and southern Africa suggest that…', '巴西和非洲南部都发现了中龙化石，说明'], options: [['the two continents were once joined', '两块大陆曾经连在一起'], ['Mesosaurus could swim across oceans', '中龙能游过大洋'], ['it lived everywhere', '中龙分布在全世界'], ['the fossils were moved by people', '化石是人搬过去的']], answer: 0,
+        why: ['A small freshwater reptile could not cross the ocean.', '生活在淡水中的小型爬行动物不可能越过大洋。'] },
+      { q: ['At the Mid-Atlantic Ridge…', '在大西洋中脊'], options: [['new sea floor is formed', '不断生成新的洋底'], ['the sea floor sinks and disappears', '洋底俯冲消亡'], ['the oldest rocks are found', '岩石最古老'], ['nothing ever changes', '没有任何变化']], answer: 0,
+        why: ['Magma rises there and pushes the sea floor apart.', '岩浆在那里上涌，把洋底向两侧推开。'] },
+      { q: ['Which layer is at the very centre of the Earth?', '地球最中心的圈层是'], options: [['Inner core', '内核'], ['Mantle', '地幔'], ['Crust', '地壳'], ['Outer core', '外核']], answer: 0,
+        fig: { k: 'dia', id: 'earth' }, why: ['The inner core is solid iron and nickel.', '内核主要由固态的铁和镍组成。'] },
+      { q: ['Find Iceland, where the Mid-Atlantic Ridge rises above the sea.', '在地球上点出冰岛——大西洋中脊露出海面的地方。'], at: [64.9, -18.6], tolKm: 500,
+        why: ['Iceland sits right on the ridge, so it has many volcanoes.', '冰岛正好位于大西洋中脊上，所以火山很多。'] },
+    ],
+  },
+  {
+    id: 'rocks', strand: 'physical', tracks: ['uk', 'us', 'ib'], unit: shaping, icon: 'mountain', minutes: 6,
+    title: ['Rocks and the rock cycle', '岩石与岩石循环'],
+    blurb: ['Three kinds of rock, and how wind, water and ice wear them down and build them up again.', '三大类岩石，以及风、流水和冰怎样把它们磨蚀、又重新塑造。'],
+    keys: [
+      ['Igneous rock forms when magma cools; sedimentary rock from layers of sediment; metamorphic rock is changed by heat and pressure.', '岩浆冷却形成岩浆岩；沉积物层层堆积形成沉积岩；高温高压改造形成变质岩。'],
+      ['Weathering breaks rock where it is; erosion carries the pieces away.', '风化使岩石就地破碎，侵蚀把碎屑搬走。'],
+      ['Rain slowly dissolves limestone and makes karst landscapes.', '流水溶蚀石灰岩，形成喀斯特地貌。'],
+      ['Rocks change from one kind to another in a never-ending cycle.', '三类岩石可以相互转化，循环不止。'],
+    ],
+    steps: [
+      {
+        title: ['Rocks from fire', '来自岩浆的岩石'], cam: [30, 60, 5.2], items: ['vo_kilauea', 'vo_etna', 'cn_huangshan'],
+        marks: [mk([19.4, -155.3], 'Basalt (lava cooled fast)', '玄武岩（熔岩快速冷却）', { dot: true, c: C.orange, t: 0.5 }), mk([30.1, 118.2], 'Granite (cooled slowly underground)', '花岗岩（在地下慢慢冷却）', { dot: true, c: C.pink, t: 1.2 })],
+        fig: { k: 'pie', title: ['Rocks at the land surface (approx.)', '地表出露的岩石（约）'], parts: [{ name: ['Sedimentary', '沉积岩'], v: 75, c: C.brown }, { name: ['Igneous and metamorphic', '岩浆岩和变质岩'], v: 25, c: C.violet }] },
+        body: ['Igneous rock forms when molten magma cools and hardens. Lava that cools fast on the surface makes fine-grained basalt, as on Hawaii. Magma that cools slowly deep underground makes granite with big crystals, like the peaks of Huangshan.',
+          '岩浆冷却凝固形成岩浆岩（火成岩）。熔岩在地表快速冷却，形成颗粒细小的玄武岩，比如夏威夷；岩浆在地下深处慢慢冷却，形成晶体较大的花岗岩，比如黄山的山峰。'],
+      },
+      {
+        title: ['Rocks in layers', '层层叠叠的沉积岩'], cam: [10, 10, 5.6], items: ['grandcanyon', 'uluru', 'cn_zhangjiajie'],
+        marks: [mk([36.1, -112.1], 'Grand Canyon: layer on layer', '科罗拉多大峡谷：岩层层层叠叠', { dot: true, c: C.brown, t: 0.4 }), mk([-25.3, 131], 'Uluru: sandstone', '乌鲁鲁：砂岩', { dot: true, c: C.orange, t: 0.9 }),
+          mk([29.3, 110.5], 'Zhangjiajie: sandstone pillars', '张家界：石英砂岩峰林', { dot: true, c: C.gold, t: 1.4 })],
+        body: ['Sand, mud and shells settle at the bottom of seas and lakes. Over millions of years the layers are pressed and cemented into sedimentary rocks such as sandstone and limestone. They often hold fossils. The walls of the Grand Canyon show almost two billion years of layers.',
+          '泥沙和贝壳在海底、湖底沉积下来，经过几百万年的挤压和胶结，变成砂岩、石灰岩等沉积岩。沉积岩有明显的层理，常常含有化石。科罗拉多大峡谷的岩壁记录了近 20 亿年的地层。'],
+      },
+      {
+        title: ['Rocks that changed', '变质岩'], cam: [35, 40, 4.6], items: ['matterhorn', 'taj'],
+        marks: [mk([46, 7.7], 'Alps: rocks squeezed in mountain building', '阿尔卑斯山：造山运动中被挤压', { dot: true, c: C.violet, t: 0.5 }), mk([27.2, 78], 'Taj Mahal: white marble', '泰姬陵：白色大理岩', { dot: true, c: C.white, t: 1.1 })],
+        body: ['When rocks are buried deep, or squeezed as mountains form, heat and pressure change them without melting them. Limestone becomes marble and mudstone becomes slate. The Taj Mahal is built of white marble.',
+          '岩石被深埋，或在造山运动中受到挤压，在高温高压下发生变化（但没有熔化），就成了变质岩。石灰岩变成大理岩，页岩变成板岩。泰姬陵就是用白色大理岩建成的。'],
+      },
+      {
+        title: ['Weathering and erosion', '风化与侵蚀'], cam: [32, 100, 3.2], items: ['cn_danxia', 'dc_richat'],
+        marks: [mk([39, 100.1], 'Zhangye Danxia: red sandstone carved by wind and water', '张掖丹霞：风和流水雕琢的红色砂岩', { dot: true, c: C.red, t: 0.5 })],
+        body: ['Weathering breaks rock where it lies: water freezes in cracks and splits it, heat and cold make it flake, plant roots pry it open. Erosion then carries the bits away by rivers, wind, ice and waves. Together they carve landforms like the colourful Danxia hills.',
+          '风化作用让岩石在原地破碎：裂缝中的水结冰膨胀把岩石撑裂，冷热变化使岩石剥落，植物的根也会把岩石撑开。侵蚀作用再由流水、风、冰川和海浪把碎屑搬走。它们一起塑造了色彩斑斓的丹霞地貌。'],
+      },
+      {
+        title: ['Karst: rock that dissolves', '喀斯特：会被溶蚀的岩石'], cam: [24, 108, 2.4], items: ['cn_guilin', 'halong'],
+        paint: [{ fill: { k: 'poly', pts: SOUTH_CHINA_KARST, c: C.teal, clip: ['CN', 'VN'] }, a: 0.5 }],
+        marks: [mk([25.5, 106.5], 'Karst of Yunnan–Guizhou–Guangxi', '云贵高原—广西喀斯特', { big: true, c: C.teal, t: 0.6 }), mk([24.9, 110.5], 'Guilin', '桂林', { dot: true, c: C.gold, t: 1.2 }), mk([20.9, 107.2], 'Ha Long Bay', '下龙湾', { dot: true, c: C.gold, t: 1.5 })],
+        sketch: true,
+        body: ['Rainwater is slightly acidic, so it slowly dissolves limestone. Over millions of years this makes karst landscapes: tower-shaped hills, deep caves, underground rivers and sinkholes. South-west China has one of the largest karst areas in the world, including Guilin.',
+          '雨水略带酸性，能慢慢溶蚀石灰岩。经过几百万年，就形成了喀斯特地貌：峰林、溶洞、地下河和天坑。我国西南地区是世界上喀斯特地貌分布最广的地区之一，桂林山水就是代表。'],
+      },
+      {
+        title: ['The rock cycle', '岩石循环'], cam: [20, 0, 5.4], fig: { k: 'dia', id: 'rockcycle' },
+        body: ['No rock lasts forever. Igneous rock is weathered into sediment, which becomes sedimentary rock; heat and pressure turn it metamorphic; melting turns it back into magma. This slow loop is the rock cycle.',
+          '岩石不会永远不变。岩浆岩被风化成沉积物，再形成沉积岩；高温高压使它变成变质岩；熔化后又成为岩浆。这个缓慢的循环过程就是岩石循环。'],
+      },
+    ],
+    quiz: [
+      { q: ['Granite and basalt form from cooled magma. They are…', '花岗岩和玄武岩由岩浆冷却形成，属于'], options: [['Igneous rocks', '岩浆岩'], ['Sedimentary rocks', '沉积岩'], ['Metamorphic rocks', '变质岩'], ['Fossils', '化石']], answer: 0,
+        why: ['Igneous means "from fire": they come from magma.', '它们由岩浆冷却凝固形成。'] },
+      { q: ['Which kind of rock is most likely to contain fossils?', '最可能含有化石的岩石是'], options: [['Sedimentary', '沉积岩'], ['Igneous', '岩浆岩'], ['Metamorphic', '变质岩'], ['Magma', '岩浆']], answer: 0,
+        why: ['Plants and animals get buried in the layers of sediment.', '动植物遗体被埋在沉积物层中，形成化石。'] },
+      { q: ['Limestone changed by heat and pressure becomes…', '石灰岩在高温高压下变成'], options: [['Marble', '大理岩'], ['Granite', '花岗岩'], ['Sandstone', '砂岩'], ['Basalt', '玄武岩']], answer: 0,
+        fig: { k: 'dia', id: 'rockcycle' }, why: ['Marble is a metamorphic rock.', '大理岩是一种变质岩。'] },
+      { q: ['Find Guilin, famous for its karst hills.', '在地球上点出以喀斯特峰林闻名的桂林。'], at: [25.3, 110.3], tolKm: 400,
+        why: ['Guilin is in Guangxi, southern China.', '桂林位于我国南方的广西。'] },
+    ],
+  },
+  {
+    id: 'rivers', strand: 'physical', tracks: ['uk', 'us', 'ib', 'au'], unit: shaping, icon: 'sail', minutes: 6,
+    title: ['Rivers: from source to mouth', '河流：从源头到河口'],
+    blurb: ['How rivers carve valleys and waterfalls, then wind across plains and build deltas.', '河流怎样切出峡谷和瀑布，又怎样蜿蜒流过平原、堆积出三角洲。'],
+    keys: [
+      ['A river flows from its source to its mouth, draining a whole drainage basin.', '河流从源头流向河口，汇集整个流域的水。'],
+      ['Rivers erode, transport and deposit; upper courses cut V-shaped valleys and waterfalls.', '流水有侵蚀、搬运和堆积作用；上游下切形成 V 形谷和瀑布。'],
+      ['In lower courses rivers meander, leave oxbow lakes and build deltas.', '下游河道弯曲，形成牛轭湖，在河口堆积出三角洲。'],
+    ],
+    steps: [
+      {
+        title: ['The world\'s great rivers', '世界大河'], cam: [15, 20, 5.6],
+        lines: [{ pts: NILE, c: C.blue, w: 2, dur: 2.4 }, { pts: AMAZON, c: C.teal, w: 2, t: 0.8, dur: 2.4 }, { pts: RIVERS.yangtze, c: C.gold, w: 2, t: 1.6, dur: 2.4 }],
+        marks: [mk([20, 32], 'Nile', '尼罗河', { big: true, c: C.blue, t: 1.2 }), mk([-3, -63], 'Amazon', '亚马孙河', { big: true, c: C.teal, t: 2 }), mk([30, 108], 'Yangtze', '长江', { big: true, c: C.gold, t: 2.8 })],
+        fig: { k: 'bars', title: ['Longest rivers (approx.)', '世界长河（约）'], unit: ['length, km', '长度，千米'], rows: [
+          { name: ['Nile', '尼罗河'], v: 6650, c: C.blue }, { name: ['Amazon', '亚马孙河'], v: 6400, c: C.teal }, { name: ['Yangtze', '长江'], v: 6300, c: C.gold },
+          { name: ['Mississippi–Missouri', '密西西比河—密苏里河'], v: 6275 }, { name: ['Yellow River', '黄河'], v: 5464, c: C.orange }] },
+        body: ['The Nile, the Amazon and the Yangtze are the three longest rivers on Earth, each over 6,000 km. The Yangtze is the longest river in Asia. All rivers flow downhill from a source in the hills to a mouth at a sea or lake.',
+          '尼罗河、亚马孙河和长江是世界上最长的三条河，都超过 6000 千米，长江是亚洲第一长河。所有河流都从高处的源头流向低处，最后在河口注入海洋或湖泊。'],
+      },
+      {
+        title: ['A drainage basin', '流域'], cam: [-6, -62, 2.8], items: ['pl_kapok'], sketch: true,
+        paint: [{ fill: { k: 'poly', pts: AMAZON_BASIN, c: C.green }, a: 0.45 }],
+        lines: [{ pts: AMAZON, c: C.teal, w: 2.2, dur: 2.4 }],
+        marks: [mk([-15.5, -71.8], 'Source in the Andes', '源头在安第斯山脉', { dot: true, c: C.gold, t: 0.4 }), mk([-0.2, -50], 'Mouth', '河口', { dot: true, c: C.gold, t: 2.2 }), mk([-6, -60], 'Amazon basin', '亚马孙河流域', { big: true, c: C.green, t: 1.2 })],
+        fig: { k: 'dia', id: 'river' },
+        body: ['All the land that drains into one river is its drainage basin; the high ground between two basins is a watershed. The Amazon basin is the largest in the world, about 7 million km², and the river carries about a fifth of all the river water that reaches the oceans.',
+          '一条河流和它的支流所流经、汇集水量的整个区域叫流域，相邻流域之间的高地叫分水岭。亚马孙河流域面积约 700 万平方千米，是世界上最大的流域，它注入海洋的水量约占全球河流入海总水量的五分之一。'],
+      },
+      {
+        title: ['Upper course: cutting down', '上游：向下切割'], cam: [30, 104, 2.8], items: ['leshan'],
+        lines: [{ pts: RIVERS.yangtze, c: C.gold, w: 2, dur: 2.4 }],
+        marks: [mk([27, 99.8], 'Tiger Leaping Gorge', '虎跳峡', { dot: true, c: C.red, t: 1 }), mk([30.9, 110.5], 'Three Gorges', '长江三峡', { dot: true, c: C.red, t: 1.8 })],
+        fig: { k: 'dia', id: 'valleys' },
+        body: ['Near the source the river is steep and fast. It uses stones it carries to cut downward (erosion), carving deep, narrow V-shaped valleys and gorges like Tiger Leaping Gorge on the upper Yangtze. The slopes slide in, so the valley widens at the top into a V.',
+          '在上游，河流落差大、流速快，携带的石块不断向下切割（侵蚀作用），形成又深又窄的 V 形谷和峡谷，比如长江上游的虎跳峡。两侧谷坡不断崩落，河谷就呈现出 V 字形。'],
+      },
+      {
+        title: ['Waterfalls', '瀑布'], cam: [0, -40, 5], items: ['niagara', 'victoriafalls', 'iguazu', 'cb_angelfalls'],
+        marks: [mk([43.1, -79.1], 'Niagara', '尼亚加拉瀑布', { dot: true, c: C.blue, t: 0.3 }), mk([6, -62.5], 'Angel Falls', '安赫尔瀑布', { dot: true, c: C.blue, t: 0.7 }),
+          mk([-25.7, -54.4], 'Iguazú', '伊瓜苏瀑布', { dot: true, c: C.blue, t: 1.1 }), mk([-17.9, 25.9], 'Victoria Falls', '维多利亚瀑布', { dot: true, c: C.blue, t: 1.5 })],
+        fig: { k: 'bars', title: ['Heights of famous waterfalls (approx.)', '著名瀑布的落差（约）'], unit: ['metres', '米'], rows: [
+          { name: ['Angel Falls', '安赫尔瀑布'], v: 979 }, { name: ['Victoria Falls', '维多利亚瀑布'], v: 108 }, { name: ['Iguazú Falls', '伊瓜苏瀑布'], v: 82 }, { name: ['Niagara Falls', '尼亚加拉瀑布'], v: 51 }] },
+        body: ['A waterfall forms where a river flows over hard rock lying on top of softer rock. The soft rock wears away faster, the hard rock overhangs and collapses, and the falls slowly move back upstream, leaving a gorge. Niagara has retreated about 11 km in 12,000 years.',
+          '河流流经软硬相间的岩层时，下面的软岩被侵蚀得快，上面的硬岩悬空、崩塌，就形成了瀑布。瀑布不断向上游后退，身后留下一条峡谷。尼亚加拉瀑布在约 1.2 万年里已后退了约 11 千米。'],
+      },
+      {
+        title: ['Meanders and oxbow lakes', '河曲与牛轭湖'], cam: [36, -91, 2.6], sketch: true,
+        lines: [{ pts: MISSISSIPPI, c: C.blue, w: 2, dur: 2.4 }],
+        marks: [mk([33.3, -91.25], 'Lake Chicot: an oxbow lake', '奇科特湖：牛轭湖', { dot: true, c: C.teal, t: 1.4 }), mk([40, -93], 'Mississippi', '密西西比河', { big: true, c: C.blue, t: 0.8 })],
+        body: ['On flat lowlands a river swings from side to side in loops called meanders. It erodes the outside of each bend, where water is fastest, and deposits sand on the inside. In a flood the river may cut through the neck of a loop; the old bend is left behind as a curved oxbow lake.',
+          '在平坦的平原上，河道左右摆动，形成弯曲的河曲（曲流）。凹岸水流快，不断被侵蚀；凸岸水流慢，泥沙堆积。洪水时河流可能冲开曲流的颈部，截弯取直，被遗弃的弯曲河道就成了牛轭湖。'],
+      },
+      {
+        title: ['Deltas', '三角洲'], cam: [28, 45, 3.6], items: ['pyramids', 'vh_felucca'],
+        paint: [{ fill: { k: 'poly', pts: NILE_DELTA, c: C.green }, a: 0.6, t: 1.6 }],
+        lines: [{ pts: NILE, c: C.blue, w: 2, dur: 2 }],
+        marks: [mk([31.2, 31], 'Nile Delta', '尼罗河三角洲', { big: true, c: C.green, t: 2 }), mk([22.5, 89.5], 'Ganges–Brahmaputra Delta, the largest', '恒河—布拉马普特拉河三角洲（世界最大）', { dot: true, c: C.green, t: 2.6 })],
+        body: ['Where a river slows down as it meets the sea, it drops its mud and sand. Layer by layer this builds a flat, fertile delta, often shaped like the Greek letter Δ. The Nile Delta feeds most of Egypt\'s people; the Ganges–Brahmaputra Delta is the largest on Earth.',
+          '河流入海时流速减慢，携带的泥沙大量堆积，逐渐形成平坦肥沃的三角洲，形状常像希腊字母 Δ。埃及大部分人口依靠尼罗河三角洲生活；恒河—布拉马普特拉河三角洲是世界上最大的三角洲。'],
+      },
+    ],
+    quiz: [
+      { q: ['In its upper course a river mainly…', '河流上游主要表现为'], options: [['erodes downward, making V-shaped valleys', '向下侵蚀，形成 V 形谷'], ['deposits mud to build deltas', '堆积泥沙形成三角洲'], ['forms oxbow lakes', '形成牛轭湖'], ['flows very slowly', '水流非常缓慢']], answer: 0,
+        fig: { k: 'dia', id: 'river' }, why: ['It is steep and fast near the source.', '上游落差大、水流急，下切侵蚀强。'] },
+      { q: ['An oxbow lake is…', '牛轭湖是'], options: [['an old river bend cut off from the river', '被截断的旧河曲'], ['a lake on top of a mountain', '山顶上的湖'], ['a lake made by a glacier', '冰川形成的湖'], ['a lake behind a dam', '水库']], answer: 0,
+        why: ['The river cuts through the neck of a meander and leaves the loop behind.', '河流截弯取直，留下了弯曲的旧河道。'] },
+      { q: ['Which is the longest river in Asia?', '亚洲最长的河流是'], options: [['Yangtze', '长江'], ['Yellow River', '黄河'], ['Mekong', '湄公河'], ['Ganges', '恒河']], answer: 0,
+        why: ['The Yangtze is about 6,300 km long.', '长江全长约 6300 千米。'] },
+      { q: ['Find the mouth of the Nile, where its delta is.', '在地球上点出尼罗河入海口（三角洲）。'], at: [31, 31], tolKm: 400,
+        why: ['The Nile flows north and enters the Mediterranean in Egypt.', '尼罗河向北流，在埃及注入地中海。'] },
+    ],
+  },
+  {
+    id: 'coasts', strand: 'physical', tracks: ['uk', 'ib', 'au'], unit: shaping, icon: 'ship', minutes: 6,
+    title: ['Coasts', '海岸'],
+    blurb: ['Waves carve cliffs, caves, arches and stacks, and build beaches and spits.', '海浪雕琢出海蚀崖、海蚀洞、海蚀拱桥和海蚀柱，也堆积出海滩和沙嘴。'],
+    keys: [
+      ['Waves erode headlands of hard rock and bays of soft rock.', '海浪侵蚀海岸：硬岩形成岬角，软岩形成海湾。'],
+      ['A crack grows into a cave, then an arch, then a stack.', '裂隙→海蚀洞→海蚀拱桥→海蚀柱。'],
+      ['Longshore drift moves sand and builds beaches and spits; fjords are flooded glacial valleys.', '沿岸流搬运泥沙形成海滩和沙嘴；峡湾是被海水淹没的冰川谷。'],
+      ['Coral reefs need warm, clear, shallow water; coasts can be protected by hard or soft engineering.', '珊瑚礁需要温暖、清澈的浅海；海岸可以用工程或自然的方法保护。'],
+    ],
+    steps: [
+      {
+        title: ['The power of waves', '海浪的力量'], cam: [50, -20, 3], items: ['ca_moher'],
+        lines: arrows([[[52, -30], [53, -12]], [[50, -30], [51, -12]], [[48, -30], [49.5, -12]]], C.ice, 0.3, 2),
+        marks: [mk([53, -9.4], 'Cliffs of Moher, about 200 m high', '莫赫悬崖，高约 200 米', { dot: true, c: C.gold, t: 1.2 })],
+        body: ['Waves are made by wind blowing over the sea; the longer the stretch of open water (the fetch), the bigger they grow. Atlantic storm waves smash into western Ireland, undercut the rock and make tall, steep cliffs like the Cliffs of Moher.',
+          '海浪是风吹过海面形成的，风吹过的海面越宽（风区越长），浪就越大。大西洋的风暴巨浪拍打爱尔兰西海岸，掏蚀崖底的岩石，形成像莫赫悬崖这样高耸陡峭的海蚀崖。'],
+      },
+      {
+        title: ['Caves, arches and stacks', '海蚀洞、海蚀拱桥和海蚀柱'], cam: [-38, 140, 2.4], items: ['twelveapostles'],
+        marks: [mk([-38.7, 143.1], 'Twelve Apostles: limestone stacks', '十二门徒岩：石灰岩海蚀柱', { dot: true, c: C.gold, t: 0.5 }), mk([50.62, -2.28], 'Durdle Door: an arch', '杜德尔门：海蚀拱桥', { dot: true, c: C.gold, t: 1 })],
+        fig: { k: 'dia', id: 'coast' },
+        body: ['Hard rock sticks out as headlands; soft rock wears back into bays. On a headland the waves widen a crack into a cave, the cave cuts through to make an arch, the arch roof falls and leaves a stack standing alone. The Twelve Apostles in Australia are stacks like this.',
+          '坚硬的岩石突出成为岬角，松软的岩石被侵蚀后退成为海湾。在岬角上，海浪把裂隙扩大成海蚀洞，洞穿透后成为海蚀拱桥，拱顶崩塌后留下孤立的海蚀柱。澳大利亚的十二门徒岩就是这样的海蚀柱。'],
+      },
+      {
+        title: ['Beaches and spits', '海滩和沙嘴'], cam: [54, -1, 1.9], sketch: true,
+        lines: arrows([[[54.4, -0.3], [54.0, -0.1]], [[54.0, -0.1], [53.7, 0.05]], [[53.7, 0.05], [53.6, 0.12]]], C.gold, 0.4, 2),
+        marks: [mk([54.0, -0.6], 'Holderness: one of Europe\'s fastest-eroding coasts', '霍尔德内斯：欧洲侵蚀最快的海岸之一', { c: C.red, t: 0.6 }), mk([53.58, 0.11], 'Spurn Head: a spit', '斯珀恩角：沙嘴', { dot: true, c: C.gold, t: 1.6 })],
+        body: ['Waves also drop sand and pebbles, building beaches. When waves hit the shore at an angle, they push sand along the coast bit by bit: longshore drift. Where the coast turns, the sand keeps going and builds a long, thin spit out into the sea, like Spurn Head in England.',
+          '海浪也会把沙子和砾石堆积下来，形成海滩。当海浪斜着冲上海岸时，会把泥沙一点点沿海岸搬运，这就是沿岸流的搬运作用。在海岸转折的地方，泥沙继续向前堆积，伸入海中，形成细长的沙嘴，比如英国的斯珀恩角。'],
+      },
+      {
+        title: ['Fjords', '峡湾'], cam: [62, 8, 2.6], items: ['ca_preikestolen', 'milford'],
+        marks: [mk([61.1, 6.5], 'Sognefjord: over 200 km long', '松恩峡湾：长 200 多千米', { dot: true, c: C.ice, t: 0.5 }), mk([-44.6, 167.9], 'Milford Sound, New Zealand', '新西兰米尔福德峡湾', { dot: true, c: C.ice, t: 1 })],
+        body: ['Fjords are long, narrow, steep-sided sea inlets. They were deep valleys carved by glaciers in the ice age; when the ice melted, the sea flooded in. Norway, New Zealand, Chile and Greenland have many fjords.',
+          '峡湾是狭长、两岸陡峭的海湾。它们原是冰期时冰川刨蚀出的深谷，冰川消融后海水涌入，就形成了峡湾。挪威、新西兰、智利和格陵兰岛都有很多峡湾。'],
+      },
+      {
+        title: ['Coral reefs', '珊瑚礁海岸'], cam: [-17, 148, 2.6], items: ['reef', 'an_turtle', 'dc_bluehole'],
+        paint: [{ fill: { k: 'poly', pts: GBR, c: C.pink }, a: 0.6 }],
+        marks: [mk([-18, 150.5], 'Great Barrier Reef, about 2,300 km', '大堡礁，长约 2300 千米', { big: true, c: C.pink, t: 0.8 }), mk([17.3, -87.5], 'Belize Barrier Reef', '伯利兹堡礁', { dot: true, c: C.pink, t: 1.4 })],
+        body: ['Coral reefs are built by tiny animals in warm, clear, shallow tropical seas. The Great Barrier Reef off Australia is the largest reef system on Earth. Reefs protect coasts from waves, but warmer seas can make corals turn white and die (coral bleaching).',
+          '珊瑚礁是由微小的珊瑚虫在温暖、清澈的热带浅海中建造的。澳大利亚东北部的大堡礁是世界上最大的珊瑚礁群。珊瑚礁能为海岸抵挡海浪，但海水变暖会使珊瑚白化甚至死亡。'],
+      },
+      {
+        title: ['Protecting the coast', '海岸的保护'], cam: [53, 3, 2.4],
+        paint: [{ fill: { k: 'land', a2: ['NL'], c: C.blue }, a: 0.5 }],
+        marks: [mk([52.3, 5.3], 'Netherlands: about a quarter below sea level', '荷兰：约四分之一国土低于海平面', { big: true, c: C.blue, t: 0.6 })],
+        fig: { k: 'key', set: 'custom', title: ['Ways to protect a coast', '保护海岸的方法'], items: [
+          { c: C.red, name: ['Hard: sea walls, groynes, rock armour', '工程措施：海堤、丁坝、抛石护岸'] },
+          { c: C.green, name: ['Soft: adding sand, planting dunes, letting land flood', '自然措施：补沙、固沙植树、退地还海'] }] },
+        body: ['People defend coasts with hard engineering, such as sea walls and groynes that trap sand, or soft engineering, such as adding sand to beaches and planting dunes. The Netherlands, much of it below sea level, is protected by huge dikes and storm barriers.',
+          '人们用工程措施保护海岸，比如修建海堤、修建拦截泥沙的丁坝；也用自然措施，比如给海滩补沙、在沙丘上种植植物。荷兰大片国土低于海平面，依靠巨大的堤坝和防潮闸保护。'],
+      },
+    ],
+    quiz: [
+      { q: ['What is the right order as the sea wears away a headland?', '海浪侵蚀岬角，正确的顺序是'], options: [['crack → cave → arch → stack', '裂隙→海蚀洞→海蚀拱桥→海蚀柱'], ['stack → arch → cave → crack', '海蚀柱→海蚀拱桥→海蚀洞→裂隙'], ['cave → stack → crack → arch', '海蚀洞→海蚀柱→裂隙→海蚀拱桥'], ['arch → crack → stack → cave', '海蚀拱桥→裂隙→海蚀柱→海蚀洞']], answer: 0,
+        fig: { k: 'dia', id: 'coast' }, why: ['The crack grows into a cave, which breaks through to an arch, whose roof falls to leave a stack.', '裂隙扩大成洞，洞穿透成拱桥，拱顶崩塌留下海蚀柱。'] },
+      { q: ['A fjord is…', '峡湾是'], options: [['a glacial valley flooded by the sea', '被海水淹没的冰川谷'], ['a river delta', '河口三角洲'], ['a coral island', '珊瑚岛'], ['a sandy spit', '沙嘴']], answer: 0,
+        why: ['Glaciers carved the valley; the sea filled it when the ice melted.', '冰川刨蚀出深谷，冰川消融后海水涌入。'] },
+      { q: ['Coral reefs grow best in…', '珊瑚礁最适宜生长在'], options: [['warm, clear, shallow seas', '温暖、清澈的浅海'], ['cold, deep seas', '寒冷的深海'], ['muddy river mouths', '浑浊的河口'], ['freshwater lakes', '淡水湖']], answer: 0,
+        why: ['Corals need warmth and sunlight.', '珊瑚需要温暖的海水和充足的阳光。'] },
+      { q: ['Find the Great Barrier Reef.', '在地球上点出大堡礁。'], at: [-18.3, 147.7], tolKm: 700,
+        why: ['It lies off the north-east coast of Australia.', '它位于澳大利亚东北部沿海。'] },
+    ],
+  },
+  {
+    id: 'glaciers', strand: 'physical', tracks: ['uk', 'us', 'ib'], unit: shaping, icon: 'mountain', minutes: 5,
+    title: ['Glaciers and ice', '冰川'],
+    blurb: ['Ice sheets, valley glaciers and the ice ages that reshaped the world.', '冰盖、山岳冰川，以及改变了世界面貌的冰期。'],
+    keys: [
+      ['Two great ice sheets cover Antarctica and Greenland.', '南极洲和格陵兰岛被巨大的冰盖覆盖。'],
+      ['Valley glaciers carve U-shaped valleys; flooded by the sea they become fjords.', '山岳冰川刨蚀出 U 形谷，被海水淹没后成为峡湾。'],
+      ['In the last ice age, sea level was about 120 m lower and land bridges joined continents.', '末次冰期时海平面比现在低约 120 米，出现了连接大陆的陆桥。'],
+    ],
+    steps: [
+      {
+        title: ['The Antarctic ice sheet', '南极冰盖'], cam: [-75, 60, 3.2], items: ['an_penguin', 'vo_erebus'],
+        paint: [{ fill: { k: 'land', continent: 'antarctica', c: C.ice }, a: 0.65 }],
+        marks: [mk([-80, 60], 'Ice up to about 4.8 km thick', '冰层最厚约 4.8 千米', { big: true, c: C.white, t: 0.8 })],
+        body: ['Antarctica is buried under an ice sheet about 2 km thick on average and almost 5 km at its deepest. It holds about 90% of all the ice on Earth. The ice slowly flows outward and breaks off into the sea as icebergs.',
+          '南极洲被厚厚的冰盖覆盖，平均厚度约 2 千米，最厚处接近 5 千米，约占全球冰量的 90%。冰盖缓慢地向四周流动，到海边断裂，成为冰山。'],
+      },
+      {
+        title: ['Greenland', '格陵兰冰盖'], cam: [70, -40, 2.8], items: ['an_polarbear'],
+        paint: [{ fill: { k: 'land', a2: ['GL'], c: C.ice }, a: 0.65 }],
+        marks: [mk([74, -40], 'Greenland ice sheet', '格陵兰冰盖', { big: true, c: C.white, t: 0.6 })],
+        fig: { k: 'bars', title: ['Sea-level rise if all the ice melted (approx.)', '冰全部融化后海平面上升（约）'], unit: ['metres', '米'], rows: [
+          { name: ['Antarctica', '南极冰盖'], v: 58, c: C.ice }, { name: ['Greenland', '格陵兰冰盖'], v: 7, c: C.teal }, { name: ['Mountain glaciers', '山岳冰川'], v: 0.3, c: C.blue }] },
+        body: ['The world\'s second ice sheet covers about 80% of Greenland. Today it is melting faster than new snow replaces it, which adds to rising sea levels. If all the ice on Earth melted, the sea would rise by over 60 m.',
+          '世界第二大冰盖覆盖了格陵兰岛约 80% 的面积。如今它融化的速度比新雪补充的速度快，使海平面上升。如果地球上的冰全部融化，海平面将上升 60 多米。'],
+      },
+      {
+        title: ['Rivers of ice', '冰的河流'], cam: [46, 8, 2.2], items: ['matterhorn', 'morainelake'],
+        marks: [mk([46.5, 8.05], 'Aletsch Glacier: 23 km long', '阿莱奇冰川：长约 23 千米', { dot: true, c: C.ice, t: 0.5 }), mk([37.74, -119.6], 'Yosemite Valley', '约塞米蒂山谷', { dot: true, c: C.ice, t: 1 })],
+        fig: { k: 'dia', id: 'valleys' },
+        body: ['High in the mountains, snow piles up and turns to ice, which creeps downhill as a valley glacier, perhaps a few hundred metres a year. Rocks frozen into its base scrape the valley floor and sides, turning a V-shaped river valley into a wide, steep-sided U-shaped valley.',
+          '在高山上，积雪越积越厚，变成冰川冰，沿山谷缓慢向下流动，形成山岳冰川，每年也许只移动几百米。冻结在冰川底部的岩块刨蚀谷底和谷壁，把 V 形的河谷改造成宽阔、两壁陡峭的 U 形谷。'],
+      },
+      {
+        title: ['Fjords: drowned valleys', '峡湾：被淹没的冰川谷'], cam: [60, 0, 4], items: ['ca_preikestolen', 'milford'],
+        marks: [mk([61.1, 6.5], 'Norway', '挪威', { big: true, c: C.ice, t: 0.4 }), mk([-45, 167.5], 'New Zealand', '新西兰', { dot: true, c: C.ice, t: 0.8 }), mk([-50, -74.5], 'Chile', '智利', { dot: true, c: C.ice, t: 1.2 })],
+        body: ['Ice-age glaciers dug their valleys far below sea level. When the ice melted and the sea rose, it flooded in, leaving fjords: deep, narrow inlets with cliffs hundreds of metres high, like those of Norway and New Zealand.',
+          '冰期时，冰川把山谷刨蚀得比海平面还低。冰川消融、海平面上升后，海水涌入，形成峡湾：又深又窄，两岸是几百米高的悬崖，挪威和新西兰的峡湾都是这样形成的。'],
+      },
+      {
+        title: ['The last ice age', '末次冰期'], cam: [60, -60, 5], sketch: true,
+        paint: [{ fill: { k: 'poly', pts: LAURENTIDE, c: C.ice }, a: 0.55 }, { fill: { k: 'poly', pts: EURASIAN_ICE, c: C.ice }, a: 0.55, t: 0.5 },
+          { fill: { k: 'poly', pts: BERINGIA_W, c: C.brown }, a: 0.6, t: 1.4 }, { fill: { k: 'poly', pts: BERINGIA_E, c: C.brown }, a: 0.6, t: 1.4 }],
+        marks: [mk([60, -95], 'Ice over Canada', '冰盖覆盖加拿大', { big: true, c: C.white, t: 0.4 }), mk([62, 20], 'Ice over northern Europe', '冰盖覆盖北欧', { big: true, c: C.white, t: 0.9 }), mk([65, -172], 'Beringia land bridge', '白令陆桥', { big: true, c: C.brown, t: 1.8 })],
+        fig: { k: 'line', title: ['Sea level since the last ice age (approx.)', '末次冰期以来的海平面（约）'], unit: ['metres compared with today, by thousand years ago', '与现在相比（米），横轴为距今千年'], x: [-24, -20, -16, -12, -8, -4, 0], series: [{ name: ['Sea level', '海平面'], c: C.blue, y: [-125, -122, -110, -65, -20, -3, 0] }], min: -130, max: 0 },
+        body: ['About 20,000 years ago, in the last ice age, ice sheets covered Canada and northern Europe. So much water was locked up as ice that the sea was about 120 m lower. Dry land joined Asia to America (Beringia), and people and animals walked across.',
+          '大约 2 万年前的末次冰期，冰盖覆盖了加拿大和欧洲北部。大量的水被冻结成冰，海平面比现在低约 120 米。亚洲和北美洲之间露出陆地（白令陆桥），人类和动物从这里走到了美洲。'],
+      },
+    ],
+    quiz: [
+      { q: ['Where is the largest ice sheet on Earth?', '世界上最大的冰盖在'], options: [['Antarctica', '南极洲'], ['Greenland', '格陵兰岛'], ['The Alps', '阿尔卑斯山'], ['The Himalayas', '喜马拉雅山']], answer: 0,
+        why: ['Antarctica holds about 90% of the world\'s ice.', '南极洲集中了全球约 90% 的冰。'] },
+      { q: ['Which valley was carved by a glacier?', '冰川侵蚀形成的山谷是'], options: [['U-shaped valley', 'U 形谷'], ['V-shaped valley', 'V 形谷'], ['Rift valley', '裂谷'], ['Delta', '三角洲']], answer: 0,
+        fig: { k: 'dia', id: 'valleys' }, why: ['Ice scrapes the sides and floor into a U.', '冰川刨蚀谷底和谷壁，形成 U 形谷。'] },
+      { q: ['In the last ice age, sea level was…', '末次冰期时，海平面'], options: [['about 120 m lower than today', '比现在低约 120 米'], ['about 120 m higher than today', '比现在高约 120 米'], ['the same as today', '和现在一样'], ['about 1 km lower', '比现在低约 1 千米']], answer: 0,
+        why: ['Water was locked up in huge ice sheets on land.', '大量的水以冰盖形式储存在陆地上。'] },
+      { q: ['Find where the Beringia land bridge once joined Asia and America.', '在地球上点出曾经连接亚洲和美洲的白令陆桥。'], at: [65.5, -169], tolKm: 700,
+        why: ['It lay where the Bering Strait is today.', '它就在今天的白令海峡一带。'] },
+    ],
+  },
+  {
+    id: 'watercycle', strand: 'physical', tracks: ['us', 'uk', 'ib', 'au'], unit: water, icon: 'cloud', minutes: 5,
+    title: ['The water cycle', '水循环'],
+    blurb: ['Where Earth\'s water is, and how it travels between sea, sky and land.', '地球上的水在哪里，它怎样在海洋、天空和陆地之间循环。'],
+    keys: [
+      ['About 97% of Earth\'s water is salt water in the oceans.', '地球上约 97% 的水是海洋里的咸水。'],
+      ['Most fresh water is frozen in ice or hidden underground.', '淡水大多是冰川和地下水。'],
+      ['The water cycle: evaporation, water vapour carried by wind, precipitation, runoff.', '水循环：蒸发、水汽输送、降水、径流。'],
+      ['Fresh water is unevenly spread, and many places are short of it.', '淡水资源分布不均，许多地方缺水。'],
+    ],
+    steps: [
+      {
+        title: ['A watery planet', '水的星球'], cam: [-20, -150, 4.8],
+        paint: [{ fill: { k: 'oceans' }, a: 0.5 }],
+        fig: { k: 'pie', title: ['All the water on Earth (approx.)', '地球上的水（约）'], parts: [{ name: ['Salt water (seas)', '咸水（海洋）'], v: 97, c: C.blue }, { name: ['Fresh water', '淡水'], v: 3, c: C.ice }] },
+        body: ['Almost all of Earth\'s water, about 97%, is salty sea water that we cannot drink or use on crops. Only about 3% is fresh water.',
+          '地球上的水约 97% 是海洋里的咸水，不能直接饮用，也不能用来灌溉。淡水只占约 3%。'],
+      },
+      {
+        title: ['Where fresh water hides', '淡水在哪里'], cam: [-60, 0, 4.4],
+        paint: [{ fill: { k: 'land', continent: 'antarctica', c: C.ice }, a: 0.6 }, { fill: { k: 'land', a2: ['GL'], c: C.ice }, a: 0.6 }],
+        fig: { k: 'pie', title: ['Earth\'s fresh water (approx.)', '地球上的淡水（约）'], parts: [{ name: ['Ice and snow', '冰川和积雪'], v: 69, c: C.ice }, { name: ['Groundwater', '地下水'], v: 30, c: C.brown }, { name: ['Lakes, rivers, soil, air', '湖泊、河流、土壤水、大气水'], v: 1, c: C.blue }] },
+        body: ['Most fresh water is frozen in the ice sheets of Antarctica and Greenland. Most of the rest is groundwater in rocks underground. The lakes and rivers we can easily use hold only a tiny share.',
+          '大部分淡水被冻结在南极洲和格陵兰岛的冰盖里，其余的大多是埋藏在地下的地下水。我们容易利用的湖泊水和河流水只占很小的一部分。'],
+      },
+      {
+        title: ['Evaporation', '蒸发'], cam: [10, 80, 4], sketch: true,
+        paint: [{ fill: { k: 'band', s: -15, n: 15, c: C.gold }, a: 0.3 }],
+        marks: [mk([0, 75], 'Sun warms the sea → water vapour', '太阳加热海面→水汽', { big: true, c: C.gold, t: 0.5 })],
+        fig: { k: 'dia', id: 'watercycle' },
+        body: ['The Sun powers the water cycle. Its heat makes water evaporate from the oceans, lakes and soil, and plants give off water vapour from their leaves (transpiration). Warm tropical seas give the most.',
+          '太阳能是水循环的动力。在太阳照射下，海洋、湖泊和土壤中的水不断蒸发，植物的叶片也会散发水汽（蒸腾作用）。温暖的热带海洋蒸发量最大。'],
+      },
+      {
+        title: ['Clouds and rain', '水汽输送与降水'], cam: [20, 88, 2.8], sketch: true,
+        lines: arrows([[[12, 86], [22, 90]], [[12, 90], [23, 92]], [[13, 82], [22, 85]]], C.blue, 0.3, 2.2),
+        marks: [mk([25.3, 91.6], 'Mawsynram: over 11,000 mm of rain a year', '毛辛拉姆：年降水量超过 11000 毫米', { dot: true, c: C.blue, t: 1.4 })],
+        body: ['Winds carry the water vapour over the land. As the air rises and cools, the vapour condenses into tiny droplets that make clouds; when they grow heavy, they fall as rain or snow (precipitation). Where moist winds meet mountains, as in north-east India, it rains enormously.',
+          '风把海洋上空的水汽输送到陆地。空气上升冷却，水汽凝结成小水滴形成云；水滴变大变重，就以雨或雪的形式降落（降水）。湿润的风遇到山地被迫抬升的地方，比如印度东北部，降水特别多。'],
+      },
+      {
+        title: ['Runoff and groundwater', '径流与地下水'], cam: [-15, -40, 5], sketch: true,
+        lines: [{ pts: AMAZON, c: C.teal, w: 2, dur: 2, arrow: true }],
+        paint: [{ fill: { k: 'poly', pts: [[-12, 138], [-12, 145], [-20, 148], [-29, 151], [-33, 148], [-30, 136], [-24, 133], [-18, 135]], c: C.brown }, a: 0.5, t: 0.8 }],
+        marks: [mk([-24, 143], 'Great Artesian Basin', '大自流盆地', { big: true, c: C.brown, t: 1.2 }), mk([-3, -60], 'Rivers return water to the sea', '河流把水送回海洋', { c: C.teal, t: 0.6 })],
+        body: ['Some rain runs over the ground into streams and rivers and back to the sea (surface runoff). Some soaks into the ground and is stored in rocks as groundwater, which flows slowly underground. Australia\'s Great Artesian Basin, under about a fifth of the country, is one of the largest stores.',
+          '一部分降水沿地表流入溪流和河流，最后回到海洋（地表径流）；一部分渗入地下（下渗），储存在岩层中成为地下水，在地下缓慢流动（地下径流）。澳大利亚的大自流盆地约占全国面积的五分之一，是世界上最大的地下水盆地之一。'],
+      },
+      {
+        title: ['Running short of water', '水资源短缺'], cam: [35, 45, 3.8], sketch: true,
+        paint: [{ fill: { k: 'band', s: 15, n: 35, c: C.orange }, a: 0.3 }],
+        marks: [mk([45, 60], 'Aral Sea: lost about 90% of its water', '咸海：水量减少了约 90%', { dot: true, c: C.red, t: 0.6 }), mk([25, 45], 'Dry lands', '干旱地区', { big: true, c: C.orange, t: 1.1 })],
+        fig: { k: 'bars', title: ['How the world uses fresh water (approx.)', '世界淡水的用途（约）'], unit: ['% of water taken', '占取水量的百分比'], rows: [
+          { name: ['Farming', '农业'], v: 70, c: C.green }, { name: ['Industry', '工业'], v: 19, c: C.violet }, { name: ['Homes and towns', '生活'], v: 11, c: C.blue }] },
+        body: ['Fresh water is spread very unevenly: some places flood while others are deserts. Growing populations and farming use more and more. When too much river water was taken to irrigate cotton, the Aral Sea in Central Asia shrank to a fraction of its size. Saving water matters everywhere.',
+          '淡水资源的分布很不均匀：有的地方洪水泛滥，有的地方却是沙漠。人口增长和农业灌溉用水越来越多。中亚的咸海因为河水被大量引去灌溉棉田，面积大大缩小。节约用水，人人有责。'],
+      },
+    ],
+    quiz: [
+      { q: ['About how much of Earth\'s water is salt water?', '地球上的水约有多少是咸水'], options: [['About 97%', '约 97%'], ['About 50%', '约 50%'], ['About 71%', '约 71%'], ['About 3%', '约 3%']], answer: 0,
+        why: ['Only about 3% is fresh water.', '淡水只占约 3%。'] },
+      { q: ['Most of the world\'s fresh water is…', '地球上的淡水大部分是'], options: [['ice in glaciers and ice sheets', '冰川和冰盖中的冰'], ['in rivers', '河流水'], ['in lakes', '湖泊水'], ['in the air', '大气中的水汽']], answer: 0,
+        why: ['About two-thirds of fresh water is frozen.', '约三分之二的淡水被冻结成冰。'] },
+      { q: ['What powers the water cycle?', '水循环的动力主要来自'], options: [['The Sun', '太阳能'], ['The Moon', '月球'], ['Earthquakes', '地震'], ['Volcanoes', '火山']], answer: 0,
+        fig: { k: 'dia', id: 'watercycle' }, why: ['Solar heat makes water evaporate.', '太阳的热量使水蒸发。'] },
+      { q: ['Find the Aral Sea, which has shrunk because of irrigation.', '在地球上点出因灌溉而大大萎缩的咸海。'], at: [45, 60], tolKm: 500,
+        why: ['It lies in Central Asia, between Kazakhstan and Uzbekistan.', '它位于中亚，在哈萨克斯坦和乌兹别克斯坦之间。'] },
+    ],
+  },
+  {
+    id: 'hazards', strand: 'physical', tracks: ['uk', 'us', 'ib', 'au'], unit: hazards, icon: 'volcano', minutes: 6,
+    title: ['Natural hazards', '自然灾害'],
+    blurb: ['Earthquakes, tsunamis, volcanoes and tropical storms: where they strike and how to be ready.', '地震、海啸、火山和台风：它们发生在哪里，我们怎样防范。'],
+    keys: [
+      ['Most earthquakes and volcanoes are on plate boundaries, especially the Pacific Ring of Fire.', '地震和火山大多分布在板块交界处，尤其是环太平洋地带。'],
+      ['Undersea earthquakes can set off tsunamis that cross whole oceans.', '海底地震可能引发横跨大洋的海啸。'],
+      ['Tropical cyclones (typhoons, hurricanes) form over warm tropical seas.', '热带气旋（台风、飓风）形成于温暖的热带洋面。'],
+      ['Warnings, strong buildings and drills save lives.', '预警、坚固的建筑和演练可以挽救生命。'],
+    ],
+    steps: [
+      {
+        title: ['Earthquakes', '地震'], cam: [30, 120, 4.4], tectonics: true,
+        marks: [mk([38.3, 142.4], 'Tōhoku, Japan 2011 · M9.0', '日本东北 2011 · 9.0 级', { dot: true, c: C.red, t: 0.4 }), mk([31, 103.4], 'Wenchuan, China 2008 · M8.0', '中国汶川 2008 · 8.0 级', { dot: true, c: C.red, t: 0.9 }),
+          mk([3.3, 95.9], 'Sumatra 2004 · M9.1', '苏门答腊 2004 · 9.1 级', { dot: true, c: C.red, t: 1.4 })],
+        fig: { k: 'bars', title: ['Deaths in three great disasters (approx.)', '三次大灾难的死亡和失踪人数（约）'], unit: ['people', '人'], rows: [
+          { name: ['2004 Indian Ocean', '2004 印度洋'], v: 230000, c: C.red }, { name: ['2008 Wenchuan', '2008 汶川'], v: 87000, c: C.orange }, { name: ['2011 Tōhoku', '2011 日本东北'], v: 18000, c: C.gold }] },
+        body: ['Plates do not slide smoothly: they lock, strain builds up, and then the rock snaps, sending shaking through the ground. The point where it breaks is the focus; the spot above it is the epicentre. Strength is measured by magnitude; each step up releases about 30 times more energy.',
+          '板块的运动并不顺畅：它们互相卡住，能量越积越多，岩层突然断裂，就发生了地震。岩层断裂的地方叫震源，正对着的地面叫震中。地震的大小用震级表示，每增加 1 级，释放的能量约增加 30 倍。'],
+      },
+      {
+        title: ['Tsunamis', '海啸'], cam: [5, 88, 3.8],
+        lines: arrows([[[3.3, 95.9], [7, 82]], [[3.3, 95.9], [-2, 82]], [[3.3, 95.9], [12, 92]], [[3.3, 95.9], [7, 99.5]], [[3.3, 95.9], [-6, 90]]], C.blue, 0.3, 2.2),
+        marks: [mk([3.3, 95.9], 'Epicentre 26 Dec 2004', '2004 年 12 月 26 日震中', { dot: true, c: C.red, t: 0.1 }), mk([7.9, 80.7], 'Sri Lanka', '斯里兰卡', { c: C.white, t: 1.8 }), mk([8, 98.3], 'Thailand', '泰国', { c: C.white, t: 1.4 })],
+        body: ['When an undersea earthquake jerks the sea floor up, it lifts the whole ocean above it. Waves race out as fast as a jet plane and grow tall in shallow water near the coast. The 2004 Indian Ocean tsunami struck 14 countries; the 2011 Tōhoku tsunami reached up to about 40 m high.',
+          '海底地震使海底突然抬升，把上面的海水整个顶起，形成海啸。海浪传播得像喷气式飞机一样快，到了近岸浅水区会骤然增高。2004 年印度洋海啸波及 14 个国家；2011 年日本东北海啸浪高最高约 40 米。'],
+      },
+      {
+        title: ['Volcanoes', '火山'], cam: [20, 20, 5.6], items: ['vo_vesuvius', 'vo_eyjafjallajokull', 'vo_kilauea', 'vo_sthelens', 'vo_pinatubo', 'vo_krakatoa'],
+        marks: [mk([40.8, 14.4], 'Vesuvius, AD 79: buried Pompeii', '维苏威，公元 79 年：掩埋庞贝', { dot: true, c: C.orange, t: 0.3 }), mk([63.6, -19.6], 'Eyjafjallajökull 2010: ash stopped flights', '埃亚菲亚德拉冰盖 2010：火山灰导致航班停飞', { dot: true, c: C.orange, t: 0.7 }),
+          mk([46.2, -122.2], 'Mount St Helens 1980', '圣海伦斯火山 1980', { dot: true, c: C.orange, t: 1.1 }), mk([19.4, -155.3], 'Kīlauea: lava flows', '基拉韦厄：熔岩流', { dot: true, c: C.orange, t: 1.5 }),
+          mk([15.1, 120.3], 'Pinatubo 1991: cooled the world', '皮纳图博 1991：使全球降温', { dot: true, c: C.orange, t: 1.9 }), mk([-6.1, 105.4], 'Krakatoa 1883', '喀拉喀托 1883', { dot: true, c: C.orange, t: 2.3 })],
+        body: ['Volcanoes erupt where magma reaches the surface. Some ooze runny lava, like Kīlauea in Hawaii; others explode with ash and gas, like Vesuvius, which buried Roman Pompeii. Pinatubo threw so much dust into the sky that the whole world cooled by about 0.5 °C for a year or two.',
+          '岩浆冲出地表，就形成火山喷发。有的火山缓缓流出稀薄的熔岩，比如夏威夷的基拉韦厄火山；有的则猛烈爆发，喷出火山灰和气体，比如掩埋了古罗马庞贝城的维苏威火山。皮纳图博火山喷入高空的尘埃，使全球气温在一两年内下降了约 0.5 °C。'],
+      },
+      {
+        title: ['The Ring of Fire', '环太平洋火山地震带'], cam: [15, -170, 5.2], tectonics: true, items: ['fuji', 'vo_pinatubo', 'vo_sthelens', 'vo_krakatoa'],
+        lines: [{ pts: RING_OF_FIRE, c: C.red, w: 2, dur: 3.2 }],
+        marks: [mk([10, -160], 'Ring of Fire', '环太平洋火山地震带', { big: true, c: C.red, t: 1.6 }), ...PLATES.filter(([, n]) => n[0] === 'Pacific Plate').map(([ll, text]) => mk(ll, text[0], text[1], { c: C.gold, t: 2.4 }))],
+        body: ['Around the edges of the Pacific Ocean, plates collide and one sinks beneath another. This horseshoe, about 40,000 km long, is the Ring of Fire: it has about three-quarters of the world\'s active volcanoes and most of its big earthquakes. Japan, Indonesia, the Philippines and Chile all lie on it.',
+          '在太平洋周围，板块相互碰撞，一个板块俯冲到另一个板块之下。这条长约 4 万千米的马蹄形地带就是环太平洋火山地震带，集中了世界约四分之三的活火山和大多数强烈地震。日本、印度尼西亚、菲律宾和智利都位于这一地带上。'],
+      },
+      {
+        title: ['Tropical cyclones', '热带气旋'], cam: [20, 140, 5], sketch: true,
+        paint: [{ fill: { k: 'band', s: 5, n: 25, c: C.orange }, a: 0.25 }, { fill: { k: 'band', s: -25, n: -5, c: C.orange }, a: 0.25 }],
+        lines: [
+          ...arrows([[[12, 150], [17, 135], [22, 125], [30, 128], [36, 136]]], C.red, 0.4, 2.2),
+          ...arrows([[[13, -40], [18, -60], [25, -78], [33, -78], [40, -68]]], C.red, 0.8, 2.2),
+          ...arrows([[[12, 88], [17, 88], [21.5, 90]]], C.red, 1.2, 2.2),
+          ...arrows([[[-12, 125], [-17, 118], [-24, 113]], [[-12, 75], [-18, 60], [-24, 54]]], C.red, 1.6, 2.2),
+        ],
+        marks: [mk([20, 140], 'Typhoons', '台风', { big: true, c: C.red, t: 0.8 }), mk([20, -55], 'Hurricanes', '飓风', { big: true, c: C.red, t: 1.2 }), mk([-16, 70], 'Cyclones', '气旋风暴', { big: true, c: C.red, t: 1.8 })],
+        body: ['Tropical cyclones are giant spinning storms that form over warm seas (above about 26 °C) between about 5° and 25° from the equator. They are called typhoons in the western Pacific, hurricanes in the Atlantic and cyclones in the Indian Ocean. Each summer and autumn, typhoons bring fierce winds and heavy rain to China\'s south-east coast.',
+          '热带气旋是在温暖洋面（水温约 26 °C 以上）、距赤道约 5° 至 25° 之间形成的巨大旋转风暴。在西北太平洋叫台风，在大西洋叫飓风，在印度洋叫气旋风暴。每年夏秋季节，台风给我国东南沿海带来狂风和暴雨。'],
+      },
+      {
+        title: ['Being prepared', '防灾减灾'], cam: [35, 125, 3.6],
+        marks: [mk([35.7, 139.7], 'Japan: earthquake drills every year', '日本：每年进行地震演练', { dot: true, c: C.green, t: 0.4 }), mk([39.9, 116.4], 'China: Disaster Prevention Day, 12 May', '中国：5 月 12 日防灾减灾日', { dot: true, c: C.green, t: 0.9 })],
+        fig: { k: 'key', set: 'custom', title: ['Earthquake safety', '地震避险'], items: [
+          { c: C.gold, name: ['Before: know safe spots and exits, practise drills', '平时：熟悉安全角落和疏散路线，参加演练'] },
+          { c: C.red, name: ['During: drop, cover under a table, hold on', '震时：蹲下，躲在桌下，护住头部'] },
+          { c: C.green, name: ['After: leave calmly, keep away from buildings; on a coast, go to high ground', '震后：有序撤离，远离建筑物；在海边要迅速转移到高处'] }] },
+        body: ['We cannot stop hazards, but we can stop them from becoming disasters. Scientists monitor volcanoes, satellites track typhoons, and tsunami warnings now cover the Indian Ocean. Strong buildings, clear escape routes and practice drills save many lives.',
+          '自然灾害无法阻止，但可以减少它造成的损失。科学家监测火山，卫星追踪台风，印度洋也已建立了海啸预警系统。坚固的建筑、畅通的疏散通道和经常性的演练，能挽救许多生命。'],
+      },
+    ],
+    quiz: [
+      { q: ['Why does Japan have so many earthquakes and volcanoes?', '日本多火山和地震的原因是'], options: [['It is on the Ring of Fire, where plates meet', '位于环太平洋火山地震带，板块交界处'], ['It is close to the equator', '靠近赤道'], ['It has many rivers', '河流众多'], ['It has a cold climate', '气候寒冷']], answer: 0,
+        why: ['Several plates meet under Japan.', '日本位于几个板块的交界处。'] },
+      { q: ['A tsunami is usually caused by…', '海啸通常是由什么引起的'], options: [['an undersea earthquake', '海底地震'], ['a strong wind', '大风'], ['the Moon\'s pull', '月球引力'], ['heavy rain', '暴雨']], answer: 0,
+        why: ['The quake lifts the sea floor and the water above it.', '地震使海底抬升，把上面的海水顶起。'] },
+      { q: ['In the western Pacific, a tropical cyclone is called a…', '在西北太平洋，热带气旋被称为'], options: [['Typhoon', '台风'], ['Hurricane', '飓风'], ['Tornado', '龙卷风'], ['Monsoon', '季风']], answer: 0,
+        why: ['In the Atlantic it would be a hurricane.', '在大西洋叫飓风。'] },
+      { q: ['During an earthquake indoors, you should…', '在室内遇到地震时应该'], options: [['drop, take cover under a table and hold on', '蹲下，躲到桌子下面，护住头部'], ['take the lift', '乘电梯逃生'], ['jump out of the window', '跳窗逃生'], ['stand by a glass window', '站在玻璃窗边']], answer: 0,
+        why: ['Cover protects you from falling objects.', '躲避可以防止被掉落的物体砸伤。'] },
+      { q: ['Find Mount Pinatubo, which erupted in 1991.', '在地球上点出 1991 年喷发的皮纳图博火山。'], at: [15.1, 120.3], tolKm: 500,
+        why: ['It is on Luzon in the Philippines, on the Ring of Fire.', '它位于菲律宾吕宋岛，在环太平洋火山地震带上。'] },
+    ],
+  },
+];

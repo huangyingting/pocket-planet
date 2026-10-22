@@ -11,6 +11,7 @@ import { tracePath, type CountryInfo } from '../globe/painter.ts';
 import { latLonToVec } from '../../shared/lib/geo.ts';
 import { subsolar } from '../../shared/lib/sun.ts';
 import type { Continent } from '../../shared/data/iso.ts';
+import { BIOMES, CLIMATES, biomeOf, climateAt, coastDistances, type Biome, type Climate } from './climate.ts';
 
 export type LL = [lat: number, lon: number];
 export type Pair = readonly [en: string, zh: string];
@@ -29,7 +30,11 @@ export type Fill =
   /** the four oceans of the Chinese textbook, in their own colours */
   | { k: 'oceans'; only?: Ocean[] }
   /** an illustrative surface temperature map for the lesson clock's date */
-  | { k: 'temp' };
+  | { k: 'temp' }
+  /** the schematic world climate map (types as in the textbook) */
+  | { k: 'climate'; only?: Climate[] }
+  /** natural vegetation zones (biomes), following the climate map */
+  | { k: 'biome'; only?: Biome[] };
 export interface Paint { fill: Fill; /** reveal time (s) */ t?: number; /** opacity */ a?: number }
 export interface Line {
   pts: LL[]; c: string; t?: number; /** draw-in seconds */ dur?: number; closed?: boolean;
@@ -121,6 +126,13 @@ function tempColour(T: number): [number, number, number] {
 
 // ---------- land mask (shared by the oceans and temperature fills) ----------
 let maskCache: { W: number; data: Uint8Array; sea: Uint8Array } | null = null;
+let coastCache: { W: number; dw: Float32Array; de: Float32Array } | null = null;
+function coasts(countries: readonly CountryInfo[], W: number): { dw: Float32Array; de: Float32Array } {
+  if (coastCache?.W === W) return coastCache;
+  coastCache = { W, ...coastDistances(landMask(countries, W).data, W) };
+  return coastCache;
+}
+const hexRgb = (v: string): [number, number, number] => [parseInt(v.slice(1, 3), 16), parseInt(v.slice(3, 5), 16), parseInt(v.slice(5, 7), 16)];
 function landMask(countries: readonly CountryInfo[], W: number): { data: Uint8Array; sea: Uint8Array } {
   if (maskCache?.W === W) return maskCache;
   const H = W / 2;
@@ -454,7 +466,7 @@ export class LessonStage {
         }
         break;
       }
-      case 'oceans': case 'temp': {
+      case 'oceans': case 'temp': case 'climate': case 'biome': {
         // per-pixel fills are computed on a coarser grid and scaled up smoothly
         const w = Math.min(512, W / 2), hh = w / 2;
         const { data, sea } = landMask(countries, w);
@@ -462,7 +474,12 @@ export class LessonStage {
         const sunLat = this.sunLat;
         const only = f.k === 'oceans' && f.only ? new Set(f.only) : null;
         const rgb = {} as Record<Ocean, [number, number, number]>;
-        for (const [k, v] of Object.entries(OCEAN_COLORS) as [Ocean, string][]) rgb[k] = [parseInt(v.slice(1, 3), 16), parseInt(v.slice(3, 5), 16), parseInt(v.slice(5, 7), 16)];
+        for (const [k, v] of Object.entries(OCEAN_COLORS) as [Ocean, string][]) rgb[k] = hexRgb(v);
+        const zoned = f.k === 'climate' || f.k === 'biome';
+        const cd = zoned ? coasts(countries, w) : null;
+        const pick = zoned && f.only ? new Set<string>(f.only) : null;
+        const pal = new Map<string, [number, number, number]>();
+        for (const [k, v] of Object.entries(f.k === 'biome' ? BIOMES : CLIMATES)) pal.set(k, hexRgb(v.c));
         for (let y = 0; y < hh; y++) {
           const lat = 90 - ((y + 0.5) / hh) * 180;
           for (let x = 0; x < w; x++) {
@@ -470,6 +487,12 @@ export class LessonStage {
             let c: [number, number, number] | null = null;
             if (f.k === 'oceans') {
               if (sea[i]) { const o = oceanAt(lat, lon); if (!only || only.has(o)) c = rgb[o]; }
+            } else if (cd) {
+              if (data[i]) {
+                const cl = climateAt(lat, lon, cd.dw[i], cd.de[i]);
+                const z = f.k === 'biome' ? biomeOf(cl, lat, lon, cd.dw[i], cd.de[i]) : cl;
+                if (!pick || pick.has(z)) c = pal.get(z)!;
+              }
             } else c = tempColour(tempAt(lat, lon, !!data[i], sunLat));
             if (c) img.data.set([c[0], c[1], c[2], 255], i * 4);
           }

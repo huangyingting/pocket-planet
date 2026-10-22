@@ -4,6 +4,7 @@
  * stays live, so the user can turn it, zoom in and open the models while a lesson runs.
  */
 import { h, openModal, closeModal, confetti, toast } from '../ui/dom.ts';
+import { Select } from '../ui/select.ts';
 import { icon } from '../ui/icons.ts';
 import { t, lang, onLang } from '../lib/i18n.ts';
 import { load, save } from '../lib/storage.ts';
@@ -12,7 +13,8 @@ import { haversineKm } from '../../shared/lib/geo.ts';
 import { skyEvents } from '../../shared/lib/astro/events.ts';
 import type { Globe } from '../globe/scene.ts';
 import { LessonStage } from './stage.ts';
-import { GRADES, LESSONS, lessonById, type Lesson, type Quiz } from './data.ts';
+import { VIEWS, course, lessonById, nextLesson, type Lesson, type Quiz, type View } from './data.ts';
+import { renderFig, type Fig } from './figs.ts';
 import type { LL, Pair } from './kit.ts';
 
 const L = (p: Pair) => (lang() === 'zh' ? p[1] : p[0]);
@@ -30,6 +32,9 @@ export interface LessonHost {
 }
 
 const done = () => new Set(load<string[]>('lessonsDone', []));
+/** The curriculum picked in the lesson list; Chinese readers start with the Chinese textbook. */
+const view = (): View => { const v = load<string>('lessonTrack', ''); return v in VIEWS ? v as View : lang() === 'zh' ? 'cn' : 'all'; };
+const figure = (f: Fig | undefined) => f ? h('figure', { class: 'lesson-fig', 'data-testid': 'lesson-fig', html: renderFig(f, L) }) : '';
 
 let active: { stop: () => void } | null = null;
 export const lessoning = () => active !== null;
@@ -97,6 +102,7 @@ function run(lesson: Lesson, host: LessonHost): void {
       h('h2', { id: 'lesson-title' }, L(st.title)),
       st.sketch ? h('p', { class: 'tour-track tour-sketch', 'data-testid': 'lesson-sketch', html: icon('sparkle', 14) }, h('span', {}, t('lessonSketch'))) : '',
       h('p', { class: 'tour-body', 'aria-live': 'polite' }, L(st.body)),
+      figure(st.fig),
       clockRow(),
       st.sky ? h('button', { class: 'pill pill-sm lesson-sky', 'data-testid': 'lesson-sky', html: icon('telescope', 14), onclick: () => host.sky(nextSolstice()) }, h('span', {}, t('lessonSky'))) : '',
       h('div', { class: 'dots', 'aria-hidden': 'true' }, ...steps.map((_, j) => h('span', { class: j === i ? 'on' : '' }))),
@@ -119,20 +125,24 @@ function run(lesson: Lesson, host: LessonHost): void {
       head(t('lessonQuiz')),
       h('p', { class: 'tour-when' }, t('lessonQ', { i: k + 1, n: quiz.length })),
       h('h2', { id: 'lesson-title' }, L(q.q)),
+      figure(q.fig),
       body, why,
       nav(() => go(i - 1), () => go(i + 1), k === quiz.length - 1 ? t('tourFinish') : t('next'), ans === null));
   };
 
   const renderScore = () => {
     const s = answers.filter(Boolean).length;
+    const v = view(), nx = nextLesson(lesson.id, v) ?? (v === 'all' ? undefined : nextLesson(lesson.id, 'all'));
     card.replaceChildren(
       head(t('lessonQuiz')),
       h('h2', { id: 'lesson-title', 'data-testid': 'lesson-score' }, t('lessonScore', { s, n: quiz.length })),
-      h('p', { class: 'tour-body' }, L(lesson.blurb)),
+      h('p', { class: 'lesson-keys-h' }, t('lessonKeys')),
+      h('ul', { class: 'lesson-keys', 'data-testid': 'lesson-keys' }, ...lesson.keys.map(k => h('li', {}, L(k)))),
       h('div', { class: 'row' },
         h('button', { class: 'pill', 'data-testid': 'lesson-more', onclick: () => { stop(); openLessons(host); } }, t('lessonMore')),
         h('button', { class: 'pill', 'data-testid': 'lesson-again', onclick: () => { answers.fill(null); go(0); } }, t('lessonAgain')),
-        h('button', { class: 'cta', 'data-testid': 'lesson-done', onclick: () => stop() }, t('tourFinish'))));
+        nx ? h('button', { class: 'cta', 'data-testid': 'lesson-nextlesson', title: L(nx.title), onclick: () => { stop(); startLesson(nx.id, host); } }, t('lessonNextOne'))
+          : h('button', { class: 'cta', 'data-testid': 'lesson-done', onclick: () => stop() }, t('tourFinish'))));
   };
 
   const render = () => (i < steps.length ? renderStep() : i < steps.length + quiz.length ? renderQuiz() : renderScore());
@@ -174,7 +184,7 @@ function run(lesson: Lesson, host: LessonHost): void {
       listen(i - steps.length);
     } else finish();
     render();
-    (card.querySelector('[data-testid="lesson-next"]:not([disabled]), .lesson-opt:not([disabled]), [data-testid="lesson-done"]') as HTMLElement | null)?.focus({ preventScroll: true });
+    (card.querySelector('[data-testid="lesson-next"]:not([disabled]), .lesson-opt:not([disabled]), [data-testid="lesson-done"], [data-testid="lesson-nextlesson"]') as HTMLElement | null)?.focus({ preventScroll: true });
   };
 
   const finish = () => {
@@ -217,22 +227,30 @@ function nextSolstice(): string | undefined {
   return skyEvents(now, now + 400 * DAY, { kinds: ['solstice'] })[0]?.id;
 }
 
-/** The lesson picker, by textbook volume. */
+/** The lesson picker: pick a curriculum, then its lessons in groups (textbook volumes, or themes). */
 export function openLessons(host: LessonHost): void {
   const seen = done();
-  const groups = (Object.keys(GRADES) as (keyof typeof GRADES)[]).map(gr => {
-    const list = LESSONS.filter(x => x.grade === gr);
-    return h('section', { class: 'lesson-group' },
-      h('h3', { class: 'lesson-grade' }, L(GRADES[gr])),
-      ...list.map(x => h('div', { class: 'tour-row' },
+  const list = h('div', { class: 'tour-list lesson-list', 'data-testid': 'lesson-list' });
+  const note = h('p', { class: 'muted small' });
+  const fill = (v: View) => {
+    note.textContent = L(VIEWS[v].note);
+    const groups = course(v).map(gr => h('section', { class: 'lesson-group' },
+      h('h3', { class: 'lesson-grade' }, h('span', {}, L(gr.name)), h('small', {}, `${gr.lessons.filter(x => seen.has(x.id)).length}/${gr.lessons.length}`)),
+      ...gr.lessons.map(x => h('div', { class: 'tour-row' },
         h('button', { class: 'tour-pick', 'data-testid': 'lesson-' + x.id, onclick: () => { closeModal('lessons'); startLesson(x.id, host); } },
           h('span', { class: 'tile', html: icon(x.icon, 22) }),
           h('span', { class: 'grow' }, h('strong', {}, L(x.title)), h('span', { class: 'muted small' }, `${L(x.unit)} · ${L(x.blurb)}`)),
           h('span', { class: 'meta' }, (seen.has(x.id) ? '✓ ' : '') + t('minutesN', { n: x.minutes }))),
         h('button', { class: 'icon-btn tour-link', 'aria-label': t('classLink'), title: t('classLink'), html: icon('share', 16),
-          onclick: () => void copyLink(classroomLink(x.id, 'lesson')) }))));
-  });
-  openModal('lessons', t('lessons'), h('div', { class: 'tour-list lesson-list', 'data-testid': 'lesson-list' }, h('p', { class: 'muted' }, t('lessonsIntro')), ...groups));
+          onclick: () => void copyLink(classroomLink(x.id, 'lesson')) })))));
+    list.replaceChildren(...groups);
+  };
+  const sel = new Select({ label: t('lessonTrack'), testid: 'lesson-track', icon: 'book', value: view(),
+    options: (Object.keys(VIEWS) as View[]).map(v => ({ value: v, label: L(VIEWS[v].name) })),
+    onChange: v => { save('lessonTrack', v); fill(v as View); } });
+  fill(view());
+  openModal('lessons', t('lessons'), h('div', { class: 'lesson-pickwrap' }, h('p', { class: 'muted' }, t('lessonsIntro')),
+    h('div', { class: 'lesson-track' }, sel.el, note), list));
 }
 
 async function copyLink(link: string): Promise<void> {

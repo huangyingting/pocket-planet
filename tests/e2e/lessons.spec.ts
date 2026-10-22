@@ -11,10 +11,20 @@ test('geography class: pick a lesson, watch the steps, answer the quiz, leave cl
   page.on('pageerror', e => errors.push(e.message));
   await openApp(page);
 
-  // the picker, from the menu, grouped by textbook volume
+  // the picker, from the menu: all topics by theme, or one curriculum (the Chinese one by textbook volume)
   await fromHub(page, 'learn', 'menu-lessons');
   await expect(page.getByTestId('lesson-list')).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('.lesson-grade')).toHaveCount(3);
+  await expect(page.locator('.lesson-grade')).toHaveCount(6);
+  await page.getByTestId('lesson-track').click();
+  await page.getByRole('option', { name: /China/ }).click();
+  await expect(page.locator('.lesson-grade')).toHaveCount(4);
+  await expect(page.getByTestId('lesson-usa')).toBeVisible();
+  await page.getByTestId('lesson-track').click();
+  await page.getByRole('option', { name: /England/ }).click();
+  await expect(page.getByTestId('lesson-usa')).toHaveCount(0);
+  await expect(page.getByTestId('lesson-rivers')).toBeVisible();
+  await page.getByTestId('lesson-track').click();
+  await page.getByRole('option', { name: /All topics/ }).click();
   await page.getByTestId('lesson-zones').click();
 
   const card = page.getByTestId('lesson');
@@ -46,7 +56,10 @@ test('geography class: pick a lesson, watch the steps, answer the quiz, leave cl
     await card.getByTestId('lesson-next').click();
   }
   await expect(card.getByTestId('lesson-score')).toContainText('3');
-  await card.getByTestId('lesson-done').click();
+  // the score card sums up the lesson and offers the next one in the course
+  await expect(card.getByTestId('lesson-keys').locator('li')).toHaveCount(3);
+  await expect(card.getByTestId('lesson-nextlesson')).toBeVisible();
+  await card.getByTestId('lesson-exit').click();
   await expect(card).toHaveCount(0);
   // everything the lesson switched on is put back
   expect(await lesson(page)).toBeNull();
@@ -71,5 +84,12 @@ test('geography class: pick a lesson, watch the steps, answer the quiz, leave cl
   await page.evaluate(() => { location.hash = 'solar'; });
   await expect(card).toHaveCount(0, { timeout: 30_000 });
   expect(await lesson(page)).toBeNull();
+  // lessons carry charts and diagrams: a climate graph draws in the card
+  await page.evaluate(() => { location.hash = 'lesson/climates'; });
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  for (let i = 0; i < 4 && !(await card.getByTestId('lesson-fig').count()); i++) await card.getByTestId('lesson-next').click();
+  await expect(card.getByTestId('lesson-fig').locator('svg, .fig-key').first()).toBeVisible();
+  await page.screenshot({ path: info.outputPath('climates-fig.png') });
+  await card.getByTestId('lesson-exit').click();
   expect(errors).toEqual([]);
 });

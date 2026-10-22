@@ -1,0 +1,511 @@
+/** 八上 · 从世界看中国、中国的自然资源、中国的经济发展; 八下 · 北方、南方、西北和青藏地区. */
+import { C, arrows, mk, par, type Lesson, type LL } from './kit.ts';
+import { QINLING_HUAIHE, REGIONS, RIVERS } from './geo.ts';
+
+const land = ['China\'s land and people', '从世界看中国'] as const;
+const regions = ['Regions of China', '中国的地理差异与区域'] as const;
+const CN = ['CN', 'TW'];
+const NEIGHBOURS = ['KP', 'RU', 'MN', 'KZ', 'KG', 'TJ', 'AF', 'PK', 'IN', 'NP', 'BT', 'MM', 'LA', 'VN'];
+
+/** Hu Huanyong line: Heihe (Heilongjiang) to Tengchong (Yunnan). */
+const HU_LINE: LL[] = [[50.25, 127.5], [25.02, 98.5]];
+const HU_EAST: LL[] = [[54, 122], [54, 136], [17, 125], [17, 98], [25.02, 98.5], [50.25, 127.5], [53.5, 125]];
+/** South–North Water Diversion, sketched. */
+const SNWD_EAST: LL[] = [[32.4, 119.4], [33.6, 119.0], [34.5, 118.0], [35.4, 116.6], [36.3, 116.2], [37.4, 116.3], [38.5, 116.8], [39.1, 117.2]];
+const SNWD_EAST_SD: LL[] = [[36.3, 116.2], [36.7, 117.6], [37.2, 119.3], [37.4, 121.0], [37.5, 122.1]];
+const SNWD_MIDDLE: LL[] = [[32.6, 111.5], [33.0, 112.5], [34.0, 113.3], [34.8, 113.6], [36.1, 114.3], [38.0, 114.5], [38.9, 115.5], [39.9, 116.4]];
+const SNWD_WEST: LL[] = [[32.6, 98.0], [33.3, 99.2], [33.9, 100.6], [34.6, 101.0]];
+/** Roughly the 400 mm rainfall line: farming to the east, herding to the west. */
+const FARM_PASTURE: LL[] = [[51, 122.5], [47, 120.5], [43, 117.5], [41, 114], [39.5, 110], [37.5, 106], [36, 103.5], [34, 101], [32, 98], [30.5, 94], [29, 90.5], [28.5, 87]];
+/** The four regions (clipped to China when painted). */
+const NORTH: LL[] = [[54, 122.5], [54, 136], [42, 136], [38, 124], [34.0, 120.3], ...[...QINLING_HUAIHE].reverse(), [36.5, 103.0], [38.0, 105.5], [39.5, 106.5], [41.0, 109.5], [41.5, 113.5], [43.5, 118.0], [47.5, 120.0], [51.5, 122.5]];
+const SOUTH: LL[] = [...QINLING_HUAIHE, [34, 124], [17, 124], [17, 97], [24.5, 97.5], [27.5, 98.7], [28.5, 99.8], [30.0, 102.2], [32.5, 103.5]];
+const NORTHWEST: LL[] = [[50, 73], [50, 122.5], [47.5, 120.0], [43.5, 118.0], [41.5, 113.5], [41.0, 109.5], [39.5, 106.5], [38.0, 105.5], [37.5, 101.5], [38.5, 98.5], [37.5, 96.0], [36.3, 92], [36.3, 88], [35.8, 84], [36.0, 80], [36.0, 76.5], [37.5, 73]];
+const NE_PLAIN: LL[] = [[49, 125], [47.5, 127.5], [46.5, 130.5], [47.8, 133.8], [46, 133], [44.5, 129], [43.5, 126.5], [42.5, 124.5], [41, 122.5], [41.6, 121.4], [43.5, 122.3], [45.5, 123.3], [47.5, 123.8]];
+const LOESS: LL[] = [[39.5, 104], [40, 111], [38.5, 113.5], [36.5, 113], [34.6, 111], [34.5, 104.5], [36.5, 102.5]];
+const YRD: LL[] = [[32.6, 119.3], [32.3, 121.0], [31.8, 121.9], [30.8, 122.0], [30.2, 121.3], [29.9, 120.2], [30.6, 119.4], [31.6, 119.2]];
+const PRD: LL[] = [[23.5, 113.0], [23.3, 114.1], [22.6, 114.4], [22.1, 113.6], [22.2, 112.8], [22.9, 112.5]];
+const SANJIANGYUAN: LL[] = [[35.5, 90.5], [35.8, 97], [35.2, 101.5], [33, 101.8], [32, 98.5], [32.5, 94], [33, 90.5]];
+const TARIM_RIVER: LL[] = [[41.2, 80.3], [41.0, 82.5], [41.2, 84.5], [40.9, 86.5], [40.2, 87.8], [39.5, 88.3]];
+const QT_RAILWAY: LL[] = [[36.6, 101.8], [36.9, 99.0], [36.4, 94.9], [35.6, 94.0], [34.2, 92.9], [32.9, 91.9], [31.5, 92.05], [30.5, 91.3], [29.65, 91.1]];
+const BJ_SH: LL[] = [[39.9, 116.4], [39.1, 117.2], [36.65, 117.0], [34.25, 117.2], [32.05, 118.8], [31.2, 121.45]];
+const BJ_GZ: LL[] = [[39.9, 116.4], [38.0, 114.5], [34.75, 113.65], [30.6, 114.3], [28.2, 113.0], [23.13, 113.26]];
+
+export const CHINA_B: Lesson[] = [
+  {
+    id: 'china-place', strand: 'china', tracks: ['us', 'ib'], grade: 'g8a', unit: land, icon: 'flag', minutes: 6,
+    title: ['China\'s territory and divisions', '疆域与行政区划'],
+    blurb: ['Where China is, how big it is, its neighbours, seas and 34 provincial-level divisions.', '我国的位置、面积、邻国、海域和 34 个省级行政区。'],
+    keys: [
+      ['China is in the east of Asia, on the west coast of the Pacific, mostly in the mid-latitudes.', '我国位于亚洲东部、太平洋西岸，大部分位于中纬度地区。'],
+      ['Its land area is about 9.6 million km², third in the world.', '陆地面积约 960 万平方千米，居世界第三位。'],
+      ['It has 14 land neighbours and borders the Bohai, Yellow, East China and South China seas.', '陆上邻国有 14 个，濒临渤海、黄海、东海和南海。'],
+      ['There are 34 provincial-level divisions, each with a short name and a capital.', '全国共有 34 个省级行政区，各有简称和行政中心。'],
+    ],
+    steps: [
+      {
+        title: ['Where in the world?', '从世界看中国的位置'], cam: [28, 108, 4.6],
+        paint: [{ fill: { k: 'band', s: 23.44, n: 66.56, c: C.green }, a: 0.14 }, { fill: { k: 'land', a2: CN, c: C.red }, t: 0.6, a: 0.55 }],
+        lines: [par(0, C.white, 0.2, { w: 1.2 }), par(23.44, C.gold, 0.6, { w: 1.2 }), par(66.56, C.ice, 1, { w: 1.2 })],
+        marks: [mk([10, 150], 'Pacific Ocean', '太平洋', { big: true, c: C.blue, t: 1.4 }), mk([45, 85], 'Asia', '亚洲', { big: true, c: C.gold, t: 1.8 }), mk([23.44, 135], 'Tropic of Cancer', '北回归线', { c: C.gold, t: 0.8 }), mk([45, 140], 'North temperate zone', '北温带', { c: C.green, t: 2.2 })],
+        body: ['China lies in both the Northern and the Eastern Hemispheres. It is in the east of Asia, on the west coast of the Pacific Ocean, so it has both a big land area and a long coast. Most of China is in the mid-latitudes and the north temperate zone; a small part in the south is in the tropics, and none is in the frigid zone.',
+          '我国位于北半球和东半球，地处亚洲东部、太平洋西岸，是一个海陆兼备的国家。我国大部分位于中纬度地区，属于北温带，南部少数地区位于热带，没有寒带。'],
+      },
+      {
+        title: ['A big country', '辽阔的疆域'], cam: [42, 105, 5],
+        paint: [{ fill: { k: 'land', a2: ['RU'], c: C.violet }, a: 0.4 }, { fill: { k: 'land', a2: ['CA'], c: C.teal }, a: 0.4, t: 0.4 }, { fill: { k: 'land', a2: CN, c: C.red }, a: 0.6, t: 0.8 }],
+        fig: { k: 'bars', title: ['Largest countries by area (approx.)', '面积最大的国家（约）'], unit: ['million km²', '百万平方千米'], rows: [
+          { name: ['Russia', '俄罗斯'], v: 17.1, c: C.violet }, { name: ['Canada', '加拿大'], v: 10.0, c: C.teal }, { name: ['China', '中国'], v: 9.6, c: C.red }, { name: ['USA', '美国'], v: 9.4, c: C.blue }, { name: ['Brazil', '巴西'], v: 8.5, c: C.green }] },
+        body: ['China\'s land area is about 9.6 million km², the third largest in the world after Russia and Canada, and almost as big as the whole of Europe. It also has about 3 million km² of seas under its jurisdiction.',
+          '我国陆地面积约 960 万平方千米，仅次于俄罗斯和加拿大，居世界第三位，与整个欧洲的面积差不多。此外，我国还有约 300 万平方千米的管辖海域。'],
+      },
+      {
+        title: ['From end to end', '四至点'], cam: [33, 105, 4],
+        paint: [{ fill: { k: 'land', a2: CN, c: C.red }, a: 0.3 }],
+        lines: [{ pts: [[53.5, 122.4], [4, 112.3]], c: C.gold, w: 1.4, dur: 2, t: 0.6 }, { pts: [[39.2, 73.5], [48.4, 135.0]], c: C.orange, w: 1.4, dur: 2, t: 2.2 }],
+        marks: [mk([53.5, 122.4], 'North: Mohe, Heilongjiang', '最北：黑龙江省漠河以北', { dot: true, c: C.ice, t: 0.2 }), mk([4, 112.3], 'South: Zengmu Ansha', '最南：曾母暗沙', { dot: true, c: C.green, t: 1.2 }), mk([39.2, 73.5], 'West: Pamirs', '最西：帕米尔高原', { dot: true, c: C.brown, t: 2 }), mk([48.4, 135.0], 'East: Heilong–Wusuli confluence', '最东：黑龙江与乌苏里江主航道汇合处', { dot: true, c: C.orange, t: 2.8 })],
+        body: ['China\'s northern tip is on the Heilong River north of Mohe; its southern tip is Zengmu Ansha in the South China Sea. It runs about 5,500 km north to south and 5,000 km west to east, from the Pamirs to where the Heilong and Wusuli rivers meet. When the Sun rises over the Wusuli River, it is still deep night in the Pamirs, about 4 hours behind.',
+          '我国最北端在漠河以北的黑龙江主航道中心线上，最南端是南海的曾母暗沙，南北相距约 5500 千米；最西端在帕米尔高原，最东端在黑龙江与乌苏里江主航道中心线的相交处，东西相距约 5000 千米。乌苏里江上旭日东升时，帕米尔高原上还是满天星斗，时间相差 4 小时左右。'],
+      },
+      {
+        title: ['Neighbours on land and sea', '邻国和海域'], cam: [32, 108, 4.4],
+        paint: [{ fill: { k: 'land', a2: NEIGHBOURS, c: C.orange }, a: 0.4 }, { fill: { k: 'land', a2: CN, c: C.red }, a: 0.55, t: 0.4 }, { fill: { k: 'land', a2: ['KR', 'JP', 'PH', 'MY', 'BN', 'ID'], c: C.teal }, a: 0.35, t: 2.2 }],
+        marks: [mk([38.7, 120.2], 'Bohai Sea (inland sea)', '渤海（内海）', { c: C.blue, t: 1 }), mk([35.5, 123.2], 'Yellow Sea', '黄海', { c: C.gold, t: 1.3 }), mk([29.5, 125.5], 'East China Sea', '东海', { c: C.teal, t: 1.6 }), mk([15, 114], 'South China Sea', '南海', { big: true, c: C.blue, t: 1.9 }), mk([23.7, 121], 'Taiwan Island', '台湾岛', { c: C.red, t: 2.4 }), mk([19.2, 109.7], 'Hainan Island', '海南岛', { c: C.red, t: 2.6 })],
+        body: ['China\'s land border is over 22,000 km long, with 14 neighbours: North Korea, Russia, Mongolia, Kazakhstan, Kyrgyzstan, Tajikistan, Afghanistan, Pakistan, India, Nepal, Bhutan, Myanmar, Laos and Vietnam. From north to south its seas are the Bohai, Yellow, East China and South China seas; across the sea lie South Korea, Japan, the Philippines, Malaysia, Brunei and Indonesia. Taiwan Island is China\'s largest island and Hainan the second.',
+          '我国陆地边界长 2 万多千米，与 14 个国家相邻：朝鲜、俄罗斯、蒙古、哈萨克斯坦、吉尔吉斯斯坦、塔吉克斯坦、阿富汗、巴基斯坦、印度、尼泊尔、不丹、缅甸、老挝、越南。我国濒临的海从北到南依次是渤海、黄海、东海和南海，隔海相望的国家有韩国、日本、菲律宾、马来西亚、文莱和印度尼西亚。台湾岛是我国第一大岛，海南岛是第二大岛。'],
+      },
+      {
+        title: ['34 provincial-level divisions', '34 个省级行政区'], cam: [32, 108, 3.6],
+        paint: [{ fill: { k: 'land', a2: CN, c: C.white }, a: 0.2 }],
+        marks: [mk([39.9, 116.4], 'Beijing (Jing) · capital', '北京（京）· 首都', { dot: true, c: C.red, big: true, t: 0.2 }), mk([31.2, 121.5], 'Shanghai (Hu)', '上海（沪）', { dot: true, c: C.gold, t: 0.6 }),
+          mk([23.1, 113.3], 'Guangdong (Yue) · Guangzhou', '广东（粤）· 广州', { dot: true, c: C.gold, t: 0.9 }), mk([30.7, 104.1], 'Sichuan (Chuan/Shu) · Chengdu', '四川（川或蜀）· 成都', { dot: true, c: C.gold, t: 1.2 }),
+          mk([43.8, 87.6], 'Xinjiang (Xin) · Ürümqi', '新疆（新）· 乌鲁木齐', { dot: true, c: C.gold, t: 1.5 }), mk([29.65, 91.1], 'Xizang (Zang) · Lhasa', '西藏（藏）· 拉萨', { dot: true, c: C.gold, t: 1.8 }),
+          mk([45.8, 126.6], 'Heilongjiang (Hei) · Harbin', '黑龙江（黑）· 哈尔滨', { dot: true, c: C.gold, t: 2.1 }), mk([36.65, 117.0], 'Shandong (Lu) · Jinan', '山东（鲁）· 济南', { dot: true, c: C.gold, t: 2.4 }),
+          mk([22.3, 114.2], 'Hong Kong (Gang)', '香港（港）', { dot: true, c: C.pink, t: 2.7 }), mk([25.03, 121.56], 'Taiwan (Tai) · Taipei', '台湾（台）· 台北', { dot: true, c: C.gold, t: 3 })],
+        fig: { k: 'pie', title: ['The 34 provincial-level divisions', '34 个省级行政区'], parts: [
+          { name: ['Provinces', '省'], v: 23, c: C.blue }, { name: ['Autonomous regions', '自治区'], v: 5, c: C.green }, { name: ['Municipalities', '直辖市'], v: 4, c: C.gold }, { name: ['Special admin. regions', '特别行政区'], v: 2, c: C.pink }] },
+        body: ['China is divided into provinces, counties and townships. At the top level there are 34 divisions: 23 provinces, 5 autonomous regions, 4 municipalities and 2 special administrative regions. Each has a short name, like Yue for Guangdong or Lu for Shandong. Beijing is the capital.',
+          '我国的行政区划基本上分为省级、县级和乡级三级。全国共有 34 个省级行政区，包括 23 个省、5 个自治区、4 个直辖市和 2 个特别行政区。各省级行政区都有简称，如广东简称粤、山东简称鲁。北京是我国的首都。'],
+      },
+    ],
+    quiz: [
+      { q: ['China\'s land area is about…', '我国陆地面积约为'], options: [['9.6 million km²', '960 万平方千米'], ['3 million km²', '300 万平方千米'], ['17 million km²', '1700 万平方千米'], ['6 million km²', '600 万平方千米']], answer: 0,
+        why: ['Third in the world, after Russia and Canada.', '居世界第三位，仅次于俄罗斯和加拿大。'] },
+      { q: ['China\'s southernmost point is…', '我国领土的最南端是'], options: [['Zengmu Ansha', '曾母暗沙'], ['Hainan Island', '海南岛'], ['Mohe', '漠河'], ['The Pamirs', '帕米尔高原']], answer: 0,
+        why: ['Zengmu Ansha is in the South China Sea, near 4°N.', '曾母暗沙位于南海，约北纬 4°。'] },
+      { q: ['Which sea is China\'s inland sea?', '我国的内海是'], options: [['The Bohai Sea', '渤海'], ['The Yellow Sea', '黄海'], ['The East China Sea', '东海'], ['The South China Sea', '南海']], answer: 0,
+        why: ['The Bohai is almost enclosed by Liaoning and Shandong.', '渤海几乎被辽东半岛和山东半岛环抱。'] },
+      { q: ['How many provincial-level divisions does China have?', '我国共有多少个省级行政区？'], options: [['34', '34 个'], ['23', '23 个'], ['31', '31 个'], ['56', '56 个']], answer: 0,
+        why: ['23 provinces, 5 autonomous regions, 4 municipalities and 2 SARs.', '23 个省、5 个自治区、4 个直辖市和 2 个特别行政区。'] },
+      { q: ['Find China\'s easternmost point.', '在地球上点出我国领土的最东端。'], at: [48.4, 135.0], tolKm: 400,
+        why: ['Where the Heilong and Wusuli rivers meet, near 135°E.', '在黑龙江与乌苏里江主航道汇合处，约东经 135°。'] },
+    ],
+  },
+  {
+    id: 'china-people', strand: 'china', tracks: ['uk', 'us'], grade: 'g8a', unit: land, icon: 'user', minutes: 6,
+    title: ['Population and ethnic groups', '人口与民族'],
+    blurb: ['A huge population, crowded in the east, and 56 ethnic groups.', '人口众多、东多西少，56 个民族共同组成中华民族大家庭。'],
+    keys: [
+      ['China has about 1.41 billion people, a big population.', '我国人口约 14.1 亿，人口基数大。'],
+      ['The Heihe–Tengchong line splits a crowded east from a sparse west.', '黑河—腾冲一线以东人口稠密，以西人口稀疏。'],
+      ['There are 56 ethnic groups; the Han are the large majority.', '我国有 56 个民族，汉族人口最多。'],
+      ['Ethnic groups live "large mixed, small concentrated".', '各民族分布呈“大杂居、小聚居”的特点。'],
+    ],
+    steps: [
+      {
+        title: ['A huge population', '人口众多'], cam: [33, 108, 3.8],
+        paint: [{ fill: { k: 'land', a2: CN, c: C.red }, a: 0.5 }],
+        marks: [mk([34, 108], 'About 1.41 billion people', '约 14.1 亿人', { big: true, c: C.gold, t: 0.6 })],
+        fig: { k: 'line', title: ['China\'s population (approx.)', '我国人口增长（约）'], unit: ['100 million people', '亿人'], x: [1949, 1964, 1982, 1990, 2000, 2010, 2020, 2023], min: 0, max: 16,
+          series: [{ name: ['Population', '人口'], c: C.gold, y: [5.4, 6.9, 10.1, 11.4, 12.7, 13.4, 14.1, 14.1] }], notes: [{ x: 1982, text: ['Family planning a basic policy', '计划生育成为基本国策'] }] },
+        body: ['China has about 1.41 billion people, roughly one in six of everyone on Earth. The population grew fast after 1949, so family planning became a basic national policy. Today growth has almost stopped and the population is ageing.',
+          '我国人口约 14.1 亿，约占世界人口的六分之一。新中国成立后人口增长很快，计划生育被确定为基本国策。现在我国人口增长已经趋缓，人口老龄化问题日益突出。'],
+      },
+      {
+        title: ['Getting older', '人口老龄化'], cam: [33, 108, 3.8],
+        paint: [{ fill: { k: 'land', a2: CN, c: C.violet }, a: 0.35 }],
+        fig: { k: 'pyramid', a: 'china', b: 'india' },
+        body: ['China\'s pyramid is narrow at the bottom and wide in the middle: fewer babies, many adults, more and more old people. Compare India, which still has a wide base. Fewer workers supporting more elderly people is a new challenge, so China now encourages families to have more children.',
+          '我国的人口金字塔底部窄、中部宽：少年儿童比重下降，老年人口比重上升。与底部宽大的印度相比，差别很明显。劳动年龄人口减少、养老负担加重，是我国面临的新问题，国家已调整生育政策。'],
+      },
+      {
+        title: ['The Hu Huanyong line', '胡焕庸线'], cam: [36, 108, 3.6],
+        paint: [{ fill: { k: 'poly', pts: HU_EAST, c: C.orange, clip: CN }, a: 0.45, t: 2 }],
+        lines: [{ pts: HU_LINE, c: C.gold, w: 2, dur: 2.4 }],
+        marks: [mk([50.25, 127.5], 'Heihe', '黑河', { dot: true, c: C.gold, t: 0.2 }), mk([25.02, 98.5], 'Tengchong', '腾冲', { dot: true, c: C.gold, t: 2.2 }), mk([31, 114], 'East: dense', '东南部：人口稠密', { big: true, c: C.orange, t: 2.6 }), mk([38, 88], 'West: sparse', '西北部：人口稀疏', { big: true, c: C.ice, t: 3 })],
+        fig: { k: 'pie', title: ['Share of China\'s people (approx.)', '人口分布（约）'], parts: [{ name: ['East of the line', '线以东'], v: 94, c: C.orange }, { name: ['West of the line', '线以西'], v: 6, c: C.ice }] },
+        body: ['The geographer Hu Huanyong drew a line from Heihe in Heilongjiang to Tengchong in Yunnan. East of it, on about 44% of the land, live about 94% of the people; west of it, the land is huge but the people are few. China\'s population is dense in the east and sparse in the west.',
+          '地理学家胡焕庸在地图上画出一条从黑龙江黑河到云南腾冲的线。这条线东南部面积约占全国的 44%，人口却约占 94%；西北部面积广大，人口稀少。我国人口分布东多西少，东部人口稠密，西部人口稀疏。'],
+      },
+      {
+        title: ['56 ethnic groups', '56 个民族'], cam: [34, 105, 3.6], items: ['potala', 'fs_springfestival'],
+        paint: [{ fill: { k: 'land', a2: CN, c: C.gold }, a: 0.35 }],
+        fig: { k: 'pie', title: ['Ethnic groups, 2020 (approx.)', '民族构成，2020 年（约）'], parts: [{ name: ['Han', '汉族'], v: 91.1, c: C.red }, { name: ['55 minorities', '55 个少数民族'], v: 8.9, c: C.gold }] },
+        body: ['China is a united country of 56 ethnic groups. The Han make up about 91% of the people; the other 55 groups together number about 125 million. Each group has its own festivals, food, dress and customs, and all are equal members of the Chinese nation.',
+          '我国是一个统一的多民族国家，共有 56 个民族。汉族人口约占全国的 91%，55 个少数民族人口合计约 1.25 亿。各民族都有自己的节日、饮食、服饰和风俗习惯，各民族一律平等，共同组成中华民族大家庭。'],
+      },
+      {
+        title: ['Where groups live', '民族的分布'], cam: [35, 104, 3.8], sketch: true,
+        paint: [{ fill: { k: 'land', a2: CN, c: C.white }, a: 0.15 }],
+        marks: [mk([23.5, 108.3], 'Zhuang · Guangxi', '壮族 · 广西', { dot: true, c: C.gold, t: 0.3 }), mk([42, 85], 'Uygur · Xinjiang', '维吾尔族 · 新疆', { dot: true, c: C.gold, t: 0.6 }), mk([37.5, 106], 'Hui · Ningxia', '回族 · 宁夏', { dot: true, c: C.gold, t: 0.9 }),
+          mk([43.5, 113], 'Mongol · Inner Mongolia', '蒙古族 · 内蒙古', { dot: true, c: C.gold, t: 1.2 }), mk([31, 88], 'Zang · Xizang', '藏族 · 西藏', { dot: true, c: C.gold, t: 1.5 }), mk([42.9, 129.5], 'Korean · Yanbian, Jilin', '朝鲜族 · 吉林延边', { dot: true, c: C.gold, t: 1.8 }), mk([22, 100.8], 'Dai · Yunnan', '傣族 · 云南', { dot: true, c: C.gold, t: 2.1 })],
+        fig: { k: 'bars', title: ['Largest minorities, 2020 (approx.)', '人口较多的少数民族（约）'], unit: ['million people', '百万人'], rows: [
+          { name: ['Zhuang', '壮族'], v: 19.6, c: C.gold }, { name: ['Uygur', '维吾尔族'], v: 11.8 }, { name: ['Hui', '回族'], v: 11.4 }, { name: ['Miao', '苗族'], v: 11.1 }, { name: ['Manchu', '满族'], v: 10.4 }] },
+        body: ['The Han live all over China, mostly in the east and centre. Minorities live mainly in the southwest, northwest and northeast; Yunnan has the most groups. Groups are mixed together across the country but also gather in their own communities: "large mixed, small concentrated". The Zhuang are the largest minority.',
+          '汉族分布遍及全国，主要集中在东部和中部；少数民族主要分布在西南、西北和东北地区，云南省是我国民族最多的省。各民族在分布上交错杂居，形成了“大杂居、小聚居”的特点。壮族是我国人口最多的少数民族。'],
+      },
+    ],
+    quiz: [
+      { q: ['The Hu Huanyong line runs from…', '胡焕庸线是从哪里到哪里'], options: [['Heihe to Tengchong', '黑河到腾冲'], ['Mohe to Sanya', '漠河到三亚'], ['Beijing to Lhasa', '北京到拉萨'], ['Shanghai to Ürümqi', '上海到乌鲁木齐']], answer: 0,
+        why: ['From Heihe in Heilongjiang to Tengchong in Yunnan.', '从黑龙江黑河到云南腾冲。'] },
+      { q: ['East of the Hu line live about … of China\'s people.', '胡焕庸线以东居住着全国约多少的人口？'], options: [['About 94%', '约 94%'], ['About 44%', '约 44%'], ['About 50%', '约 50%'], ['About 6%', '约 6%']], answer: 0,
+        why: ['On only about 44% of the land.', '面积只约占全国的 44%。'] },
+      { q: ['China\'s largest ethnic minority is…', '我国人口最多的少数民族是'], options: [['Zhuang', '壮族'], ['Hui', '回族'], ['Manchu', '满族'], ['Mongol', '蒙古族']], answer: 0,
+        why: ['About 20 million Zhuang live mainly in Guangxi.', '壮族约 2000 万人，主要分布在广西。'] },
+      { q: ['"Large mixed, small concentrated" describes…', '“大杂居、小聚居”描述的是'], options: [['How ethnic groups are distributed', '我国民族的分布特点'], ['China\'s climate', '我国的气候特点'], ['China\'s terrain', '我国的地势特点'], ['How rivers flow', '河流的流向']], answer: 0,
+        why: ['Groups mix across the country but also have their own communities.', '各民族交错杂居，又各自相对集中。'] },
+      { q: ['Find Tengchong.', '在地球上点出腾冲。'], at: [25.02, 98.5], tolKm: 400,
+        why: ['Tengchong is in western Yunnan, near the border with Myanmar.', '腾冲在云南省西部，靠近中缅边境。'] },
+    ],
+  },
+  {
+    id: 'china-water', strand: 'china', tracks: ['uk', 'ib'], grade: 'g8a', unit: ['China\'s natural resources', '中国的自然资源'], icon: 'leaf', minutes: 6,
+    title: ['Land and water resources', '土地资源与水资源'],
+    blurb: ['Rich in total but poor per person; water that is uneven in place and time.', '总量丰富、人均不足；水资源时空分布不均。'],
+    keys: [
+      ['China\'s resources are large in total but small per person.', '我国自然资源总量丰富，人均占有量少。'],
+      ['Farmland is mainly in the east; grassland mainly in the west.', '耕地主要分布在东部，草地主要分布在西部。'],
+      ['Water: more in the south than the north, more in summer than winter.', '水资源南多北少，夏秋多、冬春少。'],
+      ['Reservoirs and the South–North Water Diversion even it out; we must save water.', '修建水库、跨流域调水能缓解缺水，更要节约用水。'],
+    ],
+    steps: [
+      {
+        title: ['Rich in total, poor per person', '总量丰富，人均不足'], cam: [33, 105, 3.8],
+        paint: [{ fill: { k: 'land', a2: CN, c: C.green }, a: 0.4 }],
+        fig: { k: 'bars', title: ['Per person, as % of world average (approx.)', '人均占有量为世界人均的百分比（约）'], unit: ['%', '%'], rows: [
+          { name: ['World average', '世界人均'], v: 100, c: C.white }, { name: ['Farmland', '耕地'], v: 40, c: C.lime }, { name: ['Forest', '森林'], v: 25, c: C.green }, { name: ['Water', '水资源'], v: 25, c: C.blue }] },
+        body: ['China has a lot of land, water, forests and minerals; in total, many rank among the top in the world. But shared among 1.4 billion people, each person gets little: only about a quarter of the world\'s average water per person. So we must use resources wisely and protect them.',
+          '我国自然资源总量丰富，土地、水、森林、矿产等许多资源的总量居世界前列。但我国人口众多，人均占有量少，人均水资源量仅约为世界人均的四分之一。因此必须合理利用和保护自然资源。'],
+      },
+      {
+        title: ['Land resources', '土地资源'], cam: [36, 105, 3.6], sketch: true,
+        paint: [{ fill: { k: 'poly', pts: [[48, 124], [48, 134], [30, 123], [22, 116], [22, 108], [28, 104], [34, 104], [40, 113], [44, 122]], c: C.lime, clip: CN }, a: 0.5 },
+          { fill: { k: 'poly', pts: [[44, 106], [50, 116], [53.5, 121], [47, 122], [42, 117], [41, 112], [38, 106], [36, 103], [36, 80], [42, 74], [48, 82], [45, 95]], c: C.gold, clip: CN }, a: 0.45, t: 1 },
+          { fill: { k: 'poly', pts: REGIONS.tibet, c: C.gold, clip: CN }, a: 0.3, t: 1 },
+          { fill: { k: 'poly', pts: [[53.5, 120], [53.5, 127], [47, 130], [42, 128], [46, 122]], c: C.green, clip: CN }, a: 0.6, t: 2 },
+          { fill: { k: 'poly', pts: [[29, 97.5], [29, 102], [23, 102], [22, 99]], c: C.green, clip: CN }, a: 0.6, t: 2 }],
+        marks: [mk([33, 114], 'Farmland: humid east', '耕地：东部湿润、半湿润区', { c: C.lime, t: 0.4 }), mk([42, 90], 'Grassland: dry west', '草地：西部干旱、半干旱区', { c: C.gold, t: 1.4 }), mk([49, 125], 'Forest: Northeast', '林地：东北', { c: C.green, t: 2.2 }), mk([25, 99.5], 'Forest: Southwest', '林地：西南', { c: C.green, t: 2.4 })],
+        fig: { k: 'key', set: 'custom', title: ['Main land uses (sketch)', '主要土地利用类型（示意）'], items: [{ c: C.lime, name: ['Farmland', '耕地'] }, { c: C.gold, name: ['Grassland', '草地'] }, { c: C.green, name: ['Forest', '林地'] }] },
+        body: ['Farmland lies mostly in the humid and semi-humid plains and basins of the east. Grassland covers the dry west: Inner Mongolia, Xinjiang, Qinghai and Xizang are the four great pastoral areas. Forests grow mainly in the Northeast and the Southwest. China has too little farmland per person, so protecting farmland is a basic national policy.',
+          '耕地主要分布在东部季风区的湿润、半湿润地区的平原和盆地；草地主要分布在西部干旱、半干旱地区，内蒙古、新疆、青海、西藏是我国四大牧区；林地主要分布在东北和西南地区。我国人均耕地少，“十分珍惜、合理利用土地和切实保护耕地”是我国的基本国策。'],
+      },
+      {
+        title: ['More water in the south', '水资源南多北少'], cam: [32, 112, 3.4],
+        paint: [{ fill: { k: 'poly', pts: SOUTH, c: C.blue, clip: CN }, a: 0.45, t: 1 }, { fill: { k: 'poly', pts: NORTH, c: C.brown, clip: CN }, a: 0.4, t: 1.4 }],
+        lines: [{ pts: QINLING_HUAIHE, c: C.gold, w: 2, dur: 1.6 }],
+        marks: [mk([28, 114], 'South: much water, less farmland', '南方：水多地少', { big: true, c: C.blue, t: 1.8 }), mk([38, 116], 'North: little water, much farmland', '北方：水少地多', { big: true, c: C.brown, t: 2.2 })],
+        fig: { k: 'bars', title: ['Shares of China\'s total (approx.)', '占全国的比重（约）'], unit: ['%', '%'], rows: [
+          { name: ['South: water', '南方水资源'], v: 81, c: C.blue }, { name: ['South: farmland', '南方耕地'], v: 36, c: C.lime }, { name: ['North: water', '北方水资源'], v: 19, c: C.blue }, { name: ['North: farmland', '北方耕地'], v: 64, c: C.lime }] },
+        body: ['South of the Qinling–Huaihe line there is about 81% of China\'s water but only about 36% of the farmland. The north has most of the farmland but less than a fifth of the water, so it often runs short. This mismatch is why water is moved from south to north.',
+          '秦岭—淮河以南的南方地区，水资源约占全国的 81%，耕地却只约占 36%；北方地区耕地多，水资源却不到全国的五分之一，缺水严重。水土资源配合不协调，是“南水北调”的重要原因。'],
+      },
+      {
+        title: ['More water in summer', '水资源夏秋多、冬春少'], cam: [31, 111, 2.4],
+        lines: [{ pts: RIVERS.yangtze.slice(8, 13), c: C.blue, w: 1.8, flow: true, arrow: true, dur: 1.8 }],
+        marks: [mk([30.82, 111.0], 'Three Gorges Dam', '三峡水利枢纽', { dot: true, c: C.teal, big: true, t: 1.2 })],
+        fig: { k: 'climo', city: 'beijing' },
+        body: ['Because of the monsoon, most rain falls in summer and autumn, and some years are much wetter than others. Floods and droughts follow. Reservoirs store summer floodwater for the dry season. The Three Gorges Dam on the Yangtze controls floods, makes huge amounts of electricity and improves shipping.',
+          '受季风影响，我国降水集中在夏秋季节，年际变化也大，容易发生旱涝灾害。修建水库可以把雨季多余的水储存起来供旱季使用。长江上的三峡工程具有防洪、发电、航运等巨大效益。'],
+      },
+      {
+        title: ['South–North Water Diversion', '南水北调'], cam: [34, 112, 3.2], sketch: true,
+        lines: [{ pts: RIVERS.yangtze, c: C.blue, w: 1.2, dur: 1 }, { pts: RIVERS.yellow, c: C.gold, w: 1.2, dur: 1 },
+          { pts: SNWD_EAST, c: C.teal, w: 2, flow: true, arrow: true, dur: 2, t: 0.8 }, { pts: SNWD_EAST_SD, c: C.teal, w: 1.6, flow: true, arrow: true, dur: 1.2, t: 2.4 },
+          { pts: SNWD_MIDDLE, c: C.green, w: 2, flow: true, arrow: true, dur: 2, t: 1.6 }, { pts: SNWD_WEST, c: C.violet, w: 2, flow: true, arrow: true, dur: 1.2, t: 3 }],
+        marks: [mk([32.4, 119.4], 'East route: Yangzhou, along the Grand Canal', '东线：扬州起，利用京杭运河', { dot: true, c: C.teal, t: 1 }), mk([32.6, 111.5], 'Middle route: Danjiangkou Reservoir', '中线：丹江口水库', { dot: true, c: C.green, t: 1.8 }),
+          mk([39.9, 116.4], 'Beijing', '北京', { dot: true, c: C.white, t: 3 }), mk([39.1, 117.2], 'Tianjin', '天津', { dot: true, c: C.white, t: 3.1 }), mk([33.3, 99.4], 'West route (planned)', '西线（规划中）', { c: C.violet, t: 3.4 })],
+        body: ['The South–North Water Diversion moves Yangtze water to the dry north. The East Route starts near Yangzhou and follows the Beijing–Hangzhou Grand Canal to Tianjin and Shandong. The Middle Route takes water from the Danjiangkou Reservoir to Beijing and Tianjin. The West Route, still being planned, would link the upper Yangtze and the upper Yellow River. Saving water matters too.',
+          '南水北调工程把长江水调往缺水的北方。东线工程从扬州附近引水，利用京杭运河等向北输水到天津和山东；中线工程从丹江口水库引水到北京、天津；西线工程（规划中）将连通长江上游和黄河上游。解决缺水问题，还要节约用水、防治水污染。'],
+      },
+    ],
+    quiz: [
+      { q: ['China\'s water per person is about … of the world average.', '我国人均水资源量约为世界人均的'], options: [['One quarter', '四分之一'], ['Twice', '两倍'], ['The same', '相当'], ['One tenth', '十分之一']], answer: 0,
+        why: ['Large in total, small per person.', '总量多，人均少。'] },
+      { q: ['Which route of the South–North Water Diversion uses the Grand Canal?', '南水北调哪条线路利用了京杭运河？'], options: [['East Route', '东线'], ['Middle Route', '中线'], ['West Route', '西线'], ['None of them', '都没有']], answer: 0,
+        why: ['It starts near Yangzhou and flows north along the canal.', '东线从扬州附近沿京杭运河北上。'] },
+      { q: ['China\'s water is uneven in time because…', '我国水资源时间分配不均，主要是因为'], options: [['Monsoon rain falls mostly in summer', '季风气候，降水集中在夏季'], ['Rivers flow east', '河流向东流'], ['The land is high in the west', '地势西高东低'], ['There are many people', '人口众多']], answer: 0,
+        why: ['Summer and autumn bring most of the rain.', '降水集中在夏秋季节。'] },
+      { q: ['The four great pastoral areas do NOT include…', '我国四大牧区不包括'], options: [['Sichuan', '四川'], ['Inner Mongolia', '内蒙古'], ['Xinjiang', '新疆'], ['Qinghai', '青海']], answer: 0,
+        why: ['They are Inner Mongolia, Xinjiang, Qinghai and Xizang.', '四大牧区是内蒙古、新疆、青海、西藏。'] },
+      { q: ['Find the Danjiangkou Reservoir.', '在地球上点出丹江口水库。'], at: [32.6, 111.5], tolKm: 350,
+        why: ['On the Han River, between Hubei and Henan: source of the Middle Route.', '位于湖北、河南交界的汉江上，是中线工程的水源地。'] },
+    ],
+  },
+  {
+    id: 'china-economy', strand: 'china', tracks: ['uk', 'us'], grade: 'g8a', unit: ['China\'s economy and culture', '中国的经济发展'], icon: 'ship', minutes: 6,
+    title: ['Farming, industry, transport and culture', '农业、工业、交通与地域文化'],
+    blurb: ['Rice in the south, wheat in the north, factories on the coast and fast trains everywhere.', '南稻北麦、东耕西牧，沿海工业密集，高铁四通八达。'],
+    keys: [
+      ['Farming in the east, herding in the west.', '东部以种植业为主，西部以畜牧业为主。'],
+      ['North of Qinling–Huaihe: dryland wheat; south: paddy rice.', '秦岭—淮河以北多旱地、种小麦；以南多水田、种水稻。'],
+      ['Industry clusters on the coast and along rivers and railways.', '工业主要分布在沿海、沿江和铁路沿线。'],
+      ['High-speed rail and big ports link the country and the world.', '高速铁路和大型港口把全国和世界连接起来。'],
+    ],
+    steps: [
+      {
+        title: ['Farming east, herding west', '东耕西牧'], cam: [37, 104, 3.6], sketch: true, items: ['an_yak'],
+        paint: [{ fill: { k: 'land', a2: CN, c: C.gold }, a: 0.35 }, { fill: { k: 'poly', pts: [[54, 122.5], [54, 136], [17, 125], [17, 97], ...[...FARM_PASTURE].reverse()], c: C.lime, clip: CN }, a: 0.5, t: 1.6 }],
+        lines: [{ pts: FARM_PASTURE, c: C.white, w: 1.6, dur: 2.2 }],
+        marks: [mk([32, 113], 'Crop farming, forestry, fishing', '种植业、林业、渔业', { big: true, c: C.lime, t: 2 }), mk([43.5, 113], 'Inner Mongolia pastures', '内蒙古牧区', { c: C.gold, t: 2.4 }), mk([44, 86], 'Xinjiang pastures', '新疆牧区', { c: C.gold, t: 2.6 }), mk([36, 97], 'Qinghai pastures', '青海牧区', { c: C.gold, t: 2.8 }), mk([31.5, 88], 'Xizang pastures', '西藏牧区', { c: C.gold, t: 3 })],
+        body: ['Roughly along the 400 mm rainfall line, China\'s farming changes. To the east, the humid plains grow crops, with forestry in the mountains and fishing along the coast and lakes. To the west, it is too dry or cold for most crops, so people raise sheep, cattle, horses and yaks on grasslands.',
+          '大致以 400 毫米年等降水量线为界，东部季风区以种植业为主，山区发展林业，沿海和湖区发展渔业；西部干旱、高寒，大多不适宜种植，以畜牧业为主，饲养牛、羊、马、牦牛等。'],
+      },
+      {
+        title: ['Wheat in the north, rice in the south', '南稻北麦'], cam: [32, 113, 2.8], items: ['cn_yuanyang'],
+        paint: [{ fill: { k: 'poly', pts: NORTH, c: C.gold, clip: CN }, a: 0.4, t: 0.8 }, { fill: { k: 'poly', pts: SOUTH, c: C.green, clip: CN }, a: 0.4, t: 1.2 }],
+        lines: [{ pts: QINLING_HUAIHE, c: C.white, w: 2, dur: 1.6 }],
+        marks: [mk([36.5, 115.5], 'Dry fields: wheat, corn, cotton', '旱地：小麦、玉米、棉花', { c: C.gold, t: 1.6 }), mk([29, 115], 'Paddy fields: rice, rapeseed, tea', '水田：水稻、油菜、茶叶', { c: C.green, t: 2 }), mk([27.5, 118.5], 'Tea in the southern hills', '南方丘陵：茶', { dot: true, c: C.lime, t: 2.6 })],
+        fig: { k: 'key', set: 'custom', title: ['Farming on each side of Qinling–Huaihe', '秦岭—淮河两侧的农业'], items: [{ c: C.gold, name: ['North: dry fields, wheat', '北方：旱地，小麦'] }, { c: C.green, name: ['South: paddy fields, rice', '南方：水田，水稻'] }] },
+        body: ['The Qinling–Huaihe line divides farming too. The north has dry fields growing wheat, corn and cotton, which is why noodles and steamed buns are common there. The warm, wet south has paddy fields of rice, plus rapeseed, sugar cane and tea on the hills: "rice in the south, wheat in the north".',
+          '秦岭—淮河一线也是农业的分界线。北方耕地以旱地为主，主要种植小麦、玉米、棉花等，面食较多；南方温暖湿润，耕地以水田为主，主要种植水稻，丘陵地区多茶叶，还有油菜、甘蔗等，形成“南稻北麦”的格局。'],
+      },
+      {
+        title: ['Where industry is', '工业的分布'], cam: [33, 115, 3], sketch: true, items: ['vh_container', 'cn_bund'],
+        paint: [{ fill: { k: 'poly', pts: [[42.5, 121], [42.5, 125], [38.8, 122.5], [40, 120.5]], c: C.orange, clip: CN }, a: 0.6, t: 0.4 },
+          { fill: { k: 'poly', pts: [[40.6, 115.8], [40.6, 118.8], [38.8, 118.8], [38.8, 116.6]], c: C.orange, clip: CN }, a: 0.6, t: 0.8 },
+          { fill: { k: 'poly', pts: YRD, c: C.orange, clip: CN }, a: 0.6, t: 1.2 }, { fill: { k: 'poly', pts: PRD, c: C.orange, clip: CN }, a: 0.6, t: 1.6 }],
+        lines: [{ pts: RIVERS.yangtze.slice(9), c: C.blue, w: 1.4, dur: 1.4, t: 2 }, { pts: BJ_GZ, c: C.white, w: 1.2, dur: 1.6, t: 2.4 }],
+        marks: [mk([41.2, 122.8], 'Central & southern Liaoning', '辽中南', { c: C.orange, t: 0.5 }), mk([39.7, 117.5], 'Beijing–Tianjin–Tangshan', '京津唐', { c: C.orange, t: 0.9 }), mk([31.3, 120.5], 'Shanghai–Nanjing–Hangzhou', '沪宁杭', { c: C.orange, t: 1.3 }), mk([22.8, 113.5], 'Pearl River Delta', '珠江三角洲', { c: C.orange, t: 1.7 })],
+        body: ['China\'s industry is concentrated in the east, especially along the coast, along the Yangtze and beside major railways, where transport, workers and markets are close. The four big industrial bases are central and southern Liaoning, Beijing–Tianjin–Tangshan, Shanghai–Nanjing–Hangzhou and the Pearl River Delta. High-tech industry grows near universities and research centres.',
+          '我国工业主要集中在东部，尤其是沿海、沿江和铁路沿线地带，那里交通便利、劳动力和市场条件好。四大工业基地是辽中南、京津唐、沪宁杭和珠江三角洲。高新技术产业多依托高等院校和科研机构，如北京中关村。'],
+      },
+      {
+        title: ['Fast trains and big ports', '高铁与港口'], cam: [33, 112, 3.4], items: ['vh_qinghaitibet', 'cn_bund'],
+        lines: [{ pts: BJ_SH, c: C.gold, w: 2, dur: 1.6, flow: true }, { pts: BJ_GZ, c: C.orange, w: 2, dur: 1.8, t: 0.6, flow: true }, { pts: QT_RAILWAY, c: C.violet, w: 2, dur: 2, t: 1.4, flow: true }],
+        marks: [mk([35.5, 117.8], 'Beijing–Shanghai HSR', '京沪高铁', { c: C.gold, t: 1 }), mk([27.5, 113.6], 'Beijing–Guangzhou HSR', '京广高铁', { c: C.orange, t: 1.6 }), mk([33.5, 92.5], 'Qinghai–Tibet Railway', '青藏铁路', { c: C.violet, t: 2.6 }), mk([31.2, 121.5], 'Shanghai Port', '上海港', { dot: true, c: C.teal, t: 3 })],
+        fig: { k: 'line', title: ['China\'s high-speed rail (approx.)', '我国高速铁路营业里程（约）'], unit: ['10,000 km', '万千米'], x: [2008, 2012, 2015, 2018, 2020, 2023], min: 0, max: 5,
+          series: [{ name: ['High-speed rail', '高铁'], c: C.gold, y: [0.07, 0.94, 1.9, 2.9, 3.8, 4.5] }] },
+        body: ['Railways are the backbone of China\'s transport. Since 2008, China has built about 45,000 km of high-speed railway, more than the rest of the world put together. The Qinghai–Tibet Railway climbs onto the roof of the world. Shanghai is the world\'s busiest container port, linking China to world trade.',
+          '铁路是我国最重要的交通运输方式。2008 年以来，我国已建成约 4.5 万千米高速铁路，超过世界其他国家的总和。青藏铁路登上了“世界屋脊”。上海港是世界上集装箱吞吐量最大的港口，把我国和世界贸易连接起来。'],
+      },
+      {
+        title: ['Regional cultures', '地域文化'], cam: [34, 108, 3.6], items: ['fd_pekingduck', 'fd_lanzhou', 'fd_hotpot', 'fd_dimsum'],
+        marks: [mk([39.9, 116.4], 'Courtyard houses (siheyuan)', '四合院', { dot: true, c: C.gold, t: 0.3 }), mk([36.6, 109.5], 'Cave dwellings (yaodong)', '窑洞', { dot: true, c: C.brown, t: 0.7 }), mk([44, 116], 'Mongolian yurts', '蒙古包', { dot: true, c: C.white, t: 1.1 }),
+          mk([24.6, 117.0], 'Earth buildings (tulou)', '土楼', { dot: true, c: C.orange, t: 1.5 }), mk([28.5, 109.5], 'Stilt houses', '吊脚楼', { dot: true, c: C.green, t: 1.9 }), mk([30.3, 120.5], 'Water-town houses', '水乡民居', { dot: true, c: C.teal, t: 2.3 })],
+        body: ['Different land and climate shaped different ways of life. Thick-walled courtyard houses keep out the cold north wind in Beijing; cave dwellings are dug into the Loess Plateau; herders use movable yurts. In the wet south, stilt houses stay dry and Fujian\'s round earth buildings shelter whole clans. Food changes too: wheat noodles in the north, rice and spicy hotpot in the south.',
+          '不同的自然环境孕育了不同的地域文化。北京的四合院墙厚、坐北朝南，利于防寒；黄土高原上的人们挖窑洞居住；草原牧民住便于搬迁的蒙古包；南方湿热，有防潮的吊脚楼，福建有聚族而居的土楼。饮食也各具特色：北方多面食，南方多米饭，川渝爱吃麻辣火锅。'],
+      },
+    ],
+    quiz: [
+      { q: ['Paddy rice is the main crop…', '水稻主要种植在'], options: [['South of the Qinling–Huaihe line', '秦岭—淮河以南'], ['North of the Qinling–Huaihe line', '秦岭—淮河以北'], ['On the Qinghai–Tibet Plateau', '青藏高原'], ['In the Tarim Basin', '塔里木盆地']], answer: 0,
+        why: ['The south is warm and wet, good for paddy fields.', '南方温暖湿润，适合水田种水稻。'] },
+      { q: ['Why does western China mostly herd animals?', '我国西部为什么以畜牧业为主？'], options: [['It is too dry or cold for most crops', '气候干旱或高寒，不适宜种植'], ['There is too much rain', '降水太多'], ['There are no rivers anywhere', '完全没有河流'], ['It is too crowded', '人口太多']], answer: 0,
+        why: ['Grasslands suit grazing.', '草原广布，适宜放牧。'] },
+      { q: ['Which is NOT one of China\'s four big industrial bases?', '下列不属于我国四大工业基地的是'], options: [['The Tarim Basin', '塔里木盆地'], ['Pearl River Delta', '珠江三角洲'], ['Shanghai–Nanjing–Hangzhou', '沪宁杭'], ['Beijing–Tianjin–Tangshan', '京津唐']], answer: 0,
+        why: ['The four are all in the east.', '四大工业基地都在东部。'] },
+      { q: ['Which house type belongs to the Loess Plateau?', '黄土高原上的传统民居是'], options: [['Cave dwellings', '窑洞'], ['Stilt houses', '吊脚楼'], ['Yurts', '蒙古包'], ['Earth buildings (tulou)', '土楼']], answer: 0,
+        why: ['Thick loess is easy to dig and keeps warm in winter, cool in summer.', '黄土深厚易挖，窑洞冬暖夏凉。'] },
+      { q: ['Find Shanghai, China\'s biggest port.', '在地球上点出上海港。'], at: [31.2, 121.5], tolKm: 300,
+        why: ['At the mouth of the Yangtze.', '位于长江入海口。'] },
+    ],
+  },
+  {
+    id: 'china-north', strand: 'china', tracks: [], grade: 'g8b', unit: regions, icon: 'landmark', minutes: 6,
+    title: ['The northern region', '北方地区'],
+    blurb: ['Black soil, the North China Plain, the Loess Plateau and the ancient capital lands.', '黑土地、华北平原、黄土高原和古都文化。'],
+    keys: [
+      ['The north lies north of Qinling–Huaihe, with a temperate monsoon climate.', '北方地区位于秦岭—淮河以北，属温带季风气候。'],
+      ['The Northeast Plain has fertile black soil and one harvest a year.', '东北平原黑土肥沃，农作物一年一熟。'],
+      ['The Loess Plateau suffers serious soil erosion; terraces and trees help.', '黄土高原水土流失严重，可修梯田、退耕还林还草。'],
+      ['Beijing is the capital, rich in heritage like the Forbidden City and the Great Wall.', '北京是首都，有故宫、长城等众多文化遗产。'],
+    ],
+    steps: [
+      {
+        title: ['Where is the north?', '北方地区的范围'], cam: [39, 115, 3.4], sketch: true,
+        paint: [{ fill: { k: 'poly', pts: NORTH, c: C.gold, clip: CN }, a: 0.45 }],
+        lines: [{ pts: QINLING_HUAIHE, c: C.white, w: 1.8, dur: 1.6 }],
+        marks: [mk([42, 120], 'Northern region', '北方地区', { big: true, c: C.gold, t: 0.6 }), mk([33.5, 110], 'Qinling–Huaihe', '秦岭—淮河', { c: C.white, t: 1.4 })],
+        fig: { k: 'climo', city: 'beijing', b: 'harbin' },
+        body: ['The northern region lies north of the Qinling–Huaihe line and east of the Greater Khingan, Yinshan and Helan mountains. It has a temperate monsoon climate: hot, rainy summers and cold, dry winters. Its landforms are mainly big plains and plateaus.',
+          '北方地区位于秦岭—淮河以北，大兴安岭、乌鞘岭以东，东临渤海和黄海。属于温带季风气候，夏季高温多雨，冬季寒冷干燥。地形以平原和高原为主。'],
+      },
+      {
+        title: ['The Northeast: black soil', '东北三省：黑土地'], cam: [46, 126, 2.6], items: ['fs_harbin', 'vo_tianchi'],
+        paint: [{ fill: { k: 'poly', pts: NE_PLAIN, c: C.brown, clip: CN }, a: 0.65 }],
+        marks: [mk([46.5, 126], 'Northeast Plain', '东北平原', { big: true, c: C.brown, t: 0.6 }), mk([45.8, 126.6], 'Harbin', '哈尔滨', { dot: true, c: C.ice, t: 1 }), mk([49, 122.2], 'Greater Khingan: forests', '大兴安岭：林区', { c: C.green, t: 1.4 })],
+        fig: { k: 'climo', city: 'harbin' },
+        body: ['The Northeast Plain is China\'s largest plain, with deep, fertile black soil. Summers are short and warm, winters long and freezing, so crops ripen once a year: spring wheat, soybeans, corn and rice. It is one of China\'s biggest commercial grain bases, with big forests in the surrounding mountains and heavy industry in its cities.',
+          '东北平原是我国面积最大的平原，黑土深厚肥沃。这里夏季短而温暖，冬季漫长寒冷，农作物一年一熟，主要有春小麦、大豆、玉米、水稻等，是我国重要的商品粮基地。周围山地林木茂密，城市中重工业发达。'],
+      },
+      {
+        title: ['The North China Plain', '华北平原'], cam: [36, 116, 2.6], items: ['cn_taishan', 'sv_shaolin'],
+        paint: [{ fill: { k: 'poly', pts: REGIONS.northChinaPlain, c: C.lime, clip: CN }, a: 0.6 }],
+        lines: [{ pts: RIVERS.yellow.slice(14), c: C.gold, w: 1.8, flow: true, arrow: true, dur: 1.6, t: 0.6 }],
+        marks: [mk([36.5, 115.6], 'North China Plain', '华北平原', { big: true, c: C.lime, t: 0.4 }), mk([36.5, 120], 'Spring drought, summer rain', '春旱、夏涝', { c: C.gold, t: 1.6 })],
+        fig: { k: 'bars', title: ['Frost-free days a year (approx.)', '年无霜期（约）'], unit: ['days', '天'], rows: [
+          { name: ['Shanghai', '上海'], v: 230, c: C.green }, { name: ['Zhengzhou', '郑州'], v: 210, c: C.lime }, { name: ['Beijing', '北京'], v: 190, c: C.gold }, { name: ['Harbin', '哈尔滨'], v: 150, c: C.ice }] },
+        body: ['Built up by the Yellow River\'s mud, the North China Plain is flat and fertile, growing winter wheat, corn and cotton, with two harvests a year or three in two years. In spring, rain is scarce while crops need water, so spring drought is common; the soil can also turn salty. The further north, the shorter the growing season.',
+          '华北平原主要由黄河泥沙沉积而成，地势平坦、土壤肥沃，主要种植冬小麦、玉米、棉花等，一年两熟或两年三熟。春季降水少、蒸发旺盛，常出现春旱，部分地区还有土地盐碱化问题。越往北，无霜期越短，熟制也越少。'],
+      },
+      {
+        title: ['The Loess Plateau', '黄土高原'], cam: [37, 108, 2.6], sketch: true,
+        paint: [{ fill: { k: 'poly', pts: LOESS, c: C.brown, clip: CN }, a: 0.6 }],
+        lines: [{ pts: RIVERS.yellow.slice(6, 16), c: C.gold, w: 2, flow: true, arrow: true, dur: 2, t: 0.6 }],
+        marks: [mk([37.5, 108], 'Loess Plateau', '黄土高原', { big: true, c: C.brown, t: 0.4 }), mk([36.6, 109.5], 'Gullies, terraces, check dams', '沟壑纵横 · 梯田 · 淤地坝', { c: C.lime, t: 1.8 })],
+        body: ['The Loess Plateau is the largest loess area in the world. Loose loess, heavy summer rainstorms, thin plant cover and too much farming and grazing caused serious soil erosion, cutting the land into gullies and sending mud into the Yellow River. People now build terraces and check dams, plant trees and grass, and return steep farmland to forest and grassland.',
+          '黄土高原是世界上面积最大的黄土堆积区。黄土土质疏松，夏季多暴雨，植被稀少，加上不合理的开垦和放牧，水土流失十分严重，形成千沟万壑的地表，大量泥沙进入黄河。治理措施有修建梯田和淤地坝、植树种草、退耕还林还草等。'],
+      },
+      {
+        title: ['Capital and heritage', '首都与文化遗产'], cam: [38, 113, 2.8], items: ['forbidden', 'greatwall', 'templeofheaven', 'terracotta'],
+        marks: [mk([39.9, 116.4], 'Beijing: the capital', '北京：首都', { dot: true, big: true, c: C.red, t: 0.3 }), mk([40.4, 116.6], 'Great Wall', '长城', { c: C.gold, t: 0.8 }), mk([34.3, 108.9], 'Xi\'an: Terracotta Army', '西安：兵马俑', { dot: true, c: C.gold, t: 1.3 })],
+        body: ['Beijing is China\'s capital: the national political, cultural, international exchange and science-and-technology innovation centre. It has been a capital for over 800 years, and the Forbidden City, the Temple of Heaven and the Great Wall are World Heritage sites. Further west, Xi\'an on the edge of the Loess Plateau guards the Terracotta Army of the first Qin emperor.',
+          '北京是我国的首都，是全国的政治中心、文化中心、国际交往中心和科技创新中心。北京建都已有 800 多年，故宫、天坛、长城都是世界文化遗产。黄土高原南缘的西安是著名古都，有秦始皇陵兵马俑。'],
+      },
+    ],
+    quiz: [
+      { q: ['Crops on the Northeast Plain ripen…', '东北平原的农作物熟制是'], options: [['Once a year', '一年一熟'], ['Twice a year', '一年两熟'], ['Three times a year', '一年三熟'], ['Three times in two years', '两年三熟']], answer: 0,
+        why: ['Summers are short and the frost-free season is short.', '夏季短，无霜期短。'] },
+      { q: ['The main problem of the Loess Plateau is…', '黄土高原面临的主要生态问题是'], options: [['Soil erosion', '水土流失'], ['Too much rain all year', '全年多雨'], ['Rising sea level', '海平面上升'], ['Volcanoes', '火山活动']], answer: 0,
+        why: ['Loose soil, summer storms and few plants.', '土质疏松、夏季暴雨、植被稀少。'] },
+      { q: ['Which is a common spring problem on the North China Plain?', '华北平原春季常见的问题是'], options: [['Spring drought', '春旱'], ['Typhoons', '台风'], ['Snowstorms', '暴雪'], ['Plum rains', '梅雨']], answer: 0,
+        why: ['Little spring rain just when crops need water.', '春季降水少，正是农作物需水的时候。'] },
+      { q: ['Find the Loess Plateau.', '在地球上点出黄土高原。'], at: [37, 108], tolKm: 450,
+        why: ['In the middle course of the Yellow River, in Shaanxi, Shanxi and nearby.', '位于黄河中游，主要在陕西、山西一带。'] },
+    ],
+  },
+  {
+    id: 'china-south', strand: 'china', tracks: [], grade: 'g8b', unit: regions, icon: 'sail', minutes: 6,
+    title: ['The southern region', '南方地区'],
+    blurb: ['River deltas and water towns, Hong Kong and Macao, Taiwan, karst hills and rice terraces.', '三角洲与水乡、香港和澳门、宝岛台湾、喀斯特与梯田。'],
+    keys: [
+      ['The south is warm and wet, with paddy rice and dense rivers.', '南方地区温暖湿润，河湖众多，以水田、水稻为主。'],
+      ['The Yangtze River Delta, led by Shanghai, is China\'s biggest economic hub.', '以上海为中心的长江三角洲是我国最大的经济核心区。'],
+      ['Hong Kong and Macao are special administrative regions under "one country, two systems".', '香港、澳门是实行“一国两制”的特别行政区。'],
+      ['Taiwan is China\'s largest island and a province of China.', '台湾岛是我国第一大岛，台湾省是我国领土不可分割的一部分。'],
+    ],
+    steps: [
+      {
+        title: ['Where is the south?', '南方地区的范围'], cam: [27, 110, 3.4], sketch: true,
+        paint: [{ fill: { k: 'poly', pts: SOUTH, c: C.green, clip: CN }, a: 0.45 }],
+        lines: [{ pts: QINLING_HUAIHE, c: C.white, w: 1.8, dur: 1.6 }, { pts: RIVERS.yangtze.slice(5), c: C.blue, w: 1.4, flow: true, dur: 2, t: 0.8 }],
+        marks: [mk([26, 112], 'Southern region', '南方地区', { big: true, c: C.green, t: 0.6 })],
+        fig: { k: 'climo', city: 'shanghai' },
+        body: ['The southern region lies south of the Qinling–Huaihe line and east of the Qinghai–Tibet Plateau. It has subtropical and tropical monsoon climates, with hot, wet summers, mild winters and more than 800 mm of rain a year. Rivers and lakes are everywhere, and paddy rice is the main crop, harvested two or three times a year.',
+          '南方地区位于秦岭—淮河以南、青藏高原以东，东部和南部濒临东海和南海。属于亚热带和热带季风气候，夏季高温多雨，冬季温和，年降水量在 800 毫米以上。河湖众多，耕地以水田为主，主要种植水稻，一年两熟到三熟。'],
+      },
+      {
+        title: ['The Yangtze River Delta', '长江三角洲'], cam: [31, 120.5, 1.9], items: ['cn_bund', 'cn_westlake', 'vh_container'],
+        paint: [{ fill: { k: 'poly', pts: YRD, c: C.teal, clip: CN }, a: 0.55 }],
+        lines: [{ pts: RIVERS.yangtze.slice(14), c: C.blue, w: 2, flow: true, arrow: true, dur: 1.4 }],
+        marks: [mk([31.2, 121.5], 'Shanghai', '上海', { dot: true, big: true, c: C.gold, t: 0.4 }), mk([32.05, 118.8], 'Nanjing', '南京', { dot: true, c: C.white, t: 0.8 }), mk([30.25, 120.15], 'Hangzhou', '杭州', { dot: true, c: C.white, t: 1 }), mk([31.3, 120.6], 'Suzhou', '苏州', { dot: true, c: C.white, t: 1.2 }), mk([31.1, 120.9], 'Water towns', '江南水乡', { c: C.teal, t: 1.8 })],
+        body: ['Where the Yangtze meets the sea lies a flat delta criss-crossed by rivers and canals: the classic "land of fish and rice" and water towns like Zhouzhuang and Wuzhen. Today, with Shanghai at its centre, it is one of the largest city clusters in the world and China\'s biggest economic hub, with busy ports and high-tech industry.',
+          '长江入海口一带的长江三角洲地势低平，河网密布，自古是“鱼米之乡”，周庄、乌镇等水乡古镇闻名中外。如今，以上海为中心的长江三角洲城市群是世界上规模最大的城市群之一，也是我国综合实力最强的经济中心，港口繁忙，高新技术产业发达。'],
+      },
+      {
+        title: ['Pearl River Delta, Hong Kong and Macao', '珠江三角洲与港澳'], cam: [22.6, 113.7, 1.8], items: ['fd_dimsum', 'fs_midautumn'],
+        paint: [{ fill: { k: 'poly', pts: PRD, c: C.orange, clip: CN }, a: 0.55 }],
+        lines: [{ pts: [[22.28, 113.94], [22.25, 113.6]], c: C.gold, w: 1.6, dur: 1, t: 1.8 }],
+        marks: [mk([23.13, 113.26], 'Guangzhou', '广州', { dot: true, c: C.white, t: 0.4 }), mk([22.54, 114.06], 'Shenzhen', '深圳', { dot: true, c: C.white, t: 0.7 }), mk([22.3, 114.17], 'Hong Kong SAR', '香港特别行政区', { dot: true, c: C.pink, big: true, t: 1 }), mk([22.2, 113.55], 'Macao SAR', '澳门特别行政区', { dot: true, c: C.pink, t: 1.3 }), mk([22.27, 113.75], 'Hong Kong–Zhuhai–Macao Bridge', '港珠澳大桥', { c: C.gold, t: 2.2 })],
+        body: ['The Pearl River Delta grew fast after reform and opening-up, with Shenzhen rising from a small town to a huge city. China resumed sovereignty over Hong Kong in 1997 and Macao in 1999; both are special administrative regions under "one country, two systems". Hong Kong is a world centre of finance, trade and shipping; Macao is famous for tourism. Together they form the Guangdong–Hong Kong–Macao Greater Bay Area.',
+          '改革开放以后，珠江三角洲经济迅速发展，深圳由小镇发展成为大城市。我国分别于 1997 年和 1999 年对香港、澳门恢复行使主权，设立特别行政区，实行“一国两制”。香港是国际金融、贸易和航运中心，澳门以旅游业著称。粤港澳大湾区正在加快建设。'],
+      },
+      {
+        title: ['Taiwan Province', '台湾省'], cam: [23.8, 120.9, 1.7], items: ['taipei101'],
+        paint: [{ fill: { k: 'land', a2: ['TW'], c: C.green }, a: 0.5 }],
+        lines: [par(23.44, C.gold, 0.4, { w: 1 })],
+        marks: [mk([25.03, 121.56], 'Taipei', '台北', { dot: true, c: C.white, t: 0.6 }), mk([23.5, 120.8], 'Alishan', '阿里山', { dot: true, c: C.green, t: 1.2 }), mk([23.86, 120.92], 'Sun Moon Lake', '日月潭', { dot: true, c: C.teal, t: 1.6 }), mk([24.5, 119.5], 'Taiwan Strait', '台湾海峡', { c: C.blue, t: 2 })],
+        body: ['Taiwan Province is an inseparable part of China\'s territory, across the Taiwan Strait from Fujian. Taiwan Island, China\'s largest island (about 36,000 km²), is mountainous in the east and has plains in the west, and the Tropic of Cancer crosses it. Alishan and Sun Moon Lake are famous sights. Most people are Han, whose ancestors came mainly from Fujian and Guangdong; the Gaoshan are the island\'s earliest people. Rich in rice, sugar cane, tea and fruit, it is called a "treasure island".',
+          '台湾省是我国领土不可分割的一部分，隔台湾海峡与福建省相望。台湾岛是我国第一大岛，面积约 3.6 万平方千米，东部多山、西部多平原，北回归线穿过岛的中部。阿里山和日月潭是著名的风景名胜。居民以汉族为主，祖籍多为福建、广东，高山族是岛上最早的居民。台湾盛产稻米、甘蔗、茶叶和水果，被誉为“宝岛”。'],
+      },
+      {
+        title: ['Karst hills and rice terraces', '喀斯特地貌与梯田'], cam: [25, 106, 2.4], items: ['cn_guilin', 'cn_yuanyang', 'cn_zhangjiajie'],
+        paint: [{ fill: { k: 'poly', pts: [[29, 103], [28.5, 109], [25.5, 111.5], [23, 110], [23, 104], [25, 102.5]], c: C.violet, clip: CN }, a: 0.4 }],
+        marks: [mk([26.5, 106.7], 'Yunnan–Guizhou Plateau: karst', '云贵高原：喀斯特地貌', { c: C.violet, t: 0.4 }), mk([24.9, 110.5], 'Guilin', '桂林', { dot: true, c: C.green, t: 1 }), mk([23.1, 102.8], 'Yuanyang (Hani) terraces', '元阳哈尼梯田', { dot: true, c: C.lime, t: 1.6 })],
+        body: ['On the Yunnan–Guizhou Plateau and in Guangxi, rain slowly dissolved limestone into karst: steep peaks, caves and underground rivers, like the hills along the Li River at Guilin. With little flat land in the hills, the Hani people of Yuanyang carved mountainsides into rice terraces over 1,300 years ago.',
+          '云贵高原和广西一带石灰岩广布，在流水溶蚀作用下形成喀斯特地貌，奇峰林立、溶洞众多，还有地下河，桂林漓江山水就是典型代表。南方山区平地少，云南元阳的哈尼族人民在 1300 多年前就开始在山坡上开垦梯田种植水稻。'],
+      },
+    ],
+    quiz: [
+      { q: ['China\'s biggest economic hub, centred on Shanghai, is…', '以上海为中心、我国最大的经济核心区是'], options: [['The Yangtze River Delta', '长江三角洲'], ['The Pearl River Delta', '珠江三角洲'], ['The North China Plain', '华北平原'], ['The Sichuan Basin', '四川盆地']], answer: 0,
+        why: ['Shanghai is the leading city of the Yangtze River Delta.', '上海是长江三角洲的核心城市。'] },
+      { q: ['Hong Kong and Macao are governed under…', '香港和澳门实行'], options: [['"One country, two systems"', '“一国两制”'], ['Provincial rule', '省级管理'], ['Autonomous regions', '民族区域自治'], ['Municipalities', '直辖市制度']], answer: 0,
+        why: ['Both are special administrative regions of China.', '两地都是我国的特别行政区。'] },
+      { q: ['Which landform makes Guilin\'s hills?', '桂林山水属于哪种地貌？'], options: [['Karst', '喀斯特地貌'], ['Glacial', '冰川地貌'], ['Desert dunes', '沙丘地貌'], ['Loess', '黄土地貌']], answer: 0,
+        why: ['Rain dissolved the limestone into peaks and caves.', '流水溶蚀石灰岩形成奇峰和溶洞。'] },
+      { q: ['Which line crosses Taiwan Island?', '穿过台湾岛的是'], options: [['The Tropic of Cancer', '北回归线'], ['The Equator', '赤道'], ['The Qinling–Huaihe line', '秦岭—淮河一线'], ['The Arctic Circle', '北极圈']], answer: 0,
+        why: ['About 23.5°N, through the middle of the island.', '约北纬 23.5°，穿过岛的中部。'] },
+      { q: ['Find Hong Kong.', '在地球上点出香港。'], at: [22.3, 114.17], tolKm: 250,
+        why: ['At the mouth of the Pearl River, next to Shenzhen.', '位于珠江口东侧，与深圳相邻。'] },
+    ],
+  },
+  {
+    id: 'china-west', strand: 'china', tracks: [], grade: 'g8b', unit: regions, icon: 'mountain', minutes: 7,
+    title: ['The northwest and the Qinghai–Tibet region', '西北地区和青藏地区'],
+    blurb: ['Deserts and oases in the dry northwest; the high, cold roof of the world.', '干旱的西北，沙漠与绿洲；高寒的青藏，世界屋脊。'],
+    keys: [
+      ['The northwest is dry; grassland turns to desert from east to west.', '西北地区气候干旱，自东向西由草原过渡到荒漠。'],
+      ['Oasis farming uses mountain meltwater, carried by karez in Turpan.', '绿洲农业依靠高山冰雪融水，吐鲁番有坎儿井。'],
+      ['The Qinghai–Tibet region is high and cold: the "roof of the world".', '青藏地区的突出特征是高寒，被称为“世界屋脊”。'],
+      ['Sanjiangyuan is the source of the Yangtze, Yellow and Lancang rivers and must be protected.', '三江源是长江、黄河、澜沧江的发源地，生态保护十分重要。'],
+    ],
+    steps: [
+      {
+        title: ['Dry northwest', '干旱的西北地区'], cam: [42, 98, 3.4], sketch: true,
+        paint: [{ fill: { k: 'poly', pts: NORTHWEST, c: C.gold, clip: CN }, a: 0.25 },
+          { fill: { k: 'poly', pts: [[50, 112], [50, 122.5], [47.5, 120], [43.5, 118], [41.5, 113.5], [42, 112]], c: C.lime, clip: CN }, a: 0.55, t: 0.6 },
+          { fill: { k: 'poly', pts: [[45, 104], [50, 112], [42, 112], [41.5, 113.5], [41, 109.5], [39.5, 106.5], [38, 105.5], [40, 104]], c: C.brown, clip: CN }, a: 0.5, t: 1.2 },
+          { fill: { k: 'poly', pts: [[50, 73], [45, 104], [40, 104], [38, 105.5], [37.5, 101.5], [38.5, 98.5], [37.5, 96], [36.3, 92], [36.3, 88], [35.8, 84], [36, 80], [36, 76.5], [37.5, 73]], c: C.orange, clip: CN }, a: 0.5, t: 1.8 }],
+        lines: [...arrows([[[44, 118], [43, 110]], [[43, 108], [42, 98]], [[42, 96], [41, 86]]], C.white, 2.4, 1.6)],
+        marks: [mk([45, 116], 'Grassland', '草原', { c: C.lime, t: 0.8 }), mk([42, 107], 'Desert grassland', '荒漠草原', { c: C.brown, t: 1.4 }), mk([39, 84], 'Desert', '荒漠', { big: true, c: C.orange, t: 2 }), mk([47, 95], 'Rain decreases →', '降水减少 →', { c: C.white, t: 2.6 })],
+        fig: { k: 'bars', title: ['Yearly rainfall (approx.)', '年降水量（约）'], unit: ['mm', '毫米'], rows: [
+          { name: ['Hohhot', '呼和浩特'], v: 400, c: C.lime }, { name: ['Ürümqi', '乌鲁木齐'], v: 290, c: C.gold }, { name: ['Yinchuan', '银川'], v: 190, c: C.brown }, { name: ['Kashgar', '喀什'], v: 70, c: C.orange }, { name: ['Dunhuang', '敦煌'], v: 40, c: C.orange }] },
+        body: ['The northwest is deep inside the continent, far from the sea, and mountains block the moist summer winds. So it is dry, and gets drier from east to west: the grasslands of Inner Mongolia give way to desert grassland and then to desert. Summers are hot, winters cold, and days and nights very different in temperature.',
+          '西北地区深居内陆，距海遥远，加上山地阻挡，湿润的夏季风难以到达，气候干旱。降水自东向西递减，景观由东部的内蒙古草原逐渐过渡为荒漠草原和荒漠。这里夏季炎热、冬季寒冷，气温日较差大。'],
+      },
+      {
+        title: ['Oases and karez', '绿洲与坎儿井'], cam: [41, 86, 2.6], items: ['cn_mogao', 'cn_danxia', 'vy_silkroad'],
+        paint: [{ fill: { k: 'poly', pts: REGIONS.tarim, c: C.orange, clip: CN }, a: 0.45 }],
+        lines: [{ pts: TARIM_RIVER, c: C.blue, w: 1.8, flow: true, arrow: true, dur: 1.8, t: 0.6 }],
+        marks: [mk([39, 83.5], 'Taklimakan Desert', '塔克拉玛干沙漠', { big: true, c: C.orange, t: 0.3 }), mk([41.2, 84.5], 'Tarim River', '塔里木河', { c: C.blue, t: 1.4 }), mk([42.95, 89.2], 'Turpan: karez, grapes', '吐鲁番：坎儿井、葡萄', { dot: true, c: C.green, t: 2 }), mk([42.8, 93.5], 'Hami melons', '哈密瓜', { dot: true, c: C.lime, t: 2.4 }), mk([40.1, 94.7], 'Dunhuang', '敦煌', { dot: true, c: C.gold, t: 2.8 })],
+        fig: { k: 'climo', city: 'urumqi' },
+        body: ['The Tarim Basin holds the Taklimakan, China\'s largest desert, and the Tarim, China\'s longest inland river. Where meltwater from the Tianshan and Kunlun snows reaches the desert edge, oases grow cotton, wheat and fruit. In Turpan, karez tunnels carry water underground so less is lost to evaporation. Sunny days and cool nights make Xinjiang\'s grapes and melons very sweet.',
+          '塔里木盆地有我国最大的沙漠塔克拉玛干沙漠，塔里木河是我国最长的内流河。天山、昆仑山的冰雪融水流到山麓，形成绿洲，种植棉花、小麦和瓜果。吐鲁番的坎儿井在地下输水，减少了蒸发。新疆光照充足、昼夜温差大，葡萄和哈密瓜特别甜。'],
+      },
+      {
+        title: ['The roof of the world', '世界屋脊'], cam: [32, 90, 2.8], items: ['everest', 'an_yak', 'potala'],
+        paint: [{ fill: { k: 'poly', pts: REGIONS.tibet, c: C.violet, clip: CN }, a: 0.45 }],
+        marks: [mk([33, 88], 'Qinghai–Tibet Plateau: over 4,000 m', '青藏高原：海拔 4000 米以上', { big: true, c: C.violet, t: 0.4 }), mk([28.0, 86.9], 'Everest 8,849 m', '珠穆朗玛峰 8849 米', { dot: true, c: C.white, t: 1 }), mk([29.4, 90], 'Yarlung Zangbo valley: barley farming', '雅鲁藏布江谷地：河谷农业', { c: C.lime, t: 1.6 })],
+        fig: { k: 'climo', city: 'lhasa' },
+        body: ['The Qinghai–Tibet Plateau averages over 4,000 m: the "roof of the world". Its key feature is high and cold, with thin air and strong sunshine; Lhasa is called the "city of sunlight". Farming is only possible in warm, sheltered valleys like the Yarlung Zangbo, where highland barley grows. Elsewhere, herders raise yaks, the "boat of the plateau", and Tibetan sheep.',
+          '青藏高原平均海拔 4000 米以上，被称为“世界屋脊”。高寒是青藏地区突出的自然特征，空气稀薄，太阳辐射强，拉萨被称为“日光城”。种植业主要分布在雅鲁藏布江谷地等河谷地区，主要作物是青稞；其他地区以畜牧业为主，牦牛被称为“高原之舟”，还有藏绵羊等。'],
+      },
+      {
+        title: ['Where great rivers begin', '江河源地'], cam: [33.8, 96, 2.4], sketch: true,
+        paint: [{ fill: { k: 'poly', pts: SANJIANGYUAN, c: C.teal, clip: CN }, a: 0.45 }],
+        lines: [{ pts: RIVERS.yangtze.slice(0, 5), c: C.blue, w: 2, flow: true, arrow: true, dur: 1.6, t: 0.4 }, { pts: RIVERS.yellow.slice(0, 6), c: C.gold, w: 2, flow: true, arrow: true, dur: 1.6, t: 0.8 }, { pts: RIVERS.mekong.slice(0, 4), c: C.green, w: 2, flow: true, arrow: true, dur: 1.6, t: 1.2 }],
+        marks: [mk([34.2, 95.5], 'Sanjiangyuan', '三江源', { big: true, c: C.teal, t: 0.2 }), mk([33, 92], 'Yangtze', '长江', { c: C.blue, t: 1.6 }), mk([35.3, 99], 'Yellow River', '黄河', { c: C.gold, t: 2 }), mk([30, 97.5], 'Lancang River', '澜沧江', { c: C.green, t: 2.4 })],
+        body: ['Glaciers and snowfields make the plateau "Asia\'s water tower". In Qinghai, the Sanjiangyuan ("source of three rivers") is where the Yangtze, the Yellow River and the Lancang begin. Its grasslands and wetlands are fragile; overgrazing and a warming climate can harm them, so it is now protected as a national park.',
+          '青藏高原冰川广布，被称为“亚洲水塔”。青海的三江源地区是长江、黄河、澜沧江的发源地。这里的草地和湿地生态脆弱，过度放牧和气候变暖都会对其造成破坏，现已建立三江源国家公园加以保护。'],
+      },
+      {
+        title: ['A railway on the roof of the world', '青藏铁路与生态保护'], cam: [33, 95, 2.8], items: ['vh_qinghaitibet', 'an_snowleopard', 'potala'],
+        lines: [{ pts: QT_RAILWAY, c: C.violet, w: 2.2, dur: 2.6, flow: true }],
+        marks: [mk([36.6, 101.8], 'Xining', '西宁', { dot: true, c: C.white, t: 0.2 }), mk([36.4, 94.9], 'Golmud', '格尔木', { dot: true, c: C.white, t: 1 }), mk([32.9, 91.9], 'Tanggula Pass 5,072 m', '唐古拉山口 5072 米', { dot: true, c: C.ice, t: 1.8 }), mk([29.65, 91.1], 'Lhasa', '拉萨', { dot: true, c: C.gold, big: true, t: 2.6 }), mk([35.3, 92], 'Hoh Xil: Tibetan antelope', '可可西里：藏羚羊', { c: C.green, t: 3 })],
+        body: ['The Qinghai–Tibet Railway runs about 1,956 km from Xining to Lhasa and crosses the Tanggula Pass at over 5,000 m, the highest railway in the world. Builders solved permafrost, thin air and a fragile environment, and left passages under the track for Tibetan antelope to migrate. Nature reserves protect rare animals such as the snow leopard and Tibetan antelope.',
+          '青藏铁路从西宁到拉萨，全长约 1956 千米，在唐古拉山口海拔超过 5000 米，是世界上海拔最高的铁路。建设者克服了多年冻土、高寒缺氧和生态脆弱三大难题，还专门修建了供藏羚羊迁徙的通道。可可西里等自然保护区保护着雪豹、藏羚羊等珍稀动物。'],
+      },
+    ],
+    quiz: [
+      { q: ['Why is the northwest so dry?', '西北地区气候干旱的主要原因是'], options: [['It is far from the sea and mountains block moist winds', '深居内陆，距海远，山地阻挡湿润气流'], ['It is too high', '海拔太高'], ['It is near the Equator', '靠近赤道'], ['It has too many people', '人口太多']], answer: 0,
+        why: ['The summer monsoon hardly reaches it.', '夏季风很难到达。'] },
+      { q: ['Karez in Turpan carry water underground to…', '吐鲁番的坎儿井在地下输水是为了'], options: [['Reduce evaporation', '减少蒸发'], ['Make electricity', '发电'], ['Keep fish', '养鱼'], ['Stop floods', '防洪']], answer: 0,
+        why: ['Hot, dry air would evaporate open channels.', '天气炎热干燥，地表输水蒸发量大。'] },
+      { q: ['The main natural feature of the Qinghai–Tibet region is…', '青藏地区最突出的自然特征是'], options: [['High and cold', '高寒'], ['Hot and wet', '湿热'], ['Dry and hot', '干热'], ['Low and flat', '低平']], answer: 0,
+        why: ['Average height over 4,000 m.', '平均海拔 4000 米以上。'] },
+      { q: ['Which animal is called the "boat of the plateau"?', '被称为“高原之舟”的是'], options: [['Yak', '牦牛'], ['Camel', '骆驼'], ['Horse', '马'], ['Tibetan antelope', '藏羚羊']], answer: 0,
+        why: ['Yaks carry loads and give milk, meat and wool.', '牦牛能驮运货物，还提供奶、肉和毛。'] },
+      { q: ['Find the Taklimakan Desert.', '在地球上点出塔克拉玛干沙漠。'], at: [39, 83.5], tolKm: 500,
+        why: ['In the Tarim Basin, southern Xinjiang.', '位于新疆南部的塔里木盆地。'] },
+    ],
+  },
+];
