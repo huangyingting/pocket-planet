@@ -1,7 +1,16 @@
 /** Lessons: maps. 七上 · 地球和地图 (2): scale, direction and legend; contour lines; plus map projections and time zones. */
 import { C, T, arrows, mer, mk, par, type LL, type Lesson } from './kit.ts';
+import type { AstroClock } from './astro/types.ts';
+import type { Opts as ProjOpts } from './astro/k-projection.ts';
 import { RIVERS } from './geo.ts';
 import type { Paint } from './stage.ts';
+
+/** Map projection steps: the globe unrolls over a few seconds, and the user can scrub it. */
+const UNROLL: AstroClock = { from: 0, to: 100, rate: 22, unit: 'x', once: true, fmt: ['Unrolled {v}%', '展开 {v}%'] };
+const RESHAPE: AstroClock = { from: 0, to: 100, rate: 25, unit: 'x', once: true, fmt: ['Reshaped {v}%', '变换 {v}%'] };
+type Region = NonNullable<ProjOpts['regions']>[number];
+const GREENLAND: Region = { a2: ['GL'], c: C.ice, label: ['Greenland', '格陵兰岛'], at: [74, -40] };
+const AFRICA: Region = { continent: 'africa', c: C.orange, label: ['Africa', '非洲'], at: [5, 20] };
 
 const unit = ['The Earth and maps', '地球和地图'] as const;
 
@@ -180,7 +189,7 @@ export const MAPS: Lesson[] = [
     ],
   },
   {
-    id: 'projections', strand: 'maps', tracks: ['us', 'uk', 'ib'], unit, icon: 'globe', minutes: 5,
+    id: 'projections', strand: 'maps', tracks: ['us', 'uk', 'ib'], unit, icon: 'globe', minutes: 8,
     title: ['Map projections', '地图投影'],
     blurb: ['Why every flat map stretches something, and why the globe tells the truth.', '为什么平面地图总会变形，为什么地球仪最真实。'],
     keys: [
@@ -191,26 +200,36 @@ export const MAPS: Lesson[] = [
     ],
     steps: [
       {
-        title: ['Peeling an orange', '把橘子皮摊平'], cam: [25, 20, 4.2], graticule: true,
-        lines: [0, 30, 60, 90, 120, 150, 180, -30, -60, -90, -120, -150].map((lo, i) => mer(lo, C.teal, i * 0.15, { dur: 1.4 })),
-        body: ['Try to flatten an orange peel and it splits or stretches. The Earth\'s surface is the same: a sphere cannot be laid flat without distortion. A map projection is a way of drawing the round grid on a flat sheet, and each one chooses what to get wrong: area, shape, distance or direction.',
-          '把橘子皮压平，它一定会裂开或被拉伸。地球表面也一样：球面无法不变形地展成平面。地图投影就是把球面上的经纬网画到平面上的方法，每种投影都要在面积、形状、距离或方向上做出取舍。'],
+        title: ['Peeling an orange', '把橘子皮摊平'],
+        astro: { kit: 'projection', to: 'plate', clock: UNROLL },
+        body: ['Try to flatten an orange peel and it splits or stretches. The Earth\'s surface is the same: a sphere cannot be laid flat without distortion. Watch the globe wrap onto a cylinder and unroll: the meridians, which meet at the poles, end up side by side, so the polar regions are stretched sideways. A map projection is a way of drawing the round grid on a flat sheet, and each one chooses what to get wrong: area, shape, distance or direction.',
+          '把橘子皮压平，它一定会裂开或被拉伸。地球表面也一样：球面无法不变形地展成平面。看地球先“套”上一个圆柱，再展开成平面：原本在两极汇聚的经线被拉成了平行线，所以越靠近两极，东西方向拉伸得越厉害。地图投影就是把球面上的经纬网画到平面上的方法，每种投影都要在面积、形状、距离或方向上做出取舍。'],
       },
       {
-        title: ['Mercator: Greenland vs Africa', '墨卡托投影：格陵兰岛和非洲'], cam: [40, -20, 5],
-        paint: [{ fill: { k: 'land', a2: ['GL'], c: C.ice }, t: 0.2, a: 0.7 }, { fill: { k: 'land', continent: 'africa', c: C.orange }, t: 0.8, a: 0.6 }],
-        marks: [mk([72, -40], 'Greenland ≈ 2.2 million km²', '格陵兰岛 ≈ 220 万平方千米', { c: C.ice, t: 0.5 }), mk([5, 20], 'Africa ≈ 30 million km²', '非洲 ≈ 3000 万平方千米', { c: C.orange, t: 1.1 })],
+        title: ['Mercator: Greenland vs Africa', '墨卡托投影：格陵兰岛和非洲'],
+        astro: { kit: 'projection', to: 'mercator', tissot: true, lon0: -10, regions: [GREENLAND, AFRICA], clock: UNROLL },
         fig: { k: 'bars', title: ['Real area (approx.)', '实际面积（约）'], unit: ['million km²', '百万平方千米'], rows: [{ name: ['Africa', '非洲'], v: 30.3, c: C.orange }, { name: ['South America', '南美洲'], v: 17.8, c: C.violet }, { name: ['Australia', '澳大利亚'], v: 7.7, c: C.teal }, { name: ['Greenland', '格陵兰岛'], v: 2.2, c: C.ice }] },
-        body: ['On the popular Mercator map, Greenland looks about as big as Africa. Here on the globe you see the truth: Africa is about 14 times larger. Mercator spreads the parallels further and further apart toward the poles, so lands near the poles look huge. It is still loved by sailors, because a constant compass course is a straight line on it.',
-          '在常见的墨卡托投影地图上，格陵兰岛看起来和非洲差不多大。在地球仪上才看出真相：非洲的面积约是格陵兰岛的 14 倍。墨卡托投影越靠近两极，纬线间距拉得越大，高纬度的陆地就被放得很大。不过航海者很喜欢它，因为在这种地图上，按固定方向航行的路线是一条直线。'],
+        body: ['On the globe the red circles are all the same size. Mercator spreads the parallels further and further apart toward the poles, so the circles swell: at 60° they are twice as wide and four times the area. Greenland ends up looking about as big as Africa, though Africa is about 14 times larger. Sailors still love it: shapes stay right and a constant compass course is a straight line.',
+          '在地球上，这些红色小圆一样大。墨卡托投影越靠近两极，纬线间距拉得越大，小圆也被放大：在纬度 60° 处，小圆变宽到 2 倍，面积变成 4 倍。于是格陵兰岛看起来和非洲差不多大，而实际上非洲的面积约是它的 14 倍。不过航海者很喜欢这种地图：形状不走样，按固定方向航行的路线是一条直线。'],
       },
       {
-        title: ['Equal-area maps', '等积投影'], cam: [35, 50, 5],
-        paint: [{ fill: { k: 'land', a2: ['RU'], c: C.red }, t: 0.2, a: 0.55 }, { fill: { k: 'land', continent: 'africa', c: C.orange }, t: 0.8, a: 0.55 }],
-        marks: [mk([62, 95], 'Russia ≈ 17 million km²', '俄罗斯 ≈ 1700 万平方千米', { c: C.red, t: 0.5 }), mk([5, 20], 'Africa ≈ 30 million km²', '非洲 ≈ 3000 万平方千米', { c: C.orange, t: 1.1 })],
+        title: ['Equal-area maps', '等积投影'],
+        astro: { kit: 'projection', from: 'mercator', to: 'peters', tissot: true, lon0: -10, regions: [GREENLAND, AFRICA], clock: RESHAPE },
         fig: { k: 'key', set: 'custom', title: ['What each one keeps true', '各自保持准确的是'], items: [{ c: C.blue, name: ['Mercator: shapes and directions', '墨卡托投影：形状和方向'] }, { c: C.orange, name: ['Equal-area: sizes', '等积投影：面积'] }, { c: C.green, name: ['Globe: all of them', '地球仪：全部'] }] },
-        body: ['Equal-area maps (such as the Gall–Peters or Mollweide) keep every country the right size, so they are good for comparing areas, for example where forests or farmland are. The price is shape: lands near the poles look squashed and those near the equator look stretched.',
-          '等积投影地图（例如高尔—彼得斯投影、摩尔威德投影）让各个国家的面积比例都准确，适合比较面积，例如森林、耕地的分布。代价是形状变了：靠近两极的陆地被压扁，赤道附近的陆地被拉长。'],
+        body: ['Now the Mercator map turns into the Gall–Peters map. Greenland shrinks back to its true size next to Africa, and every red circle covers the same area again. The price is shape: near the poles the circles are squashed flat, near the equator they are stretched tall. Equal-area maps are the right choice for comparing sizes, such as forests or farmland.',
+          '现在墨卡托地图变成了高尔—彼得斯投影地图。格陵兰岛缩回了真实大小，和非洲一比就差得远了；每个红色小圆的面积又都一样了。代价是形状：靠近两极的小圆被压扁，赤道附近的被拉长。比较面积大小，例如森林、耕地的分布，要用这种等积投影地图。'],
+      },
+      {
+        title: ['Mollweide: the whole world in an oval', '摩尔威德投影：椭圆形的世界地图'],
+        astro: { kit: 'projection', to: 'mollweide', tissot: true, lon0: 10, clock: UNROLL },
+        body: ['The Mollweide map is also equal-area, but it bends the meridians into curves, so the poles become points again and the world fits in an oval. Shapes near the edges are sheared, yet the overall look is closer to the globe. It is often used for world maps of population or climate.',
+          '摩尔威德投影也是等积投影，它把经线画成弧线，两极又变回了点，整个世界装进一个椭圆里。边缘地区的形状会被扭斜，但整体看起来更接近地球仪。世界人口、气候等分布图常用这种投影。'],
+      },
+      {
+        title: ['Seen from above the North Pole', '从北极上空看：极地方位投影'],
+        astro: { kit: 'projection', to: 'polar', lon0: 110, clock: UNROLL },
+        body: ['A polar azimuthal map opens the globe out from the North Pole like a flower. Distances and directions from the pole are true, and the parallels become circles around it. It shows how close North America, Europe and Asia are across the Arctic, which is why polar routes matter to airlines. The United Nations emblem uses this projection.',
+          '极地方位投影把地球从北极点向四周“摊开”，像一朵花一样展开。从极点出发的距离和方向都是准确的，纬线变成以极点为中心的同心圆。在这种地图上能看出：隔着北冰洋，北美、欧洲和亚洲靠得很近，所以很多航线要飞越北极地区。联合国会徽用的就是这种投影。'],
       },
       {
         title: ['Beijing to New York over the Arctic', '从北京飞纽约，要飞越北冰洋'], cam: [70, 170, 4], items: ['forbidden', 'liberty'],
@@ -233,6 +252,10 @@ export const MAPS: Lesson[] = [
     quiz: [
       { q: ['On a Mercator map Greenland looks as big as Africa. In reality Africa is about…', '在墨卡托地图上，格陵兰岛看起来和非洲差不多大。实际上非洲的面积约是格陵兰岛的'], options: [['14 times bigger', '14 倍'], ['The same size', '一样大'], ['Twice as big', '2 倍'], ['Half the size', '一半']], answer: 0,
         why: ['Africa ≈ 30 million km², Greenland ≈ 2.2 million km². Mercator inflates areas near the poles.', '非洲约 3000 万平方千米，格陵兰岛约 220 万平方千米。墨卡托投影会放大高纬度地区的面积。'] },
+      { q: ['The red circles were all the same size on the globe. Which projection is this?', '这些红色小圆在地球上一样大。这是哪种投影？'],
+        astro: { kit: 'projection', to: 'mercator', tissot: true, lon0: -10, regions: [GREENLAND] },
+        options: [['Mercator', '墨卡托投影'], ['Gall–Peters (equal-area)', '高尔—彼得斯投影（等积）'], ['Polar azimuthal', '极地方位投影'], ['A globe', '地球仪']], answer: 0,
+        why: ['The circles stay round but grow toward the poles: shapes are kept, areas are not. That is Mercator.', '小圆保持圆形，但越靠近两极越大：形状不变而面积放大，这是墨卡托投影。'] },
       { q: ['Which kind of map is best for comparing the sizes of countries?', '比较各国面积大小，最好用'], options: [['An equal-area map', '等积投影地图'], ['A Mercator map', '墨卡托投影地图'], ['A town plan', '城市街道图'], ['A weather map', '天气图']], answer: 0,
         why: ['Equal-area projections keep every area in the right proportion.', '等积投影地图上各地的面积比例都是准确的。'] },
       { q: ['Why do flights from Beijing to New York fly over the Arctic?', '从北京飞往纽约的航班为什么要飞越北冰洋上空？'], options: [['It is the great-circle route, the shortest way', '这是大圆航线，路程最短'], ['To avoid the equator', '为了避开赤道'], ['Planes must follow parallels', '飞机必须沿纬线飞'], ['The Pacific is closed to planes', '太平洋上空不能飞行']], answer: 0,

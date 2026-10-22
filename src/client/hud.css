@@ -524,6 +524,15 @@ body:has(.sky) .lesson-marks, body.solar .lesson-marks { display: none; }
 .lesson-keys { margin: 0; padding: 8px 10px 8px 26px; display: grid; gap: 3px; font-size: .9rem; line-height: 1.45; border-left: 3px solid var(--accent); background: rgba(77, 171, 247, .06); }
 .lesson-keys-h { margin: 0; font-family: var(--font-hud); font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--hud-dim); }
 
+/* astronomy class: the 3D board over the paused globe, under the card */
+.astro-board { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 16; touch-action: none; cursor: grab; outline: none; }
+.astro-board[hidden], .astro-marks[hidden] { display: none; }
+.astro-board:active { cursor: grabbing; }
+.lesson-marks.astro-marks { z-index: 17; }
+.astro-mark { will-change: transform; }
+.sky-labels.astro-mlabels { position: fixed; z-index: 17; }
+body:not(.astro-on) .astro-mlabels { display: none; }
+
 /* figures in the lesson card: charts and diagrams */
 .lesson-fig { margin: 0; padding: 6px 4px 2px; border: 1px solid var(--hud-line, rgba(255, 255, 255, .12)); border-radius: 6px; background: rgba(4, 10, 18, .55); }
 .fig-svg { display: block; width: 100%; height: auto; max-height: 190px; font-family: var(--font-ui, inherit); overflow: visible; color: #a5d8ff; }

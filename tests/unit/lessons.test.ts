@@ -60,6 +60,7 @@ describe('geography lessons data', () => {
       expect(l.quiz.length, at).toBeGreaterThanOrEqual(3);
       for (const s of l.steps) {
         expect(okPair(s.title) && okPair(s.body), `${at}: ${s.title[0]}`).toBe(true);
+        if (s.astro) continue;
         expect(okLL([s.cam[0], s.cam[1]]) && s.cam[2] > 1, `${at} cam`).toBe(true);
         for (const k of s.items ?? []) expect(BY_KEY.has(k), `${at} item ${k}`).toBe(true);
         for (const m of s.marks ?? []) { expect(okLL(m.ll), `${at} mark`).toBe(true); if (m.text) expect(okPair(m.text), `${at} mark ${m.text[0]}`).toBe(true); }

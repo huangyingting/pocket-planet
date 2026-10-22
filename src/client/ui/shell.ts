@@ -34,7 +34,7 @@ const typeName = (ty: CatalogueItem['type']) => tr(TYPE_META[ty].one, lang());
 const AURA_ORDER: AuraPreset[] = ['waves', 'aurora', 'ember', 'dusk', 'sculpture'];
 
 export interface ShellHooks {
-  openPhoto: () => void; openCollection: () => void; openGame: (kind: 'daily' | 'placeit' | 'quiz') => void; openPassport: () => void; openAlbum: () => void; openTutorial: () => void; openTours: () => void; openLessons: () => void; openBookmarks: () => void; openCompare: (id?: string) => void; openTonight: () => void;
+  openPhoto: () => void; openCollection: () => void; openGame: (kind: 'daily' | 'placeit' | 'quiz') => void; openPassport: () => void; openAlbum: () => void; openTutorial: () => void; openTours: () => void; openLessons: () => void; openAstro: () => void; openBookmarks: () => void; openCompare: (id?: string) => void; openTonight: () => void;
   openAccount: () => void; openGuestbook: () => void;
   openSolar: () => void;
   openSky: () => void;
@@ -275,7 +275,7 @@ export class Shell {
   private renderHub(): void {
     const hk = this.hooks;
     this.hub.replaceChildren(...renderHub(this.tab, this.space, {
-      lessons: hk.openLessons, tours: hk.openTours,
+      lessons: hk.openLessons, astro: hk.openAstro, tours: hk.openTours,
       sky: hk.openSky, tonight: hk.openTonight, time: () => this.time.toggle(), compare: () => hk.openCompare(), bookmarks: hk.openBookmarks, radio: () => hk.openRadio?.(),
       game: hk.openGame, passport: hk.openPassport, collection: hk.openCollection, album: hk.openAlbum, account: hk.openAccount, guestbook: hk.openGuestbook,
       toEarth: () => this.hooks.toHome?.(),

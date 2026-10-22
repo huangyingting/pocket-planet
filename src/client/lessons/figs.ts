@@ -7,7 +7,7 @@
 import type { Pair } from './stage.ts';
 import { BIOMES, CLIMATES, type Biome, type Climate } from './climate.ts';
 
-type Lx = (p: Pair) => string;
+export type Lx = (p: Pair) => string;
 
 /** Climate normals (approximate 1991–2020 means): °C and mm per month. */
 export const CITIES = {
@@ -61,18 +61,20 @@ export type Fig =
   | { k: 'key'; set: 'biome'; only?: Biome[] }
   | { k: 'key'; set: 'custom'; title?: Pair; items: { c: string; name: Pair }[] }
   /** a hand-drawn diagram */
-  | { k: 'dia'; id: DiagramId };
+  | { k: 'dia'; id: DiagramId }
+  /** a custom diagram drawn by the lesson file; `id` is unique per figure (for marker/gradient ids) */
+  | { k: 'svg'; draw: (L: Lx, id: string) => string };
 
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+export const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const r1 = (v: number) => Math.round(v * 10) / 10;
 let uid = 0;
 
 /** SVG text. `a`: anchor (s, m, e); `c`: class. */
-const tx = (x: number, y: number, s: string, c = '', a: 's' | 'm' | 'e' = 's', extra = '') =>
+export const tx = (x: number, y: number, s: string, c = '', a: 's' | 'm' | 'e' = 's', extra = '') =>
   `<text x="${r1(x)}" y="${r1(y)}" class="${c}" text-anchor="${a === 's' ? 'start' : a === 'm' ? 'middle' : 'end'}"${extra}>${esc(s)}</text>`;
-const svg = (w: number, h: number, body: string, label: string) =>
+export const svg = (w: number, h: number, body: string, label: string) =>
   `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label)}" class="fig-svg">${body}</svg>`;
-const arrowDef = (id: string, c = 'currentColor') =>
+export const arrowDef = (id: string, c = 'currentColor') =>
   `<defs><marker id="${id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="${c}"/></marker></defs>`;
 
 /** Round, readable axis steps. */
@@ -399,5 +401,6 @@ export function renderFig(f: Fig, L: Lx): string {
     case 'pyramid': return pyramid(L, f);
     case 'key': return key(L, f);
     case 'dia': return DIA[f.id](L, `fg${++uid}`);
+    case 'svg': return f.draw(L, `fg${++uid}`);
   }
 }

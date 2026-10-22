@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import type { GeoPoint, Vec3 } from '../../shared/lib/astro/types.ts';
+import type { BodyId } from '../../shared/data/solar.ts';
 
 export const D2R = Math.PI / 180;
 export const R_EARTH = 6378.137;
@@ -114,7 +115,7 @@ export function glowTexture(): THREE.Texture {
 
 /** A body's surface map (equirectangular, lon -180 at u = 0), painted off the main thread by the Solar System's painter. */
 const maps = new Map<string, Promise<THREE.DataTexture>>();
-export function bodyTexture(id: 'moon' | 'earth', w = 1024): Promise<THREE.DataTexture> {
+export function bodyTexture(id: BodyId, w = 1024): Promise<THREE.DataTexture> {
   const key = id + w;
   let p = maps.get(key);
   if (p) return p;

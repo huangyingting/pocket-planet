@@ -16,7 +16,7 @@ const TAB_ICON: Record<HubTab, IconName> = { learn: 'book', look: 'telescope', p
 const TAB_LABEL: Record<HubTab, string> = { learn: 'hubLearn', look: 'hubLook', play: 'hubPlay', me: 'hubMe' };
 
 export interface HubActions {
-  lessons(): void; tours(): void;
+  lessons(): void; astro(): void; tours(): void;
   sky(): void; tonight(): void; time(): void; compare(): void; bookmarks(): void; radio(): void;
   game(kind: 'daily' | 'placeit' | 'quiz'): void;
   passport(): void; collection(): void; album(): void; account(): void; guestbook(): void;
@@ -31,9 +31,12 @@ export const hubTab = (): HubTab => { const v = load<string>('hubTab', 'learn');
 function entries(tab: HubTab, a: HubActions): Entry[] {
   const done = (k: string) => load<string[]>(k, []).length;
   const tick = (n: number) => (n ? '✓ ' + t('hubDone', { n }) : '');
+  // geography and astronomy share one progress list; astronomy ids start with "a-"
+  const lessonIds = load<string[]>('lessonsDone', []), astroDone = lessonIds.filter(x => x.startsWith('a-')).length, geoDone = lessonIds.length - astroDone;
   switch (tab) {
     case 'learn': return [
-      { id: 'menu-lessons', ic: 'book', title: t('lessons'), sub: t('hubLessonsSub'), stat: tick(done('lessonsDone')), go: a.lessons },
+      { id: 'menu-lessons', ic: 'book', title: t('lessons'), sub: t('hubLessonsSub'), stat: tick(geoDone), go: a.lessons },
+      { id: 'menu-astro', ic: 'planet', title: t('astroLessons'), sub: t('hubAstroSub'), stat: tick(astroDone), go: a.astro },
       { id: 'menu-tours', ic: 'compass', title: t('tours'), sub: t('hubToursSub'), stat: tick(done('toursDone')), go: a.tours },
       { id: 'menu-link-encyclopedia', ic: 'external', title: t('encyclopedia'), sub: t('hubEncSub'), go: () => {}, href: url('encyclopedia/') },
     ];

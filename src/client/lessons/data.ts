@@ -10,6 +10,7 @@ import { CLIMATE_L } from './l-climate.ts';
 import { HUMAN } from './l-human.ts';
 import { WORLD } from './l-world.ts';
 import { CHINA_B } from './l-china2.ts';
+import { ASTRO_LESSONS, ASTRO_VIEWS, astroCourse, type AstroView } from './astro/data.ts';
 import type { Grade, Lesson, Pair, Strand, Track } from './kit.ts';
 
 export type { Grade, Lesson, Quiz, Step, Strand, Track } from './kit.ts';
@@ -44,7 +45,18 @@ export const VIEWS: Record<View, { name: Pair; note: Pair }> = {
   au: { name: ['Australia · years 7–8', '澳大利亚 · 7–8 年级'], note: ['Australian Curriculum: water in the world, place and liveability, landforms and landscapes, changing nations.', '澳大利亚国家课程：世界的水、地方与宜居性、地貌与景观、变化中的国家。'] },
 };
 
-export const lessonById = (id: string): Lesson | undefined => LESSONS.find(l => l.id === id);
+/** A lesson of either subject. */
+export const lessonById = (id: string): Lesson | undefined => LESSONS.find(l => l.id === id) ?? ASTRO_LESSONS.find(l => l.id === id);
+
+export type Subject = 'geo' | 'astro';
+/** Astronomy lesson ids start with `a-`. */
+export const subjectOf = (id: string): Subject => (id.startsWith('a-') ? 'astro' : 'geo');
+/** A subject's course picker: its curricula, their lessons in groups, where the choice is saved and the default. */
+export interface Catalog { views: Record<string, { name: Pair; note: Pair }>; course(v: string): { name: Pair; lessons: Lesson[] }[]; key: string; def(zh: boolean): string }
+export const CATALOGS: Record<Subject, Catalog> = {
+  geo: { views: VIEWS, course: v => course(v as View), key: 'lessonTrack', def: zh => (zh ? 'cn' : 'all') },
+  astro: { views: ASTRO_VIEWS, course: v => astroCourse(v as AstroView), key: 'astroTrack', def: zh => (zh ? 'cnj' : 'all') },
+};
 
 /** A curriculum's lessons, in groups: textbook volumes for China, themes for the others. */
 export function course(view: View): { name: Pair; lessons: Lesson[] }[] {
@@ -57,9 +69,9 @@ export function course(view: View): { name: Pair; lessons: Lesson[] }[] {
 /** The Chinese course keeps the textbook's own order. */
 const CN_ORDER: Lesson[] = ALL.filter(l => l.grade);
 
-/** The lesson after `id` in a curriculum. */
-export function nextLesson(id: string, view: View): Lesson | undefined {
-  const flat = course(view).flatMap(g => g.lessons);
+/** The lesson after `id` in a curriculum (of the lesson's own subject). */
+export function nextLesson(id: string, view: string): Lesson | undefined {
+  const flat = CATALOGS[subjectOf(id)].course(view).flatMap(g => g.lessons);
   const i = flat.findIndex(l => l.id === id);
   return i >= 0 ? flat[i + 1] : undefined;
 }

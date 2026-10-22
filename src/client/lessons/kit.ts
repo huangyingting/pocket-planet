@@ -2,8 +2,9 @@
 import type { IconName } from '../ui/icons.ts';
 import type { LL, Line, Mark, Pair, StageScene } from './stage.ts';
 import type { Fig } from './figs.ts';
+import type { AstroScene } from './astro/types.ts';
 
-export type { LL, Pair, Fig };
+export type { LL, Pair, Fig, AstroScene };
 
 export interface Quiz {
   q: Pair;
@@ -13,9 +14,13 @@ export interface Quiz {
   at?: LL; tolKm?: number;
   /** a chart or diagram to read (a climate graph to identify, a pyramid to interpret…) */
   fig?: Fig;
+  /** astronomy: the 3D scene shown with the question (instead of the globe) */
+  astro?: AstroScene;
+  /** "find it in the scene" question: tap the object the kit tagged with this name (`ctx.pickable`) */
+  pick?: string;
   why: Pair;
 }
-export interface Step extends StageScene {
+interface StepText {
   title: Pair; body: Pair;
   /** the drawing is a simplified sketch, not measured data */
   sketch?: boolean;
@@ -24,17 +29,26 @@ export interface Step extends StageScene {
   /** a chart or diagram shown in the card, next to what the globe draws */
   fig?: Fig;
 }
+/** A step draws on the globe (`StageScene`) or, in astronomy lessons, runs a 3D kit on its own board (`astro`). */
+export type Step = (StepText & StageScene & { astro?: undefined }) | (StepText & { astro: AstroScene });
 /** Volumes of the Chinese PEP (人教版) middle-school geography textbooks. */
 export type Grade = 'g7a' | 'g7b' | 'g8a' | 'g8b';
 /** The big themes every curriculum shares; the "all topics" view and the international tracks group by these. */
 export type Strand = 'maps' | 'physical' | 'climate' | 'human' | 'world' | 'china';
+/** Astronomy themes. */
+export type AstroStrand = 'earthmoon' | 'solar' | 'sky' | 'motion' | 'earthsun' | 'stars' | 'cosmos';
+/** Astronomy lessons: junior (age 11–15) or senior secondary (age 15–18). */
+export type Level = 'jr' | 'sr';
 /** Other middle-school (age 11–14) curricula: England KS3, US grades 6–8, IB MYP / Cambridge, Australia years 7–8. */
 export type Track = 'uk' | 'us' | 'ib' | 'au';
 export interface Lesson {
-  id: string; strand: Strand;
+  /** astronomy lesson ids start with `a-` */
+  id: string; strand: Strand | AstroStrand;
+  /** astronomy: junior or senior secondary */
+  level?: Level;
   /** the Chinese textbook volume; absent when the topic is not in the Chinese middle-school course */
   grade?: Grade;
-  /** other curricula that teach this topic */
+  /** other curricula that teach this topic (astronomy: at the lesson's level, e.g. `uk` = KS3 for junior, GCSE for senior) */
   tracks: Track[];
   unit: Pair; title: Pair; blurb: Pair; icon: IconName; minutes: number;
   /** the take-aways, shown with the score */

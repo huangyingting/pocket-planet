@@ -13,9 +13,10 @@ import { haversineKm } from '../../shared/lib/geo.ts';
 import { skyEvents } from '../../shared/lib/astro/events.ts';
 import type { Globe } from '../globe/scene.ts';
 import { LessonStage } from './stage.ts';
-import { VIEWS, course, lessonById, nextLesson, type Lesson, type Quiz, type View } from './data.ts';
+import { AstroStage } from './astro/stage.ts';
+import { CATALOGS, lessonById, nextLesson, subjectOf, type Lesson, type Quiz, type Step, type Subject } from './data.ts';
 import { renderFig, type Fig } from './figs.ts';
-import type { LL, Pair } from './kit.ts';
+import type { AstroScene, LL, Pair } from './kit.ts';
 
 const L = (p: Pair) => (lang() === 'zh' ? p[1] : p[0]);
 const DAY = 864e5;
@@ -32,8 +33,8 @@ export interface LessonHost {
 }
 
 const done = () => new Set(load<string[]>('lessonsDone', []));
-/** The curriculum picked in the lesson list; Chinese readers start with the Chinese textbook. */
-const view = (): View => { const v = load<string>('lessonTrack', ''); return v in VIEWS ? v as View : lang() === 'zh' ? 'cn' : 'all'; };
+/** The curriculum picked in a subject's lesson list; Chinese readers start with the Chinese course. */
+const view = (sub: Subject): string => { const c = CATALOGS[sub], v = load<string>(c.key, ''); return v in c.views ? v : c.def(lang() === 'zh'); };
 const figure = (f: Fig | undefined) => f ? h('figure', { class: 'lesson-fig', 'data-testid': 'lesson-fig', html: renderFig(f, L) }) : '';
 
 let active: { stop: () => void } | null = null;
@@ -52,8 +53,17 @@ function run(lesson: Lesson, host: LessonHost): void {
   stopLesson();
   const g = host.globe;
   const stage = new LessonStage(g, { low: host.low, lang, frame: () => freeArea(card) });
-  // for the end-to-end tests: what the stage drew
-  (window as { __lesson?: LessonStage | null }).__lesson = stage;
+  // astronomy steps run on their own 3D board over the paused globe (made on first use)
+  let astro: AstroStage | null = null;
+  const astroBoard = () => astro ??= new AstroStage({ low: host.low, lang, frame: () => freeArea(card),
+    onActive: on => { g.paused = on; if (!on) g.markDirty(); }, countries: () => g.countryShapes() });
+  /** Whichever board the current step uses (its clock drives the card's clock row). */
+  const board = (): LessonStage | AstroStage => (astro?.shown ? astro : stage);
+  // for the end-to-end tests: what the stages drew
+  const w = window as { __lesson?: LessonStage | null; __astro?: () => AstroStage | null };
+  w.__lesson = stage;
+  w.__astro = () => astro;
+  const sub = subjectOf(lesson.id);
   const steps = lesson.steps, quiz = lesson.quiz;
   /** 0 … steps-1 are steps; steps … steps+quiz-1 are questions; steps+quiz is the score card. */
   let i = 0;
@@ -66,7 +76,7 @@ function run(lesson: Lesson, host: LessonHost): void {
   const root = h('div', { class: 'tour lesson' }, card);
 
   const clockRow = () => {
-    const c = stage.clock;
+    const stage = board(), c = stage.clock;
     if (!c) return '';
     const read = h('span', { class: 'lesson-time', 'data-testid': 'lesson-time' }, stage.clockText());
     if (!c.rate) return h('div', { class: 'lesson-clock' }, h('span', { class: 'lesson-ico', html: icon('calendar', 14) }), read);
@@ -97,6 +107,7 @@ function run(lesson: Lesson, host: LessonHost): void {
   const renderStep = () => {
     const st = steps[i];
     stage.onClock = null;
+    if (astro) astro.onClock = null;
     card.replaceChildren(
       head(t('tutStep', { i: i + 1, n: steps.length })),
       h('h2', { id: 'lesson-title' }, L(st.title)),
@@ -112,6 +123,7 @@ function run(lesson: Lesson, host: LessonHost): void {
   const renderQuiz = () => {
     const k = i - steps.length, q = quiz[k], ans = answers[k];
     stage.onClock = null;
+    if (astro) astro.onClock = null;
     const why = ans === null ? '' : h('p', { class: 'lesson-why ' + (ans ? 'ok' : 'no'), 'aria-live': 'polite', 'data-testid': 'lesson-why' },
       h('strong', {}, t(ans ? 'lessonRight' : 'lessonWrong') + ' '), tap ? t('lessonKm', { km: Math.round(tap.km).toLocaleString() }) + ' ' : '', L(q.why));
     const body = q.options
@@ -120,26 +132,27 @@ function run(lesson: Lesson, host: LessonHost): void {
         'data-testid': 'lesson-opt', 'data-right': String(j === q.answer), disabled: ans !== null,
         onclick: () => { picked = j; answers[k] = j === q.answer; renderQuiz(); },
       }, L(q.options![j]))))
-      : h('p', { class: 'lesson-tap', html: icon('pin', 14) }, h('span', {}, ans === null ? t('lessonTap') : ''));
+      : h('p', { class: 'lesson-tap', html: icon('pin', 14) }, h('span', {}, ans === null ? t(q.pick ? 'lessonPick' : 'lessonTap') : ''));
     card.replaceChildren(
       head(t('lessonQuiz')),
       h('p', { class: 'tour-when' }, t('lessonQ', { i: k + 1, n: quiz.length })),
       h('h2', { id: 'lesson-title' }, L(q.q)),
       figure(q.fig),
+      q.astro ? clockRow() : '',
       body, why,
       nav(() => go(i - 1), () => go(i + 1), k === quiz.length - 1 ? t('tourFinish') : t('next'), ans === null));
   };
 
   const renderScore = () => {
     const s = answers.filter(Boolean).length;
-    const v = view(), nx = nextLesson(lesson.id, v) ?? (v === 'all' ? undefined : nextLesson(lesson.id, 'all'));
+    const v = view(sub), nx = nextLesson(lesson.id, v) ?? (v === 'all' ? undefined : nextLesson(lesson.id, 'all'));
     card.replaceChildren(
       head(t('lessonQuiz')),
       h('h2', { id: 'lesson-title', 'data-testid': 'lesson-score' }, t('lessonScore', { s, n: quiz.length })),
       h('p', { class: 'lesson-keys-h' }, t('lessonKeys')),
       h('ul', { class: 'lesson-keys', 'data-testid': 'lesson-keys' }, ...lesson.keys.map(k => h('li', {}, L(k)))),
       h('div', { class: 'row' },
-        h('button', { class: 'pill', 'data-testid': 'lesson-more', onclick: () => { stop(); openLessons(host); } }, t('lessonMore')),
+        h('button', { class: 'pill', 'data-testid': 'lesson-more', onclick: () => { stop(); openLessons(host, sub); } }, t('lessonMore')),
         h('button', { class: 'pill', 'data-testid': 'lesson-again', onclick: () => { answers.fill(null); go(0); } }, t('lessonAgain')),
         nx ? h('button', { class: 'cta', 'data-testid': 'lesson-nextlesson', title: L(nx.title), onclick: () => { stop(); startLesson(nx.id, host); } }, t('lessonNextOne'))
           : h('button', { class: 'cta', 'data-testid': 'lesson-done', onclick: () => stop() }, t('tourFinish'))));
@@ -147,13 +160,38 @@ function run(lesson: Lesson, host: LessonHost): void {
 
   const render = () => (i < steps.length ? renderStep() : i < steps.length + quiz.length ? renderQuiz() : renderScore());
 
+  /** A step's or question's 3D scene on the astronomy board; the globe is cleared underneath. */
+  const showAstro = (s: AstroScene) => {
+    stage.show({ cam: [g.lat, g.lon, Math.max(g.h, 3)] });
+    void astroBoard().show(s);
+  };
+  const showStep = (st: Step) => {
+    if (st.astro) showAstro(st.astro);
+    else { astro?.hide(); stage.show(st); }
+  };
   /** Quiz scenes: a plain globe, the answer region in view for "find it" questions (but not centred). */
   const quizScene = (q: Quiz) => {
+    if (q.astro) { showAstro(q.astro); return; }
+    astro?.hide();
     if (!q.at) { stage.show({ cam: [g.lat, g.lon, Math.max(g.h, 3)] }); return; }
     stage.show({ cam: [Math.max(-60, Math.min(60, q.at[0] * 0.6)), q.at[1] + 32, 4.2] });
   };
   const listen = (k: number) => {
     const q = quiz[k];
+    if (astro) astro.onPick = null;
+    if (q.pick && answers[k] === null) {
+      astroBoard().onPick = tag => {
+        if (answers[k] !== null || !tag) return;
+        answers[k] = tag === q.pick;
+        picked = null;
+        const b = astroBoard();
+        b.onPick = null;
+        if (tag !== q.pick) b.flag(tag, ['Your pick', '你点的'], '#ff6b6b');
+        b.flag(q.pick!, ['Answer', '正确答案'], '#ffd24a');
+        renderQuiz();
+      };
+      return;
+    }
     g.captureTaps = !!q.at && answers[k] === null;
     g.ev.onGlobeTap = g.captureTaps ? (lat, lon) => {
       if (answers[k] !== null || !q.at) return;
@@ -177,7 +215,8 @@ function run(lesson: Lesson, host: LessonHost): void {
     i = k;
     picked = null; tap = null;
     g.captureTaps = false; g.ev.onGlobeTap = undefined;
-    if (i < steps.length) stage.show(steps[i]);
+    if (astro) astro.onPick = null;
+    if (i < steps.length) showStep(steps[i]);
     else if (i < steps.length + quiz.length) {
       const q = quiz[i - steps.length];
       quizScene(q);
@@ -188,6 +227,7 @@ function run(lesson: Lesson, host: LessonHost): void {
   };
 
   const finish = () => {
+    astro?.hide();
     stage.show({ cam: [g.lat, g.lon, Math.max(g.h, 3)] });
     save('lessonsDone', [...done().add(lesson.id)]);
     if (answers.filter(Boolean).length >= quiz.length - 1) confetti(40);
@@ -197,12 +237,14 @@ function run(lesson: Lesson, host: LessonHost): void {
     offLang();
     g.captureTaps = false; g.ev.onGlobeTap = undefined;
     stage.dispose();
-    (window as { __lesson?: LessonStage | null }).__lesson = null;
+    astro?.dispose();
+    w.__lesson = null;
+    w.__astro = () => null;
     root.remove();
     document.body.classList.remove('lessoning');
     if (active === self) active = null;
   };
-  const offLang = onLang(() => { stage.relabel(); render(); });
+  const offLang = onLang(() => { stage.relabel(); astro?.relabel(); render(); });
   const self = { stop };
   active = self;
   document.body.append(root);
@@ -240,14 +282,14 @@ function nextSolstice(): string | undefined {
   return skyEvents(now, now + 400 * DAY, { kinds: ['solstice'] })[0]?.id;
 }
 
-/** The lesson picker: pick a curriculum, then its lessons in groups (textbook volumes, or themes). */
-export function openLessons(host: LessonHost): void {
-  const seen = done();
+/** The lesson picker of a subject: pick a curriculum, then its lessons in groups (textbook volumes, or themes). */
+export function openLessons(host: LessonHost, sub: Subject = 'geo'): void {
+  const seen = done(), cat = CATALOGS[sub];
   const list = h('div', { class: 'tour-list lesson-list', 'data-testid': 'lesson-list' });
   const note = h('p', { class: 'muted small' });
-  const fill = (v: View) => {
-    note.textContent = L(VIEWS[v].note);
-    const groups = course(v).map(gr => h('section', { class: 'lesson-group' },
+  const fill = (v: string) => {
+    note.textContent = L(cat.views[v].note);
+    const groups = cat.course(v).map(gr => h('section', { class: 'lesson-group' },
       h('h3', { class: 'lesson-grade' }, h('span', {}, L(gr.name)), h('small', {}, `${gr.lessons.filter(x => seen.has(x.id)).length}/${gr.lessons.length}`)),
       ...gr.lessons.map(x => h('div', { class: 'tour-row' },
         h('button', { class: 'tour-pick', 'data-testid': 'lesson-' + x.id, onclick: () => { closeModal('lessons'); startLesson(x.id, host); } },
@@ -258,11 +300,11 @@ export function openLessons(host: LessonHost): void {
           onclick: () => void copyLink(classroomLink(x.id, 'lesson')) })))));
     list.replaceChildren(...groups);
   };
-  const sel = new Select({ label: t('lessonTrack'), testid: 'lesson-track', icon: 'book', value: view(),
-    options: (Object.keys(VIEWS) as View[]).map(v => ({ value: v, label: L(VIEWS[v].name) })),
-    onChange: v => { save('lessonTrack', v); fill(v as View); } });
-  fill(view());
-  openModal('lessons', t('lessons'), h('div', { class: 'lesson-pickwrap' }, h('p', { class: 'muted' }, t('lessonsIntro')),
+  const sel = new Select({ label: t('lessonTrack'), testid: 'lesson-track', icon: 'book', value: view(sub),
+    options: Object.keys(cat.views).map(v => ({ value: v, label: L(cat.views[v].name) })),
+    onChange: v => { save(cat.key, v); fill(v); } });
+  fill(view(sub));
+  openModal('lessons', t(sub === 'astro' ? 'astroLessons' : 'lessons'), h('div', { class: 'lesson-pickwrap' }, h('p', { class: 'muted' }, t(sub === 'astro' ? 'astroIntro' : 'lessonsIntro')),
     h('div', { class: 'lesson-track' }, sel.el, note), list));
 }
 

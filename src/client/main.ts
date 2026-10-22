@@ -261,6 +261,7 @@ async function boot(): Promise<void> {
     blocked: () => gaming,
   };
   const openLessons = () => lessonsMod(m => m.openLessons(lessonHost));
+  const openAstro = () => lessonsMod(m => m.openLessons(lessonHost, 'astro'));
   const startLesson = (id: string) => lessonsMod(m => m.startLesson(id, lessonHost));
 
   // ---- saved views (F02) ----
@@ -327,7 +328,7 @@ async function boot(): Promise<void> {
     openCollection: showCollection,
     openGame, openPassport: showPassport, openAlbum: () => photoMod(m => void m.openAlbum()),
     openTutorial: () => openTutorial(openTours),
-    openTours, openLessons, openBookmarks,
+    openTours, openLessons, openAstro, openBookmarks,
     openCompare: (id?: string) => cmpMod(m => m.openCompare(id)),
     openTonight: () => tonightMod(m => m.openTonight(navTo)),
     openAccount: () => account(m => m.openAccount()), openGuestbook: () => account(m => void m.openGuestbook()),
@@ -392,6 +393,7 @@ async function boot(): Promise<void> {
     const [head, rest = ''] = hsh.split('/');
     if (head === 'sky') { void openSky(rest || undefined); return; }
     if (head === 'lesson') { if (rest) startLesson(rest); else openLessons(); history.replaceState(null, '', location.pathname + location.search); return; }
+    if (head === 'astro') { if (rest) startLesson(rest); else openAstro(); history.replaceState(null, '', location.pathname + location.search); return; }
     if (head === 'tour') { if (rest) startTour(rest); else openTours(); history.replaceState(null, '', location.pathname + location.search); return; }
     const scale = SCALE_ROUTES[head];
     if (scale) {
