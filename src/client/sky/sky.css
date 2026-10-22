@@ -71,15 +71,7 @@
 .sky-seg.on::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px; background: var(--sig); box-shadow: var(--sig-glow); }
 
 .sky-site { position: relative; display: flex; align-items: center; color: var(--hud); }
-.sky-site > span { position: absolute; left: 12px; pointer-events: none; display: flex; }
-.sky-select {
-  appearance: none; -webkit-appearance: none; min-height: 44px; max-width: 220px; padding: 0 34px 0 36px; color: #e0f2fe; cursor: pointer;
-  border: 1px solid var(--hud-line); border-radius: 0; font: 500 13px/1 var(--font-hud);
-  background: linear-gradient(45deg, transparent 50%, var(--hud) 50%) right 16px center / 5px 5px no-repeat,
-    linear-gradient(135deg, var(--hud) 50%, transparent 50%) right 11px center / 5px 5px no-repeat, rgba(125, 211, 252, 0.05);
-  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
-}
-.sky-select option { background: #06101c; color: #e0f2fe; }
+.sky-select .xsel-btn { min-height: 44px; max-width: 220px; background-color: rgba(125, 211, 252, 0.05); font-size: 13px; }
 
 /* ---- telemetry card (right) ---- */
 .sky-side { position: absolute; right: 22px; top: 112px; width: 268px; display: grid; gap: 10px; transition: transform .4s var(--ease-out); }
@@ -242,7 +234,7 @@
 .sky.narrow .sky-views { flex: 1 1 100%; }
 .sky.narrow .sky-seg { flex: 1; padding: 0 6px; }
 .sky.narrow .sky-site { flex: 1; }
-.sky.narrow .sky-select { max-width: none; width: 100%; }
+.sky.narrow .sky-select, .sky.narrow .sky-select .xsel-btn { max-width: none; width: 100%; }
 .sky.narrow .sky-side { left: 8px; right: 8px; top: auto; bottom: 150px; width: auto; }
 .sky.narrow .sky-card { padding: 8px 12px 10px; }
 .sky.narrow .sky-card-k { display: none; }

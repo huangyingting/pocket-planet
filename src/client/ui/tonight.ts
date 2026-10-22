@@ -1,5 +1,6 @@
 /** "Tonight from my city": a hand-picked city (no GPS), the dark window, Moon, planets, meteor showers and events ahead. */
 import { h, openModal, closeModal } from './dom.ts';
+import { Select } from './select.ts';
 import { icon } from './icons.ts';
 import { t, lang, fmtNum } from '../lib/i18n.ts';
 import { load, save } from '../lib/storage.ts';
@@ -17,10 +18,9 @@ const LASTS = new Set(['opposition', 'conjunction', 'elongation', 'supermoon']);
 export function openTonight(open: (hash: string) => void, now = Date.now()): void {
   let siteId = load<string>('tonightSite', '');
   const body = h('div', { class: 'tn-body', 'aria-live': 'polite' });
-  const select = h('select', { 'data-testid': 'tn-city', 'aria-label': t('tnCity'),
-    onchange: () => { siteId = select.value; save('tonightSite', siteId); render(); } },
-    h('option', { value: '' }, t('tnPick')),
-    ...SITES.map(x => h('option', { value: x.id, selected: x.id === siteId }, tr(x.name, lang()))));
+  const select = new Select({ testid: 'tn-city', label: t('tnCity'), icon: 'pin', className: 'xsel-wide', value: siteId, placeholder: t('tnPick'),
+    options: SITES.map(x => ({ value: x.id, label: tr(x.name, lang()) })),
+    onChange: v => { siteId = v; save('tonightSite', siteId); render(); } }).el;
 
   const render = () => {
     const site = SITES.find(x => x.id === siteId);
@@ -76,6 +76,6 @@ export function openTonight(open: (hash: string) => void, now = Date.now()): voi
   render();
   openModal('tonight', t('tonight'), h('div', { class: 'tn', 'data-testid': 'tonight' },
     h('p', { class: 'muted' }, t('tnIntro')),
-    h('label', { class: 'tn-city' }, h('span', { html: icon('pin', 15) }), select),
+    h('div', { class: 'tn-city' }, select),
     body), { wide: true });
 }

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { fromHub, openApp, flyTo, clickItem, shot } from './helpers.ts';
+import { fromHub, pickOption, openApp, flyTo, clickItem, shot } from './helpers.ts';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -74,12 +74,21 @@ test('menu: toggles layers & names, language persists', async ({ page }) => {
   await page.getByTestId('mode-minimal').click();
   await expect.poll(() => page.evaluate(() => (window as any).__pp.globe.settings.surfaceMode)).toBe('minimal');
   await page.getByTestId('mode-realistic').click();
-  await page.locator('#lang-select').selectOption('zh');
+  // the language dropdown works from the keyboard: open, move, pick; Esc only closes the list
+  const langSel = page.getByTestId('lang-select');
+  await langSel.focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(langSel).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('listbox')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(langSel).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('#menu')).toBeVisible();
+  await pickOption(page, 'lang-select', 'zh');
   await expect(page.locator('h1')).toHaveText('寰星');
   await page.reload();
   await expect(page.locator('h1')).toHaveText('寰星', { timeout: 90_000 });
   await page.getByTestId('btn-menu').click();
-  await page.locator('#lang-select').selectOption('en');
+  await pickOption(page, 'lang-select', 'en');
   await expect(page.locator('h1')).toHaveText('Terrastra');
   await page.keyboard.press('Escape');
   await expect(page.locator('#menu')).toBeHidden();

@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import type { SkyEvent } from '../../shared/lib/astro/index.ts';
 import { tr } from '../../shared/data/types.ts';
 import { h, trapTab } from '../ui/dom.ts';
+import { Select } from '../ui/select.ts';
 import { icon } from '../ui/icons.ts';
 import { lang } from '../lib/i18n.ts';
 import { s, SITES, type SkyKey } from './text.ts';
@@ -69,7 +70,7 @@ export class Theatre {
   private titleEl = h('h2', { class: 'sky-title', id: 'sky-title' });
   private dateEl = h('small', { class: 'sky-date' });
   private viewsEl = h('div', { class: 'sky-views', role: 'tablist' });
-  private siteSel = h('select', { class: 'sky-select', 'aria-label': s('where') });
+  private siteSel!: Select;
   private readEl = h('dl', { class: 'sky-read' });
   private capEl = h('p', { class: 'sky-cap', 'aria-live': 'polite' });
   private noteEl = h('p', { class: 'sky-note' });
@@ -123,18 +124,17 @@ export class Theatre {
     });
     this.cal = new Calendar(() => this.pick(), e => { this.load(e); if (matchMedia('(max-width: 820px)').matches) this.toggleCal(false); });
 
-    this.siteSel.append(
-      h('option', { value: 'best' }, s('bestSpot')),
-      ...(opts.globe ? [h('option', { value: 'globe' }, s('globeSpot'))] : []),
-      ...SITES.map(x => h('option', { value: x.id }, tr(x.name, lang()))));
-    if (![...this.siteSel.options].some(o => o.value === this.siteId)) this.siteId = 'best';
-    this.siteSel.value = this.siteId;
-    this.siteSel.addEventListener('change', () => {
-      this.siteId = this.siteSel.value;
+    const sites = [
+      { value: 'best', label: s('bestSpot') },
+      ...(opts.globe ? [{ value: 'globe', label: s('globeSpot') }] : []),
+      ...SITES.map(x => ({ value: x.id, label: tr(x.name, lang()) }))];
+    if (!sites.some(o => o.value === this.siteId)) this.siteId = 'best';
+    this.siteSel = new Select({ label: s('where'), testid: 'sky-site', icon: 'pin', className: 'sky-select', value: this.siteId, options: sites, onChange: v => {
+      this.siteId = v;
       try { localStorage.setItem(SITE_KEY, this.siteId); } catch { /* private mode */ }
       this.cal.render();
       this.load(this.ev, true);
-    });
+    } });
 
     this.range.addEventListener('input', () => {
       const a = this.tm;
@@ -151,7 +151,7 @@ export class Theatre {
         this.titleEl, this.dateEl),
       h('div', { class: 'sky-headr' },
         this.viewsEl,
-        h('label', { class: 'sky-site' }, h('span', { html: icon('pin', 16) }), this.siteSel),
+        h('div', { class: 'sky-site' }, this.siteSel.el),
         ...(opts.onPhoto ? [h('button', { class: 'sky-btn sky-btn-sq sky-photo', 'data-testid': 'sky-photo', title: s('photo'), 'aria-label': s('photo'), html: icon('camera', 18), onclick: () => opts.onPhoto!() })] : []),
         this.calBtn));
     const side = h('div', { class: 'sky-side' },
@@ -368,12 +368,13 @@ export class Theatre {
     // the globe and Solar System listen on document: keep keys meant for the theatre away from them
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.stopPropagation(); return; }
     if (e.key === 'Tab') { trapTab(e, this.el); return; }
+    if ((e.target as Element | null)?.closest?.('.xsel')) return;
     if (e.key === 'Escape') {
       e.preventDefault(); e.stopPropagation();
       if (this.el.classList.contains('cal-open')) this.toggleCal(false); else this.close();
       return;
     }
-    if (e.target instanceof HTMLSelectElement || e.target instanceof HTMLButtonElement) return;
+    if (e.target instanceof HTMLButtonElement) return;
     if (e.key === ' ') { e.preventDefault(); e.stopPropagation(); this.setPlaying(!this.playing); }
     else if (e.key === '+' || e.key === '=') { e.stopPropagation(); this.setRate(1); }
     else if (e.key === '-') { e.stopPropagation(); this.setRate(-1); }

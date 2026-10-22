@@ -1,5 +1,6 @@
 /** The compare bench modal: one measure per group, true scale or clearly-marked enlarged view. */
 import { h, openModal } from './dom.ts';
+import { Select } from './select.ts';
 import { icon } from './icons.ts';
 import { t, lang, fmtNum } from '../lib/i18n.ts';
 import { tr } from '../../shared/data/types.ts';
@@ -35,10 +36,11 @@ export function openCompare(start?: string): void {
   const render = () => {
     tabs.replaceChildren(...groups.map(x => h('button', { class: 'pill pill-sm' + (x === g ? ' active' : ''), 'aria-pressed': String(x === g), 'data-testid': 'cmp-g-' + x.id,
       onclick: () => { if (x !== g) { sfx.tap(); g = x; pair = [...x.pair]; render(); } } }, t('cmp_' + x.id))));
-    pickers.replaceChildren(...[0, 1].map(i => h('label', { class: 'cmp-pick' },
+    pickers.replaceChildren(...[0, 1].map(i => h('div', { class: 'cmp-pick' },
       h('span', { class: 'dot', style: `background:${COL[i]}` }), h('span', { class: 'muted small' }, t(i ? 'cmpPickB' : 'cmpPickA')),
-      h('select', { 'data-testid': 'cmp-pick-' + i, onchange: (e: Event) => { pair[i] = (e.target as HTMLSelectElement).value; render(); } },
-        ...g.things.map(th => h('option', { value: th.id, selected: th.id === pair[i] }, `${th.emoji} ${tr(th.name, lang())} · ${fmt(th)}`))))));
+      new Select({ testid: 'cmp-pick-' + i, label: t(i ? 'cmpPickB' : 'cmpPickA'), className: 'xsel-wide', value: pair[i],
+        options: g.things.map(th => ({ value: th.id, label: `${th.emoji} ${tr(th.name, lang())} · ${fmt(th)}` })),
+        onChange: v => { pair[i] = v; render(); } }).el)));
     scales.replaceChildren(...(['true', 'zoom'] as const).map(m => h('button', { class: 'pill pill-sm' + (m === scale ? ' active' : ''), 'aria-pressed': String(m === scale), 'data-testid': 'cmp-' + m,
       onclick: () => { scale = m; render(); } }, t(m === 'true' ? 'cmpTrue' : 'cmpZoom'))));
 

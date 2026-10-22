@@ -1,5 +1,6 @@
 import { subName } from '../../shared/data/subs.ts';
 import { h, openModal, closeModal } from './dom.ts';
+import { Select } from './select.ts';
 import { t, lang } from '../lib/i18n.ts';
 import { store } from '../store.ts';
 import { ANIMALS, DISCOVERIES, BY_TYPE } from '../../shared/data/catalogue.ts';
@@ -44,7 +45,9 @@ function dex(title: string, items: CatalogueItem[], got: Record<string, number>,
 function stickers(): void {
   let order = load<'default' | 'earned'>('stickerSort', 'default');
   const grid = h('div', { class: 'sticker-grid', 'data-testid': 'sticker-grid' });
-  const sel = h('select', { 'aria-label': 'Sort' }, h('option', { value: 'default', selected: order === 'default' }, t('sortDefault')), h('option', { value: 'earned', selected: order === 'earned' }, t('sortEarned')));
+  const sel = new Select({ label: t('sortBy'), testid: 'sticker-sort', icon: 'trophy', value: order,
+    options: [{ value: 'default', label: t('sortDefault') }, { value: 'earned', label: t('sortEarned') }],
+    onChange: v => { order = v as typeof order; save('stickerSort', order); render(); } }).el;
   const render = () => {
     const got = store.progress.stickers;
     const list = STICKERS.slice();
@@ -53,7 +56,6 @@ function stickers(): void {
       h('span', { class: 'st-emoji', 'aria-hidden': 'true' }, got[s.id] ? s.emoji : '🔒'), h('span', {}, tr(s.name, lang())),
       got[s.id] ? h('small', {}, new Date(got[s.id]).toLocaleDateString()) : null)));
   };
-  sel.addEventListener('change', () => { order = sel.value as typeof order; save('stickerSort', order); render(); });
   render();
   openModal('stickers', t('stickers'), h('div', {}, h('div', { class: 'row end' }, sel), grid), { wide: true });
 }

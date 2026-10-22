@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { fromHub, openApp } from './helpers.ts';
+import { fromHub, pickOption, openApp } from './helpers.ts';
 
 /** Buttons and links a screen reader would announce without a name (decorative `aria-hidden` content does not count). */
 async function nameless(page: Page): Promise<string[]> {
@@ -285,7 +285,7 @@ test('compare bench: one measure per group, true scale vs clearly marked enlarge
   // a child next to the Burj Khalifa is under a pixel at true scale, and the bench says so
   await page.getByTestId('cmp-g-tall').click();
   await page.getByTestId('cmp-true').click();
-  await page.getByTestId('cmp-pick-1').selectOption('child');
+  await pickOption(page, 'cmp-pick-1', 'child');
   await expect(page.getByTestId('cmp-ratio')).toContainText(/height of Burj Khalifa is about 637 times/);
   await expect(page.getByTestId('cmp-note')).toContainText(/less than a pixel/);
   await page.getByTestId('modal-close').click();
@@ -293,7 +293,7 @@ test('compare bench: one measure per group, true scale vs clearly marked enlarge
   await page.evaluate(() => { location.hash = 'an_panda'; });
   await page.getByTestId('info-compare').click();
   await expect(page.getByTestId('cmp-g-long')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByTestId('cmp-pick-0')).toHaveValue('an_panda');
+  await expect(page.getByTestId('cmp-pick-0')).toHaveAttribute('data-value', 'an_panda');
   // C01 vehicles pack: speed is its own group (animals next to vehicles, in km/h)
   await page.getByTestId('cmp-g-fast').click();
   await expect(page.getByTestId('cmp-ratio')).toContainText(/speed of Bullet train is about 2\.6 times that of Cheetah/);
@@ -332,14 +332,14 @@ test('tonight from my city: hand-picked city, peak vs local view, says there is 
   await openApp(page);
   await fromHub(page, 'look', 'menu-tonight');
   await expect(page.getByTestId('tn-empty')).toBeVisible();
-  await page.getByTestId('tn-city').selectOption('beijing');
+  await pickOption(page, 'tn-city', 'beijing');
   for (const s of ['night', 'moon', 'planets', 'showers', 'events']) await expect(page.getByTestId('tn-' + s)).toBeVisible();
   await expect(page.getByTestId('tn-night')).toContainText(/Sunset \d\d:\d\d/);
   await expect(page.getByTestId('tn-weather')).toContainText(/No weather data/);
   // the choice is remembered, and an event opens in the sky theatre
   await page.getByTestId('modal-close').click();
   await fromHub(page, 'look', 'menu-tonight');
-  await expect(page.getByTestId('tn-city')).toHaveValue('beijing');
+  await expect(page.getByTestId('tn-city')).toHaveAttribute('data-value', 'beijing');
   const ev = page.getByTestId('tn-event').first();
   if (await ev.count()) {
     await ev.click();

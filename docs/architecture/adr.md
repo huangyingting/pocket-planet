@@ -783,3 +783,21 @@ Above the Solar System the scenes were also static apart from rigid disc spin.
 - \+ The top bar is the same on desktop and phones (no overflow rule) and leaves more room for the scene.
 - \+ New activities are added in one place, on the shelf where they belong.
 - − The time machine, radio and sky theatre are one tap further away (hub → row).
+
+## ADR-034: One HUD dropdown instead of the native select
+
+**Status.** Accepted.
+
+**Context.** The language, tonight's city, compare pickers, sticker sort and the sky theatre's site each used a native `<select>`. Its closed state could be styled a little, but its open list is drawn by the operating system: white system menus over the dark HUD, different on every platform, and the cut-corner slab could not be applied.
+
+**Decision.**
+- `ui/select.ts` (`Select`) is the only dropdown. No native `<select>` is left in the app.
+- It follows the WAI-ARIA select-only combobox pattern: the trigger is a `button[role=combobox]` that keeps focus; options are announced with `aria-activedescendant`.
+- Keys: arrows, Home/End, PageUp/PageDown, typeahead, Enter/Space to pick, Esc closes only the list (not the menu, modal or theatre around it), Tab closes it.
+- The list opens in the top layer (`popover="manual"`), so slab `clip-path`s and scrolling panels never cut it. It stays a DOM child of the picker, so "click outside" checks of the menu, hub and modals still see it as inside. It sits below the trigger, or above when there is more room there.
+- Look: slab trigger with a chevron, opaque slab list, amber bar and tick on the chosen option; 44 px rows on touch screens.
+- Tests pick with `pickOption(page, testid, value)` and read the value from the trigger's `data-value`.
+
+**Consequences.**
+- \+ Every choice list looks and behaves the same on every platform and in both languages.
+- − Mobile users get the HUD list instead of the platform's wheel or sheet picker.

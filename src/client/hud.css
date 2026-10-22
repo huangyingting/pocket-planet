@@ -35,7 +35,7 @@
 * { scrollbar-color: rgba(125, 211, 252, 0.3) transparent; }
 
 /* ---- the slab: shared geometry for everything that carries the cut-corner silhouette ---- */
-.tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .tour-card, .photo-bar, .hints, .zoom-ctl, .round-btn, .toast, .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info, .solar-ui .solar-hint, .hub-card, .dex-card, .near-card, .diff, .opt, .reader-continue, .cta, .pill, .seg button, .react, .read-more, .hero-btn, .switch-card, .lv-cur, .lv-list {
+.tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .tour-card, .photo-bar, .hints, .zoom-ctl, .round-btn, .toast, .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info, .solar-ui .solar-hint, .hub-card, .dex-card, .near-card, .diff, .opt, .reader-continue, .cta, .pill, .seg button, .react, .read-more, .hero-btn, .switch-card, .lv-cur, .lv-list, .xsel-btn, .xsel-list {
   --cut: 12px; --edge: var(--hud-line);
   --pp-clip: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
   --pp-cuts:
@@ -50,7 +50,7 @@
 .pill-sm { --cut: 5px; }
 
 /* panels: hairline cuts, amber signal tab on the top edge, ruler ticks on the bottom edge */
-.tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .tour-card, .photo-bar, .hints, .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info, .lv-cur, .lv-list {
+.tools, .menu, .info, .modal-panel, .time-bar, .radio-bar, .ride-bar, .game-hud, .tut-card, .tour-card, .photo-bar, .hints, .solar-ui .solar-dock, .solar-ui .solar-time, .solar-ui .solar-info, .lv-cur, .lv-list, .xsel-list {
   --pp-bg: var(--hud-panel);
   border: 1px solid var(--hud-line); box-shadow: inset 0 0 32px rgba(56, 189, 248, 0.05);
   background:
@@ -169,7 +169,7 @@
 .read-more { background: var(--pp-cuts), var(--hud-fill); font-family: var(--font-hud); letter-spacing: .04em; }
 .hero-btn { padding: 6px 12px 6px 10px; font-size: .84rem; border-color: var(--hud-line); background: var(--pp-cuts), rgba(4, 11, 20, 0.76); }
 .info-x { border-radius: 0; border-color: var(--hud-line); background: rgba(4, 11, 20, 0.76); }
-.menu-row select, .search-modal .input, .name-input, .acct-input, .daily-form input, textarea {
+.search-modal .input, .name-input, .acct-input, .daily-form input, textarea {
   border-radius: 0; border-color: var(--hud-line); background: rgba(4, 11, 20, 0.85);
 }
 .search-modal .input { font-size: 1.02rem; }
@@ -550,7 +550,7 @@ body:has(.sky) .modal { z-index: var(--z-alert); }
 .cmp-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .cmp-pick { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 6px; }
 .cmp-pick .dot { width: 10px; height: 10px; border-radius: 50%; }
-.cmp-pick select { grid-column: 1 / -1; min-width: 0; width: 100%; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--hud-line); background: rgba(8, 16, 28, .9); color: #e6f3fb; font: inherit; font-size: .88rem; }
+.cmp-pick .xsel { grid-column: 1 / -1; }
 .cmp-stage { width: 100%; height: auto; border: 1px solid var(--hud-line); border-radius: 10px; background: radial-gradient(120% 90% at 50% 100%, rgba(40, 70, 100, .35), rgba(6, 10, 18, .9)); }
 .cmp-stage[data-scale="zoom"] { border-style: dashed; border-color: #ffb347; }
 .cmp-ground { stroke: rgba(180, 220, 255, .35); stroke-width: 1; }
@@ -573,8 +573,7 @@ body:has(.sky) .modal { z-index: var(--z-alert); }
 
 /* Tonight from my city (F04) */
 .tn { display: grid; gap: 10px; }
-.tn-city { display: flex; align-items: center; gap: 8px; }
-.tn-city select { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--hud-line); background: rgba(8, 16, 28, .9); color: #e6f3fb; font: inherit; }
+.tn-city { display: flex; }
 .tn-body { display: grid; gap: 8px; }
 .tn-when { margin: 0; font-family: var(--font-hud); color: #9fd4f0; font-size: .9rem; }
 .tn-sec { border: 1px solid var(--hud-line); border-radius: 10px; padding: 8px 12px; background: rgba(8, 16, 28, .5); }
@@ -714,7 +713,6 @@ html.classroom .lv-text b { font-size: .95rem; }
 .menu-line { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px solid var(--hud-line); font-size: .86rem; color: var(--text-2); }
 .menu-line:first-of-type { margin-top: 12px; }
 .menu-line .pill-sm { display: inline-flex; align-items: center; gap: 5px; }
-.menu-line select { background: var(--panel2); border: 1px solid var(--hud-line); padding: 4px 8px; color: var(--text); }
 .menu .menu-links { margin-top: 8px; padding-top: 10px; }
 
 /* search: the random hop lives next to the search box */
@@ -731,3 +729,35 @@ html.classroom .lv-text b { font-size: .95rem; }
   .lv-text b { font-size: .8rem; }
   .lv-caret { margin-left: -2px; }
 }
+
+/* ---- dropdown (ui/select.ts): the one picker for every choice list ---- */
+.xsel { position: relative; display: inline-flex; min-width: 0; }
+.xsel-wide { display: flex; width: 100%; }
+.xsel-btn {
+  --cut: 7px; display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; min-height: 38px; padding: 0 12px;
+  border: 1px solid var(--hud-line); background: var(--pp-cuts), rgba(4, 11, 20, 0.85); color: var(--text);
+  font: 500 .88rem/1.2 var(--font-hud); letter-spacing: .02em; text-align: left; cursor: pointer;
+  transition: border-color .15s, background-color .15s;
+}
+.xsel-btn:hover, .xsel.open .xsel-btn { --edge: var(--hud-hi); border-color: var(--hud-hi); background-color: var(--hud-fill-hi); }
+.xsel-btn:focus-visible { outline: none; --edge: var(--hud); border-color: var(--hud); box-shadow: var(--hud-glow), inset 3px 0 0 var(--sig); }
+.xsel-btn.xsel-empty .xsel-text { color: var(--hud-dim); }
+.xsel-ico { display: inline-flex; flex: none; color: var(--hud); }
+.xsel-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* caret: a small chevron that flips when the list is open */
+.xsel-caret { flex: none; width: 7px; height: 7px; margin: -3px 2px 0 4px; border: solid var(--hud); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); transition: transform .18s; }
+.xsel.open .xsel-caret { margin-top: 3px; transform: rotate(-135deg); }
+.xsel-list {
+  --cut: 9px; --pp-bg: #03090f; position: absolute; inset: auto; left: 0; top: calc(100% + 4px); z-index: 40; margin: 0;
+  width: max-content; max-width: min(92vw, 420px); padding: 5px; overflow-y: auto; overscroll-behavior: contain;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55), inset 0 0 32px rgba(56, 189, 248, 0.05);
+  color: var(--text); font: 500 .88rem/1.25 var(--font-hud); scrollbar-width: thin; scrollbar-color: var(--hud-line) transparent;
+}
+.xsel-list:not(.on) { display: none; }
+.xsel-list[popover] { position: fixed; z-index: auto; }
+.xsel-list.on { display: flex; flex-direction: column; gap: 1px; animation: lv-in .14s ease-out; }
+.xsel-opt { position: relative; display: flex; align-items: center; min-height: 34px; padding: 6px 28px 6px 12px; color: var(--text-2); cursor: pointer; white-space: nowrap; }
+.xsel-opt.active { background: var(--hud-fill-hi); color: var(--text); }
+.xsel-opt[aria-selected="true"] { color: #fff3df; box-shadow: inset 2px 0 0 var(--sig); }
+.xsel-opt[aria-selected="true"]::after { content: ""; position: absolute; right: 12px; top: 50%; width: 4px; height: 8px; margin-top: -6px; border: solid var(--sig); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+@media (pointer: coarse) { .xsel-btn { min-height: 44px; } .xsel-opt { min-height: 42px; } }

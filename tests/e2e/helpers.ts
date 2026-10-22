@@ -26,6 +26,13 @@ export async function shot(page: Page, name: string): Promise<void> {
 }
 
 /** Opens an activity from the Explore hub: shelf tab, then its row. */
+/** Picks an option in one of the app's dropdowns (ui/select.ts). */
+export async function pickOption(page: Page, testid: string, value: string): Promise<void> {
+  await page.getByTestId(testid).click();
+  await page.locator(`[role=option][data-value="${value}"]`).click();
+  await expect(page.getByTestId(testid)).toHaveAttribute('data-value', value);
+}
+
 export async function fromHub(page: Page, tab: 'learn' | 'look' | 'play' | 'me', id: string): Promise<void> {
   if (!(await page.getByTestId('hub').isVisible())) await page.getByTestId('btn-hub').click();
   await page.getByTestId('hub-tab-' + tab).click();

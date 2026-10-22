@@ -1,4 +1,5 @@
 import { h, closeModal, openModal, toast, $ } from './dom.ts';
+import { Select } from './select.ts';
 import { t, lang, setLang, countryName, fmtNum, onLang } from '../lib/i18n.ts';
 import { store, updateProgress, updateSettings, resetSettings, subscribe } from '../store.ts';
 import { tr, LANGS, type CatalogueItem, type Lang } from '../../shared/data/types.ts';
@@ -116,7 +117,7 @@ export class Shell {
         this.openSearch();
         return;
       }
-      const typing = (e.target as Element | null)?.closest?.('input, textarea, select, [contenteditable]');
+      const typing = (e.target as Element | null)?.closest?.('input, textarea, .xsel, [contenteditable]');
       if (!typing && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'h' && !document.querySelector('.sky, .modal:not(.hidden)')) { this.setImmersive(!this.immersive); return; }
       if (e.key !== 'Escape') return;
       if (closeModal()) return;
@@ -332,8 +333,7 @@ export class Shell {
         )
       )
     );
-    const sel = h('select', { id: 'lang-select', 'aria-label': t('language') }, ...LANGS.map(l => h('option', { value: l, selected: l === lang() }, LANG_LABEL[l])));
-    sel.addEventListener('change', () => setLang(sel.value as Lang));
+    const sel = new Select({ label: t('language'), testid: 'lang-select', value: lang(), options: LANGS.map(l => ({ value: l, label: LANG_LABEL[l] })), onChange: v => setLang(v as Lang) }).el;
     // Globe options belong to the Earth scene only; in space the menu keeps just the app-wide settings.
     const earth = this.space ? [] : [
       h('h3', {}, t('surfaceMode')), modeRow,
