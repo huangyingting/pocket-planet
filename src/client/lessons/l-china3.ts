@@ -1,6 +1,6 @@
 /** 八上 · 中国的河流（长江、黄河）; 八下 · 四大地理区域、东北三省、黄土高原、三江源与青藏地区 (deeper lessons). */
 import { C, T, arrows, mk, type Fig, type LL, type Lesson, type Pair } from './kit.ts';
-import { svg, tx, arrowDef, type Lx } from './figs.ts';
+import { svg, tx, arrowDef, type Lx, fade, dot } from './figs.ts';
 import { RIVERS } from './geo.ts';
 import {
   QT_EDGE, NW_LINE, NS_LINE, QT_POLY, NW_POLY, NORTH_POLY, SOUTH_POLY, YANGTZE, YZ, YZ_TRIBS, DONGTING, POYANG, JINGJIANG, YZ_BELT,
@@ -16,11 +16,9 @@ const DIM = '#868e96';
 
 // ------------------------------------------------------------------------------------------------ figure helpers
 
-const fade = (d: number, s: string) => `<g class="f-fade" style="--d:${d}s">${s}</g>`;
 const pts = (p: [number, number][]) => p.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
 const hline = (x1: number, x2: number, y: number, c = 'fg-grid') => `<line x1="${x1}" x2="${x2}" y1="${y}" y2="${y}" class="${c}"/>`;
 const vline = (x: number, y1: number, y2: number, c = 'fg-note') => `<line x1="${x}" x2="${x}" y1="${y1}" y2="${y2}" class="${c}"/>`;
-const dot = (x: number, y: number, c: string = C.white, r = 2.4) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${c}"/>`;
 /** Rough rendered width of a string: Latin and CJK characters differ. */
 const textW = (s: string, latin: number, cjk: number) => [...s].reduce((w, ch) => w + (/[\u3000-\u9fff\uff00-\uffef]/.test(ch) ? cjk : latin), 0);
 /** Two lines of caption under a panel. */

@@ -1,6 +1,6 @@
 /** 七上 · 地球和地图 (2): revolution and seasons, the five heat zones. */
 import { C, T, mk, par, type Fig, type Lesson, type Pair } from './kit.ts';
-import { svg, tx, arrowDef, type Lx } from './figs.ts';
+import { svg, tx, arrowDef, type Lx, fade } from './figs.ts';
 
 const unit = ['The Earth and maps', '地球和地图'] as const;
 const TROPICS = [par(23.44, C.orange, 0, { dur: 1.6 }), par(-23.44, C.orange, 0.3, { dur: 1.6 })];
@@ -16,7 +16,6 @@ const BEIJING: [number, number] = [39.9, 116.4];
 
 // ------------------------------------------------------------------------------------------------ figure helpers
 
-const fade = (d: number, s: string) => `<g class="f-fade" style="--d:${d}s">${s}</g>`;
 const pts = (p: [number, number][]) => p.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
 
 /** The Earth at the four turning points of its orbit; `letters` hides the names (for a quiz). */

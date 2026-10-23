@@ -1,16 +1,14 @@
 /** 七上 · 地球和地图 (1): shape and size, latitude and longitude, hemispheres, rotation. */
 import { C, T, arrows, mer, mk, par, type Fig, type Lesson, type Pair } from './kit.ts';
-import { arrowDef, svg, tx } from './figs.ts';
+import { arrowDef, svg, tx, fade, dot } from './figs.ts';
 
 const unit = ['The Earth and maps', '地球和地图'] as const;
 
 // ------------------------------------------------------------------------------------------------ figure helpers
 
-const fade = (d: number, s: string) => `<g class="f-fade" style="--d:${d}s">${s}</g>`;
 const f1 = (v: number) => v.toFixed(1);
 const ln = (x1: number, y1: number, x2: number, y2: number, cls = 'fg-guide', extra = '') =>
   `<line x1="${f1(x1)}" y1="${f1(y1)}" x2="${f1(x2)}" y2="${f1(y2)}" class="${cls}"${extra}/>`;
-const dot = (x: number, y: number, c: string = C.white, r = 2.4) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${r}" fill="${c}"/>`;
 const pts = (p: [number, number][]) => p.map(([x, y]) => `${f1(x)},${f1(y)}`).join(' ');
 const D2R = Math.PI / 180;
 

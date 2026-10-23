@@ -71,6 +71,10 @@ const r1 = (v: number) => Math.round(v * 10) / 10;
 let uid = 0;
 
 /** SVG text. `a`: anchor (s, m, e); `c`: class. */
+/** Wraps SVG so it fades in after `d` seconds (the figure's build-up order). */
+export const fade = (d: number, s: string) => `<g class="f-fade" style="--d:${d}s">${s}</g>`;
+/** A small filled marker at (x, y). */
+export const dot = (x: number, y: number, c = '#f1f3f5', r = 2.4) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${c}"/>`;
 export const tx = (x: number, y: number, s: string, c = '', a: 's' | 'm' | 'e' = 's', extra = '') =>
   `<text x="${r1(x)}" y="${r1(y)}" class="${c}" text-anchor="${a === 's' ? 'start' : a === 'm' ? 'middle' : 'end'}"${extra}>${esc(s)}</text>`;
 export const svg = (w: number, h: number, body: string, label: string) =>

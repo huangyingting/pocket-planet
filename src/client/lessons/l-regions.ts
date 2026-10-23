@@ -1,6 +1,6 @@
 /** 七下 · 我们生活的大洲——亚洲、我们邻近的地区和国家（日本、东南亚）、澳大利亚、极地地区. */
 import { C, arrows, mk, par, type Fig, type LL, type Lesson, type Pair } from './kit.ts';
-import { CITIES, arrowDef, svg, tx } from './figs.ts';
+import { CITIES, arrowDef, svg, tx, fade, dot } from './figs.ts';
 import { ASIA_EUROPE, BERING, REGIONS, RIVERS, SUEZ } from './geo.ts';
 
 const regions = ['Continents and regions', '大洲和地区'] as const;
@@ -35,10 +35,8 @@ const NSR: LL[] = [[31.2, 121.8], [34.3, 129.5], [38.5, 134.5], [41.6, 140.2], [
 // ------------------------------------------------------------------------------------------------ figure helpers
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
-const fade = (d: number, s: string) => `<g class="f-fade" style="--d:${d}s">${s}</g>`;
 const pts = (p: [number, number][]) => p.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
 const hline = (x1: number, x2: number, y: number, c = 'fg-grid') => `<line x1="${x1}" x2="${x2}" y1="${r1(y)}" y2="${r1(y)}" class="${c}"/>`;
-const dot = (x: number, y: number, c: string = C.white, r = 2.2) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${c}"/>`;
 
 interface Clim { name: Pair; type: Pair; T: number[]; P: number[] }
 /** One or two climate graphs on a shared scale (temperature line, rainfall bars), like the built-in `climo`.
@@ -94,7 +92,7 @@ const asiaProfile: Fig = { k: 'svg', draw: L => {
   o += `<rect x="${X(122)}" y="${r1(Y(0))}" width="${r1(X(123) - X(122))}" height="${r1(Y(-500) - Y(0))}" class="fg-sea"/>`;
   o += `<polyline points="${pts(xy)}" class="fg-profile f-draw" pathLength="1"/>`;
   for (const l of [40, 60, 80, 100, 120]) o += tx(X(l), 137, `${l}°E`, 'fg-tick', 'm');
-  o += fade(0.9, dot(X(35.5), Y(-430), C.ice) + tx(X(34), 147, L(['Dead Sea −430 m', '死海 −430 米']), 'fg-label'));
+  o += fade(0.9, dot(X(35.5), Y(-430), C.ice, 2.2) + tx(X(34), 147, L(['Dead Sea −430 m', '死海 −430 米']), 'fg-label'));
   o += fade(1.1, tx(X(45.5), 156, L(['Mesopotamian Plain', '美索不达米亚平原']), 'fg-tick', 'm'));
   o += fade(1.3, tx(X(54), Y(2700) - 5, L(['Iranian Plateau', '伊朗高原']), 'fg-tick', 'm'));
   o += fade(1.5, tx(X(72.5), 147, L(['Indus Plain', '印度河平原']), 'fg-tick', 'm'));
@@ -168,8 +166,8 @@ const auProfile: Fig = { k: 'svg', draw: L => {
   o += `<polyline points="${pts(xy)}" class="fg-profile f-draw" pathLength="1"/>`;
   o += `<rect x="${X(113.5)}" y="126" width="${r1(X(135) - X(113.5))}" height="4" fill="${C.brown}" opacity=".8"/><rect x="${X(135)}" y="126" width="${r1(X(149) - X(135))}" height="4" fill="${C.lime}" opacity=".8"/><rect x="${X(149)}" y="126" width="${r1(X(153.2) - X(149))}" height="4" fill="${C.green}" opacity=".8"/>`;
   o += fade(0.8, tx(X(121), 141, L(['Western Plateau', '西部高原']), 'fg-label', 'm') + tx(X(142), 141, L(['Central Lowlands', '中部平原']), 'fg-label', 'm') + tx(X(151.5), 141, L(['Eastern Highlands', '东部山地']), 'fg-label', 'm'));
-  o += fade(1.2, dot(X(131), Y(863), C.orange) + tx(X(131), Y(863) - 5, L(['Uluru 863 m', '乌鲁鲁 863 米']), 'fg-tick', 'm'));
-  o += fade(1.4, dot(X(137.3), Y(-15), C.ice) + tx(X(137.3), Y(-15) - 8, L(['Lake Eyre −15 m', '北艾尔湖 −15 米']), 'fg-tick', 'm'));
+  o += fade(1.2, dot(X(131), Y(863), C.orange, 2.2) + tx(X(131), Y(863) - 5, L(['Uluru 863 m', '乌鲁鲁 863 米']), 'fg-tick', 'm'));
+  o += fade(1.4, dot(X(137.3), Y(-15), C.ice, 2.2) + tx(X(137.3), Y(-15) - 8, L(['Lake Eyre −15 m', '北艾尔湖 −15 米']), 'fg-tick', 'm'));
   o += fade(1.6, tx(X(151.7), Y(1000) - 5, L(['Great Dividing Range', '大分水岭']), 'fg-tick', 'e'));
   o += fade(1.8, tx(X(113.5), 36, L(['← Indian Ocean', '← 印度洋']), 'fg-tick') + tx(316, 36, L(['Pacific →', '太平洋 →']), 'fg-tick', 'e'));
   return svg(320, 148, o, L(['Elevation profile of Australia', '澳大利亚地形剖面']));

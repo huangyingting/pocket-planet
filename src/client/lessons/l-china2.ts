@@ -1,7 +1,7 @@
 /** 八上 · 从世界看中国、中国的自然资源、中国的经济发展; 八下 · 北方、南方、西北和青藏地区 (overview lessons). */
 import { C, arrows, mk, par, type Fig, type Lesson, type LL, type Pair } from './kit.ts';
 import type { Line, Mark } from './stage.ts';
-import { svg, tx, arrowDef, CITIES, type Lx } from './figs.ts';
+import { svg, tx, arrowDef, CITIES, type Lx, fade, dot } from './figs.ts';
 import { REGIONS } from './geo.ts';
 import {
   QT_EDGE, NW_LINE, NS_LINE, QT_POLY, NW_POLY, NORTH_POLY, SOUTH_POLY, YANGTZE, YZ, DONGTING, POYANG, YELLOW, YR,
@@ -57,11 +57,9 @@ const fourRegions = (a = 0.42, t = 0) => [
 // ------------------------------------------------------------------------------------------------ figure helpers
 
 const fig = (draw: (L: Lx, id: string) => string): Fig => ({ k: 'svg', draw });
-const fade = (d: number, s: string) => `<g class="f-fade" style="--d:${d}s">${s}</g>`;
 const pts = (p: [number, number][]) => p.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
 const hline = (x1: number, x2: number, y: number, c = 'fg-grid') => `<line x1="${x1}" x2="${x2}" y1="${y}" y2="${y}" class="${c}"/>`;
 const vline = (x: number, y1: number, y2: number, c = 'fg-note') => `<line x1="${x}" x2="${x}" y1="${y1}" y2="${y2}" class="${c}"/>`;
-const dot = (x: number, y: number, c: string = C.white, r = 2.4) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${c}"/>`;
 const head = (L: Lx, a: Pair, b?: Pair) => tx(4, 12, L(a), 'fg-title') + (b ? tx(4, 23, L(b), 'fg-sub') : '');
 const r1 = (v: number) => Math.round(v * 10) / 10;
 

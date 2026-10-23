@@ -1,6 +1,6 @@
 /** 八上 · 中国的自然环境: landforms and the three steps of terrain; climate (temperature, rainfall, monsoons) and rivers. */
 import { C, T, arrows, mk, type Fig, type LL, type Lesson, type Pair } from './kit.ts';
-import { svg, tx, CITIES, type Lx } from './figs.ts';
+import { svg, tx, CITIES, type Lx, fade } from './figs.ts';
 import { CLIMATES } from './climate.ts';
 import { MONSOON_LINE, MONSOON_REGION, QINLING_HUAIHE, REGIONS, STEP1, STEP2, STEP_POLYS } from './geo.ts';
 import { QT_EDGE, NS_LINE, QT_POLY, SOUTH_POLY, YANGTZE, YZ, YELLOW, YR, LOESS_PLATEAU, NE_PLAINS } from './geo-cn.ts';
@@ -70,7 +70,6 @@ const TZ = { cold: C.blue, mid: C.teal, warm: C.gold, sub: C.green, trop: C.red,
 
 // ------------------------------------------------------------------------------------------------ figures
 
-const fade = (d: number, s: string) => `<g class="f-fade" style="--d:${d}s">${s}</g>`;
 const pts = (p: [number, number][]) => p.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
 
 /** West–east profile at about 36°N, from the Kunlun to the Yellow Sea, with the three steps shaded. `blind` swaps names for letters (quiz). */
