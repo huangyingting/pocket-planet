@@ -547,6 +547,9 @@ body:has(.sky) .lesson-marks, body.solar .lesson-marks { display: none; }
   background: radial-gradient(circle, #fffbe6 0 35%, #ffd24a 70%); box-shadow: 0 0 14px 6px rgba(255, 200, 60, .6); }
 .lesson-sun::after { content: attr(data-label); position: absolute; left: 20px; top: -3px; white-space: nowrap; color: #ffd24a; font-size: .78rem; font-weight: 600; text-shadow: 0 1px 2px #000; }
 .lesson-clock { display: flex; align-items: center; gap: 8px; margin: 2px 0; }
+/* long readouts (the rays kit's overhead-sun line) drop under the slider and wrap instead of running off the card */
+.lesson-clock { flex-wrap: wrap; row-gap: 4px; }
+.lesson-clock .lesson-time { white-space: normal; max-width: 100%; line-height: 1.4; }
 .lesson-clock input[type=range] { flex: 1; min-width: 60px; accent-color: var(--accent); }
 .lesson-time { font-family: var(--font-hud); font-size: .8rem; color: var(--hud-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lesson-ico { color: var(--accent); display: inline-flex; }

@@ -430,7 +430,7 @@ function daylenMode(ctx: Ctx, o: O<'daylen'>): Run {
     readout() {
       const ss = latTxt(dec, false), sz = latTxt(dec, true);
       if (Math.abs(dec) < 0.3) return [`Sun overhead at the Equator · day = night = 12 h everywhere`, `直射点在赤道 · 全球昼夜等长（12 小时）`];
-      return [`Sun overhead at ${ss} · Equator 12 h · north of ${fmt(90 - Math.abs(dec))}°${dec >= 0 ? 'N' : 'S'}: polar day`, `直射点 ${sz} · 赤道昼长 12 小时 · ${dec >= 0 ? '北' : '南'}纬 ${fmt(90 - Math.abs(dec))}° 以${dec >= 0 ? '北' : '南'}极昼`];
+      return [`Sun overhead at ${ss} · Equator 12 h · ${dec >= 0 ? 'north' : 'south'} of ${fmt(90 - Math.abs(dec))}°${dec >= 0 ? 'N' : 'S'}: polar day`, `直射点 ${sz} · 赤道昼长 12 小时 · ${dec >= 0 ? '北' : '南'}纬 ${fmt(90 - Math.abs(dec))}° 以${dec >= 0 ? '北' : '南'}极昼`];
     },
   };
 }
