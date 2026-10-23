@@ -30,6 +30,16 @@ export function helioAU(s: SolarSite, ms: number): number {
   return Math.max(1, h.au + h.auPerYear * ((ms - Date.UTC(2026, 0, 1)) / 3.15576e10));
 }
 
+/** Is point `p` hidden from the camera by the world's disc (centre `o`, radius `R`)? */
+export function behindWorld(p: THREE.Vector3, cam: THREE.Vector3, o: THREE.Vector3, R: number): boolean {
+  const dx = p.x - cam.x, dy = p.y - cam.y, dz = p.z - cam.z;
+  const len = Math.hypot(dx, dy, dz);
+  const ox = o.x - cam.x, oy = o.y - cam.y, oz = o.z - cam.z;
+  const t = (ox * dx + oy * dy + oz * dz) / len;
+  if (t <= 0 || t >= len) return false;
+  return ox * ox + oy * oy + oz * oz - t * t < R * R;
+}
+
 /** A world as the site layer needs it. */
 export interface SiteBody { id: BodyId; R: number; pos: THREE.Vector3; tilt: THREE.Object3D; spin: THREE.Object3D }
 
@@ -41,6 +51,8 @@ interface SiteRT {
   label: HTMLButtonElement;
   plume: THREE.Points | null;
   requested: boolean;
+  /** Frames the label's soft show/hide answer has disagreed with its current state. */
+  hold: number;
 }
 
 const PLUME_VS = /* glsl */ `
@@ -90,7 +102,7 @@ export class SiteLayer {
     parent.append(label);
     const holder = new THREE.Group(), pivot = new THREE.Group();
     holder.add(pivot);
-    r = { s, holder, pivot, obj: null, label, plume: null, requested: false };
+    r = { s, holder, pivot, obj: null, label, plume: null, requested: false, hold: 0 };
     this.rt.set(s.key, r);
     return r;
   }
@@ -196,26 +208,35 @@ export class SiteLayer {
         r.holder.visible = overview;
       }
       // label
-      let show = false;
+      let show = false, soft = false;
       if (s.helio) show = overview;
       else if (near && r.holder.parent && (shown < max || s === this.sel)) {
         r.pivot.getWorldPosition(tmp);
         const n = tmp.clone().sub(focus.pos).normalize();
-        show = s.orbit ? n.dot(toCam) > -0.2 || tmp.distanceTo(focus.pos) > focus.R * 1.6 : n.dot(toCam) > focus.R / dc + 0.08;
+        show = s.orbit ? !behindWorld(tmp, cam.position, focus.pos, focus.R) : n.dot(toCam) > focus.R / dc + 0.08;
       }
       if (show) {
         if (s.helio) r.holder.getWorldPosition(tmp);
         p.copy(tmp).project(cam);
         const sx = (p.x + 1) / 2 * W, sy = (1 - p.y) / 2 * H;
-        show = p.z < 1 && sx > 8 && sy > 8 && sx < W - 8 && sy < H - 8 && (s === this.sel || !underUI(sx - 10, sy - 10, textW(r.label.textContent ?? '', 7.5) + 30, 20));
-        if (show && s !== this.sel && placed.some(([x, y]) => Math.abs(x - sx) < 80 && Math.abs(y - sy) < 20)) show = false;
+        show = p.z < 1 && sx > 8 && sy > 8 && sx < W - 8 && sy < H - 8;
+        if (show) {
+          soft = true;
+          // Clashes with the chrome or another label are soft: one moving across such an edge would blink every frame,
+          // so the label only changes state once the new answer has held for a few frames.
+          let free = s === this.sel || (!underUI(sx - 10, sy - 10, textW(r.label.textContent ?? '', 7.5) + 30, 20)
+            && !placed.some(([x, y]) => Math.abs(x - sx) < 80 && Math.abs(y - sy) < 20));
+          if (free === r.label.hidden) { if (++r.hold < 4) free = !free; else r.hold = 0; } else r.hold = 0;
+          show = free;
+        }
         if (show) {
           placed.push([sx, sy]);
           if (!s.helio) shown++;
           r.label.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px)`;
         }
       }
-      r.label.hidden = !show;
+      if (!soft) r.hold = 0;
+      if (r.label.hidden === show) r.label.hidden = !show;
       r.label.classList.toggle('on', s === this.sel);
     }
   }

@@ -69,3 +69,18 @@ describe('solar content', () => {
     expect(SOLAR_FEATURES.filter(f => f.body === 'mars').length).toBeGreaterThanOrEqual(12);
   });
 });
+
+describe('orbiter label occlusion', () => {
+  it('hides a craft only while the world covers it, including orbits at exactly 1.6 R', async () => {
+    const { Vector3 } = await import('three');
+    const { behindWorld } = await import('../../src/client/solar/sites.ts');
+    const o = new Vector3(), cam = new Vector3(0, 0, 10), R = 1;
+    for (let i = 0; i < 50; i++) {
+      // directly behind the planet on a 1.6 R orbit: always hidden, never a coin-flip
+      const a = Math.PI + (i - 25) * 0.004;
+      expect(behindWorld(new Vector3(Math.sin(a) * 1.6, 0, Math.cos(a) * 1.6), cam, o, R)).toBe(true);
+    }
+    expect(behindWorld(new Vector3(0, 0, 1.6), cam, o, R)).toBe(false);
+    expect(behindWorld(new Vector3(1.6, 0, -0.2), cam, o, R)).toBe(false);
+  });
+});
