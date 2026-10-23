@@ -497,7 +497,8 @@ body:has(.sky) .tour .tour-card.tour-card { left: 22px; right: auto; top: 112px;
   /* the sheet owns the bottom edge: the zoom rail, help and coordinate readout step aside while a lesson runs */
   body.lessoning .br, body.lessoning .bl, body.lessoning .coord-readout { display: none; }
   /* settings and the hub open over the lesson rather than tangling with it */
-  body.lessoning:has(#menu:not(.hidden)) .tour.lesson, body.lessoning:has(#hub:not(.hidden)) .tour.lesson { display: none; }
+  body.lessoning:has(#menu:not(.hidden)) .tour.lesson, body.lessoning:has(#hub:not(.hidden)) .tour.lesson,
+  body.lessoning:has(.info:not(.hidden)) .tour.lesson { display: none; }
   body.lessoning .menu { max-height: calc(100dvh - 84px); }
 }
 

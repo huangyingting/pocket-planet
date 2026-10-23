@@ -49,19 +49,3 @@ export function armFK(sgn: number, P: ArmPose, sh: V3, up: number, lo: number): 
   const e = v(sh).addScaledVector(d1, up), w = e.clone().addScaledVector(d2, lo);
   return { elbow: arr(e), wrist: arr(w), dir: arr(d2) };
 }
-
-/** Leg pose in radians: `fwd` swings the thigh forward (negative = back), `side` spreads it, `knee` flexes the knee (0…150°), `foot` points the toes (+ down). */
-export interface LegPose { fwd?: number; side?: number; knee?: number; foot?: number; turn?: number }
-
-/** Leg FK from hip joint: thigh, then the shin folding backward at the knee. Returns knee, ankle and toe direction. */
-export function legFK(sgn: number, P: LegPose, hip: V3, l1: number, l2: number): { knee: V3; ankle: V3; toe: V3 } {
-  const f = clamp(P.fwd ?? 0, -0.9, 2.2), s = clamp(P.side ?? 0, -0.25, 1.2), k = clamp(P.knee ?? 0.04, 0, 2.6);
-  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-f, sgn * (P.turn ?? 0.12), sgn * s, 'ZYX'));
-  const d1 = new THREE.Vector3(0, -1, 0).applyQuaternion(q);
-  const d2 = new THREE.Vector3(0, -1, 0).applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(-(f - k), sgn * (P.turn ?? 0.12), sgn * s, 'ZYX')));
-  const kn = v(hip).addScaledVector(d1, l1), an = kn.clone().addScaledVector(d2, l2);
-  // foot ~90° to the shin, pitched by `foot`
-  const fp = (f - k) + (P.foot ?? 0);
-  const toe = new THREE.Vector3(0, 0, 1).applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(fp, sgn * (P.turn ?? 0.12), 0, 'ZYX')));
-  return { knee: arr(kn), ankle: arr(an), toe: arr(toe) };
-}

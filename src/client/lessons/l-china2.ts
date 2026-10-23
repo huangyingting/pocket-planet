@@ -86,7 +86,7 @@ const climoFig = (c: Clim, blind = false): Fig => fig(L => {
   return svg(320, 152, o, L(['Climate graph', '气候资料图']));
 });
 const GUANGZHOU: Clim = { name: ['Guangzhou', '广州'], type: ['Subtropical monsoon', '亚热带季风气候'],
-  T: [13.9, 15.6, 18.4, 22.4, 25.9, 27.8, 28.9, 28.8, 27.8, 25.0, 20.6, 15.4], P: [53, 52, 91, 177, 294, 337, 254, 268, 182, 61, 39, 38] };
+  T: CITIES.guangzhou.T, P: CITIES.guangzhou.P };
 const KUNMING: Clim = { name: ['Kunming', '昆明'], type: ['Subtropical monsoon, on a plateau', '亚热带季风气候（高原）'],
   T: [8.9, 11.1, 14.5, 17.6, 19.6, 20.0, 19.9, 19.6, 18.4, 15.9, 12.3, 9.2], P: [16, 16, 20, 24, 97, 181, 216, 198, 117, 79, 37, 13] };
 const ZHENGZHOU: Clim = { name: ['Zhengzhou', '郑州'], type: ['Temperate monsoon', '温带季风气候'],
@@ -102,7 +102,7 @@ const latFig = fig(L => {
   o += tx((X(0) + X(23.44)) / 2, 62.5, L(['tropics', '热带']), 'fg-tick', 'm') + tx((X(23.44) + X(60)) / 2, 62.5, L(['north temperate zone', '北温带']), 'fg-tick', 'm');
   for (const l of [0, 10, 20, 30, 40, 50, 60]) o += vline(X(l), 52, 80, 'fg-grid') + tx(X(l), 88, `${l}°N`, 'fg-tick', 'm');
   o += `<rect x="${r1(X(3.97))}" y="68" width="${r1(X(53.55) - X(3.97))}" height="8" rx="2" fill="${C.red}" opacity=".85" class="f-growx"/>`;
-  const cities: [number, Pair, string][] = [[3.97, ['Zengmu Ansha', '曾母暗沙'], '≈27'], [18.25, ['Sanya', '三亚'], '21.6'], [23.13, ['Guangzhou', '广州'], '13.9'],
+  const cities: [number, Pair, string][] = [[3.97, ['Zengmu Ansha', '曾母暗沙'], '≈27'], [18.25, ['Sanya', '三亚'], '21.6'], [23.13, ['Guangzhou', '广州'], '13.6'],
     [31.2, ['Shanghai', '上海'], '4.8'], [39.9, ['Beijing', '北京'], '−3.1'], [45.75, ['Harbin', '哈尔滨'], '−17.6'], [52.97, ['Mohe', '漠河'], '≈−28']];
   cities.forEach(([lat, n, t], i) => {
     const x = X(lat), y = i % 2 ? 46 : 37;
@@ -378,7 +378,7 @@ export const CHINA_B: Lesson[] = [
         marks: [mk([50.25, 127.5], 'Heihe', '黑河', { dot: true, c: C.gold, t: 0.2 }), mk([25.02, 98.5], 'Tengchong', '腾冲', { dot: true, c: C.gold, t: 2.2 }), mk([31, 114], 'Southeast: about 94% of people on 44% of the land', '东南部：约 44% 的面积，约 94% 的人口', { c: C.orange, t: 2.6 }),
           mk([39, 88], 'Northwest: about 6% of people on 56% of the land', '西北部：约 56% 的面积，约 6% 的人口', { c: C.ice, t: 3 })],
         fig: { k: 'pie', title: ['Share of China\'s people (approx.)', '人口分布（约）'], parts: [{ name: ['Southeast of the line', '线东南'], v: 94, c: C.orange }, { name: ['Northwest of the line', '线西北'], v: 6, c: C.ice }] },
-        body: ['In 1935 the geographer Hu Huanyong drew a line on the map from Heihe in Heilongjiang to Tengchong in Yunnan. Southeast of it, on about 44% of the land, live about 94% of the people; northwest of it, the land is vast but people are few. Nearly 90 years and a fourfold rise in population later, the split has barely moved. In short, China\'s population is dense in the east and south and sparse in the west and north.',
+        body: ['In 1935 the geographer Hu Huanyong drew a line on the map from Heihe in Heilongjiang to Tengchong in Yunnan. Southeast of it, on about 44% of the land, live about 94% of the people; northwest of it, the land is vast but people are few. Nearly 90 years later, with roughly three times as many people, the split has barely moved. In short, China\'s population is dense in the east and south and sparse in the west and north.',
           '1935 年，地理学家胡焕庸在地图上画出一条从黑龙江黑河到云南腾冲的直线。这条线东南部的面积约占全国的 44%，人口却约占 94%；西北部地域辽阔，人口稀少。近 90 年过去，我国人口增加了好几倍，这条分界线两侧的人口比例却几乎没有变化。我国人口分布的总特点是东多西少、东南稠密、西北稀疏。'],
       },
       {

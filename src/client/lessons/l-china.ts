@@ -1,6 +1,6 @@
 /** 八上 · 中国的自然环境: landforms and the three steps of terrain; climate (temperature, rainfall, monsoons) and rivers. */
 import { C, T, arrows, mk, type Fig, type LL, type Lesson, type Pair } from './kit.ts';
-import { svg, tx, type Lx } from './figs.ts';
+import { svg, tx, CITIES, type Lx } from './figs.ts';
 import { CLIMATES } from './climate.ts';
 import { MONSOON_LINE, MONSOON_REGION, QINLING_HUAIHE, REGIONS, STEP1, STEP2, STEP_POLYS } from './geo.ts';
 import { QT_EDGE, NS_LINE, QT_POLY, SOUTH_POLY, YANGTZE, YZ, YELLOW, YR, LOESS_PLATEAU, NE_PLAINS } from './geo-cn.ts';
@@ -112,11 +112,9 @@ const LANDFORM_PIE: Fig = { k: 'pie', title: ['China\'s land by landform type (a
   { name: ['Mountains', '山地'], v: 33.3, c: C.brown }, { name: ['Plateaus', '高原'], v: 26.0, c: C.violet }, { name: ['Basins', '盆地'], v: 18.8, c: C.gold },
   { name: ['Plains', '平原'], v: 12.0, c: C.green }, { name: ['Hills', '丘陵'], v: 9.9, c: C.lime }] };
 
-const GZ_T = [13.6, 14.9, 17.9, 22.0, 25.5, 27.6, 28.8, 28.7, 27.6, 24.9, 20.6, 15.5];
-const GZ_P = [53, 51, 97, 184, 292, 342, 260, 268, 189, 62, 38, 33];
+const GZ_T = CITIES.guangzhou.T, GZ_P = CITIES.guangzhou.P;
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-const HARBIN_T = [-17.6, -12.6, -3.3, 7.3, 15.1, 21.1, 23.5, 21.8, 15.4, 6.1, -5.1, -14.6];
-const BEIJING_T = [-3.1, 0.3, 6.7, 14.8, 20.8, 24.9, 26.7, 25.5, 20.8, 13.7, 5.0, -0.9];
+const HARBIN_T = CITIES.harbin.T, BEIJING_T = CITIES.beijing.T;
 const TEMP_LINE: Fig = { k: 'line', title: ['Monthly mean temperature, north to south (month 1–12)', '各月平均气温：从北到南（1—12 月）'], unit: ['°C', '℃'], x: MONTHS, min: -20, max: 30,
   series: [{ name: ['Harbin', '哈尔滨'], c: C.blue, y: HARBIN_T }, { name: ['Beijing', '北京'], c: C.gold, y: BEIJING_T },
     { name: ['Guangzhou', '广州'], c: C.red, y: GZ_T }] };
@@ -124,8 +122,8 @@ const RAIN_BARS: Fig = { k: 'bars', title: ['Average yearly rainfall, south-east
   { name: ['Guangzhou', '广州'], v: 1870, c: C.green }, { name: ['Shanghai', '上海'], v: 1250, c: C.green }, { name: ['Beijing', '北京'], v: 580, c: C.lime },
   { name: ['Lanzhou', '兰州'], v: 320, c: C.gold }, { name: ['Ürümqi', '乌鲁木齐'], v: 260, c: C.gold }, { name: ['Toksun', '托克逊'], v: 7, c: C.orange }] };
 const RAIN_BELT: Fig = { k: 'line', title: ['Monthly rainfall: the peak moves north (month 1–12, approx.)', '各月降水量：雨季高峰自南向北推迟（1—12 月，约）'], unit: ['mm', '毫米'], x: MONTHS, min: 0, max: 350,
-  series: [{ name: ['Guangzhou', '广州'], c: C.red, y: GZ_P }, { name: ['Shanghai', '上海'], c: C.green, y: [75, 63, 103, 90, 103, 192, 149, 214, 105, 58, 55, 44] },
-    { name: ['Beijing', '北京'], c: C.gold, y: [3, 6, 9, 26, 35, 78, 185, 160, 46, 22, 10, 3] }] };
+  series: [{ name: ['Guangzhou', '广州'], c: C.red, y: GZ_P }, { name: ['Shanghai', '上海'], c: C.green, y: CITIES.shanghai.P },
+    { name: ['Beijing', '北京'], c: C.gold, y: CITIES.beijing.P }] };
 const MTN_KEY: Fig = { k: 'key', set: 'custom', title: ['Mountain ranges by trend (sketch)', '山脉走向（示意）'], items: [
   { c: TREND.ew, name: ['East–west: Tianshan, Yinshan, Kunlun, Qinling, Nanling', '东西走向：天山、阴山、昆仑山、秦岭、南岭'] },
   { c: TREND.nesw, name: ['NE–SW: Greater Khingan, Taihang, Wushan, Xuefeng, Changbai, Wuyi, Taiwan', '东北—西南走向：大兴安岭、太行山、巫山、雪峰山、长白山、武夷山、台湾山脉'] },
@@ -329,7 +327,7 @@ export const CHINA: Lesson[] = [
           mk([37.2, 115], 'Warm temperate', '暖温带', { big: true, c: TZ.warm, t: 0.8 }), mk([27, 112], 'Subtropical', '亚热带', { big: true, c: TZ.sub, t: 1.1 }),
           mk([19.2, 109.7], 'Tropical', '热带', { c: TZ.trop, t: 1.4 }), mk([33, 88], 'Qinghai–Tibet Plateau zone', '青藏高原区', { big: true, c: TZ.plateau, t: 1.7 })],
         fig: TZ_KEY,
-        body: ['Geographers add up the daily mean temperatures of all days at or above 10 ℃, when most crops grow. This "accumulated temperature" rises from under 1,600 ℃ in the far north to over 8,000 ℃ on Hainan, and divides China into cold temperate, middle temperate, warm temperate, subtropical and tropical zones, plus the cold Qinghai–Tibet Plateau zone. More heat means more harvests: one crop a year in the Northeast, three crops in two years on the North China Plain, two to three on Hainan. The warm temperate–subtropical boundary follows Qinling–Huaihe.',
+        body: ['Geographers add up the daily mean temperatures of all days at or above 10 ℃, when most crops grow. This "accumulated temperature" rises from under 1,600 ℃ in the far north to over 8,000 ℃ on Hainan, and divides China into cold temperate, middle temperate, warm temperate, subtropical and tropical zones, plus the cold Qinghai–Tibet Plateau zone. More heat means more harvests: one crop a year in the Northeast, three crops in two years on the North China Plain, three on Hainan. The warm temperate–subtropical boundary follows Qinling–Huaihe.',
           '把一年中日平均气温 ≥10 ℃ 的各天气温相加，就得到积温，它反映了农作物生长期间获得的热量。积温从最北端的不足 1600 ℃ 增加到海南的 8000 ℃ 以上，据此把我国划分为寒温带、中温带、暖温带、亚热带、热带五个温度带，以及一个特殊的青藏高原区。热量越多，熟制越多：东北一年一熟，华北平原两年三熟，海南可一年三熟。暖温带和亚热带的分界线就是秦岭—淮河。'],
       },
       {
