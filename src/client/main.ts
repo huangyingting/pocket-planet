@@ -401,8 +401,9 @@ async function boot(): Promise<void> {
       if (!inSolar) void enterSolar({ focus, scale }); else solar?.goTo(focus, scale);
       return;
     }
-    if (HAS_API && hsh === 'signed-in') { toast('👋 ' + t('synced')); account(m => m.openAccount()); }
-    else if (hsh === 'auth-error') toast('⚠️ ' + t('linkExpired'));
+    // one-shot notices from the sign-in redirect: clear them so a reload does not repeat them
+    if (HAS_API && hsh === 'signed-in') { history.replaceState(null, '', location.pathname + location.search); toast('👋 ' + t('synced')); account(m => m.openAccount()); }
+    else if (hsh === 'auth-error') { history.replaceState(null, '', location.pathname + location.search); toast('⚠️ ' + t('linkExpired')); }
     else {
       const it = BY_KEY.get(hsh);
       const show = () => { shell.showItem(it!, !cam); if (cam) globe.flyTo(cam.lat, cam.lon, cam.h, 1400); };

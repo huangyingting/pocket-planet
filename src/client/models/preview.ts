@@ -78,17 +78,19 @@ function ensureRenderer(w: number, hPx: number): THREE.WebGLRenderer | null {
   return sharedRenderer;
 }
 
-let shadowTex: THREE.Texture | null = null;
+let shadowGeo: THREE.BufferGeometry | null = null, shadowMat: THREE.Material | null = null;
+/** A soft disc under the turntable; one geometry and material shared by every preview. */
 function contactShadow(): THREE.Mesh {
-  if (!shadowTex) {
+  if (!shadowGeo || !shadowMat) {
     const c = document.createElement('canvas'); c.width = c.height = 128;
     const g = c.getContext('2d')!;
     const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
     grd.addColorStop(0, 'rgba(0,0,0,0.55)'); grd.addColorStop(0.6, 'rgba(0,0,0,0.25)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
-    shadowTex = new THREE.CanvasTexture(c);
+    shadowGeo = new THREE.PlaneGeometry(1.5, 1.5).rotateX(-Math.PI / 2);
+    shadowMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false });
   }
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }));
+  const m = new THREE.Mesh(shadowGeo, shadowMat);
   m.position.y = -0.004;
   return m;
 }
@@ -225,7 +227,7 @@ export function createModelPreview(item: CatalogueItem, opts: { width?: number; 
   canvas.addEventListener('pointercancel', stopDrag);
 
   renderOne(preview);
-  if (!modelReady(item.model)) void whenModelReady(item.model, true).then(() => { preview.group = buildPreviewScene(item); renderOne(preview); });
+  if (!modelReady(item.model)) void whenModelReady(item.model, true).then(() => { preview.group = buildPreviewScene(item); renderOne(preview); }, () => {});
   if (!isLowFx()) {
     activePreviews.add(preview);
     if (!rafId) {

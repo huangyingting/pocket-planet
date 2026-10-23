@@ -771,7 +771,7 @@ export const H_PEOPLE_A: Record<string, Builder> = {
     for (const sx of [-1, 1]) cb(tb, '#b08d3c', sx * 0.042, 0.145, 0, 0.006, 0.03, 0.006);
     rod(tb, [0.045, 0.152, 0], [0.065, 0.152, 0], 0.003, '#b08d3c', 4);
     rod(tb, [0.065, 0.152, 0], [0.065, 0.125, 0.012], 0.003, '#b08d3c', 4);
-    const hornM = mat('#c9a24a', { metal: 0.51, rough: 0.36, flat: false });
+    const hornM = mat('#c9a24a', { metal: 0.51, rough: 0.36, flat: false }).clone();
     hornM.side = THREE.DoubleSide;
     const { q: hq } = axis(tb, [0, 0.165, 0], [-0.06, 0.3, 0.1]);
     rod(tb, [0, 0.15, 0], [0, 0.17, 0], 0.005, '#b08d3c', 5);

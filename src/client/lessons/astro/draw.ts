@@ -112,7 +112,7 @@ export function line(pts: (V3 | THREE.Vector3)[], color: string | number, o: { o
 export function setLine(l: THREE.Line, pts: (V3 | THREE.Vector3)[]): void {
   const n = pts.length, a = l.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
   if (a && a.count === n) { pts.forEach((p, i) => { const q = v3(p); a.setXYZ(i, q.x, q.y, q.z); }); a.needsUpdate = true; }
-  else l.geometry.setFromPoints(pts.map(v3));
+  else { l.geometry.dispose(); l.geometry = new THREE.BufferGeometry().setFromPoints(pts.map(v3)); } // a new count needs a new buffer
   l.geometry.computeBoundingSphere();
   if (l.material instanceof THREE.LineDashedMaterial) l.computeLineDistances();
 }

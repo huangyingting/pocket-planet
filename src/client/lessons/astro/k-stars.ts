@@ -163,7 +163,8 @@ function parallax(ctx: KitCtx) {
   const tex = dotTex();
   const wall = sizedPoints(pos, col, sz, tex);
   root.add(wall);
-  const near = new StarBall(3100, 0.3, grainTex(), 24);
+  const grain = grainTex();
+  const near = new StarBall(3100, 0.3, grain, 24);
   near.set(3100, 0.3, 1.4);
   near.position.set(0, YS, 0);
   root.add(near);
@@ -204,7 +205,7 @@ function parallax(ctx: KitCtx) {
       setLine(sight, [ep, sp]);
       near.set(3100, 0.3, 1.4, el * 0.004);
     },
-    dispose() { tex.dispose(); },
+    dispose() { tex.dispose(); grain.dispose(); },
   };
 }
 

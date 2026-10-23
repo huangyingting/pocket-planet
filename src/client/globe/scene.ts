@@ -751,7 +751,8 @@ export class Globe {
   private requestModel(it: CatalogueItem): void {
     if (this.modelWait.has(it.key)) return;
     this.modelWait.add(it.key);
-    void whenModelReady(it.model).then(() => { this.modelWait.delete(it.key); this.dirty = true; });
+    void whenModelReady(it.model).then(() => { this.modelWait.delete(it.key); this.dirty = true; },
+      () => { setTimeout(() => this.modelWait.delete(it.key), 30e3); }); // try again later rather than every frame
   }
 
   /** Builds an item's model immediately if it is still queued and loadable (used when the UI targets it directly). */
@@ -769,7 +770,7 @@ export class Globe {
   async prepare(key: string): Promise<boolean> {
     const it = this.pending.get(key) ?? this.placed.get(key)?.item;
     if (!it) return false;
-    await whenModelReady(it.model);
+    try { await whenModelReady(it.model); } catch { return false; }
     return this.ensurePlaced(key) !== null;
   }
 
@@ -922,7 +923,7 @@ export class Globe {
       if (ptrs.size === 2) {
         const [a, b] = [...ptrs.values()];
         const d = Math.hypot(a.x - b.x, a.y - b.y);
-        if (pinch0 > 0) {
+        if (pinch0 > 0 && d > 1) {
           const want = h0 * (pinch0 / d);
           this.setH(want);
           if (want > MAX_H * 1.35 && !this.ride && !this.gameMode && !this.zoomRange) { pinch0 = 0; this.ev.onBeyond?.(); }

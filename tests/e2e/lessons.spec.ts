@@ -143,9 +143,9 @@ test('geography class: pick a lesson, watch the steps, answer the quiz, leave cl
   await expect(page.getByTestId('lesson-mark')).toHaveCount(0);
 
   // a teacher's deep link opens a lesson; a "find it" question takes a tap on the globe
-  await page.evaluate(() => { location.hash = 'lesson/graticule'; });
+  await page.evaluate(() => { location.hash = 'lesson/continents'; });
   await expect(card).toBeVisible({ timeout: 30_000 });
-  await expect(card).toContainText(/Parallels|latitude/i);
+  await expect(card).toContainText(/continents/i);
   for (let i = 0; i < 12 && !(await question(page)); i++) await card.getByTestId('lesson-next').click();
   // a wrong answer is explained too
   if ((await question(page))!.kind === 'choice') {
@@ -163,7 +163,7 @@ test('geography class: pick a lesson, watch the steps, answer the quiz, leave cl
       await expect(card.getByTestId('lesson-why')).toHaveClass(/ok/);
       await expect(card.getByTestId('lesson-why')).toContainText(/km/);
       expect((await globe(page)).capture).toBe(false);
-      await page.screenshot({ path: info.outputPath('graticule-locate.png') });
+      await page.screenshot({ path: info.outputPath('continents-locate.png') });
     } else await answer(page);
     await card.getByTestId('lesson-next').click();
   }

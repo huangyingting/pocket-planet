@@ -29,7 +29,10 @@ function cookies(req: Request): Record<string, string> {
   const out: Record<string, string> = {};
   for (const part of (req.headers.cookie ?? '').split(';')) {
     const i = part.indexOf('=');
-    if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+    if (i <= 0) continue;
+    // other apps on the parent domain may set cookies that aren't valid URI encoding: keep those raw
+    const raw = part.slice(i + 1).trim();
+    try { out[part.slice(0, i).trim()] = decodeURIComponent(raw); } catch { out[part.slice(0, i).trim()] = raw; }
   }
   return out;
 }
@@ -39,6 +42,7 @@ function limiter(max: number, windowMs: number) {
   const hits = new Map<string, { n: number; reset: number }>();
   return (key: string): boolean => {
     const now = Date.now();
+    if (hits.size > 10_000) for (const [k, v] of hits) if (v.reset < now) hits.delete(k); // forget windows that are over
     const h = hits.get(key);
     if (!h || h.reset < now) { hits.set(key, { n: 1, reset: now + windowMs }); return true; }
     h.n++;
@@ -87,13 +91,16 @@ export function createApp(o: AppOptions): express.Express {
   };
 
   // CSRF: mutating API calls must be JSON and (if Origin is sent) same-origin.
+  let baseHost = '';
+  try { baseHost = new URL(o.baseUrl).host; } catch { /* no public origin configured */ }
   app.use('/api', (req: Request, res: Response, next: NextFunction) => {
     if (req.method === 'GET' || req.method === 'HEAD') return next();
     const origin = req.headers.origin;
     if (origin) {
       let host = '';
       try { host = new URL(origin).host; } catch { /* "null" or malformed */ }
-      if (host !== req.headers.host) return res.status(403).json({ error: 'Bad origin' });
+      // behind a proxy that rewrites Host, the configured public origin is the one browsers send
+      if (host !== req.headers.host && host !== baseHost) return res.status(403).json({ error: 'Bad origin' });
     }
     if (req.method !== 'DELETE' && !req.is('application/json')) return res.status(415).json({ error: 'JSON required' });
     next();
@@ -101,6 +108,7 @@ export function createApp(o: AppOptions): express.Express {
 
   const authLimit = limiter(5, 10 * 60_000);
   const postLimit = limiter(5, 60_000);
+  const reportLimit = limiter(10, 60 * 60_000);
 
   app.get('/api/health', (_req, res) => { res.json({ ok: true }); });
 
@@ -110,6 +118,9 @@ export function createApp(o: AppOptions): express.Express {
     if (!EMAIL_RE.test(email) || email.length > 254) return res.status(400).json({ error: 'Please enter a valid email' });
     if (!authLimit(req.ip + ':' + email) || !authLimit(String(req.ip))) return res.status(429).json({ error: 'Too many requests, try again later' });
     const token = randomBytes(24).toString('base64url');
+    // housekeeping, at most a few times an hour per visitor thanks to the limit above
+    db.prepare('DELETE FROM login_tokens WHERE expires < ?').run(Date.now());
+    db.prepare('DELETE FROM sessions WHERE expires < ?').run(Date.now());
     db.prepare('INSERT INTO login_tokens (hash, email, expires) VALUES (?, ?, ?)').run(sha(token), email, Date.now() + TOKEN_TTL);
     const link = `${o.baseUrl}/api/auth/verify?token=${token}`;
     if (o.sendMail) {
@@ -217,7 +228,11 @@ export function createApp(o: AppOptions): express.Express {
   app.post('/api/guestbook/:id/report', (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Bad id' });
-    const v = visitor(req, res);
+    // a report counts only from a visitor the site already knows (a cookieless request would be a new visitor every
+    // time), and each network gets a few an hour, so nobody can hide other people's notes on their own
+    const known = cookies(req).pp_vid, v = visitor(req, res);
+    if (!reportLimit(String(req.ip))) return res.status(429).json({ error: 'Too many requests, try again later' });
+    if (known !== v) return res.json({ ok: true });
     const r = db.prepare('INSERT OR IGNORE INTO guestbook_reports (entry_id, visitor) SELECT id, ? FROM guestbook WHERE id = ?').run(v, id);
     if (r.changes) db.prepare('UPDATE guestbook SET reports = reports + 1, hidden = CASE WHEN reports + 1 >= 3 THEN 1 ELSE hidden END WHERE id = ?').run(id);
     res.json({ ok: true });

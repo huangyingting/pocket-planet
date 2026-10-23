@@ -22,7 +22,8 @@ export function openTutorial(openTours?: () => void): void {
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'Tab') trapTab(e, card);
     else if (e.key === 'Escape') { e.stopPropagation(); finish(false); }
-    else if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); go(i + 1); }
+    // Enter on a focused button (Skip, Tours) belongs to that button
+    else if (e.key === 'ArrowRight' || (e.key === 'Enter' && !(e.target as Element | null)?.closest?.('button'))) { e.preventDefault(); go(i + 1); }
     else if (e.key === 'ArrowLeft') go(i - 1);
   };
   const go = (k: number) => {

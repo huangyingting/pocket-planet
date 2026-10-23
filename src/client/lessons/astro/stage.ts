@@ -6,6 +6,7 @@
 import type { CountryInfo } from '../../globe/painter.ts';
 import * as THREE from 'three';
 import { OrbitControls } from '../../sky/controls.ts';
+import { releaseShared } from '../../sky/common.ts';
 import { KITS } from './kits.ts';
 import { disposeTree, v3 } from './draw.ts';
 import type { AstroClock, AstroScene, KitCtx, KitRun, Label, LabelOpts, Pair, V3 } from './types.ts';
@@ -171,6 +172,7 @@ export class AstroStage {
     cancelAnimationFrame(this.raf);
     this.ro.disconnect();
     this.orbit.dispose();
+    releaseShared();
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     this.canvas.remove();

@@ -10,7 +10,7 @@ import { Select } from '../ui/select.ts';
 import { icon } from '../ui/icons.ts';
 import { lang } from '../lib/i18n.ts';
 import { s, SITES, type SkyKey } from './text.ts';
-import { siteClock, zoneOffset } from './common.ts';
+import { releaseShared, siteClock, zoneOffset } from './common.ts';
 import { GroundSky } from './ground.ts';
 import { SpaceScene } from './space.ts';
 import { ModelScene } from './model.ts';
@@ -213,7 +213,7 @@ export class Theatre {
     this.tm = this.timing(view);
     this.t = keep && prevT >= this.tm.t0 && prevT <= this.tm.t1 ? prevT : this.tm.start;
     this.cal.active = ev.id;
-    this.cal.showYear(new Date(ev.t).getUTCFullYear());
+    this.cal.showYear(new Date(ev.t).getFullYear());
     this.cal.render();
     this.titleEl.textContent = a.title;
     const d = new Date(ev.t);
@@ -482,6 +482,7 @@ export class Theatre {
     this.ro.disconnect();
     this.ctx.look.dispose(); this.ctx.orbit.dispose(); this.ctx.morbit.dispose();
     this.ground.dispose(); this.space.dispose(); this.model.dispose();
+    releaseShared();
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     this.el.remove();

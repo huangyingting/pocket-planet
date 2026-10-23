@@ -4,7 +4,7 @@ import { mulberry32 } from '../../src/shared/lib/rng.ts';
 import { DIFFS, scoreFor, effectiveKm, verdict, pickRounds, updateRecord, ROUNDS } from '../../src/shared/games/placeit.ts';
 import { generateQuiz, applyAnswer, ranking, LEVEL_OPTIONS, QUIZ_SETS } from '../../src/shared/games/quiz.ts';
 import { buildPool, dayIndex, puzzleFor, evaluate, applyGuess, finishStats, hintsUnlocked, shareText, EMPTY_STATS, type DailyState } from '../../src/shared/games/daily.ts';
-import { emptyProgress, mergeProgress, isProgress } from '../../src/shared/lib/progress.ts';
+import { emptyProgress, mergeProgress, isProgress, isOn, countOn } from '../../src/shared/lib/progress.ts';
 import { newlyEarned } from '../../src/shared/lib/stickers.ts';
 import { CATALOGUE, BY_KEY, BY_SLUG, LANDMARKS } from '../../src/shared/data/catalogue.ts';
 import { EN_KEYS, ZH_KEYS, hasKey, t } from '../../src/client/lib/i18n.ts';
@@ -164,15 +164,23 @@ describe('progress merge (sync)', () => {
     expect(mergeProgress(a, a).dex).toEqual(a.dex);
     expect(mergeProgress(a, b).dex).toEqual(mergeProgress(b, a).dex);
   });
-  it('likes come from the newer side', () => {
-    const a = emptyProgress(); a.likes = { eiffel: 1 }; a.updatedAt = 10;
-    const b = emptyProgress(); b.likes = {}; b.updatedAt = 20;
-    expect(mergeProgress(a, b).likes).toEqual({});
+  it('likes merge per key: a newer device without them keeps them, an un-like wins only if it is later', () => {
+    const a = emptyProgress(); a.likes = { eiffel: 100, sphinx: 100 }; a.updatedAt = 100;
+    const b = emptyProgress(); b.likes = { sphinx: -50, taj: 300 }; b.updatedAt = 300;
+    expect(mergeProgress(a, b).likes).toEqual({ eiffel: 100, sphinx: 100, taj: 300 });
+    b.likes.sphinx = -200;
+    const m = mergeProgress(a, b);
+    expect(m.likes).toEqual(mergeProgress(b, a).likes);
+    expect([isOn(m.likes, 'eiffel'), isOn(m.likes, 'sphinx'), isOn(m.likes, 'taj')]).toEqual([true, false, true]);
+    expect(countOn(m.likes)).toBe(2);
   });
   it('validates shape', () => {
     expect(isProgress(emptyProgress())).toBe(true);
     expect(isProgress({ v: 2 })).toBe(false);
     expect(isProgress(null)).toBe(false);
+    expect(isProgress({ ...emptyProgress(), dex: null })).toBe(false);
+    expect(isProgress({ ...emptyProgress(), seen: { eiffel: 'x' } })).toBe(false);
+    expect(isProgress({ ...emptyProgress(), likes: Object.fromEntries(Array.from({ length: 5001 }, (_, i) => ['k' + i, 1])) })).toBe(false);
   });
 });
 

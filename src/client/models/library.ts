@@ -11,12 +11,16 @@ type Kit = typeof import('./kit.ts');
 
 const protos = new Map<string, THREE.Group>();
 const waits = new Map<string, Promise<void>>();
+/** Models built with a generic stand-in because their hero pack failed to load, and when that was last tried. */
+const provisional = new Map<string, number>();
+const RETRY_MS = 60e3;
 const keyOf = (r: ModelRecipe) => JSON.stringify(r);
 
 let kit: Promise<Kit> | null = null;
 const loadKit = () => (kit ??= import('./kit.ts').catch((e: unknown) => { kit = null; throw e; }));
 
-interface Job { id: number; recipe: ModelRecipe; resolve: (g: THREE.Group) => void; reject: (e: Error) => void }
+interface Built { g: THREE.Group; final: boolean }
+interface Job { id: number; recipe: ModelRecipe; resolve: (b: Built) => void; reject: (e: Error) => void }
 interface Slot { w: Worker; busy: Job | null }
 const queue: Job[] = [];
 let slots: Slot[] | null = null;
@@ -28,14 +32,20 @@ function pool(): Slot[] {
   const n = Math.max(1, Math.min(2, (navigator.hardwareConcurrency || 2) - 1));
   slots = [];
   for (let i = 0; i < n; i++) {
-    const w = new Worker(new URL('./build.worker.ts', import.meta.url), { type: 'module' });
+    let w: Worker;
+    try { w = new Worker(new URL('./build.worker.ts', import.meta.url), { type: 'module' }); } catch {
+      // e.g. a sandboxed or file:// origin: everything waiting goes to the main thread instead
+      workersBroken = true;
+      if (!slots.length) for (const j of queue.splice(0)) j.reject(new Error('no workers'));
+      break;
+    }
     const slot: Slot = { w, busy: null };
-    w.onmessage = (e: MessageEvent<{ id: number; ok: boolean; model?: PackedModel; err?: string }>) => {
+    w.onmessage = (e: MessageEvent<{ id: number; ok: boolean; model?: PackedModel; final?: boolean; err?: string }>) => {
       const job = slot.busy;
       slot.busy = null;
       if (job && job.id === e.data.id) {
         if (e.data.ok) {
-          try { job.resolve(unpackModel(e.data.model!)); } catch (err) { job.reject(err as Error); }
+          try { job.resolve({ g: unpackModel(e.data.model!), final: e.data.final !== false }); } catch (err) { job.reject(err as Error); }
         } else job.reject(new Error(e.data.err));
       }
       pump();
@@ -62,7 +72,7 @@ function pump(): void {
   }
 }
 
-function buildInWorker(recipe: ModelRecipe, urgent: boolean): Promise<THREE.Group> {
+function buildInWorker(recipe: ModelRecipe, urgent: boolean): Promise<Built> {
   return new Promise((resolve, reject) => {
     const job = { id: nextId++, recipe, resolve, reject };
     if (urgent) queue.unshift(job); else queue.push(job);
@@ -70,10 +80,10 @@ function buildInWorker(recipe: ModelRecipe, urgent: boolean): Promise<THREE.Grou
   });
 }
 
-async function buildOnMain(recipe: ModelRecipe): Promise<THREE.Group> {
+async function buildOnMain(recipe: ModelRecipe): Promise<Built> {
   const k = await loadKit();
   await k.whenModelReady(recipe);
-  return k.buildModel(recipe);
+  return { g: k.buildModel(recipe), final: k.modelReady(recipe) };
 }
 
 /** True when `buildModel(recipe)` can return the final model immediately. */
@@ -83,6 +93,10 @@ export const modelReady = (recipe: ModelRecipe): boolean => protos.has(keyOf(rec
 export function whenModelReady(recipe: ModelRecipe, urgent = false): Promise<void> {
   const key = keyOf(recipe);
   if (protos.has(key)) return Promise.resolve();
+  return build(key, recipe, urgent);
+}
+
+function build(key: string, recipe: ModelRecipe, urgent: boolean): Promise<void> {
   let p = waits.get(key);
   if (p && urgent) {
     // Jump an already-queued job to the front (e.g. something the user just opened).
@@ -91,7 +105,11 @@ export function whenModelReady(recipe: ModelRecipe, urgent = false): Promise<voi
   }
   if (!p) {
     const viaWorker = workersBroken ? Promise.reject(new Error('no workers')) : buildInWorker(recipe, urgent);
-    p = viaWorker.catch(() => buildOnMain(recipe)).then(g => { protos.set(key, g); waits.delete(key); });
+    p = viaWorker.catch(() => buildOnMain(recipe)).then(b => {
+      // a stand-in still beats nothing, but the hero pack is tried again later (see buildModel)
+      if (b.final) provisional.delete(key); else provisional.set(key, performance.now());
+      if (b.final || !protos.has(key)) protos.set(key, b.g);
+    }).finally(() => waits.delete(key));
     waits.set(key, p);
   }
   return p;
@@ -105,8 +123,13 @@ export const buildBacklog = () => queue.length + (slots?.filter(s => s.busy).len
  * split get their own geometry view (sharing the GPU buffers) so each instance can switch detail independently.
  */
 export function buildModel(recipe: ModelRecipe): THREE.Group {
-  const proto = protos.get(keyOf(recipe));
+  const key = keyOf(recipe), proto = protos.get(key);
   if (!proto) throw new Error('model not ready: ' + recipe.kind);
+  const tried = provisional.get(key);
+  if (tried !== undefined && performance.now() - tried > RETRY_MS && !waits.has(key)) {
+    provisional.set(key, performance.now());
+    void build(key, recipe, false).catch(() => {});
+  }
   const obj = proto.clone(true);
   obj.traverse(o => {
     const m = o as THREE.Mesh;

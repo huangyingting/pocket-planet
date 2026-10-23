@@ -16,7 +16,7 @@ const SEABED_SIDE = strataSide(['#3f4a52', '#4a5660', '#36424b', '#55606a']);
 
 /** One merged mesh of tiny emissive octahedra (glowworms, sparks, lights) — a single draw call. */
 function sparkles(p: THREE.Object3D, pts: V3[], r: number, c: string): void {
-  const base = new THREE.OctahedronGeometry(r, 0).toNonIndexed();
+  const base = new THREE.OctahedronGeometry(r, 0); // polyhedra are already non-indexed
   const bp = base.getAttribute('position');
   const out = new Float32Array(pts.length * bp.count * 3);
   pts.forEach((q, i) => { for (let k = 0; k < bp.count; k++) { out.set([bp.getX(k) + q[0], bp.getY(k) + q[1], bp.getZ(k) + q[2]], (i * bp.count + k) * 3); } });

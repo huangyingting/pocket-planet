@@ -467,6 +467,7 @@ export class SolarView {
       const rtex = new THREE.CanvasTexture(rc);
       rtex.colorSpace = THREE.SRGBColorSpace;
       const m = rt.rings.material as THREE.MeshBasicMaterial;
+      m.map?.dispose();
       m.map = rtex; m.needsUpdate = true;
       rt.rings.visible = true;
     }
@@ -636,7 +637,8 @@ export class SolarView {
     }
     this.last = performance.now();
     cancelAnimationFrame(this.raf);
-    this.raf = requestAnimationFrame(() => this.loop());
+    // the sky theatre may have opened while the view was fading in: it restarts the loop when it closes
+    if (!this.held) this.raf = requestAnimationFrame(() => this.loop());
     this.renderer.domElement.focus({ preventScroll: true });
   }
 
@@ -653,7 +655,9 @@ export class SolarView {
   /** The next rendered frame as a JPEG data URL. */
   capture(): Promise<string> { return new Promise(res => { this.shot = res; }); }
 
+  private held = false;
   suspend(on: boolean): void {
+    this.held = on;
     if (!this.active) return;
     cancelAnimationFrame(this.raf);
     if (!on) { this.last = performance.now(); this.raf = requestAnimationFrame(() => this.loop()); }

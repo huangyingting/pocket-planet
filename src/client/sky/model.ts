@@ -126,7 +126,11 @@ function setLine(l: THREE.Line, pts: THREE.Vector3[]): void {
     pts.forEach((p, i) => pa.setXYZ(i, p.x, p.y, p.z));
     pa.needsUpdate = true;
     g.computeBoundingSphere();
-  } else l.geometry.setFromPoints(pts);
+  } else {
+    // a different point count needs a new buffer: setFromPoints on the old one would cut the line short
+    g.dispose();
+    l.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+  }
   if (l.material instanceof THREE.LineDashedMaterial) l.computeLineDistances();
 }
 

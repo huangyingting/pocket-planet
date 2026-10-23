@@ -115,6 +115,17 @@ export function glowTexture(): THREE.Texture {
 
 /** A body's surface map (equirectangular, lon -180 at u = 0), painted off the main thread by the Solar System's painter. */
 const maps = new Map<string, Promise<THREE.DataTexture>>();
+const loaded = new Set<THREE.Texture>();
+
+/**
+ * Detach the cached textures from a renderer that is about to be disposed. three's renderer listens for each texture's
+ * `dispose` event and never removes that listener itself, so a cached texture would keep every closed theatre's or
+ * lesson board's renderer alive. The textures keep their pixels, and the next renderer uploads them again.
+ */
+export function releaseShared(): void {
+  glowTex?.dispose();
+  for (const t of loaded) t.dispose();
+}
 export function bodyTexture(id: BodyId, w = 1024): Promise<THREE.DataTexture> {
   const key = id + w;
   let p = maps.get(key);
@@ -131,6 +142,7 @@ export function bodyTexture(id: BodyId, w = 1024): Promise<THREE.DataTexture> {
       tex.minFilter = THREE.LinearFilter;
       tex.needsUpdate = true;
       worker.terminate();
+      loaded.add(tex);
       resolve(tex);
     };
     worker.onerror = err => { worker.terminate(); maps.delete(key); reject(err); };

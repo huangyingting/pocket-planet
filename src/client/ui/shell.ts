@@ -2,6 +2,7 @@ import { h, closeModal, openModal, toast, $ } from './dom.ts';
 import { Select } from './select.ts';
 import { t, lang, setLang, countryName, fmtNum, onLang } from '../lib/i18n.ts';
 import { store, updateProgress, updateSettings, resetSettings, subscribe } from '../store.ts';
+import { isOn } from '../../shared/lib/progress.ts';
 import { tr, LANGS, type CatalogueItem, type Lang } from '../../shared/data/types.ts';
 import { CATALOGUE, BY_TYPE } from '../../shared/data/catalogue.ts';
 import { TYPE_META, TYPE_ORDER } from '../../shared/data/typemeta.ts';
@@ -490,12 +491,12 @@ export class Shell {
     const coordStr = `${Math.abs(it.lat).toFixed(1)}°${it.lat >= 0 ? 'N' : 'S'} · ${Math.abs(it.lon).toFixed(1)}°${it.lon >= 0 ? 'E' : 'W'}`;
     const p = store.progress;
     const react = (kind: 'like' | 'visited', ico: IconName) => {
-      const on = kind === 'like' ? it.key in p.likes : it.key in p.visited;
+      const on = isOn(kind === 'like' ? p.likes : p.visited, it.key);
       const count = h('span', { class: 'count', 'data-count': kind });
       return h('button', { class: 'react' + (on ? ' on' : ''), 'aria-pressed': String(on), 'data-testid': 'react-' + kind, title: t(kind), html: icon(ico, 16),
         onclick: () => {
           const now = !on;
-          updateProgress(pp => { const m = kind === 'like' ? pp.likes : pp.visited; if (now) m[it.key] = Date.now(); else delete m[it.key]; });
+          updateProgress(pp => { const m = kind === 'like' ? pp.likes : pp.visited; m[it.key] = now ? Date.now() : -Date.now(); });
           if (store.me) void api.react(it.key, kind, now).then(r => this.setCounts(r)).catch(() => {});
         } }, h('span', { class: 'react-label' }, t(kind)), count);
     };

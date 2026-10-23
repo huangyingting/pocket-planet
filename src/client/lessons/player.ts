@@ -16,6 +16,7 @@ import { LessonStage, fitView } from './stage.ts';
 import { AstroStage } from './astro/stage.ts';
 import { CATALOGS, lessonById, nextLesson, subjectOf, type Lesson, type Quiz, type Step, type Subject } from './data.ts';
 import { renderFig, type Fig } from './figs.ts';
+import { optionOrder, shuffled } from './shuffle.ts';
 import type { AstroScene, Home, LL, Pair } from './kit.ts';
 
 const L = (p: Pair) => (lang() === 'zh' ? p[1] : p[0]);
@@ -76,6 +77,9 @@ function run(lesson: Lesson, host: LessonHost): void {
   /** Work in progress on the current question (the other question types). */
   const fresh = () => ({ seq: [] as number[], sel: null as number | null, pairs: new Map<number, number>(), multi: new Set<number>(), num: '', placed: [] as (LL | null)[], cur: 0 });
   let work = fresh();
+  /** What was done on each answered question, so going Back shows it as it was. */
+  const kept: ({ picked: number | null; tap: { ll: LL; km: number } | null; work: ReturnType<typeof fresh> } | undefined)[] = [];
+  let stopped = false;
 
   const card = h('section', { class: 'tour-card lesson-card', 'data-occludes': true, 'data-testid': 'lesson', 'aria-labelledby': 'lesson-title' });
   const root = h('div', { class: 'tour lesson' }, card);
@@ -164,19 +168,19 @@ function run(lesson: Lesson, host: LessonHost): void {
     let body: HTMLElement;
     if (q.options && q.multi) {
       const right = new Set(q.multi);
-      body = h('div', { class: 'lesson-opts' }, h('p', { class: 'muted small' }, t('lessonMulti')), ...order(q, k).map(j => h('button', {
+      body = h('div', { class: 'lesson-opts' }, h('p', { class: 'muted small' }, t('lessonMulti')), ...optionOrder(q.q[0], k, q.options!.length).map(j => h('button', {
         class: 'pill lesson-opt lesson-multi' + (work.multi.has(j) ? ' on' : '') + (ans !== null && right.has(j) ? ' right' : '') + (ans !== null && work.multi.has(j) && !right.has(j) ? ' wrong' : ''),
         'data-testid': 'lesson-opt', 'data-right': String(right.has(j)), 'aria-pressed': String(work.multi.has(j)), disabled: ans !== null,
         onclick: () => { if (work.multi.has(j)) work.multi.delete(j); else work.multi.add(j); renderQuiz(); },
       }, L(q.options![j]))), checkBtn(work.multi.size > 0, () => check(work.multi.size === right.size && [...work.multi].every(j => right.has(j)))));
     } else if (q.options) {
-      body = h('div', { class: 'lesson-opts' }, ...order(q, k).map(j => h('button', {
+      body = h('div', { class: 'lesson-opts' }, ...optionOrder(q.q[0], k, q.options!.length).map(j => h('button', {
         class: 'pill lesson-opt' + (ans !== null && j === q.answer ? ' right' : '') + (ans !== null && j === picked && j !== q.answer ? ' wrong' : ''),
         'data-testid': 'lesson-opt', 'data-right': String(j === q.answer), disabled: ans !== null,
         onclick: () => { picked = j; answers[k] = j === q.answer; renderQuiz(); },
       }, L(q.options![j]))));
     } else if (q.order) {
-      const items = q.order, n = items.length, pool = shuffled(n, q.q[0].length + k);
+      const items = q.order, n = items.length, pool = shuffled(n, q.q[0], k);
       body = h('div', { class: 'lesson-order' },
         h('ol', { class: 'lesson-seq', 'data-testid': 'lesson-seq' }, ...work.seq.map((j, p) => h('li', {}, h('button', {
           class: 'pill lesson-chip' + (ans !== null ? (j === p ? ' right' : ' wrong') : ''), disabled: ans !== null, 'data-testid': 'lesson-order-picked',
@@ -189,7 +193,7 @@ function run(lesson: Lesson, host: LessonHost): void {
         checkBtn(work.seq.length === n, () => check(work.seq.every((j, p) => j === p))));
       if (ans === false) reveal = h('p', { class: 'lesson-reveal' }, t('lessonOrderIs') + ' ', items.map(L).join(' → '));
     } else if (q.match) {
-      const pairs = q.match, n = pairs.length, right = shuffled(n, q.q[0].length * 7 + k);
+      const pairs = q.match, n = pairs.length, right = shuffled(n, q.q[0], k + 1000);
       const tag = (j: number) => h('span', { class: 'lesson-badge', style: `--c:${MATCH_C[j % MATCH_C.length]}` }, String(j + 1));
       const leftOf = (r: number) => [...work.pairs].find(([, v]) => v === r)?.[0];
       body = h('div', { class: 'lesson-match' },
@@ -301,8 +305,8 @@ function run(lesson: Lesson, host: LessonHost): void {
       if (!navigator.geolocation) { toast(t('lessonHomeNoGeo')); return; }
       locating = true; render();
       navigator.geolocation.getCurrentPosition(
-        p => { locating = false; if (picking) setHome([p.coords.latitude, p.coords.longitude]); },
-        () => { locating = false; if (picking) { toast(t('lessonHomeNoGeo')); render(); } },
+        p => { locating = false; if (picking && !stopped) setHome([p.coords.latitude, p.coords.longitude]); },
+        () => { locating = false; if (picking && !stopped) { toast(t('lessonHomeNoGeo')); render(); } },
         { timeout: 12000, maximumAge: 3600e3 });
     };
     card.replaceChildren(
@@ -320,7 +324,9 @@ function run(lesson: Lesson, host: LessonHost): void {
   /** A step's or question's 3D scene on the astronomy board; the globe is cleared underneath. */
   const showAstro = (s: AstroScene) => {
     stage.show({ cam: [g.lat, g.lon, Math.max(g.h, 3)] });
-    void astroBoard().show(s);
+    const b = astroBoard();
+    b.onClock = null; // the last card's clock row is gone; render() hooks up the new one
+    void b.show(s);
   };
   const showStep = (st: Step) => {
     if (st.astro) showAstro(st.astro);
@@ -388,8 +394,11 @@ function run(lesson: Lesson, host: LessonHost): void {
 
   const go = (k: number) => {
     if (k < 0 || k > steps.length + quiz.length) return;
+    const qi = (n: number) => (n >= steps.length && n < steps.length + quiz.length ? n - steps.length : -1);
+    if (qi(i) >= 0) kept[qi(i)] = { picked, tap, work };
     i = k;
-    picked = null; tap = null; work = fresh();
+    const was = qi(i) >= 0 && answers[qi(i)] !== null ? kept[qi(i)] : undefined;
+    picked = was?.picked ?? null; tap = was?.tap ?? null; work = was?.work ?? fresh();
     g.captureTaps = false; g.ev.onGlobeTap = undefined;
     if (astro) astro.onPick = null;
     if (i < steps.length) showStep(steps[i]);
@@ -410,6 +419,7 @@ function run(lesson: Lesson, host: LessonHost): void {
   };
 
   const stop = () => {
+    stopped = true;
     offLang();
     g.captureTaps = false; g.ev.onGlobeTap = undefined;
     stage.dispose();
@@ -442,34 +452,11 @@ function freeArea(card: HTMLElement): { left: number; top: number; width: number
   return cands.reduce((b, c) => (c.width > 0 && c.height > 0 && c.width * c.height > b.width * b.height ? c : b), { left: 0, top: 0, width: 0, height: 0 });
 }
 
-/** Options in a stable shuffled order (the right answer is written first in the data). */
-function order(q: Quiz, k: number): number[] {
-  const n = q.options!.length, idx = [...Array(n).keys()];
-  let seed = (q.q[0].length * 31 + k * 17) >>> 0;
-  for (let j = n - 1; j > 0; j--) {
-    seed = (seed * 1103515245 + 12345) >>> 0;
-    const r = seed % (j + 1);
-    [idx[j], idx[r]] = [idx[r], idx[j]];
-  }
-  return idx;
-}
 
 /** Colours that tell pairs and labels apart. */
 const MATCH_C = ['#ffd24a', '#4dabf7', '#51cf66', '#f783ac', '#ff922b', '#b197fc', '#3bc9db', '#c0eb75'];
 const tagN = (j: number) => h('span', { class: 'lesson-badge', style: `--c:${MATCH_C[j % MATCH_C.length]}` }, String(j + 1));
 const fmtN = (v: number) => v.toLocaleString(lang() === 'zh' ? 'zh-CN' : 'en-US', { maximumFractionDigits: 2 });
-/** 0 … n−1 in a stable shuffled order that is never the identity (for n > 1). */
-function shuffled(n: number, seed0: number): number[] {
-  const idx = [...Array(n).keys()];
-  let seed = (seed0 * 2654435761) >>> 0;
-  for (let j = n - 1; j > 0; j--) {
-    seed = (seed * 1103515245 + 12345) >>> 0;
-    const r = seed % (j + 1);
-    [idx[j], idx[r]] = [idx[r], idx[j]];
-  }
-  if (n > 1 && idx.every((v, j) => v === j)) idx.push(idx.shift()!);
-  return idx;
-}
 
 function nextSolstice(): string | undefined {
   const now = Date.now();

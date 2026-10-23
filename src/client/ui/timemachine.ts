@@ -36,23 +36,32 @@ export class TimeMachine {
     this.globe.setItemFilter(stop === 'now' ? null : it => visibleAt(it, stop));
   }
 
+  /** One slider for the bar's lifetime: replacing it while it is dragged or focused would end the drag and drop focus. */
+  private readonly range = (() => {
+    const r = h('input', { type: 'range', min: '0', max: String(STOPS.length - 1), step: '1', 'data-testid': 'time-range' }) as HTMLInputElement;
+    r.addEventListener('input', () => { this.idx = Number(r.value); sfx.tap(); this.apply(STOPS[this.idx]); this.render(); });
+    return r;
+  })();
+
   private render(): void {
-    const l = lang(), stop = STOPS[this.idx];
-    const range = h('input', { type: 'range', min: '0', max: String(STOPS.length - 1), step: '1', value: String(this.idx), 'aria-label': t('timeMachine'), 'data-testid': 'time-range',
-      list: 'time-stops' });
-    range.addEventListener('input', () => { this.idx = Number(range.value); sfx.tap(); this.apply(STOPS[this.idx]); this.render(); });
+    const l = lang(), stop = STOPS[this.idx], range = this.range;
+    range.value = String(this.idx);
+    range.setAttribute('aria-label', t('timeMachine'));
+    range.setAttribute('aria-valuetext', stopLabel(stop));
     const shown = CATALOGUE.filter(it => visibleAt(it, stop)).length;
     const fresh = appearingAt(CATALOGUE, this.idx).slice(0, 4);
-    this.el.replaceChildren(...[
+    for (const n of [...this.el.children]) if (n !== range) n.remove();
+    if (!range.isConnected) this.el.append(range);
+    range.before(
       h('div', { class: 'time-head' },
         h('span', { class: 'time-ico', html: icon('clock', 16) }),
         h('strong', { class: 'time-year', 'data-testid': 'time-year' }, stopLabel(stop)),
         h('span', { class: 'muted', title: t('tmNote') }, t('tmCount', { n: shown })),
-        h('button', { class: 'icon-btn', 'aria-label': t('close'), 'data-testid': 'time-close', html: icon('close', 15), onclick: () => this.toggle(false) })),
-      range,
+        h('button', { class: 'icon-btn', 'aria-label': t('close'), 'data-testid': 'time-close', html: icon('close', 15), onclick: () => this.toggle(false) })));
+    range.after(...[
       h('div', { class: 'time-ticks', 'aria-hidden': 'true' }, ...STOPS.map((s, i) => h('span', { class: i === this.idx ? 'on' : '' }, i === 0 ? h('b', { html: icon('dino', 13) }) : s === 'now' ? '•' : ''))),
       fresh.length ? h('div', { class: 'time-new' }, h('span', { class: 'muted' }, t('tmAppear')),
         ...fresh.map(it => h('button', { class: 'chip chip-ico', title: tr(it.name, l), 'aria-label': tr(it.name, l), onclick: () => this.go(it) }, h('span', { class: 'chip-emoji', 'aria-hidden': 'true' }, it.emoji)))) : null,
-    ].filter((n): n is HTMLDivElement | HTMLInputElement => !!n));
+    ].filter((n): n is HTMLDivElement => !!n));
   }
 }

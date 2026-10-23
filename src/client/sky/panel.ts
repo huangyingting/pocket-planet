@@ -89,7 +89,7 @@ export class Calendar {
   private list: HTMLElement;
   private yearEl: HTMLElement;
   private chips: HTMLElement;
-  private year = new Date().getUTCFullYear();
+  private year = new Date().getFullYear();
   private filter: Filter = 'top';
   active: string | null = null;
 
@@ -119,7 +119,8 @@ export class Calendar {
       onclick: () => { this.filter = f; this.render(); },
     }, s(`f_${f}` as SkyKey))));
     const now = Date.now(), site = this.site();
-    const evs = eventsOf(this.year).filter(e => match(e, this.filter));
+    // rows show local dates, so the year's list follows the viewer's calendar too
+    const y = this.year, evs = [...eventsOf(y - 1), ...eventsOf(y), ...eventsOf(y + 1)].filter(e => new Date(e.t).getFullYear() === y && match(e, this.filter));
     if (!evs.length) { this.list.replaceChildren(h('li', { class: 'skycal-empty' }, s('empty'))); return; }
     const l = lang(), nextIdx = evs.findIndex(e => e.t > now);
     this.list.replaceChildren(...evs.map((e, i) => {

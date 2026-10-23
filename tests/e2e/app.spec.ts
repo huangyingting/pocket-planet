@@ -275,7 +275,8 @@ test('account: magic link sign-in, nickname, sync, guestbook', async ({ page }) 
   const link = await page.getByTestId('dev-link').getAttribute('href');
   expect(link).toContain('/api/auth/verify?token=');
   await page.goto(link!.replace(/^https?:\/\/[^/]+/, ''));
-  await expect(page).toHaveURL(/#signed-in/);
+  // the redirect lands on #signed-in, which the app handles once and clears
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe('');
   await expect.poll(() => page.evaluate(() => fetch('/api/me').then(r => r.json()).then(j => j.user?.email))).toBe('kid.explorer@example.com');
   await expect(page.getByTestId('handle')).toBeVisible({ timeout: 90_000 });
   await page.getByTestId('handle').fill('Explorer_01');

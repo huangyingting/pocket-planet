@@ -28,12 +28,25 @@ function unionEarliest(a: Stamp = {}, b: Stamp = {}): Stamp {
 }
 
 /**
+ * likes/visited are toggles: a key holds when it was last switched on, or minus when it was last switched off, so
+ * an "un-like" survives a merge with a device that still has the like.
+ */
+export const isOn = (m: Stamp | undefined, key: string): boolean => (m?.[key] ?? 0) > 0;
+export const countOn = (m: Stamp | undefined): number => Object.values(m ?? {}).filter(v => v > 0).length;
+
+/** per key, the latest switch wins (whichever side it came from) */
+function latestToggle(a: Stamp = {}, b: Stamp = {}): Stamp {
+  const out: Stamp = { ...a };
+  for (const [k, v] of Object.entries(b)) if (!(k in out) || Math.abs(v) > Math.abs(out[k])) out[k] = v;
+  return out;
+}
+
+/**
  * Conflict-free merge used for device <-> server sync: collections are unioned keeping the earliest
  * timestamp, records keep the maximum, counters keep the maximum (they only grow on a single device).
- * likes/visited are toggles, so for those the newer side wins per key presence.
+ * likes/visited are toggles: the latest switch of each key wins.
  */
 export function mergeProgress(a: Progress, b: Progress): Progress {
-  const newer = (a.updatedAt ?? 0) >= (b.updatedAt ?? 0) ? a : b;
   const placeit: Record<string, PlaceItRecord> = { ...a.placeit };
   for (const [k, r] of Object.entries(b.placeit ?? {})) {
     const p = placeit[k];
@@ -47,7 +60,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     v: 1,
     dex: unionEarliest(a.dex, b.dex), logs: unionEarliest(a.logs, b.logs), stickers: unionEarliest(a.stickers, b.stickers),
     found: unionEarliest(a.found, b.found), seen: unionEarliest(a.seen, b.seen),
-    likes: { ...newer.likes }, visited: { ...newer.visited },
+    likes: latestToggle(a.likes, b.likes), visited: latestToggle(a.visited, b.visited),
     placeit,
     quiz: { answered: Math.max(a.quiz?.answered ?? 0, b.quiz?.answered ?? 0), correct: Math.max(a.quiz?.correct ?? 0, b.quiz?.correct ?? 0), bySet },
     daily: {
@@ -59,8 +72,20 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
   };
 }
 
+const STAMPS = ['dex', 'logs', 'likes', 'visited', 'stickers', 'found', 'seen'] as const;
+/** Stamp maps are capped well above the catalogue's size, so a client can't grow a stored record without bound. */
+export const MAX_STAMPS = 5000;
+const isStamp = (m: unknown, required: boolean): boolean => m === undefined ? !required
+  : !!m && typeof m === 'object' && !Array.isArray(m) && Object.keys(m).length <= MAX_STAMPS
+    && Object.entries(m).every(([k, v]) => k.length <= 64 && typeof v === 'number' && Number.isFinite(v));
+
 export function isProgress(x: unknown): x is Progress {
   if (!x || typeof x !== 'object') return false;
   const p = x as Progress;
-  return p.v === 1 && typeof p.dex === 'object' && typeof p.logs === 'object' && typeof p.stickers === 'object';
+  return p.v === 1 && STAMPS.every(k => isStamp(p[k], k === 'dex' || k === 'logs' || k === 'stickers'))
+    && (p.placeit === undefined || (!!p.placeit && typeof p.placeit === 'object' && Object.keys(p.placeit).length <= 100
+      && Object.values(p.placeit).every(r => !!r && Number.isFinite(r.best) && Number.isFinite(r.plays))))
+    && (p.quiz === undefined || (!!p.quiz && Number.isFinite(p.quiz.answered) && Number.isFinite(p.quiz.correct) && isStamp(p.quiz.bySet, false)))
+    && (p.daily === undefined || (!!p.daily && typeof p.daily === 'object' && Array.isArray(p.daily.dist)))
+    && (p.updatedAt === undefined || Number.isFinite(p.updatedAt));
 }

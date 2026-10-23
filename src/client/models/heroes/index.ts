@@ -36,7 +36,7 @@ export function loadPack(id: string): Promise<Pack> {
       loaded.set(id, pack);
       loading.delete(id);
       return pack;
-    });
+    }, (e: unknown) => { loading.delete(id); throw e; });
     loading.set(id, p);
   }
   return p;

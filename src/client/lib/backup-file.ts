@@ -1,5 +1,5 @@
 /** The progress backup file format (pure: no DOM, no store). */
-import { emptyProgress, isProgress, mergeProgress, type Progress } from '../../shared/lib/progress.ts';
+import { countOn, emptyProgress, isProgress, mergeProgress, type Progress } from '../../shared/lib/progress.ts';
 
 const KIND = 'terrastra-progress';
 /** Kinds written by earlier versions, still accepted on import. */
@@ -22,5 +22,5 @@ export function readBackup(text: string): Progress | null {
 const n = (o: Record<string, unknown> | undefined) => Object.keys(o ?? {}).length;
 /** What a progress holds, for the preview. */
 export function summary(p: Progress): { seen: number; found: number; stickers: number; likes: number } {
-  return { seen: n(p.seen), found: n(p.dex) + n(p.logs) + n(p.found), stickers: n(p.stickers), likes: n(p.likes) };
+  return { seen: n(p.seen), found: n(p.dex) + n(p.logs) + n(p.found), stickers: n(p.stickers), likes: countOn(p.likes) };
 }

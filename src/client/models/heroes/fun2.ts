@@ -577,7 +577,7 @@ const sp_icehockey: Builder = (gp) => {
   }
   bq.mesh(ar);
   const gm = gq.mesh(ar);
-  gm.material = mat('#ffffff', { vc: true, transparent: 0.28 });
+  gm.material = mat('#ffffff', { vc: true, transparent: 0.28 }).clone(); // mat() is shared: don't change it in place
   (gm.material as THREE.Material).side = THREE.DoubleSide;
   // benches
   for (const s of [-1, 1]) box(ar, '#27272a', s * 0.06, 0, -B - 0.012, 0.07, 0.01, 0.012);
@@ -1603,6 +1603,7 @@ const fe_scarletsails: Builder = (gp) => {
       const y = 0.06 + k * 0.06, w = 0.12 - k * 0.025, h = 0.05;
       limb(br, [-w / 2 - 0.005, y + h, mz], [w / 2 + 0.005, y + h, mz], 0.0018, '#5b3a22');
       const sail = add(br, g('f2-sail', () => { const ge = new THREE.PlaneGeometry(1, 1, 2, 2); const pa = ge.getAttribute('position'); for (let i = 0; i < pa.count; i++) { const x = pa.getX(i), y = pa.getY(i); pa.setZ(i, 0.12 * (1 - 4 * x * x) * (1 - 4 * y * y) * 0.5 + 0.06); } ge.computeVertexNormals(); return ge; }), mat(SC, { emissive: '#7f1d1d' }), 0, y + h / 2, mz + 0.002, w, h, 0.1);
+      sail.material = (sail.material as THREE.MeshStandardMaterial).clone();
       (sail.material as THREE.MeshStandardMaterial).side = THREE.DoubleSide;
       sail.rotation.y = Math.PI / 2 - Math.PI / 2;
     }

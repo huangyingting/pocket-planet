@@ -1,4 +1,4 @@
-import type { Progress } from './progress.ts';
+import { countOn, type Progress } from './progress.ts';
 import type { I18n } from '../data/types.ts';
 import { PASSPORTS, bookDone } from '../data/passports.ts';
 
@@ -18,7 +18,7 @@ export const STICKERS: StickerDef[] = [
   { id: 'quiz_geo', emoji: '🧭', name: { en: 'Geography expert', zh: '地理专家' }, test: p => (p.quiz.bySet.geo ?? 0) >= 20 },
   { id: 'daily_win', emoji: '📅', name: { en: 'Daily solver', zh: '每日解题王' }, test: p => p.daily.won >= 1 },
   { id: 'daily_streak3', emoji: '🔥', name: { en: 'On a roll', zh: '连胜中' }, test: p => p.daily.maxStreak >= 3 },
-  { id: 'traveller', emoji: '🧳', name: { en: 'Globetrotter', zh: '环球旅行家' }, test: p => n(p.visited) >= 5 },
+  { id: 'traveller', emoji: '🧳', name: { en: 'Globetrotter', zh: '环球旅行家' }, test: p => countOn(p.visited) >= 5 },
   { id: 'passport_10', emoji: '🛂', name: { en: 'Stamp collector', zh: '集章小能手' }, test: p => n(p.seen) >= 10 },
   { id: 'passport_50', emoji: '🌍', name: { en: 'World explorer', zh: '世界探险家' }, test: p => n(p.seen) >= 50 },
   { id: 'book_done', emoji: '📕', name: { en: 'Full passport book', zh: '集满一本护照' }, test: p => PASSPORTS.some(b => bookDone(b, p.seen)) },

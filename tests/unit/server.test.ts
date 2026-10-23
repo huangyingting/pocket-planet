@@ -59,6 +59,11 @@ describe('profile, progress, reactions, guestbook', () => {
     const ok = await call('PUT', '/api/profile', { handle: '探险家_01' });
     expect(ok.status).toBe(200); expect(ok.json.user.handle).toBe('探险家_01');
   });
+  it('a malformed cookie from another app does not break the session; the public origin passes the CSRF check', async () => {
+    const mine = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+    expect((await call('GET', '/api/me', undefined, { cookie: 'other=%E0%A4%A; ' + mine })).json.user).not.toBeNull();
+    expect((await call('PUT', '/api/progress', { progress: emptyProgress() }, { origin: 'http://test' })).status).toBe(200);
+  });
   it('merges progress on PUT', async () => {
     const p1 = emptyProgress(); p1.dex = { an_lion: 100 }; p1.updatedAt = 1;
     expect((await call('PUT', '/api/progress', { progress: p1 })).json.progress.dex).toEqual({ an_lion: 100 });
@@ -67,6 +72,7 @@ describe('profile, progress, reactions, guestbook', () => {
     expect(r.json.progress.dex).toEqual({ an_lion: 50, an_panda: 200 });
     expect((await call('GET', '/api/progress')).json.progress.dex).toEqual({ an_lion: 50, an_panda: 200 });
     expect((await call('PUT', '/api/progress', { progress: { v: 9 } })).status).toBe(400);
+    expect((await call('PUT', '/api/progress', { progress: { ...emptyProgress(), dex: null } })).status).toBe(400);
   });
   it('reactions are idempotent per visitor and validated', async () => {
     expect((await call('POST', '/api/reactions', { key: 'eiffel', kind: 'like', on: true })).json).toEqual({ like: 1, visited: 0 });
@@ -83,6 +89,9 @@ describe('profile, progress, reactions, guestbook', () => {
     expect((await call('POST', '/api/guestbook', { body: 'you are dumb' })).status).toBe(400);
     expect((await call('POST', '/api/guestbook', { body: '   ' })).status).toBe(400);
     const id = r.json.entry.id;
+    // requests without a visitor cookie don't count (each would be a new visitor)
+    for (let i = 0; i < 3; i++) await fetch(base + `/api/guestbook/${id}/report`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    expect((await call('GET', '/api/guestbook')).json.entries.find((e: any) => e.id === id)).toBeDefined();
     for (let i = 0; i < 3; i++) {
       const vid = `${String(i).repeat(32)}`.slice(0, 32).replace(/[^a-f0-9]/g, 'a');
       await fetch(base + `/api/guestbook/${id}/report`, { method: 'POST', headers: { 'content-type': 'application/json', cookie: `pp_vid=${vid}` }, body: '{}' });

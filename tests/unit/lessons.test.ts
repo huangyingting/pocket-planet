@@ -7,6 +7,7 @@ import { subsolar } from '../../src/shared/lib/sun.ts';
 import { BY_KEY } from '../../src/shared/data/catalogue.ts';
 import type { LL, Pair } from '../../src/client/lessons/kit.ts';
 import { checkQuiz, checkStep, okLL, okPair, versions } from './lesson-check.ts';
+import { optionOrder, shuffled } from '../../src/client/lessons/shuffle.ts';
 
 describe('geography lessons data', () => {
   it('has unique ids in every grade and finds them by id', () => {
@@ -128,5 +129,29 @@ describe('lesson geometry', () => {
     expect(tempAt(0, 20, true, 0)).toBeGreaterThan(tempAt(60, 20, true, 0));
     // northern land: hot in July, very cold in January, more extreme than the sea
     expect(tempAt(55, 100, true, 23) - tempAt(55, 100, true, -23)).toBeGreaterThan(tempAt(55, -30, false, 23) - tempAt(55, -30, false, -23));
+  });
+});
+
+describe('quiz option order', () => {
+  it('spreads the right answer (listed first in the data) over every slot, stably', () => {
+    const qs = LESSONS.flatMap(l => l.quiz.flatMap((q, k) => (q.options && !q.multi ? [{ q, k }] : [])));
+    const slot = [0, 0, 0, 0];
+    for (const { q, k } of qs) {
+      const o = optionOrder(q.q[0], k, q.options!.length);
+      expect([...o].sort()).toEqual([...q.options!.keys()]);
+      expect(optionOrder(q.q[0], k, q.options!.length)).toEqual(o);
+      if (q.options!.length === 4) slot[o.indexOf(q.answer!)]++;
+    }
+    const n = slot.reduce((a, b) => a + b, 0);
+    expect(n).toBeGreaterThan(100);
+    for (const c of slot) expect(c / n).toBeGreaterThan(0.15);
+    for (const c of slot) expect(c / n).toBeLessThan(0.35);
+  });
+  it('never leaves order or match chips in their solved order', () => {
+    for (let n = 2; n <= 6; n++) for (const t of ['a', 'bb', 'Which comes first?']) {
+      const s = shuffled(n, t, 3);
+      expect([...s].sort()).toEqual([...Array(n).keys()]);
+      expect(s.some((v, j) => v !== j)).toBe(true);
+    }
   });
 });

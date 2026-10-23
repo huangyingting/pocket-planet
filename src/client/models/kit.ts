@@ -1242,7 +1242,7 @@ export function bakeStaticMeshes(gp: THREE.Group): void {
     if (!isAnim && (obj as THREE.Mesh).isMesh) {
       const mesh = obj as THREE.Mesh;
       const m = mesh.material as THREE.MeshStandardMaterial;
-      if (m && !Array.isArray(m) && !m.transparent && (!m.emissive || m.emissive.getHex() === 0)) {
+      if (m && !Array.isArray(m) && !m.transparent && m.side === THREE.FrontSide && (!m.emissive || m.emissive.getHex() === 0)) {
         const key = `${m.flatShading}`;
         let b = buckets.get(key);
         if (!b) { b = newPair(); buckets.set(key, b); }
